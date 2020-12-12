@@ -1,0 +1,13 @@
+.vs
+Assembly-CSharp-Editor.csproj
+Assembly-CSharp.csproj
+CricketVR.sln
+Oculus.Platform.csproj
+Oculus.Platform.Editor.csproj
+Oculus.VR.csproj
+Oculus.VR.Editor.csproj
+Oculus.VR.Scripts.Editor.csproj
+AndroidBuild
+Library
+obj
+Temp
