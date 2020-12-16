@@ -68,8 +68,8 @@ public class OVRScreenFade : MonoBehaviour
 
 		Vector3[] vertices = new Vector3[4];
 
-		float width = 2f;
-		float height = 2f;
+		float width = 4f; // 2f;
+		float height = 4f; // 2f;
 		float depth = 1f;
 
 		vertices[0] = new Vector3(-width, -height, depth);
