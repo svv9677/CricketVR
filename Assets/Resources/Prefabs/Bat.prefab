@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 199507635142268827}
   - component: {fileID: 199507635142268870}
   - component: {fileID: 199507635142268871}
-  - component: {fileID: 199507635142268864}
+  - component: {fileID: 942000609}
   m_Layer: 0
   m_Name: Bat
   m_TagString: Untagged
@@ -30,7 +30,7 @@ Transform:
   m_GameObject: {fileID: 199507635142268923}
   m_LocalRotation: {x: 0.92387956, y: 0, z: 0, w: 0.38268343}
   m_LocalPosition: {x: 6, y: 1, z: 1}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.75, y: 0.75, z: 0.75}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
@@ -117,7 +117,7 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -5246272249935978634, guid: 92e7d4087c8804bc2946728639f79a8c, type: 3}
---- !u!114 &199507635142268864
+--- !u!114 &942000609
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -126,11 +126,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 199507635142268923}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 02d61468f8b77ae4b92c344bc9a600fb, type: 3}
+  m_Script: {fileID: 11500000, guid: 99cf9de531913424b9e5b4dcb498fc62, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_allowOffhandGrab: 1
-  m_snapPosition: 1
-  m_snapOrientation: 1
-  m_snapOffset: {fileID: 0}
-  m_grabPoints: []
+  controllerParent: {fileID: 0}
+  leftHandParent: {fileID: 0}
+  rightHandParent: {fileID: 0}
+  leftGrabOffsetPosition: {x: 0.17, y: 0.02, z: 0.175}
+  leftGrabOffsetRotation: {x: -35.4, y: 0.7, z: 14, w: 1}
+  rightGrabOffsetPosition: {x: -0.185, y: 0.035, z: 0.15}
+  rightGrabOffsetRotation: {x: 21, y: 1.05, z: 10, w: 0.5}
+  battingStyle: 0
+  grabbable: 1

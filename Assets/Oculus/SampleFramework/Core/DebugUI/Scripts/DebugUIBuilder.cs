@@ -34,6 +34,8 @@ public class DebugUIBuilder : MonoBehaviour
   [SerializeField]
   private RectTransform labelPrefab = null;
   [SerializeField]
+  private RectTransform bigLabelPrefab = null;
+  [SerializeField]
   private RectTransform sliderPrefab = null;
   [SerializeField]
   private RectTransform dividerPrefab = null;
@@ -67,7 +69,7 @@ public class DebugUIBuilder : MonoBehaviour
   private const float marginV = 16.0f;
   private Vector2[] insertPositions;
   private List<RectTransform>[] insertedElements;
-  private Vector3 menuOffset;
+  public Vector3 menuOffset;
   OVRCameraRig rig;
   private Dictionary<string, ToggleGroup> radioGroups = new Dictionary<string, ToggleGroup>();
   LaserPointer lp;
@@ -79,7 +81,7 @@ public class DebugUIBuilder : MonoBehaviour
   {
     Debug.Assert(instance == null);
     instance = this;
-    menuOffset = transform.position; // TODO: this is unpredictable/busted
+    menuOffset = transform.localPosition; // TODO: this is unpredictable/busted
     gameObject.SetActive(false);
     rig = FindObjectOfType<OVRCameraRig>();
     for (int i = 0; i < toEnable.Count; ++i)
@@ -240,9 +242,19 @@ public class DebugUIBuilder : MonoBehaviour
     return rt;
   }
 
+  public RectTransform AddBigLabel(string label, int targetCanvas = 0)
+  {
+    RectTransform rt = GameObject.Instantiate(bigLabelPrefab).GetComponent<RectTransform>();
+    rt.GetComponent<Text>().text = label;
+    AddRect(rt, targetCanvas);
+    return rt;
+  }
+
   public RectTransform AddSlider(string label, float min, float max, OnSlider onValueChanged, bool wholeNumbersOnly = false, int targetCanvas = 0)
   {
     RectTransform rt = (RectTransform)GameObject.Instantiate(sliderPrefab);
+    Text lbl = rt.GetComponentsInChildren<Text>()[0];
+    lbl.text = label;
     Slider s = rt.GetComponentInChildren<Slider>();
     s.minValue = min;
     s.maxValue = max;
