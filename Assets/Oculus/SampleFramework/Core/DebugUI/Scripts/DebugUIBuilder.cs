@@ -131,6 +131,11 @@ public class DebugUIBuilder : MonoBehaviour
 #endif
   }
 
+  public void UpdatePosition()
+  {
+    transform.position = rig.transform.TransformPoint(menuOffset);
+  }
+
   public void Show()
   {
     Relayout();

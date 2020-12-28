@@ -149,6 +149,11 @@ public class OVRPlayerController : MonoBehaviour
 	private bool ReadyToSnapTurn; // Set to true when a snap turn has occurred, code requires one frame of centered thumbstick to enable another snap turn.
 	private bool playerControllerEnabled = false;
 
+	public GameObject rightHand;
+	private bool moveHand = false;
+	private float mouseZ = 0f;
+	private float handZ = 0f;
+
 	void Start()
 	{
 		// Add eye-depth as a camera offset from the player controller
@@ -219,6 +224,52 @@ public class OVRPlayerController : MonoBehaviour
 
 		if (Input.GetKeyDown(KeyCode.E))
 			buttonRotation += RotationRatchet;
+
+        if (Application.isEditor)
+        {
+			if (Input.GetKeyDown(KeyCode.Space))
+			{
+				moveHand = !moveHand;
+
+                if(moveHand)
+				{
+					//mouseZ = Input.mousePosition.x;
+					//handZ = rightHand.transform.position.z;
+					//Vector3 pos = rightHand.transform.position;
+					//pos.x -= 1.5f;
+					//rightHand.transform.position = pos;
+					mouseZ = Input.mousePosition.y;
+					handZ = rightHand.transform.position.x;
+					Quaternion startingRotation = Quaternion.Euler(140, 90, -90);
+					rightHand.transform.localRotation = startingRotation;
+					Vector3 pos = rightHand.transform.position;
+					pos.y += 1.0f;
+					rightHand.transform.position = pos;
+				}
+				else
+                {
+					//Vector3 pos = rightHand.transform.position;
+					//pos.z = handZ;
+					//pos.x += 1.5f;
+					//rightHand.transform.position = pos;
+					Vector3 pos = rightHand.transform.position;
+					pos.x = handZ;
+					pos.y -= 1.0f;
+					rightHand.transform.position = pos;
+				}
+			}
+			if (moveHand)
+			{
+				//float deltaZ = (Input.mousePosition.x - mouseZ) / 1000f;
+				//Vector3 pos = rightHand.transform.position;
+				//pos.z = handZ + deltaZ;
+				//rightHand.transform.position = pos;
+				float deltaZ = -(Input.mousePosition.y - mouseZ) / 1000f;
+				Vector3 pos = rightHand.transform.position;
+				pos.x = handZ + deltaZ;
+				rightHand.transform.position = pos;
+			}
+		}
 	}
 
 	protected virtual void UpdateController()

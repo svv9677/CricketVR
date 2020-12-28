@@ -22,22 +22,36 @@ public enum eStadiumMode
     Day
 }
 
+public enum eSwingType
+{
+    None,
+    InSwing,
+    OutSwing,
+    Random
+}
+
 public class Main : MonoBehaviour
 {
+    public const string PP_difficulty = "difficulty";
+    public const string PP_battingStyle = "style";
+    public const string PP_stadiumMode = "mode";
+    public const string PP_tX = "tX";
+    public const string PP_tY = "tY";
+    public const string PP_tZ = "tZ";
+    public const string PP_fX = "fX";
+    public const string PP_fY = "fY";
+    public const string PP_fZ = "fZ";
+    public const string PP_minSwing = "min_swing";
+    public const string PP_maxSwing = "max_swing";
+    public const string PP_swingType = "swing";
+    public const string PP_zOffset = "menu_offset";
+
     [SerializeField]
     protected GameObject theBall;
     [SerializeField]
     protected GameObject theBat;
     [SerializeField]
     protected OVRPlayerController theController;
-    [SerializeField]
-    protected bool dbgToggle;
-    [SerializeField]
-    protected eDifficulty difficulty;
-    [SerializeField]
-    protected eBattingStyle battingStyle;
-    [SerializeField]
-    protected eStadiumMode stadiumMode;
     [SerializeField]
     protected Material NightMaterial;
     [SerializeField]
@@ -46,9 +60,52 @@ public class Main : MonoBehaviour
     protected GameObject theNightLights;
     [SerializeField]
     protected GameObject theDayLights;
+    [SerializeField]
+    protected bool dbgToggle;
+    [SerializeField]
+    protected Text debugText;
+
+
+    [Header("Settings")]
+    [SerializeField]
+    protected eDifficulty difficulty;
+    [SerializeField]
+    protected eBattingStyle battingStyle;
+    [SerializeField]
+    protected eStadiumMode stadiumMode;
+    [SerializeField]
+    [Range(3, 10)]
+    protected float zOffset;
+    [SerializeField]
+    [Range(-50, 50)]
+    protected float tX;
+    [SerializeField]
+    [Range(-50, 50)]
+    protected float tY;
+    [SerializeField]
+    [Range(-50, 50)]
+    protected float tZ;
+    [SerializeField]
+    [Range(0, 10)]
+    protected float fX;
+    [SerializeField]
+    [Range(-2, 1)]
+    protected float fY;
+    [SerializeField]
+    [Range(-0.75f, 0.75f)]
+    protected float fZ;
+    [SerializeField]
+    [Range(0, 1)]
+    protected float minSwing;
+    [SerializeField]
+    [Range(0, 1)]
+    protected float maxSwing;
+    private float _zOffset, _tX, _tY, _tZ, _fX, _fY, _fZ, _minSwing, _maxSwing;
+    [SerializeField]
+    protected eSwingType swingType;
+    private eSwingType _swingType;
 
     private bool initialized;
-    private float tX, tY, tZ, fX, fY, fZ, zOffset;
 
     private const int HISTORY_MAX_LINES = 9999;
     private const int HISTORY_TEXT_MAX_LENGTH = 16000;
@@ -59,22 +116,6 @@ public class Main : MonoBehaviour
     private Bat theBatScript;
     private Ball theBallScript;
     private Rigidbody theBallRigidBody;
-
-    public eDifficulty Difficulty
-    {
-        get { return difficulty; }
-        set { difficulty = value; updateDifficulty(); }
-    }
-    public eBattingStyle BattingStyle
-    {
-        get { return battingStyle; }
-        set { battingStyle = value; updateBattingStyle(); }
-    }
-    public eStadiumMode StadiumMode
-    {
-        get { return stadiumMode; }
-        set { stadiumMode = value; updateStadiumMode(); }
-    }
 
     private void Awake()
     {
@@ -105,29 +146,35 @@ public class Main : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        tX = -45.0f;
-        tY = 25.0f;
-        tZ = -25.0f;
-
-        fX = 6.0f;
-        fY = -1.0f;
-        fZ = 0.0f;
+        _tX = _tY = _tZ = _fX = _fY = _fZ = _zOffset = 0f;
+        _swingType = eSwingType.None;
 
         dbgToggle = false;
         SetupDebugMenu();
 
-        int diff = PlayerPrefs.GetInt("difficulty", 0);
-        Difficulty = (eDifficulty)diff;
+        difficulty = (eDifficulty)PlayerPrefs.GetInt(PP_difficulty, 0);
+        battingStyle = (eBattingStyle)PlayerPrefs.GetInt(PP_battingStyle, 0);
+        stadiumMode = (eStadiumMode)PlayerPrefs.GetInt(PP_stadiumMode, 0);
+        zOffset = PlayerPrefs.GetFloat(PP_zOffset, 5f);
+        tX = PlayerPrefs.GetFloat(PP_tX, -45.0f);
+        tY = PlayerPrefs.GetFloat(PP_tY, 25.0f);
+        tZ = PlayerPrefs.GetFloat(PP_tZ, -25.0f);
+        fX = PlayerPrefs.GetFloat(PP_fX, 6.0f);
+        fY = PlayerPrefs.GetFloat(PP_fY, -1.0f);
+        fZ = PlayerPrefs.GetFloat(PP_fZ, 0.0f);
+        minSwing = PlayerPrefs.GetFloat(PP_minSwing, 0.1f);
+        maxSwing = PlayerPrefs.GetFloat(PP_maxSwing, 0.5f);
+        swingType = (eSwingType)PlayerPrefs.GetInt(PP_swingType, 3);
+        // Clamp zOffset
+        if (zOffset < 3f || zOffset > 15f)
+            zOffset = 3f;
 
-        int style = PlayerPrefs.GetInt("style", 0);
-        BattingStyle = (eBattingStyle)style;
-
-        int mode = PlayerPrefs.GetInt("mode", 0);
-        StadiumMode = (eStadiumMode)mode;
-
-        //zOffset = PlayerPrefs.GetFloat("menu_offset", 5f);
-        zOffset = 3f;
-        onZChange(zOffset);
+        updateDifficulty(true);
+        updateBattingStyle(true);
+        updateStadiumMode(true);
+        updateSwingParams(true);
+        updateZOffset();
+        updateSpeedParams();
 
         initialized = true;
     }
@@ -135,11 +182,26 @@ public class Main : MonoBehaviour
     private Text fXText;
     private Text fYText;
     private Text fZText;
+    private Text minSwingText;
+    private Text maxSwingText;
     private Text tXText;
     private Text tYText;
     private Text tZText;
     private Text consoleText;
     private Text offsetZText;
+    private Slider fXSlider;
+    private Slider fYSlider;
+    private Slider fZSlider;
+    private Slider tXSlider;
+    private Slider tYSlider;
+    private Slider tZSlider;
+    private Slider offsetZSlider;
+    private Slider minSwingSlider;
+    private Slider maxSwingSlider;
+    private Toggle inSwingToggle;
+    private Toggle outSwingToggle;
+    private Toggle noSwingToggle;
+    private Toggle randSwingToggle;
     private Toggle lBatToggle;
     private Toggle rBatToggle;
     private Toggle easyToggle;
@@ -151,14 +213,15 @@ public class Main : MonoBehaviour
     public void SetupDebugMenu()
     {
         DebugUIBuilder.instance.AddLabel("Settings");
-        // Settings menu
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// Settings Menu
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         DebugUIBuilder.instance.AddDivider();
         DebugUIBuilder.instance.AddLabel("Batting Style");
         var radio1 = DebugUIBuilder.instance.AddRadio("Left Handed", "batting", onRadioLeftHanded);
         lBatToggle = radio1.GetComponentInChildren<Toggle>();
         var radio2 = DebugUIBuilder.instance.AddRadio("Right Handed", "batting", onRadioRightHanded);
         rBatToggle = radio2.GetComponentInChildren<Toggle>();
-        updateBattingStyle();
 
         DebugUIBuilder.instance.AddDivider();
         DebugUIBuilder.instance.AddLabel("Difficulty");
@@ -168,7 +231,6 @@ public class Main : MonoBehaviour
         mediumToggle = radio4.GetComponentInChildren<Toggle>();
         var radio5 = DebugUIBuilder.instance.AddRadio("Hard", "difficulty", onRadioHard);
         hardToggle = radio5.GetComponentInChildren<Toggle>();
-        updateDifficulty();
 
         DebugUIBuilder.instance.AddDivider();
         DebugUIBuilder.instance.AddLabel("Stadium");
@@ -176,187 +238,445 @@ public class Main : MonoBehaviour
         nightToggle = radio6.GetComponentInChildren<Toggle>();
         var radio7 = DebugUIBuilder.instance.AddRadio("Day", "stadium", onDayMode);
         dayToggle = radio7.GetComponentInChildren<Toggle>();
-        updateStadiumMode();
 
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// Debug Console & z-offset
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         DebugUIBuilder.instance.AddLabel("Console Log", 2);
         // Debug log output
         DebugUIBuilder.instance.AddDivider(2);
         var prefab = DebugUIBuilder.instance.AddBigLabel("", 2);
         consoleText = prefab.GetComponent<Text>();
-        onConsoleTextChange();
         // offsetZ
-        var pr = DebugUIBuilder.instance.AddSlider("Menu Position", 3.0f, 15.0f, onZChange, false, 2);
+        var pr = DebugUIBuilder.instance.AddSlider("Menu Position", 3.0f, 10.0f, onZChange, true, 2);
         offsetZText = pr.GetComponentsInChildren<Text>()[1];
-        onZChange(zOffset);
+        offsetZSlider = pr.GetComponentInChildren<Slider>();
 
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// Debug Tweakables
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         DebugUIBuilder.instance.AddLabel("Ball Physics", 1);
         DebugUIBuilder.instance.AddDivider(1);
         // fX
-        var prefab1 = DebugUIBuilder.instance.AddSlider("fX", 0.0f, 50.0f, onfXChange, false, 1);
+        var prefab1 = DebugUIBuilder.instance.AddSlider("Speed X", 0.0f, 10.0f, onfXChange, false, 1);
         fXText = prefab1.GetComponentsInChildren<Text>()[1];
-        onfXChange(fX);
+        fXSlider = prefab1.GetComponentInChildren<Slider>();
         // fY
-        var prefab2 = DebugUIBuilder.instance.AddSlider("fY", -1.1f, 1.1f, onfYChange, false, 1);
+        var prefab2 = DebugUIBuilder.instance.AddSlider("Speed Y", -2.0f, 1.0f, onfYChange, false, 1);
         fYText = prefab2.GetComponentsInChildren<Text>()[1];
-        onfYChange(fY);
+        fYSlider = prefab2.GetComponentInChildren<Slider>();
         // fZ
-        var prefab3 = DebugUIBuilder.instance.AddSlider("fZ", -1.1f, 1.1f, onfZChange, false, 1);
+        var prefab3 = DebugUIBuilder.instance.AddSlider("Speed Z", -0.75f, 0.75f, onfZChange, false, 1);
         fZText = prefab3.GetComponentsInChildren<Text>()[1];
-        onfZChange(fZ);
+        fZSlider = prefab3.GetComponentInChildren<Slider>();
+        // minSwing
+        var prefb1 = DebugUIBuilder.instance.AddSlider("Min Swing", 0.0f, 1.0f, onMinSwingChange, false, 1);
+        minSwingText = prefb1.GetComponentsInChildren<Text>()[1];
+        minSwingSlider = prefb1.GetComponentInChildren<Slider>();
+        // maxSwing
+        var prefb2 = DebugUIBuilder.instance.AddSlider("Max Swing", 0.0f, 1.0f, onMaxSwingChange, false, 1);
+        maxSwingText = prefb2.GetComponentsInChildren<Text>()[1];
+        maxSwingSlider = prefb2.GetComponentInChildren<Slider>();
+        // in-swing
+        var radio11 = DebugUIBuilder.instance.AddRadio("In Swing", "swing", onInSwing, 1);
+        inSwingToggle = radio11.GetComponentInChildren<Toggle>();
+        // out-swing
+        var radio12 = DebugUIBuilder.instance.AddRadio("Out Swing", "swing", onOutSwing, 1);
+        outSwingToggle = radio12.GetComponentInChildren<Toggle>();
+        // no-swing
+        var radio13 = DebugUIBuilder.instance.AddRadio("No Swing", "swing", onNoSwing, 1);
+        noSwingToggle = radio13.GetComponentInChildren<Toggle>();
+        // random-swing
+        var radio14 = DebugUIBuilder.instance.AddRadio("Random", "swing", onRandSwing, 1);
+        randSwingToggle = radio14.GetComponentInChildren<Toggle>();
         // tX
-        var prefab4 = DebugUIBuilder.instance.AddSlider("tX", -50.0f, 50.0f, ontXChange, false, 1);
+        var prefab4 = DebugUIBuilder.instance.AddSlider("Turn X", -50.0f, 50.0f, ontXChange, false, 1);
         tXText = prefab4.GetComponentsInChildren<Text>()[1];
-        ontXChange(tX);
+        tXSlider = prefab4.GetComponentInChildren<Slider>();
         // tY
-        var prefab5 = DebugUIBuilder.instance.AddSlider("tY", -50.0f, 50.0f, ontYChange, false, 1);
+        var prefab5 = DebugUIBuilder.instance.AddSlider("Turn Y", -50.0f, 50.0f, ontYChange, false, 1);
         tYText = prefab5.GetComponentsInChildren<Text>()[1];
-        ontYChange(tY);
+        tYSlider = prefab5.GetComponentInChildren<Slider>();
         // tZ
-        var prefab6 = DebugUIBuilder.instance.AddSlider("tZ", -50.0f, 50.0f, ontZChange, false, 1);
+        var prefab6 = DebugUIBuilder.instance.AddSlider("Turn Z", -50.0f, 50.0f, ontZChange, false, 1);
         tZText = prefab6.GetComponentsInChildren<Text>()[1];
-        ontZChange(tZ);
+        tZSlider = prefab6.GetComponentInChildren<Slider>();
     }
 
-    private void updateDifficulty()
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Difficulty settings
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private void updateDifficulty(bool updateUI = false)
     {
-        if (Difficulty == eDifficulty.Easy)
+        bool changed = false;
+        // TODO: Take action for appropriate difficulty
+
+        PlayerPrefs.SetInt(PP_difficulty, (int)difficulty);
+
+        // If we are not being called from Update(), just return, as player prefs are saved on UI Hide()
+        if (!updateUI)
+            return;
+
+        // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
+        if (difficulty == eDifficulty.Easy && !easyToggle.isOn)
             easyToggle.isOn = true;
-        else if (Difficulty == eDifficulty.Medium)
+        else if (difficulty == eDifficulty.Medium && !mediumToggle.isOn)
             mediumToggle.isOn = true;
-        else if (Difficulty == eDifficulty.Hard)
+        else if (difficulty == eDifficulty.Hard && !hardToggle.isOn)
             hardToggle.isOn = true;
 
-        PlayerPrefs.SetInt("difficulty", (int)difficulty);
+        if (changed)
+            PlayerPrefs.Save();
     }
     public void onRadioEasy(Toggle t)
     {
         if (!t.isOn)
             return;
-        if (Difficulty != eDifficulty.Easy)
-            Difficulty = eDifficulty.Easy;
+        if (difficulty != eDifficulty.Easy)
+        {
+            difficulty = eDifficulty.Easy;
+            updateDifficulty();
+        }
     }
     public void onRadioMedium(Toggle t)
     {
         if (!t.isOn)
             return;
-        if (Difficulty != eDifficulty.Medium)
-            Difficulty = eDifficulty.Medium;
+        if (difficulty != eDifficulty.Medium)
+        {
+            difficulty = eDifficulty.Medium;
+            updateDifficulty();
+        }
     }
     public void onRadioHard(Toggle t)
     {
         if (!t.isOn)
             return;
-        if (Difficulty != eDifficulty.Hard)
-            Difficulty = eDifficulty.Hard;
+        if (difficulty != eDifficulty.Hard)
+        {
+            difficulty = eDifficulty.Hard;
+            updateDifficulty();
+        }
     }
 
-    private void updateBattingStyle()
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Batting Style settings
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private void updateBattingStyle(bool updateUI = false)
     {
-        if (theBatScript.leftHandParent != null && BattingStyle == eBattingStyle.LeftHanded)
+        bool changed = false;
+        if (theBatScript.leftHandParent != null && battingStyle == eBattingStyle.LeftHanded)
+        {
+            changed = true;
             theBatScript.attachParent = theBatScript.leftHandParent;
-        if (theBatScript.rightHandParent != null && BattingStyle == eBattingStyle.RightHanded)
+            theBatScript.CheckAndGrab();
+            PlayerPrefs.SetInt(PP_battingStyle, (int)battingStyle);
+        }
+        if (theBatScript.rightHandParent != null && battingStyle == eBattingStyle.RightHanded)
+        {
+            changed = true;
             theBatScript.attachParent = theBatScript.rightHandParent;
+            theBatScript.CheckAndGrab();
+            PlayerPrefs.SetInt(PP_battingStyle, (int)battingStyle);
+        }
 
-        theBatScript.CheckAndGrab();
+        // If we are not being called from Update(), just return, as player prefs are saved on UI Hide()
+        if (!updateUI)
+            return;
 
-        if (BattingStyle == eBattingStyle.RightHanded)
+        // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
+        if (battingStyle == eBattingStyle.RightHanded && !rBatToggle.isOn)
             rBatToggle.isOn = true;
-        else
+        else if (battingStyle == eBattingStyle.LeftHanded && !lBatToggle.isOn)
             lBatToggle.isOn = true;
 
-        PlayerPrefs.SetInt("style", (int)battingStyle);
+        if (changed)
+            PlayerPrefs.Save();
     }
     public void onRadioRightHanded(Toggle t)
     {
         if (!t.isOn)
             return;
-        if (BattingStyle != eBattingStyle.RightHanded)
-            BattingStyle = eBattingStyle.RightHanded;
+        if (battingStyle != eBattingStyle.RightHanded)
+        {
+            battingStyle = eBattingStyle.RightHanded;
+            updateBattingStyle();
+        }
     }
     public void onRadioLeftHanded(Toggle t)
     {
         if (!t.isOn)
             return;
-        if (BattingStyle != eBattingStyle.LeftHanded)
-            BattingStyle = eBattingStyle.LeftHanded;
+        if (battingStyle != eBattingStyle.LeftHanded)
+        {
+            battingStyle = eBattingStyle.LeftHanded;
+            updateBattingStyle();
+        }
     }
 
-    private void updateStadiumMode()
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Stadium settings
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private void updateStadiumMode(bool updateUI = false)
     {
-        if (StadiumMode == eStadiumMode.Night)
+        bool changed = false;
+        if (stadiumMode == eStadiumMode.Night && !theNightLights.activeSelf)
         {
-            nightToggle.isOn = true;
+            changed = true;
             RenderSettings.skybox = NightMaterial;
             theNightLights.SetActive(true);
             theDayLights.SetActive(false);
+            PlayerPrefs.SetInt(PP_stadiumMode, (int)stadiumMode);
         }
-        else
+        else if(stadiumMode == eStadiumMode.Day && !theDayLights.activeSelf)
         {
-            dayToggle.isOn = true;
+            changed = true;
             RenderSettings.skybox = DayMaterial;
             theNightLights.SetActive(false);
             theDayLights.SetActive(true);
+            PlayerPrefs.SetInt(PP_stadiumMode, (int)stadiumMode);
         }
 
-        PlayerPrefs.SetInt("mode", (int)stadiumMode);
+        // If we are not being called from Update(), just return, as player prefs are saved on UI Hide()
+        if (!updateUI)
+            return;
+
+        // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
+        if (stadiumMode == eStadiumMode.Night && !nightToggle.isOn)
+            nightToggle.isOn = true;
+        else if (stadiumMode == eStadiumMode.Day && !dayToggle.isOn)
+            dayToggle.isOn = true;
+
+        if(changed)
+            PlayerPrefs.Save();
     }
+
     public void onNightMode(Toggle t)
     {
         if (!t.isOn)
             return;
-        if (StadiumMode != eStadiumMode.Night)
-            StadiumMode = eStadiumMode.Night;
+        if (stadiumMode != eStadiumMode.Night)
+        {
+            stadiumMode = eStadiumMode.Night;
+            updateStadiumMode();
+        }
     }
     public void onDayMode(Toggle t)
     {
         if (!t.isOn)
             return;
-        if (StadiumMode != eStadiumMode.Day)
-            StadiumMode = eStadiumMode.Day;
+        if (stadiumMode != eStadiumMode.Day)
+        {
+            stadiumMode = eStadiumMode.Day;
+            updateStadiumMode();
+        }
     }
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Debug Tweakables
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private void updateSpeedParams(bool savePrefs = false)
+    {
+        if(fX != _fX || fY != _fY || fZ != _fZ ||
+            tX != _tX || tY != _tY || tZ != _tZ)
+        {
+            _fX = fX;
+            _fY = fY;
+            _fZ = fZ;
+            _tX = tX;
+            _tY = tY;
+            _tZ = tZ;
+            if(fXText != null)
+                fXText.text = fX.ToString();
+            if (fYText != null)
+                fYText.text = fY.ToString();
+            if (fZText != null)
+                fZText.text = fZ.ToString();
+            if (tXText != null)
+                tXText.text = tX.ToString();
+            if (tYText != null)
+                tYText.text = tY.ToString();
+            if (tZText != null)
+                tZText.text = tZ.ToString();
+
+            if(Application.isEditor)
+            {
+                if (fXSlider != null)
+                    fXSlider.value = fX;
+                if (fYSlider != null)
+                    fYSlider.value = fY;
+                if (fZSlider != null)
+                    fZSlider.value = fZ;
+                if (tXSlider != null)
+                    tXSlider.value = tX;
+                if (tYSlider != null)
+                    tYSlider.value = tY;
+                if (tZSlider != null)
+                    tZSlider.value = tZ;
+            }
+
+            PlayerPrefs.SetFloat(PP_fX, fX);
+            PlayerPrefs.SetFloat(PP_fY, fY);
+            PlayerPrefs.SetFloat(PP_fZ, fZ);
+            PlayerPrefs.SetFloat(PP_tX, tX);
+            PlayerPrefs.SetFloat(PP_tY, tY);
+            PlayerPrefs.SetFloat(PP_tZ, tZ);
+            if (savePrefs)
+                PlayerPrefs.Save();
+        }
+    }
+    private void updateZOffset(bool savePrefs = false)
+    {
+        if(_zOffset != zOffset)
+        {
+            _zOffset = zOffset;
+            offsetZText.text = zOffset.ToString();
+
+            if (Application.isEditor)
+                offsetZSlider.value = zOffset;
+
+            DebugUIBuilder.instance.menuOffset.z = zOffset;
+            DebugUIBuilder.instance.UpdatePosition();
+
+            PlayerPrefs.SetFloat(PP_zOffset, zOffset);
+            if (savePrefs)
+                PlayerPrefs.Save();
+        }
+    }
+    public void updateSwingParams(bool updateUI = false)
+    {
+        bool changed = false;
+        if(_minSwing != minSwing || _maxSwing != maxSwing || _swingType != swingType)
+        {
+            changed = true;
+            _minSwing = theBallScript.minSwing = minSwing;
+            _maxSwing = theBallScript.maxSwing = maxSwing;
+            _swingType = theBallScript.swingType = swingType;
+
+            if(minSwingSlider != null)
+                minSwingSlider.value = minSwing;
+            if (maxSwingSlider != null)
+                maxSwingSlider.value = maxSwing;
+
+            if (Application.isEditor)
+            {
+                if (minSwingText != null)
+                    minSwingText.text = minSwing.ToString();
+                if (maxSwingText != null)
+                    maxSwingText.text = maxSwing.ToString();
+            }
+
+            PlayerPrefs.SetFloat(PP_minSwing, minSwing);
+            PlayerPrefs.SetFloat(PP_maxSwing, maxSwing);
+            PlayerPrefs.SetInt(PP_swingType, (int)swingType);
+        }
+
+        // If we are not being called from Update(), just return, as player prefs are saved on UI Hide()
+        if (!updateUI)
+            return;
+
+        // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
+        if (swingType == eSwingType.None && noSwingToggle!= null && !noSwingToggle.isOn)
+            noSwingToggle.isOn = true;
+        else if (swingType == eSwingType.InSwing && inSwingToggle != null && !inSwingToggle.isOn)
+            inSwingToggle.isOn = true;
+        else if (swingType == eSwingType.OutSwing && outSwingToggle != null && !outSwingToggle.isOn)
+            outSwingToggle.isOn = true;
+        else if (swingType == eSwingType.Random && randSwingToggle != null && !randSwingToggle.isOn)
+            randSwingToggle.isOn = true;
+
+        if (changed)
+            PlayerPrefs.Save();
+    }
     public void onZChange(float val)
     {
         zOffset = val;
-        offsetZText.text = zOffset.ToString();
-
-        DebugUIBuilder.instance.menuOffset.z = zOffset;
-
-        PlayerPrefs.SetFloat("menu_offset", zOffset);
+        updateZOffset();
     }
     public void onfXChange(float val)
     {
         fX = val;
-        fXText.text = fX.ToString();
+        updateSpeedParams();
     }
     public void onfYChange(float val)
     {
         fY = val;
-        fYText.text = fY.ToString();
+        updateSpeedParams();
     }
     public void onfZChange(float val)
     {
         fZ = val;
-        fZText.text = fZ.ToString();
+        updateSpeedParams();
     }
     public void ontXChange(float val)
     {
-        Debug.Log("tX changed to : " + val.ToString());
         tX = val;
-        tXText.text = tX.ToString();
+        updateSpeedParams();
     }
     public void ontYChange(float val)
     {
         tY = val;
-        tYText.text = tY.ToString();
+        updateSpeedParams();
     }
     public void ontZChange(float val)
     {
         tZ = val;
-        tZText.text = tZ.ToString();
+        updateSpeedParams();
+    }
+    public void onMinSwingChange(float val)
+    {
+        minSwing = val;
+        updateSwingParams();
+    }
+    public void onMaxSwingChange(float val)
+    {
+        maxSwing = val;
+        updateSwingParams();
+    }
+    public void onInSwing(Toggle t)
+    {
+        if (!t.isOn)
+            return;
+        if (swingType != eSwingType.InSwing)
+        {
+            swingType = eSwingType.InSwing;
+            updateSwingParams();
+        }
+    }
+    public void onOutSwing(Toggle t)
+    {
+        if (!t.isOn)
+            return;
+        if (swingType != eSwingType.OutSwing)
+        {
+            swingType = eSwingType.OutSwing;
+            updateSwingParams();
+        }
+    }
+    public void onNoSwing(Toggle t)
+    {
+        if (!t.isOn)
+            return;
+        if (swingType != eSwingType.None)
+        {
+            swingType = eSwingType.None;
+            updateSwingParams();
+        }
+    }
+    public void onRandSwing(Toggle t)
+    {
+        if (!t.isOn)
+            return;
+        if (swingType != eSwingType.Random)
+        {
+            swingType = eSwingType.Random;
+            updateSwingParams();
+        }
     }
 
-    // Update is called once per frame
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Update is called once per frame
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     void Update()
     {
         if (!initialized)
@@ -365,12 +685,19 @@ public class Main : MonoBehaviour
         // Update values from inspector, when in editor, otherwise, toggle UI will drive this
         if (Application.isEditor)
         {
-            updateBattingStyle();
-            updateDifficulty();
+            updateBattingStyle(true);
+            updateDifficulty(true);
+            updateStadiumMode(true);
+            updateSwingParams(true);
+            updateSpeedParams(true);
+            updateZOffset(true);
         }
 
+        if (debugText != null)
+            debugText.text = "Ball last velocity: " + theBallScript.lastVelocity.ToString();
+
         // if debug menu is not active!
-        if(!DebugUIBuilder.instance.isActiveAndEnabled)
+        if (!DebugUIBuilder.instance.isActiveAndEnabled)
         {
             if (GetButton(OVRInput.Button.One))
             {
@@ -378,12 +705,13 @@ public class Main : MonoBehaviour
                 theBallRigidBody.isKinematic = true;
                 // reset ball position to inside machine
                 theBall.transform.position = new Vector3(-8.95f, 2.95f, 0f);
+                theBallScript.fresh = true;
 
                 // enable physics
                 theBallRigidBody.isKinematic = false;
                 // Add the required force & rotation
-                theBallRigidBody.AddTorque(new Vector3(tX, tY, tZ), ForceMode.Impulse);
-                theBallRigidBody.AddForce(new Vector3(fX, fY, fZ), ForceMode.Impulse);
+                theBallRigidBody.AddTorque(new Vector3(tX, tY, tZ), ForceMode.VelocityChange);
+                theBallRigidBody.AddForce(new Vector3(fX, fY, fZ), ForceMode.VelocityChange);
             }
         }
 
@@ -404,39 +732,11 @@ public class Main : MonoBehaviour
                 theBat.SetActive(true);
             }
         }
-
-        //float delta = 0f;
-        //if (GetButton(OVRInput.Button.Three))
-        //    delta = 0.25f;
-        //if (GetButton(OVRInput.Button.Four))
-        //    delta = -0.25f;
-
-        //if(delta != 0f)
-        //{
-        //    switch(dbgCurrentToggle)
-        //    {
-        //        case 0:
-        //            fX += delta;
-        //            break;
-        //        case 1:
-        //            fY += delta;
-        //            break;
-        //        case 2:
-        //            fZ += delta;
-        //            break;
-        //        case 3:
-        //            tX += delta;
-        //            break;
-        //        case 4:
-        //            tY += delta;
-        //            break;
-        //        case 5:
-        //            tZ += delta;
-        //            break;
-        //    }
-        //}
     }
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Helper functions section
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private KeyCode GetKeyCodeForButton(OVRInput.Button button)
     {
         switch(button)

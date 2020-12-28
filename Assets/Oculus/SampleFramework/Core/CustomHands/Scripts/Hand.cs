@@ -197,6 +197,8 @@ namespace OVRTouchSample
             // Flex
             // blend between open hand and fully closed fist
             float flex = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, m_controller);
+            // RAO: We only want to close hand partially
+            flex *= 0.5f;
             m_animator.SetFloat(m_animParamIndexFlex, flex);
 
             // Point

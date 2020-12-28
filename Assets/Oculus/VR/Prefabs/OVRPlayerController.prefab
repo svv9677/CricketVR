@@ -223,7 +223,7 @@ MonoBehaviour:
   BackAndSideDampen: 0.3
   JumpForce: 0.3
   RotationAmount: 5
-  RotationRatchet: 5
+  RotationRatchet: 15
   SnapRotation: 0
   FixedSpeedSteps: 0
   HmdResetsY: 1
@@ -233,6 +233,7 @@ MonoBehaviour:
   EnableLinearMovement: 1
   EnableRotation: 1
   RotationEitherThumbstick: 0
+  rightHand: {fileID: 838672899}
 --- !u!1 &100010
 GameObject:
   m_ObjectHideFlags: 0
@@ -732,6 +733,12 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ba1fa4a8c66106b4988c88fe4b8e8502, type: 3}
+--- !u!1 &838672899 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 195418, guid: ba1fa4a8c66106b4988c88fe4b8e8502,
+    type: 3}
+  m_PrefabInstance: {fileID: 838850905}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &838445581 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 422740, guid: ba1fa4a8c66106b4988c88fe4b8e8502,
@@ -840,7 +847,7 @@ PrefabInstance:
     - target: {fileID: 224586678184848430, guid: ddb963bcde7d8a04a88b3ee4709f46c7,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.5
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 224586678184848430, guid: ddb963bcde7d8a04a88b3ee4709f46c7,
         type: 3}
@@ -890,7 +897,7 @@ PrefabInstance:
     - target: {fileID: 224586678184848430, guid: ddb963bcde7d8a04a88b3ee4709f46c7,
         type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 1
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 224586678184848430, guid: ddb963bcde7d8a04a88b3ee4709f46c7,
         type: 3}
