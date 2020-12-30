@@ -6,6 +6,11 @@ public class Ball : MonoBehaviour
 {
     private Rigidbody myRigidBody;
 
+    [SerializeField]
+    protected AudioClip audioClip;
+
+    [HideInInspector]
+    public float pitchTurn;
     [HideInInspector]
     public float minSwing;
     [HideInInspector]
@@ -23,24 +28,23 @@ public class Ball : MonoBehaviour
         myRigidBody = GetComponent<Rigidbody>();
         minSwing = 0.1f;
         maxSwing = 0.5f;
+        pitchTurn = 0.1f;
         swingType = eSwingType.None;
         fresh = true;
     }
 
-    void LateUpdate()
+    void FixedUpdate()
     {
-        lastVelocity = myRigidBody.velocity;
-
         // Air Resistance Formula
-        var p = 1.225f;
-        var cd = 0.47f;
+        var p = 0.25f; // 1.225f;
+        var cd = 0.25f; // 0.47f;
         var a = Mathf.PI * 0.0575f * 0.0575f;
         var v = myRigidBody.velocity.magnitude;
         var direction = -myRigidBody.velocity.normalized;
         var forceAmount = (p * v * v * cd * a) / 2;
 
         if(forceAmount > 0f)
-            myRigidBody.AddForce(direction * forceAmount, ForceMode.VelocityChange);
+            myRigidBody.AddForce(direction * forceAmount, ForceMode.Force);
 
         // Add swing as a percentage of its current force
         Vector3 right = Vector3.zero;
@@ -53,7 +57,7 @@ public class Ball : MonoBehaviour
             right = Vector3.Cross(-direction, Vector3.up).normalized;
 
         if(right != Vector3.zero && forceAmount > 0f)
-            myRigidBody.AddForce(right * forceAmount * Random.Range(minSwing, maxSwing), ForceMode.VelocityChange);
+            myRigidBody.AddForce(right * forceAmount * Random.Range(minSwing, maxSwing), ForceMode.Force);
     }
 
     public void OnCollisionExit(Collision collisionInfo)
@@ -76,8 +80,12 @@ public class Ball : MonoBehaviour
                 right = Vector3.Cross(direction, Vector3.up).normalized;
 
             if(right.magnitude > 0f)
-                myRigidBody.AddForce(right * 0.1f * myRigidBody.velocity.magnitude * Random.Range(minSwing, maxSwing), ForceMode.VelocityChange);
-                // 0.1f can be hooked as difficulty-variable, TODO: Add this to main.cs tweakables
+                myRigidBody.AddForce(right * pitchTurn * myRigidBody.velocity.magnitude * Random.Range(minSwing, maxSwing), ForceMode.Impulse);
+        }
+
+        if(collisionInfo.gameObject.name.Contains("Stump") && audioClip != null)
+        {
+            AudioSource.PlayClipAtPoint(audioClip, transform.position);
         }
 
     }

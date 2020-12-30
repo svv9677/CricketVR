@@ -29,6 +29,10 @@ public class Bat : MonoBehaviour
     public Transform attachParent;
     [HideInInspector]
     public Vector3 trackerVelocity;
+    [HideInInspector]
+    public float ampMin;
+    [HideInInspector]
+    public float ampMax;
 
     private bool grabbing = false;
     private Collider[] myColliders;
@@ -52,6 +56,7 @@ public class Bat : MonoBehaviour
         myColliders = GetComponentsInChildren<Collider>();
         myRigidBody = GetComponent<Rigidbody>();
         ballRigidBody = null;
+        ampMin = ampMax = 0f;
     }
 
     public void CheckAndGrab()
@@ -86,51 +91,69 @@ public class Bat : MonoBehaviour
         }
     }
 
-    public void OnCollisionEnter(Collision collisionInfo)
+    public void OnCollisionExit(Collision collisionInfo)
     {
         // If we hit the ball
         if (collisionInfo.gameObject.name == "Ball")
         {
             if (ballScript == null)
                 ballScript = collisionInfo.gameObject.GetComponent<Ball>();
-
-            // make a note of the ball's initial velocity
-            ballInitialVelocity = ballScript.lastVelocity;
-        }
-    }
-
-    public void OnCollisionExit(Collision collisionInfo)
-    {
-        // If we hit the ball
-        if (collisionInfo.gameObject.name == "Ball")
-        {
             if (ballRigidBody == null)
                 ballRigidBody = collisionInfo.gameObject.GetComponent<Rigidbody>();
 
-            if(trackerVelocity.magnitude > 0f)
+            // make a note of the ball's initial velocity
+            ballInitialVelocity = ballScript.lastVelocity;
+
+            float dp = 0f;
+            if (trackerVelocity.magnitude > 0f)
             {
-                float amplifier = 0f;
                 Vector3 force;
+                // Clamp magnitude to min & max
+                float magn = trackerVelocity.magnitude;
+                if (magn > 1.0f)
+                    magn = 1.0f;
+                if (magn < 0.25f)
+                    magn = 0.25f;
+                float amplifier = ampMin;
+                float ballAmplifier = 0f;
                 // first check if the initial ball direction and bat's tracker direction is along same lines
-                float dp = Vector3.Dot(ballInitialVelocity, trackerVelocity);
+                dp = Vector3.Dot(ballInitialVelocity, trackerVelocity);
                 // if dot product is positive, the angle is between -90 & 90, so they are headed in same direction
-                if (dp >= 0f)
-                    amplifier = 1f;
-                else
-                    amplifier = 4f;
-                force = amplifier * trackerVelocity;
-                float magn = force.magnitude;
-                // clamp it at max 
-                if (magn > amplifier)
-                    force *= amplifier / magn;
-                Debug.LogWarning("Adding force: " + force.ToString() + ", Ball velocity: " + ballRigidBody.velocity.ToString() + ", initial: " + ballInitialVelocity.ToString() + ", dp: " + dp.ToString());
-                ballRigidBody.AddForce(trackerVelocity.normalized * amplifier, ForceMode.VelocityChange);
+                if (dp < 0f)
+                {
+                    amplifier = ampMax;
+                    ballAmplifier = 2f;
+                }
+                force = (amplifier * magn * trackerVelocity.normalized) +
+                        (ballAmplifier * magn * ballRigidBody.velocity);
+
+                Debug.LogWarning("Adding force: " + force.ToString() +
+                                 ", Tracker: " + trackerVelocity.ToString() +
+                                 ", Ball: " + ballRigidBody.velocity.ToString() +
+                                 ", initial: " + ballInitialVelocity.ToString() +
+                                 ", dp: " + dp.ToString());
+                //ballRigidBody.AddForce(force, ForceMode.Impulse);
+                ballRigidBody.velocity += force;
+            }
+            // if we are not moving the bat, check if we want to retain the ball's velocity,
+            //  based on bat's direction
+            else
+            {
+                Vector3 batFacing = trackerPos - attachParent.transform.position;
+                dp = Vector3.Dot(ballRigidBody.velocity, batFacing);
+                // if the dp is positive, angle is between -90 & 90, so no need to dampen
+                if(dp < 0f)
+                {
+                    // dampen the velocity on the ball
+                    float magnit = ballRigidBody.velocity.magnitude;
+                    ballRigidBody.velocity *= (Random.Range(2f, 5f) / magnit);
+                }
             }
 
             // Play sound
             Vector3 delta = ballRigidBody.velocity - trackerVelocity;
             float mag = delta.magnitude;
-            if (mag < 25f)
+            if (mag < 25f || dp <= 0f)
             {
                 Debug.Log("Playing shot1");
                 AudioSource.PlayClipAtPoint(audioShot1, trackerPos);
@@ -147,14 +170,32 @@ public class Bat : MonoBehaviour
             }
 
             // Haptics feedback
-            if (attachParent == leftHandParent)
-                OVRInput.SetControllerVibration(1, 0.1f, OVRInput.Controller.LTouch);
-            else
-                OVRInput.SetControllerVibration(1, 0.1f, OVRInput.Controller.RTouch);
+            StartCoroutine(ProvideVibration());
         }
     }
 
+    public IEnumerator ProvideVibration()
+    {
+        if (attachParent == leftHandParent)
+            OVRInput.SetControllerVibration(1f, 1f, OVRInput.Controller.LTouch);
+        else
+            OVRInput.SetControllerVibration(1f, 1f, OVRInput.Controller.RTouch);
+
+        yield return new WaitForSeconds(0.1f);
+
+        if (attachParent == leftHandParent)
+            OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch);
+        else
+            OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.RTouch);
+    }
+
     // Update is called once per frame
+    private void Update()
+    {
+        trackerVelocity = trackerPos - trackerPreviousPos;
+        trackerPreviousPos = trackerPos;
+    }
+
     void LateUpdate()
     {
         // Check if we need to start the attach/detach step
@@ -162,9 +203,6 @@ public class Bat : MonoBehaviour
 
         if (attachParent == null)
             return;
-
-        trackerVelocity = trackerPos - trackerPreviousPos;
-        trackerPreviousPos = trackerPos;
 
         // If all set, and grabbing, update the transforms
         if (grabbable && grabbing)

@@ -9,6 +9,6 @@ PhysicMaterial:
   m_Name: Pitch
   dynamicFriction: 0.9
   staticFriction: 0.9
-  bounciness: 0.75
+  bounciness: 0.65
   frictionCombine: 0
   bounceCombine: 3

@@ -35,9 +35,9 @@ public class Main : MonoBehaviour
     public const string PP_difficulty = "difficulty";
     public const string PP_battingStyle = "style";
     public const string PP_stadiumMode = "mode";
-    public const string PP_tX = "tX";
-    public const string PP_tY = "tY";
-    public const string PP_tZ = "tZ";
+    public const string PP_ampMin = "amp_min";
+    public const string PP_ampMax = "amp_max";
+    public const string PP_pitchTurn = "pitch_turn";
     public const string PP_fX = "fX";
     public const string PP_fY = "fY";
     public const string PP_fZ = "fZ";
@@ -50,6 +50,8 @@ public class Main : MonoBehaviour
     protected GameObject theBall;
     [SerializeField]
     protected GameObject theBat;
+    [SerializeField]
+    protected GameObject theStumps;
     [SerializeField]
     protected OVRPlayerController theController;
     [SerializeField]
@@ -77,14 +79,14 @@ public class Main : MonoBehaviour
     [Range(3, 10)]
     protected float zOffset;
     [SerializeField]
-    [Range(-50, 50)]
-    protected float tX;
+    [Range(0, 15)]
+    protected float ampMin;
     [SerializeField]
-    [Range(-50, 50)]
-    protected float tY;
+    [Range(0, 25)]
+    protected float ampMax;
     [SerializeField]
-    [Range(-50, 50)]
-    protected float tZ;
+    [Range(0, 1)]
+    protected float pitchTurn;
     [SerializeField]
     [Range(0, 10)]
     protected float fX;
@@ -100,7 +102,7 @@ public class Main : MonoBehaviour
     [SerializeField]
     [Range(0, 1)]
     protected float maxSwing;
-    private float _zOffset, _tX, _tY, _tZ, _fX, _fY, _fZ, _minSwing, _maxSwing;
+    private float _zOffset, _ampMin, _ampMax, _pitchTurn, _fX, _fY, _fZ, _minSwing, _maxSwing;
     [SerializeField]
     protected eSwingType swingType;
     private eSwingType _swingType;
@@ -115,6 +117,7 @@ public class Main : MonoBehaviour
 
     private Bat theBatScript;
     private Ball theBallScript;
+    private Stumps theStumpsScript;
     private Rigidbody theBallRigidBody;
 
     private void Awake()
@@ -127,6 +130,10 @@ public class Main : MonoBehaviour
         if(theBat != null)
         {
             theBatScript = theBat.GetComponent<Bat>();
+        }
+        if(theStumps != null)
+        {
+            theStumpsScript = theStumps.GetComponent<Stumps>();
         }
 
         initialized = false;
@@ -146,7 +153,7 @@ public class Main : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        _tX = _tY = _tZ = _fX = _fY = _fZ = _zOffset = 0f;
+        _ampMin = _ampMax = _pitchTurn = _fX = _fY = _fZ = _zOffset = 0f;
         _swingType = eSwingType.None;
 
         dbgToggle = false;
@@ -155,15 +162,15 @@ public class Main : MonoBehaviour
         difficulty = (eDifficulty)PlayerPrefs.GetInt(PP_difficulty, 0);
         battingStyle = (eBattingStyle)PlayerPrefs.GetInt(PP_battingStyle, 0);
         stadiumMode = (eStadiumMode)PlayerPrefs.GetInt(PP_stadiumMode, 0);
-        zOffset = PlayerPrefs.GetFloat(PP_zOffset, 5f);
-        tX = PlayerPrefs.GetFloat(PP_tX, -45.0f);
-        tY = PlayerPrefs.GetFloat(PP_tY, 25.0f);
-        tZ = PlayerPrefs.GetFloat(PP_tZ, -25.0f);
-        fX = PlayerPrefs.GetFloat(PP_fX, 6.0f);
+        zOffset = PlayerPrefs.GetFloat(PP_zOffset, 3f);
+        ampMin = PlayerPrefs.GetFloat(PP_ampMin, 10.0f);
+        ampMax = PlayerPrefs.GetFloat(PP_ampMax, 15.0f);
+        pitchTurn = PlayerPrefs.GetFloat(PP_pitchTurn, 0.2f);
+        fX = PlayerPrefs.GetFloat(PP_fX, 7.0f);
         fY = PlayerPrefs.GetFloat(PP_fY, -1.0f);
         fZ = PlayerPrefs.GetFloat(PP_fZ, 0.0f);
         minSwing = PlayerPrefs.GetFloat(PP_minSwing, 0.1f);
-        maxSwing = PlayerPrefs.GetFloat(PP_maxSwing, 0.5f);
+        maxSwing = PlayerPrefs.GetFloat(PP_maxSwing, 0.9f);
         swingType = (eSwingType)PlayerPrefs.GetInt(PP_swingType, 3);
         // Clamp zOffset
         if (zOffset < 3f || zOffset > 15f)
@@ -184,17 +191,17 @@ public class Main : MonoBehaviour
     private Text fZText;
     private Text minSwingText;
     private Text maxSwingText;
-    private Text tXText;
-    private Text tYText;
-    private Text tZText;
+    private Text ampMinText;
+    private Text ampMaxText;
+    private Text pitchTurnText;
     private Text consoleText;
     private Text offsetZText;
     private Slider fXSlider;
     private Slider fYSlider;
     private Slider fZSlider;
-    private Slider tXSlider;
-    private Slider tYSlider;
-    private Slider tZSlider;
+    private Slider ampMinSlider;
+    private Slider ampMaxSlider;
+    private Slider pitchTurnSlider;
     private Slider offsetZSlider;
     private Slider minSwingSlider;
     private Slider maxSwingSlider;
@@ -289,18 +296,18 @@ public class Main : MonoBehaviour
         // random-swing
         var radio14 = DebugUIBuilder.instance.AddRadio("Random", "swing", onRandSwing, 1);
         randSwingToggle = radio14.GetComponentInChildren<Toggle>();
-        // tX
-        var prefab4 = DebugUIBuilder.instance.AddSlider("Turn X", -50.0f, 50.0f, ontXChange, false, 1);
-        tXText = prefab4.GetComponentsInChildren<Text>()[1];
-        tXSlider = prefab4.GetComponentInChildren<Slider>();
-        // tY
-        var prefab5 = DebugUIBuilder.instance.AddSlider("Turn Y", -50.0f, 50.0f, ontYChange, false, 1);
-        tYText = prefab5.GetComponentsInChildren<Text>()[1];
-        tYSlider = prefab5.GetComponentInChildren<Slider>();
+        // ampMin
+        var prefab4 = DebugUIBuilder.instance.AddSlider("Min Amplifier", 0.0f, 15.0f, onAmpMinChange, false, 1);
+        ampMinText = prefab4.GetComponentsInChildren<Text>()[1];
+        ampMinSlider = prefab4.GetComponentInChildren<Slider>();
+        // ampMax
+        var prefab5 = DebugUIBuilder.instance.AddSlider("Max Amplifier", 0.0f, 25.0f, onAmpMaxChange, false, 1);
+        ampMaxText = prefab5.GetComponentsInChildren<Text>()[1];
+        ampMaxSlider = prefab5.GetComponentInChildren<Slider>();
         // tZ
-        var prefab6 = DebugUIBuilder.instance.AddSlider("Turn Z", -50.0f, 50.0f, ontZChange, false, 1);
-        tZText = prefab6.GetComponentsInChildren<Text>()[1];
-        tZSlider = prefab6.GetComponentInChildren<Slider>();
+        var prefab6 = DebugUIBuilder.instance.AddSlider("Pitch Turn", 0.0f, 1.0f, onPitchTurnChange, false, 1);
+        pitchTurnText = prefab6.GetComponentsInChildren<Text>()[1];
+        pitchTurnSlider = prefab6.GetComponentInChildren<Slider>();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -478,49 +485,55 @@ public class Main : MonoBehaviour
     private void updateSpeedParams(bool savePrefs = false)
     {
         if(fX != _fX || fY != _fY || fZ != _fZ ||
-            tX != _tX || tY != _tY || tZ != _tZ)
+            ampMin != _ampMin || ampMax != _ampMax || pitchTurn != _pitchTurn)
         {
             _fX = fX;
             _fY = fY;
             _fZ = fZ;
-            _tX = tX;
-            _tY = tY;
-            _tZ = tZ;
+            _ampMin = ampMin;
+            _ampMax = ampMax;
+            _pitchTurn = pitchTurn;
             if(fXText != null)
                 fXText.text = fX.ToString();
             if (fYText != null)
                 fYText.text = fY.ToString();
             if (fZText != null)
                 fZText.text = fZ.ToString();
-            if (tXText != null)
-                tXText.text = tX.ToString();
-            if (tYText != null)
-                tYText.text = tY.ToString();
-            if (tZText != null)
-                tZText.text = tZ.ToString();
-
-            if(Application.isEditor)
+            if (ampMinText != null)
             {
-                if (fXSlider != null)
-                    fXSlider.value = fX;
-                if (fYSlider != null)
-                    fYSlider.value = fY;
-                if (fZSlider != null)
-                    fZSlider.value = fZ;
-                if (tXSlider != null)
-                    tXSlider.value = tX;
-                if (tYSlider != null)
-                    tYSlider.value = tY;
-                if (tZSlider != null)
-                    tZSlider.value = tZ;
+                ampMinText.text = ampMin.ToString();
+                theBatScript.ampMin = ampMin;
             }
+            if (ampMaxText != null)
+            {
+                ampMaxText.text = ampMax.ToString();
+                theBatScript.ampMax = ampMax;
+            }
+            if (pitchTurnText != null)
+            {
+                pitchTurnText.text = pitchTurn.ToString();
+                theBallScript.pitchTurn = pitchTurn;
+            }
+
+            if (fXSlider != null)
+                fXSlider.value = fX;
+            if (fYSlider != null)
+                fYSlider.value = fY;
+            if (fZSlider != null)
+                fZSlider.value = fZ;
+            if (ampMinSlider != null)
+                ampMinSlider.value = ampMin;
+            if (ampMaxSlider != null)
+                ampMaxSlider.value = ampMax;
+            if (pitchTurnSlider != null)
+                pitchTurnSlider.value = pitchTurn;
 
             PlayerPrefs.SetFloat(PP_fX, fX);
             PlayerPrefs.SetFloat(PP_fY, fY);
             PlayerPrefs.SetFloat(PP_fZ, fZ);
-            PlayerPrefs.SetFloat(PP_tX, tX);
-            PlayerPrefs.SetFloat(PP_tY, tY);
-            PlayerPrefs.SetFloat(PP_tZ, tZ);
+            PlayerPrefs.SetFloat(PP_ampMin, ampMin);
+            PlayerPrefs.SetFloat(PP_ampMax, ampMax);
+            PlayerPrefs.SetFloat(PP_pitchTurn, pitchTurn);
             if (savePrefs)
                 PlayerPrefs.Save();
         }
@@ -531,9 +544,7 @@ public class Main : MonoBehaviour
         {
             _zOffset = zOffset;
             offsetZText.text = zOffset.ToString();
-
-            if (Application.isEditor)
-                offsetZSlider.value = zOffset;
+            offsetZSlider.value = zOffset;
 
             DebugUIBuilder.instance.menuOffset.z = zOffset;
             DebugUIBuilder.instance.UpdatePosition();
@@ -558,13 +569,10 @@ public class Main : MonoBehaviour
             if (maxSwingSlider != null)
                 maxSwingSlider.value = maxSwing;
 
-            if (Application.isEditor)
-            {
-                if (minSwingText != null)
-                    minSwingText.text = minSwing.ToString();
-                if (maxSwingText != null)
-                    maxSwingText.text = maxSwing.ToString();
-            }
+            if (minSwingText != null)
+                minSwingText.text = minSwing.ToString();
+            if (maxSwingText != null)
+                maxSwingText.text = maxSwing.ToString();
 
             PlayerPrefs.SetFloat(PP_minSwing, minSwing);
             PlayerPrefs.SetFloat(PP_maxSwing, maxSwing);
@@ -608,19 +616,19 @@ public class Main : MonoBehaviour
         fZ = val;
         updateSpeedParams();
     }
-    public void ontXChange(float val)
+    public void onAmpMinChange(float val)
     {
-        tX = val;
+        ampMin = val;
         updateSpeedParams();
     }
-    public void ontYChange(float val)
+    public void onAmpMaxChange(float val)
     {
-        tY = val;
+        ampMax = val;
         updateSpeedParams();
     }
-    public void ontZChange(float val)
+    public void onPitchTurnChange(float val)
     {
-        tZ = val;
+        pitchTurn = val;
         updateSpeedParams();
     }
     public void onMinSwingChange(float val)
@@ -701,17 +709,24 @@ public class Main : MonoBehaviour
         {
             if (GetButton(OVRInput.Button.One))
             {
+                // Reset stumps
+                theStumpsScript.Reset();
+
                 // disable physics
                 theBallRigidBody.isKinematic = true;
                 // reset ball position to inside machine
                 theBall.transform.position = new Vector3(-8.95f, 2.95f, 0f);
                 theBallScript.fresh = true;
 
+                // make the ball static
+                theBallRigidBody.velocity = Vector3.zero;
                 // enable physics
                 theBallRigidBody.isKinematic = false;
                 // Add the required force & rotation
-                theBallRigidBody.AddTorque(new Vector3(tX, tY, tZ), ForceMode.VelocityChange);
-                theBallRigidBody.AddForce(new Vector3(fX, fY, fZ), ForceMode.VelocityChange);
+                theBallRigidBody.AddTorque(new Vector3(50f, 50f, 50f), ForceMode.Impulse);
+                theBallRigidBody.AddForce(new Vector3(fX, fY, fZ), ForceMode.Impulse);
+                // save it
+                theBallScript.lastVelocity = new Vector3(fX, fY, fZ);
             }
         }
 
