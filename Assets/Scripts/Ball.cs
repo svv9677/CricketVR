@@ -10,6 +10,8 @@ public class Ball : MonoBehaviour
     protected AudioClip audioClip;
 
     [HideInInspector]
+    public ParticleSystem myParticles;
+    [HideInInspector]
     public float pitchTurn;
     [HideInInspector]
     public float minSwing;
@@ -35,6 +37,37 @@ public class Ball : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (myParticles == null)
+            myParticles = GetComponent<ParticleSystem>();
+
+        // If, ball comes to a stop by itself, after a shot, assume that it was collected by a fielder
+        //if (myRigidBody.velocity.magnitude < 0.1f && Main.Instance.gameState == eGameState.InGame_BallHitLoop)
+        //{
+        //    Main.Instance.currentFielderName = "";
+        //    Main.Instance.gameState = eGameState.InGame_BallFielded;
+        //}
+
+        // Set the particles to not leave unwanted trails
+        if (Main.Instance.gameState != eGameState.InGame_BallHit &&
+            Main.Instance.gameState != eGameState.InGame_BallHitLoop &&
+            Main.Instance.gameState != eGameState.InGame_BallMissed &&
+            Main.Instance.gameState != eGameState.InGame_BallMissedLoop &&
+            Main.Instance.gameState != eGameState.InGame_BallPastBoundary &&
+            Main.Instance.gameState != eGameState.InGame_BallPastBoundaryLoop &&
+            Main.Instance.gameState != eGameState.InGame_DeliverBall &&
+            Main.Instance.gameState != eGameState.InGame_DeliverBallLoop)
+        {
+            if(myParticles.isPlaying)
+            {
+                myParticles.Stop();
+                myParticles.Clear();
+            }
+        }
+        else if (!myParticles.isPlaying)
+        {
+            myParticles.Play();
+        }
+
         // Air Resistance Formula
         var p = 0.25f; // 1.225f;
         var cd = 0.25f; // 0.47f;
@@ -60,10 +93,10 @@ public class Ball : MonoBehaviour
             myRigidBody.AddForce(right * forceAmount * Random.Range(minSwing, maxSwing), ForceMode.Force);
     }
 
-    public void OnCollisionExit(Collision collisionInfo)
+    public void OnCollisionEnter(Collision collisionInfo)
     {
         // If we hit pitch, and this is our first bounce after release of delivery
-        if(fresh && collisionInfo.gameObject.name == "Pitch")
+        if(fresh && collisionInfo.gameObject.name == "Plane")
         {
             fresh = false;
 

@@ -16,13 +16,13 @@ PlayerSettings:
   productName: CricketVR
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
-  m_SplashScreenBackgroundColor: {r: 0.13725491, g: 0.12156863, b: 0.1254902, a: 1}
+  m_SplashScreenBackgroundColor: {r: 0.58431375, g: 0.7019608, b: 0.8705883, a: 1}
   m_ShowUnitySplashScreen: 1
-  m_ShowUnitySplashLogo: 1
+  m_ShowUnitySplashLogo: 0
   m_SplashScreenOverlayOpacity: 1
   m_SplashScreenAnimation: 1
   m_SplashScreenLogoStyle: 1
-  m_SplashScreenDrawMode: 0
+  m_SplashScreenDrawMode: 1
   m_SplashScreenBackgroundAnimationZoom: 1
   m_SplashScreenLogoAnimationZoom: 1
   m_SplashScreenBackgroundLandscapeAspect: 1
@@ -39,8 +39,11 @@ PlayerSettings:
     y: 0
     width: 1
     height: 1
-  m_SplashScreenLogos: []
-  m_VirtualRealitySplashScreen: {fileID: 0}
+  m_SplashScreenLogos:
+  - logo: {fileID: 21300000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+    duration: 2
+  m_VirtualRealitySplashScreen: {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661,
+    type: 3}
   m_HolographicTrackingLossScreen: {fileID: 0}
   defaultScreenWidth: 1024
   defaultScreenHeight: 768
@@ -77,7 +80,7 @@ PlayerSettings:
   hideHomeButton: 0
   submitAnalytics: 1
   usePlayerLog: 1
-  bakeCollisionMeshes: 0
+  bakeCollisionMeshes: 1
   forceSingleInstance: 0
   useFlipModelSwapchain: 1
   resizableWindow: 0
@@ -125,7 +128,8 @@ PlayerSettings:
     16:9: 1
     Others: 1
   bundleVersion: 0.1
-  preloadedAssets: []
+  preloadedAssets:
+  - {fileID: 8761410740698441834, guid: 0c60afcf963c145429f599101ad1d3d7, type: 3}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -182,7 +186,7 @@ PlayerSettings:
   ForceSDCardPermission: 0
   CreateWallpaper: 0
   APKExpansionFiles: 0
-  keepLoadedShadersAlive: 0
+  keepLoadedShadersAlive: 1
   StripUnusedMeshComponents: 1
   VertexChannelCompressionMask: 4054
   iPhoneSdkVersion: 988
@@ -246,7 +250,7 @@ PlayerSettings:
   templateDefaultScene: Assets/Scenes/SampleScene.unity
   AndroidTargetArchitectures: 2
   AndroidSplashScreenScale: 0
-  androidSplashScreen: {fileID: 0}
+  androidSplashScreen: {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
   AndroidKeystoreName: 
   AndroidKeyaliasName: 
   AndroidBuildApkPerCpuArchitecture: 0
@@ -263,40 +267,17 @@ PlayerSettings:
   androidGamepadSupportLevel: 0
   AndroidValidateAppBundleSize: 1
   AndroidAppBundleSizeToValidate: 150
-  m_BuildTargetIcons: []
+  m_BuildTargetIcons:
+  - m_BuildTarget: 
+    m_Icons:
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      m_Width: 128
+      m_Height: 128
+      m_Kind: 0
   m_BuildTargetPlatformIcons:
   - m_BuildTarget: Android
     m_Icons:
-    - m_Textures: []
-      m_Width: 432
-      m_Height: 432
-      m_Kind: 2
-      m_SubKind: 
-    - m_Textures: []
-      m_Width: 324
-      m_Height: 324
-      m_Kind: 2
-      m_SubKind: 
-    - m_Textures: []
-      m_Width: 216
-      m_Height: 216
-      m_Kind: 2
-      m_SubKind: 
-    - m_Textures: []
-      m_Width: 162
-      m_Height: 162
-      m_Kind: 2
-      m_SubKind: 
-    - m_Textures: []
-      m_Width: 108
-      m_Height: 108
-      m_Kind: 2
-      m_SubKind: 
-    - m_Textures: []
-      m_Width: 81
-      m_Height: 81
-      m_Kind: 2
-      m_SubKind: 
     - m_Textures: []
       m_Width: 192
       m_Height: 192
@@ -327,32 +308,80 @@ PlayerSettings:
       m_Height: 36
       m_Kind: 0
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      m_Width: 432
+      m_Height: 432
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      m_Width: 324
+      m_Height: 324
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      m_Width: 216
+      m_Height: 216
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      m_Width: 162
+      m_Height: 162
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      m_Width: 108
+      m_Height: 108
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
+      m_Width: 81
+      m_Height: 81
+      m_Kind: 2
+      m_SubKind: 
+    - m_Textures:
+      - {fileID: 2800000, guid: 17869d14e36964aa69535365343d2661, type: 3}
       m_Width: 192
       m_Height: 192
       m_Kind: 1
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 0}
       m_Width: 144
       m_Height: 144
       m_Kind: 1
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 0}
       m_Width: 96
       m_Height: 96
       m_Kind: 1
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 0}
       m_Width: 72
       m_Height: 72
       m_Kind: 1
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 0}
       m_Width: 48
       m_Height: 48
       m_Kind: 1
       m_SubKind: 
-    - m_Textures: []
+    - m_Textures:
+      - {fileID: 0}
       m_Width: 36
       m_Height: 36
       m_Kind: 1
@@ -366,7 +395,7 @@ PlayerSettings:
     m_DynamicBatching: 0
   - m_BuildTarget: Android
     m_StaticBatching: 1
-    m_DynamicBatching: 0
+    m_DynamicBatching: 1
   - m_BuildTarget: iPhone
     m_StaticBatching: 1
     m_DynamicBatching: 0
@@ -432,7 +461,9 @@ PlayerSettings:
     Android: 1
     iPhone: 1
     tvOS: 1
-  m_BuildTargetGroupLightmapEncodingQuality: []
+  m_BuildTargetGroupLightmapEncodingQuality:
+  - m_BuildTarget: Android
+    m_EncodingQuality: 2
   m_BuildTargetGroupLightmapSettings: []
   playModeTestRunnerEnabled: 0
   runPlayModeTestAsEditModeTest: 0
@@ -650,7 +681,7 @@ PlayerSettings:
   monoEnv: 
   splashScreenBackgroundSourceLandscape: {fileID: 0}
   splashScreenBackgroundSourcePortrait: {fileID: 0}
-  blurSplashScreenBackground: 1
+  blurSplashScreenBackground: 0
   spritePackerPolicy: 
   webGLMemorySize: 16
   webGLExceptionSupport: 1

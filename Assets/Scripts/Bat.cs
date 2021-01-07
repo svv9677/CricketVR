@@ -96,81 +96,89 @@ public class Bat : MonoBehaviour
         // If we hit the ball
         if (collisionInfo.gameObject.name == "Ball")
         {
-            if (ballScript == null)
-                ballScript = collisionInfo.gameObject.GetComponent<Ball>();
-            if (ballRigidBody == null)
-                ballRigidBody = collisionInfo.gameObject.GetComponent<Rigidbody>();
-
-            // make a note of the ball's initial velocity
-            ballInitialVelocity = ballScript.lastVelocity;
-
-            float dp = 0f;
-            if (trackerVelocity.magnitude > 0f)
+            if (Main.Instance.gameState == eGameState.InGame_DeliverBallLoop ||
+                Main.Instance.gameState == eGameState.InGame_BallHit ||
+                Main.Instance.gameState == eGameState.InGame_BallHitLoop)
             {
-                Vector3 force;
-                // Clamp magnitude to min & max
-                float magn = trackerVelocity.magnitude;
-                if (magn > 1.0f)
-                    magn = 1.0f;
-                if (magn < 0.25f)
-                    magn = 0.25f;
-                float amplifier = ampMin;
-                float ballAmplifier = 0f;
-                // first check if the initial ball direction and bat's tracker direction is along same lines
-                dp = Vector3.Dot(ballInitialVelocity, trackerVelocity);
-                // if dot product is positive, the angle is between -90 & 90, so they are headed in same direction
-                if (dp < 0f)
+                Main.Instance.gameState = eGameState.InGame_BallHit;
+
+                if (ballScript == null)
+                    ballScript = collisionInfo.gameObject.GetComponent<Ball>();
+                if (ballRigidBody == null)
+                    ballRigidBody = collisionInfo.gameObject.GetComponent<Rigidbody>();
+
+                // make a note of the ball's initial velocity
+                ballInitialVelocity = ballScript.lastVelocity;
+
+                float dp = 0f;
+                if (trackerVelocity.magnitude > 0f)
                 {
-                    amplifier = ampMax;
-                    ballAmplifier = 2f;
-                }
-                force = (amplifier * magn * trackerVelocity.normalized) +
-                        (ballAmplifier * magn * ballRigidBody.velocity);
+                    Vector3 force;
+                    // Clamp magnitude to min & max
+                    float magn = trackerVelocity.magnitude;
+                    if (magn > 1.0f)
+                        magn = 1.0f;
+                    if (magn < 0.25f)
+                        magn = 0.25f;
+                    float amplifier = ampMin;
+                    float ballAmplifier = 0f;
+                    // first check if the initial ball direction and bat's tracker direction is along same lines
+                    dp = Vector3.Dot(ballInitialVelocity, trackerVelocity);
+                    // if dot product is positive, the angle is between -90 & 90, so they are headed in same direction
+                    if (dp < 0f)
+                    {
+                        amplifier = ampMax;
+                        ballAmplifier = 2f;
+                    }
+                    force = (amplifier * magn * trackerVelocity.normalized) +
+                            (ballAmplifier * magn * ballRigidBody.velocity);
 
-                Debug.LogWarning("Adding force: " + force.ToString() +
-                                 ", Tracker: " + trackerVelocity.ToString() +
-                                 ", Ball: " + ballRigidBody.velocity.ToString() +
-                                 ", initial: " + ballInitialVelocity.ToString() +
-                                 ", dp: " + dp.ToString());
-                //ballRigidBody.AddForce(force, ForceMode.Impulse);
-                ballRigidBody.velocity += force;
-            }
-            // if we are not moving the bat, check if we want to retain the ball's velocity,
-            //  based on bat's direction
-            else
-            {
-                Vector3 batFacing = trackerPos - attachParent.transform.position;
-                dp = Vector3.Dot(ballRigidBody.velocity, batFacing);
-                // if the dp is positive, angle is between -90 & 90, so no need to dampen
-                if(dp < 0f)
+                    //Debug.LogWarning("Adding force: " + force.ToString() +
+                    //                 ", Tracker: " + trackerVelocity.ToString() +
+                    //                 ", Ball: " + ballRigidBody.velocity.ToString() +
+                    //                 ", initial: " + ballInitialVelocity.ToString() +
+                    //                 ", dp: " + dp.ToString());
+                    ballRigidBody.velocity += force;
+                }
+                // if we are not moving the bat, check if we want to retain the ball's velocity,
+                //  based on bat's direction
+                else
                 {
-                    // dampen the velocity on the ball
-                    float magnit = ballRigidBody.velocity.magnitude;
-                    ballRigidBody.velocity *= (Random.Range(2f, 5f) / magnit);
+                    Vector3 batFacing = trackerPos - attachParent.transform.position;
+                    dp = Vector3.Dot(ballRigidBody.velocity, batFacing);
+                    // if the dp is positive, angle is between -90 & 90, so no need to dampen
+                    if (dp < 0f)
+                    {
+                        // dampen the velocity on the ball
+                        float magnit = ballRigidBody.velocity.magnitude;
+                        ballRigidBody.velocity *= (Random.Range(2f, 5f) / magnit);
+                    }
                 }
-            }
 
-            // Play sound
-            Vector3 delta = ballRigidBody.velocity - trackerVelocity;
-            float mag = delta.magnitude;
-            if (mag < 25f || dp <= 0f)
-            {
-                Debug.Log("Playing shot1");
-                AudioSource.PlayClipAtPoint(audioShot1, trackerPos);
-            }
-            else if (mag >= 25f && mag < 30f)
-            {
-                Debug.Log("Playing shot2");
-                AudioSource.PlayClipAtPoint(audioShot2, trackerPos);
+                // Play sound
+                Vector3 delta = ballRigidBody.velocity - trackerVelocity;
+                float mag = delta.magnitude;
+                if (mag < 25f || dp <= 0f)
+                {
+                    //Debug.Log("Playing shot1");
+                    AudioSource.PlayClipAtPoint(audioShot1, trackerPos);
+                }
+                else if (mag >= 25f && mag < 30f)
+                {
+                    //Debug.Log("Playing shot2");
+                    AudioSource.PlayClipAtPoint(audioShot2, trackerPos);
+                }
+                else
+                {
+                    //Debug.Log("Playing shot3");
+                    AudioSource.PlayClipAtPoint(audioShot3, trackerPos);
+                }
+
+                // Haptics feedback
+                StartCoroutine(ProvideVibration());
             }
             else
-            {
-                Debug.Log("Playing shot3");
-                AudioSource.PlayClipAtPoint(audioShot3, trackerPos);
-            }
-
-            // Haptics feedback
-            StartCoroutine(ProvideVibration());
+                Debug.Log("CAUTION: " + gameObject.name + " collided with ball, but game state was " + Main.Instance.gameState.ToString());
         }
     }
 

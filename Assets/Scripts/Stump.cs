@@ -19,20 +19,29 @@ public class Stump : MonoBehaviour
     {
         if (collision.gameObject.name == "Ball")
         {
-            if (ballRigidBody == null)
-                ballRigidBody = collision.gameObject.GetComponent<Rigidbody>();
+            if (Main.Instance.gameState == eGameState.InGame_DeliverBallLoop ||
+                Main.Instance.gameState == eGameState.InGame_BallHit ||
+                Main.Instance.gameState == eGameState.InGame_BallHitLoop)
+            {
+                if (ballRigidBody == null)
+                    ballRigidBody = collision.gameObject.GetComponent<Rigidbody>();
 
-            // dampen the velocity on the ball
-            float mag = ballRigidBody.velocity.magnitude;
-            ballRigidBody.velocity *= (Random.Range(2f, 5f) / mag);
+                // dampen the velocity on the ball
+                float mag = ballRigidBody.velocity.magnitude;
+                ballRigidBody.velocity *= (Random.Range(2f, 5f) / mag);
 
-            StartCoroutine(PlayBallHitStumpSoundDelayed(transform.position));
+                StartCoroutine(PlayBallHitStumpSoundDelayed(transform.position));
+
+                Main.Instance.ResetDelay = 4f;
+                Main.Instance.gameState = eGameState.InGame_ResetToReady;
+            }
         }
     }
 
     public IEnumerator PlayBallHitStumpSoundDelayed(Vector3 point)
     {
         yield return new WaitForSeconds(0.3f);
+
         AudioSource.PlayClipAtPoint(audioClip, point);
     }
 }

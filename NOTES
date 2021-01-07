@@ -4,12 +4,12 @@
 √ Ball trails in air
 √ Ball physics collider tweaks to impart lateral impulse for swing effect
 √ Add preliminary sounds (ambient crowd, bat collision)
+√ Fix ground levels, fix lights, fix complex stands
 
-~ Bat physics collider tweaks with a custom script to include bat's momentum into ball physics
-~ Stumps & their physics
+~ Bat physics collider tweaks with a custom script to include bat's momentum into ball physics (ongoing)
+~ Stumps & their physics (bails pending)
 
-- Fix ground levels, fix lights, fix complex stands
-- Slide bowling machine and pick a spot laterally at the putch
+- Slide bowling machine and pick a spot laterally at the pitch
 - Cheer audio on big shots & outs
 
 - Define types of bowling - Pace, Spin (with templates)
@@ -25,14 +25,13 @@
 
 
 
+- Fix pitch & 30 yards seams
+- AI Fielders
+- Scoring Mechanism
+	- Add iTween
+	
 
 
-
-
-
--31.1
--44.1
-43.9
 
 
 

@@ -30,8 +30,32 @@ public enum eSwingType
     Random
 }
 
+public enum eGameState
+{
+    None,
+
+    InMenu, // TODO: Add these later
+    InGame_Ready,
+    InGame_SelectDelivery,
+    InGame_SelectDeliveryLoop,
+    InGame_DeliverBall,
+    InGame_DeliverBallLoop,
+    InGame_BallHit,
+    InGame_BallHitLoop,
+    InGame_BallFielded,
+    InGame_BallFielded_Loop,
+    InGame_BallMissed,
+    InGame_BallMissedLoop,
+    InGame_BallPastBoundary,
+    InGame_BallPastBoundaryLoop,
+    InGame_ResetToReady,
+    InGame_ResetToReadyLoop
+}
+
 public class Main : MonoBehaviour
 {
+    public static Main Instance;
+
     public const string PP_difficulty = "difficulty";
     public const string PP_battingStyle = "style";
     public const string PP_stadiumMode = "mode";
@@ -46,14 +70,40 @@ public class Main : MonoBehaviour
     public const string PP_swingType = "swing";
     public const string PP_zOffset = "menu_offset";
 
+    [HideInInspector]
+    public eGameState gameState {
+                                    get { return _gameState; }
+                                    set { _gameState = value; if (onGameStateChanged != null) onGameStateChanged(); }
+                                }
+    private eGameState _gameState;
+    [HideInInspector]
+    public event System.Action onGameStateChanged;
+    [HideInInspector]
+    public string currentFielderName;
+
+    [HideInInspector]
+    public Bat theBatScript;
+    [HideInInspector]
+    public Ball theBallScript;
+    [HideInInspector]
+    public Stumps theStumpsScript;
+    [HideInInspector]
+    public Rigidbody theBallRigidBody;
+
+    public float ResetDelay = 2f;
+    public float FielderSpeed = 1.5f;
+
     [SerializeField]
-    protected GameObject theBall;
+    public GameObject theBall;
     [SerializeField]
-    protected GameObject theBat;
+    public GameObject theBat;
     [SerializeField]
-    protected GameObject theStumps;
+    public GameObject theStumps;
     [SerializeField]
     protected OVRPlayerController theController;
+    [SerializeField]
+    protected GameObject BowlingMachineFace;
+    private Material SignalMaterial;
     [SerializeField]
     protected Material NightMaterial;
     [SerializeField]
@@ -66,7 +116,10 @@ public class Main : MonoBehaviour
     protected bool dbgToggle;
     [SerializeField]
     protected Text debugText;
-
+    [SerializeField]
+    protected Text consoleText;
+    [SerializeField]
+    protected GameObject dbgOverlayParent;
 
     [Header("Settings")]
     [SerializeField]
@@ -113,12 +166,7 @@ public class Main : MonoBehaviour
     private const int HISTORY_TEXT_MAX_LENGTH = 16000;
     private List<string> history;
     private int historyTextLength;
-    private int maxViewableLines;
-
-    private Bat theBatScript;
-    private Ball theBallScript;
-    private Stumps theStumpsScript;
-    private Rigidbody theBallRigidBody;
+    private const int MAX_VIEWABLE_LINES = 17;
 
     private void Awake()
     {
@@ -135,12 +183,15 @@ public class Main : MonoBehaviour
         {
             theStumpsScript = theStumps.GetComponent<Stumps>();
         }
+        if(BowlingMachineFace != null)
+        {
+            SignalMaterial = BowlingMachineFace.GetComponent<Renderer>().material;
+        }
 
         initialized = false;
 
         this.history = new List<string>(HISTORY_MAX_LINES);
         this.historyTextLength = 0;
-        this.maxViewableLines = 100;
 
         Application.logMessageReceived += this.HandleLog;
     }
@@ -153,6 +204,9 @@ public class Main : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        if (Main.Instance == null)
+            Main.Instance = this;
+
         _ampMin = _ampMax = _pitchTurn = _fX = _fY = _fZ = _zOffset = 0f;
         _swingType = eSwingType.None;
 
@@ -184,6 +238,8 @@ public class Main : MonoBehaviour
         updateSpeedParams();
 
         initialized = true;
+
+        gameState = eGameState.None;
     }
 
     private Text fXText;
@@ -194,7 +250,6 @@ public class Main : MonoBehaviour
     private Text ampMinText;
     private Text ampMaxText;
     private Text pitchTurnText;
-    private Text consoleText;
     private Text offsetZText;
     private Slider fXSlider;
     private Slider fYSlider;
@@ -216,6 +271,7 @@ public class Main : MonoBehaviour
     private Toggle hardToggle;
     private Toggle nightToggle;
     private Toggle dayToggle;
+    private Toggle overlayToggle;
 
     public void SetupDebugMenu()
     {
@@ -245,19 +301,6 @@ public class Main : MonoBehaviour
         nightToggle = radio6.GetComponentInChildren<Toggle>();
         var radio7 = DebugUIBuilder.instance.AddRadio("Day", "stadium", onDayMode);
         dayToggle = radio7.GetComponentInChildren<Toggle>();
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// Debug Console & z-offset
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        DebugUIBuilder.instance.AddLabel("Console Log", 2);
-        // Debug log output
-        DebugUIBuilder.instance.AddDivider(2);
-        var prefab = DebugUIBuilder.instance.AddBigLabel("", 2);
-        consoleText = prefab.GetComponent<Text>();
-        // offsetZ
-        var pr = DebugUIBuilder.instance.AddSlider("Menu Position", 3.0f, 10.0f, onZChange, true, 2);
-        offsetZText = pr.GetComponentsInChildren<Text>()[1];
-        offsetZSlider = pr.GetComponentInChildren<Slider>();
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         /// Debug Tweakables
@@ -308,6 +351,13 @@ public class Main : MonoBehaviour
         var prefab6 = DebugUIBuilder.instance.AddSlider("Pitch Turn", 0.0f, 1.0f, onPitchTurnChange, false, 1);
         pitchTurnText = prefab6.GetComponentsInChildren<Text>()[1];
         pitchTurnSlider = prefab6.GetComponentInChildren<Slider>();
+        // offsetZ
+        var pr = DebugUIBuilder.instance.AddSlider("Menu Position", 3.0f, 10.0f, onZChange, true, 1);
+        offsetZText = pr.GetComponentsInChildren<Text>()[1];
+        offsetZSlider = pr.GetComponentInChildren<Slider>();
+        // overlayToggle
+        var p = DebugUIBuilder.instance.AddToggle("Show Overlay", onOverlayToggle, true, 1);
+        overlayToggle = p.GetComponentInChildren<Toggle>();
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -681,6 +731,10 @@ public class Main : MonoBehaviour
             updateSwingParams();
         }
     }
+    public void onOverlayToggle(Toggle t)
+    {
+        dbgOverlayParent.SetActive(t.isOn);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Update is called once per frame
@@ -702,51 +756,215 @@ public class Main : MonoBehaviour
         }
 
         if (debugText != null)
-            debugText.text = "Ball last velocity: " + theBallScript.lastVelocity.ToString();
+            debugText.text = "GameState: " + gameState.ToString();
+
+        if(SignalMaterial != null)
+        {
+            if (gameState == eGameState.InGame_Ready)
+                SignalMaterial.color = Color.green;
+            else
+                SignalMaterial.color = Color.red;
+        }
+
+        // Temporary stuff
+        if (GetButton(OVRInput.Button.Three))
+        {
+            gameState = eGameState.InGame_ResetToReady;
+        }
 
         // if debug menu is not active!
         if (!DebugUIBuilder.instance.isActiveAndEnabled)
         {
-            if (GetButton(OVRInput.Button.One))
+            switch(gameState)
             {
-                // Reset stumps
-                theStumpsScript.Reset();
+                case eGameState.None:
+                    {
+                        // For now, skip the menus
+                        gameState = eGameState.InGame_ResetToReady;
+                    }
+                    break;
+                case eGameState.InMenu:
+                    {
 
-                // disable physics
-                theBallRigidBody.isKinematic = true;
-                // reset ball position to inside machine
-                theBall.transform.position = new Vector3(-8.95f, 2.95f, 0f);
-                theBallScript.fresh = true;
+                    }
+                    break;
+                case eGameState.InGame_Ready:
+                    {
+                        if (GetButton(OVRInput.Button.One))
+                        {
+                            currentFielderName = "";
 
-                // make the ball static
-                theBallRigidBody.velocity = Vector3.zero;
-                // enable physics
-                theBallRigidBody.isKinematic = false;
-                // Add the required force & rotation
-                theBallRigidBody.AddTorque(new Vector3(50f, 50f, 50f), ForceMode.Impulse);
-                theBallRigidBody.AddForce(new Vector3(fX, fY, fZ), ForceMode.Impulse);
-                // save it
-                theBallScript.lastVelocity = new Vector3(fX, fY, fZ);
+                            // Reset stumps
+                            theStumpsScript.Reset();
+
+                            StopTheBall();
+
+                            // Switch to the process of selecting delivery type, stride & other params before delivery loop
+                            gameState = eGameState.InGame_SelectDelivery;
+                        }
+                    }
+                    break;
+                case eGameState.InGame_SelectDelivery:
+                    {
+                        // TODO: Add the process here!
+                        // For now, switch directly to loop state
+                        gameState = eGameState.InGame_SelectDeliveryLoop;
+                    }
+                    break;
+                case eGameState.InGame_SelectDeliveryLoop:
+                    {
+                        // TODO: Add the coroutines & tweening waits
+                        // For now, switch to deliver ball state
+                        gameState = eGameState.InGame_DeliverBall;
+                    }
+                    break;
+                case eGameState.InGame_DeliverBall:
+                    {
+                        // enable physics
+                        theBallRigidBody.isKinematic = false;
+                        // Add the required force & rotation
+                        theBallRigidBody.AddTorque(new Vector3(50f, 50f, 50f), ForceMode.Impulse);
+                        theBallRigidBody.AddForce(new Vector3(fX, fY, fZ), ForceMode.Impulse);
+                        // save it
+                        theBallScript.lastVelocity = new Vector3(fX, fY, fZ);
+                        // mark as fresh delivery!
+                        theBallScript.fresh = true;
+
+                        gameState = eGameState.InGame_DeliverBallLoop;
+                    }
+                    break;
+                case eGameState.InGame_DeliverBallLoop:
+                    {
+                        // Nothing to do here for now!
+                        // Bat collision with the ball or
+                        // Ball collision with the stumps or
+                        // Ball collision with the keeper (invisible collider)
+                        // will trigger next state change
+                    }
+                    break;
+                case eGameState.InGame_BallHit:
+                    {
+                        // TODO: Add any special processing needed here
+                        // For now, switch to next state
+                        gameState = eGameState.InGame_BallHitLoop;
+                    }
+                    break;
+                case eGameState.InGame_BallHitLoop:
+                    {
+                        // Nothing to do here for now!
+                        // Fielder collision with the ball or
+                        // Boundary collision with the ball
+                        // will trigger next state change
+                    }
+                    break;
+                case eGameState.InGame_BallFielded:
+                    {
+                        // TODO: Add any special processing needed here
+                        // For now, switch to next state
+                        gameState = eGameState.InGame_BallFielded_Loop;
+
+                        // Wait for '2' seconds and reset to Ready
+                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                    }
+                    break;
+                case eGameState.InGame_BallFielded_Loop:
+                    {
+                        // Nothing to do here for now!
+                    }
+                    break;
+                case eGameState.InGame_BallMissed:
+                    {
+                        // TODO: Add any special processing needed here
+                        // For now, switch to next state
+                        gameState = eGameState.InGame_BallMissedLoop;
+
+                        // Wait for '2' seconds and reset to Ready
+                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                    }
+                    break;
+                case eGameState.InGame_BallMissedLoop:
+                    {
+                        // Nothing to do here for now!
+                    }
+                    break;
+                case eGameState.InGame_BallPastBoundary:
+                    {
+                        // TODO: Add any special processing needed here
+                        // For now, switch to next state
+                        gameState = eGameState.InGame_BallPastBoundaryLoop;
+
+                        // Wait for '2' seconds and reset to Ready
+                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                    }
+                    break;
+                case eGameState.InGame_BallPastBoundaryLoop:
+                    {
+                        // Nothing to do here for now!
+                    }
+                    break;
+                case eGameState.InGame_ResetToReady:
+                    {
+                        gameState = eGameState.InGame_ResetToReadyLoop;
+
+                        // Wait for 'ResetDelay' seconds and reset to Ready
+                        StartCoroutine(WaitAndSetGameState(ResetDelay, eGameState.InGame_Ready));
+                    }
+                    break;
+                case eGameState.InGame_ResetToReadyLoop:
+                    {
+                        // Nothing to do here for now!
+                    }
+                    break;
+
+                default:
+                    break;
             }
         }
 
+        // Debug UI toggle!
         if (GetButton(OVRInput.Button.Two))
         {
-            dbgToggle = !dbgToggle;
-
-            if (dbgToggle)
-            {
-                DebugUIBuilder.instance.Show();
-                theBat.SetActive(false);
-            }
-            else
-            {
-                // Save changes from settings
-                PlayerPrefs.Save();
-                DebugUIBuilder.instance.Hide();
-                theBat.SetActive(true);
-            }
+            ToggleUI(!dbgToggle);
         }
+    }
+
+    private void ToggleUI(bool flag)
+    {
+        dbgToggle = flag;
+
+        if (dbgToggle)
+        {
+            DebugUIBuilder.instance.Show();
+            theBat.SetActive(false);
+        }
+        else
+        {
+            // Save changes from settings
+            PlayerPrefs.Save();
+            DebugUIBuilder.instance.Hide();
+            theBat.SetActive(true);
+        }
+    }
+
+    private void StopTheBall()
+    {
+        // pause the particles
+        theBallScript.myParticles.Stop();
+        theBallScript.myParticles.Clear();
+        // disable physics
+        theBallRigidBody.isKinematic = true;
+        // reset ball position to inside machine
+        theBall.transform.position = new Vector3(-8.95f, 2.95f, 0f);
+        // make the ball static
+        theBallRigidBody.velocity = Vector3.zero;
+    }
+
+    public IEnumerator WaitAndSetGameState(float delay, eGameState state)
+    {
+        yield return new WaitForSeconds(delay);
+
+        Debug.LogWarning("Setting GameState from: " + gameState.ToString() + " to: " + state.ToString());
+        gameState = state;
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -785,17 +1003,11 @@ public class Main : MonoBehaviour
 
         // Check if we are ignoring a certain type of message.
         if (logType == LogType.Log)
-        {
             color = "white";
-        }
         else if (logType == LogType.Warning)
-        {
             color = "yellow";
-        }
         else
-        {
             color = "red";
-        }
 
         string txt = "<color=" + color + ">" + System.DateTime.Now.ToLongTimeString() + " - " + message + "</color>";
         history.Add(txt);
@@ -812,10 +1024,6 @@ public class Main : MonoBehaviour
         // Harden the history text length in case the history text length "drifts" from the history contents...
         historyTextLength = history.Count > 0 ? Mathf.Max(0, historyTextLength) : 0;
 
-        // If we are not open, no extra processing
-        if (!dbgToggle)
-            return;
-
         onConsoleTextChange();
     }
 
@@ -823,11 +1031,15 @@ public class Main : MonoBehaviour
     {
         string viewText = string.Empty;
 
-        for (int i = 0, imax = history.Count; i < maxViewableLines && i < imax; i++)
+        int start = history.Count - MAX_VIEWABLE_LINES;
+        if (start < 0)
+            start = 0;
+
+        for (int i = start; i < history.Count; i++)
         {
             viewText += history[i];
 
-            if (i < maxViewableLines - 1 && i < imax - 1)
+            if (i < history.Count - 1)
             {
                 viewText += "\n";
             }

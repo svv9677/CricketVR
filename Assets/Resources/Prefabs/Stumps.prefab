@@ -30,6 +30,19 @@ CapsuleCollider:
   m_Height: 0.75
   m_Direction: 1
   m_Center: {x: 0, y: 0.35, z: 0}
+--- !u!114 &994948152
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8201149988796757577}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1ac6d365b14142d7bd3b73c20bcecae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  audioClip: {fileID: 8300000, guid: ad51b823ecba4498fb8ef311def2a1eb, type: 3}
 --- !u!54 &9012054317112162647
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -60,6 +73,19 @@ CapsuleCollider:
   m_Height: 0.75
   m_Direction: 1
   m_Center: {x: 0, y: 0.35, z: 0}
+--- !u!114 &1430317231
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8201149989336337574}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1ac6d365b14142d7bd3b73c20bcecae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  audioClip: {fileID: 8300000, guid: ad51b823ecba4498fb8ef311def2a1eb, type: 3}
 --- !u!54 &9012054317092192238
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -90,6 +116,19 @@ CapsuleCollider:
   m_Height: 0.75
   m_Direction: 1
   m_Center: {x: 0, y: 0.35, z: 0}
+--- !u!114 &1416637974
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8201149990304609148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1ac6d365b14142d7bd3b73c20bcecae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  audioClip: {fileID: 8300000, guid: ad51b823ecba4498fb8ef311def2a1eb, type: 3}
 --- !u!1 &9012054316693699609
 GameObject:
   m_ObjectHideFlags: 0
@@ -116,7 +155,7 @@ Transform:
   m_GameObject: {fileID: 9012054316693699609}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 9.94, y: 0.04, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.25, y: 1.25, z: 1.25}
   m_Children:
   - {fileID: 8834803365102595315}
   - {fileID: 8834803365459727900}

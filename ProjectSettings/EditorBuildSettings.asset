@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/CricketVR.unity
     guid: 9a4d64465017747c6bd3f1fd8b8a2eaa
+  - enabled: 1
+    path: Assets/Scenes/Splash.unity
+    guid: f66b9156e3ada45b486d9802f8f7c01e
   - enabled: 0
     path: Assets/Oculus/SampleFramework/Usage/CustomControllers.unity
     guid: e0f49aa4174f98941b88699b5fecddc0
