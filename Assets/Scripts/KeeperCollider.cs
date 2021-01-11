@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 public class KeeperCollider : MonoBehaviour
 {
@@ -8,7 +6,7 @@ public class KeeperCollider : MonoBehaviour
     {
         if (other.gameObject.name == "Ball" && Main.Instance.gameState == eGameState.InGame_DeliverBallLoop)
         {
-            Main.Instance.ResetDelay = 2f;
+            Main.Instance.resetDelay = 2f;
             if(Main.Instance.gameState == eGameState.InGame_DeliverBallLoop)
                 Main.Instance.gameState = eGameState.InGame_BallMissed;
             else

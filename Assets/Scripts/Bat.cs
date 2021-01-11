@@ -29,16 +29,10 @@ public class Bat : MonoBehaviour
     public Transform attachParent;
     [HideInInspector]
     public Vector3 trackerVelocity;
-    [HideInInspector]
-    public float ampMin;
-    [HideInInspector]
-    public float ampMax;
 
     private bool grabbing = false;
     private Collider[] myColliders;
     private Rigidbody myRigidBody;
-    private Rigidbody ballRigidBody;
-    private Ball ballScript;
     private Vector3 ballInitialVelocity;
 
     public Vector3 startingPosition;
@@ -55,8 +49,6 @@ public class Bat : MonoBehaviour
 
         myColliders = GetComponentsInChildren<Collider>();
         myRigidBody = GetComponent<Rigidbody>();
-        ballRigidBody = null;
-        ampMin = ampMax = 0f;
     }
 
     public void CheckAndGrab()
@@ -96,19 +88,15 @@ public class Bat : MonoBehaviour
         // If we hit the ball
         if (collisionInfo.gameObject.name == "Ball")
         {
-            if (Main.Instance.gameState == eGameState.InGame_DeliverBallLoop ||
-                Main.Instance.gameState == eGameState.InGame_BallHit ||
-                Main.Instance.gameState == eGameState.InGame_BallHitLoop)
+            Main inst = Main.Instance;
+            if (inst.gameState == eGameState.InGame_DeliverBallLoop ||
+                inst.gameState == eGameState.InGame_BallHit ||
+                inst.gameState == eGameState.InGame_BallHitLoop)
             {
-                Main.Instance.gameState = eGameState.InGame_BallHit;
-
-                if (ballScript == null)
-                    ballScript = collisionInfo.gameObject.GetComponent<Ball>();
-                if (ballRigidBody == null)
-                    ballRigidBody = collisionInfo.gameObject.GetComponent<Rigidbody>();
+                inst.gameState = eGameState.InGame_BallHit;
 
                 // make a note of the ball's initial velocity
-                ballInitialVelocity = ballScript.lastVelocity;
+                ballInitialVelocity = inst.theBallScript.lastVelocity;
 
                 float dp = 0f;
                 if (trackerVelocity.magnitude > 0f)
@@ -116,47 +104,53 @@ public class Bat : MonoBehaviour
                     Vector3 force;
                     // Clamp magnitude to min & max
                     float magn = trackerVelocity.magnitude;
-                    if (magn > 1.0f)
-                        magn = 1.0f;
-                    if (magn < 0.25f)
-                        magn = 0.25f;
-                    float amplifier = ampMin;
+                    magn = Mathf.Clamp(magn, 0.25f, 1f);
+
+                    // If it is spin bowling, add extra push from the bat
+                    if (ballInitialVelocity.magnitude < 5f)
+                        magn *= 2.5f;
+
+                    // start with softer impact
+                    float amplifier = inst.ampMin;
                     float ballAmplifier = 0f;
-                    // first check if the initial ball direction and bat's tracker direction is along same lines
+                    // check if the initial ball direction and bat's tracker direction is along same lines
                     dp = Vector3.Dot(ballInitialVelocity, trackerVelocity);
                     // if dot product is positive, the angle is between -90 & 90, so they are headed in same direction
                     if (dp < 0f)
                     {
-                        amplifier = ampMax;
+                        // heading in opposite direction, so harder impact
+                        amplifier = inst.ampMax;
                         ballAmplifier = 2f;
                     }
+
+                    // Calculate the final force now with all the params
                     force = (amplifier * magn * trackerVelocity.normalized) +
-                            (ballAmplifier * magn * ballRigidBody.velocity);
+                            (ballAmplifier * magn * inst.theBallRigidBody.velocity);
 
                     //Debug.LogWarning("Adding force: " + force.ToString() +
                     //                 ", Tracker: " + trackerVelocity.ToString() +
                     //                 ", Ball: " + ballRigidBody.velocity.ToString() +
                     //                 ", initial: " + ballInitialVelocity.ToString() +
                     //                 ", dp: " + dp.ToString());
-                    ballRigidBody.velocity += force;
+                    inst.theBallRigidBody.velocity += force;
                 }
                 // if we are not moving the bat, check if we want to retain the ball's velocity,
                 //  based on bat's direction
                 else
                 {
                     Vector3 batFacing = trackerPos - attachParent.transform.position;
-                    dp = Vector3.Dot(ballRigidBody.velocity, batFacing);
+                    dp = Vector3.Dot(inst.theBallRigidBody.velocity, batFacing);
                     // if the dp is positive, angle is between -90 & 90, so no need to dampen
                     if (dp < 0f)
                     {
                         // dampen the velocity on the ball
-                        float magnit = ballRigidBody.velocity.magnitude;
-                        ballRigidBody.velocity *= (Random.Range(2f, 5f) / magnit);
+                        float magnit = inst.theBallRigidBody.velocity.magnitude;
+                        inst.theBallRigidBody.velocity *= (Random.Range(2f, 5f) / magnit);
                     }
                 }
 
                 // Play sound
-                Vector3 delta = ballRigidBody.velocity - trackerVelocity;
+                Vector3 delta = inst.theBallRigidBody.velocity - trackerVelocity;
                 float mag = delta.magnitude;
                 if (mag < 25f || dp <= 0f)
                 {
@@ -178,7 +172,7 @@ public class Bat : MonoBehaviour
                 StartCoroutine(ProvideVibration());
             }
             else
-                Debug.Log("CAUTION: " + gameObject.name + " collided with ball, but game state was " + Main.Instance.gameState.ToString());
+                Debug.Log("CAUTION: " + gameObject.name + " collided with ball, but game state was " + inst.gameState.ToString());
         }
     }
 

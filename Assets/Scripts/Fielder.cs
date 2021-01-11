@@ -2,18 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum eFielderState
-{
-    Idle,
-    ToIdle,
-
-    TakingStart,
-    ToTakingStart,
-
-    MovingTowardsBall,
-    Fielded
-}
-
 public class Fielder : MonoBehaviour
 {
     [SerializeField]
@@ -58,18 +46,19 @@ public class Fielder : MonoBehaviour
         Main.Instance.onGameStateChanged -= HandleGameState;
     }
 
-    private void OnDrawGizmos()
-    {
-        Gizmos.DrawSphere(transform.position + (transform.forward * 0.85f) + transform.up, 0.365f);
-    }
+    //private void OnDrawGizmos()
+    //{
+    //    Gizmos.DrawSphere(transform.position + (transform.forward * 0.85f) + transform.up, 0.365f);
+    //}
 
     public void HandleGameState()
     {
-        if((Main.Instance.gameState == eGameState.InGame_BallFielded ||
-            Main.Instance.gameState == eGameState.InGame_BallFielded_Loop ||
-            Main.Instance.gameState == eGameState.InGame_ResetToReady ||
-            Main.Instance.gameState == eGameState.InGame_ResetToReadyLoop) &&
-           Main.Instance.currentFielderName == transform.name)
+        Main inst = Main.Instance;
+        if ((inst.gameState == eGameState.InGame_BallFielded ||
+            inst.gameState == eGameState.InGame_BallFielded_Loop ||
+            inst.gameState == eGameState.InGame_ResetToReady ||
+            inst.gameState == eGameState.InGame_ResetToReadyLoop) &&
+           inst.currentFielderName == transform.name)
         {
             holdBall = true;
         }
@@ -83,22 +72,37 @@ public class Fielder : MonoBehaviour
     {
         if(collision.gameObject.name == "Ball" && !holdBall)
         {
-            if (Main.Instance.gameState != eGameState.InGame_BallHitLoop)
+            Main inst = Main.Instance;
+            if (inst.gameState != eGameState.InGame_BallHitLoop && inst.gameState != eGameState.InGame_DeliverBallLoop)
             {
-                Debug.Log("CAUTION: " + gameObject.name + " collided with ball, but game state was " + Main.Instance.gameState.ToString());
+                Debug.LogWarning("CAUTION: " + gameObject.name + " collided with ball, but game state was " + inst.gameState.ToString());
                 return;
+            }
+            if (isKeeper)
+            {
+                // batsman missed the ball
+                if(inst.gameState == eGameState.InGame_DeliverBallLoop)
+                    inst.gameState = eGameState.InGame_BallMissed;
+                if(inst.gameState == eGameState.InGame_BallHitLoop)
+                {
+                    inst.currentFielderName = transform.name;
+                    inst.gameState = eGameState.InGame_BallFielded;
+                }
+            }
+            else
+            {
+                inst.currentFielderName = transform.name;
+                inst.gameState = eGameState.InGame_BallFielded;
             }
 
             // pause the particles
-            Main.Instance.theBallScript.myParticles.Stop();
-            Main.Instance.theBallScript.myParticles.Clear();
+            inst.theBallScript.myParticles.Stop();
+            inst.theBallScript.myParticles.Clear();
             // disable physics
-            Main.Instance.theBallRigidBody.isKinematic = true;
+            inst.theBallRigidBody.isKinematic = true;
             // make the ball static
-            Main.Instance.theBallRigidBody.velocity = Vector3.zero;
+            inst.theBallRigidBody.velocity = Vector3.zero;
 
-            Main.Instance.currentFielderName = transform.name;
-            Main.Instance.gameState = eGameState.InGame_BallFielded;
         }
     }
 
@@ -109,24 +113,25 @@ public class Fielder : MonoBehaviour
 
     public void LateUpdate()
     {
-        if(holdBall)
-            Main.Instance.theBall.transform.position = transform.position + (transform.forward * 0.35f) + transform.up;
+        Main inst = Main.Instance;
+        if (holdBall)
+            inst.theBall.transform.position = transform.position + (transform.forward * 0.35f) + transform.up;
 
-        if(Main.Instance.gameState == eGameState.InGame_SelectDelivery ||
-           Main.Instance.gameState == eGameState.InGame_SelectDeliveryLoop ||
-           Main.Instance.gameState == eGameState.InGame_DeliverBall ||
-           Main.Instance.gameState == eGameState.InGame_Ready ||
-           Main.Instance.gameState == eGameState.InGame_ResetToReadyLoop)
+        if(inst.gameState == eGameState.InGame_SelectDelivery ||
+           inst.gameState == eGameState.InGame_SelectDeliveryLoop ||
+           inst.gameState == eGameState.InGame_DeliverBall ||
+           inst.gameState == eGameState.InGame_Ready ||
+           inst.gameState == eGameState.InGame_ResetToReadyLoop)
         {
             if (fielderState != eFielderState.Idle && fielderState != eFielderState.ToIdle)
             {
                 fielderState = eFielderState.ToIdle;
 
                 Hashtable args = new Hashtable();
-                Vector3 pos = Main.Instance.theStumps.transform.position;
+                Vector3 pos = inst.theStumps.transform.position;
                 pos.y = transform.position.y;
                 args["position"] = StartPosition;
-                args["speed"] = Main.Instance.FielderSpeed;
+                args["speed"] = inst.fielderSpeed;
                 args["looktarget"] = pos;
                 args["looktime"] = 1f;
                 args["oncomplete"] = "SetState";
@@ -135,7 +140,7 @@ public class Fielder : MonoBehaviour
             }
         }
 
-        if (Main.Instance.gameState == eGameState.InGame_DeliverBallLoop)
+        if (inst.gameState == eGameState.InGame_DeliverBallLoop)
         {
             if(fielderState != eFielderState.TakingStart && fielderState != eFielderState.ToTakingStart &&
                 !isKeeper)
@@ -146,15 +151,15 @@ public class Fielder : MonoBehaviour
                 Vector3 pos = transform.position + (transform.forward * 2f);
                 pos.y = transform.position.y;
                 args["position"] = pos;
-                args["speed"] = Main.Instance.FielderSpeed;
+                args["speed"] = inst.fielderSpeed;
                 args["oncomplete"] = "SetState";
                 args["oncompleteparams"] = eFielderState.TakingStart;
                 iTween.MoveTo(this.gameObject, args);
             }
         }
 
-        if(Main.Instance.gameState == eGameState.InGame_BallHit ||
-           Main.Instance.gameState == eGameState.InGame_BallHitLoop)
+        if(inst.gameState == eGameState.InGame_BallHit ||
+           inst.gameState == eGameState.InGame_BallHitLoop)
         {
             if(fielderState != eFielderState.Fielded &&
                 !isKeeper)
@@ -162,11 +167,11 @@ public class Fielder : MonoBehaviour
                 fielderState = eFielderState.MovingTowardsBall;
 
                 Hashtable args = new Hashtable();
-                Vector3 pos = Main.Instance.theBall.transform.position;
+                Vector3 pos = inst.theBall.transform.position;
                 pos.y = transform.position.y;
                 // MoveUpdate does not take speed, it only takes time,
                 //  so we need to convert our speed into time
-                float t = (pos - transform.position).magnitude / Main.Instance.FielderSpeed;
+                float t = (pos - transform.position).magnitude / inst.fielderSpeed;
                 t = Mathf.Max(t, 1f);
                 args["position"] = pos;
                 args["looktarget"] = pos;

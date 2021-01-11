@@ -771,13 +771,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 491642e36ce1e478e848638a78ec4612, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentFielderName: 
   theBatScript: {fileID: 0}
   theBallScript: {fileID: 0}
   theStumpsScript: {fileID: 0}
   theBallRigidBody: {fileID: 0}
-  ResetDelay: 2
-  FielderSpeed: 2
+  theHUD: {fileID: 0}
+  currentFielderName: 
   theBall: {fileID: 919132149594783419}
   theBat: {fileID: 942000608}
   theStumps: {fileID: 766750181}
@@ -787,23 +786,80 @@ MonoBehaviour:
   DayMaterial: {fileID: 2100000, guid: 799432b58386306488cfd7a19e7ff4d7, type: 2}
   theNightLights: {fileID: 1712308633}
   theDayLights: {fileID: 1462605827}
-  dbgToggle: 0
   debugText: {fileID: 1854069093}
   consoleText: {fileID: 258532401}
   dbgOverlayParent: {fileID: 38714589}
-  difficulty: 0
-  battingStyle: 0
-  stadiumMode: 0
+  hudParent: {fileID: 1870456451}
+  difficulty: 1
+  battingStyle: 1
+  stadiumMode: 1
   zOffset: 3
-  ampMin: 0
-  ampMax: 0
-  pitchTurn: 0
-  fX: 6
-  fY: -1
-  fZ: 0.221
-  minSwing: 0.1
-  maxSwing: 0.9
-  swingType: 0
+  hudOffset: 5
+  overlayVisible: 1
+  resetDelay: 2
+  fielderSpeed: 1.5
+  ampMin: 10
+  ampMax: 15
+  MinX:
+  - -1
+  - -1
+  - -1
+  - -1
+  - -1
+  MaxX:
+  - 10
+  - 10
+  - 10
+  - 10
+  - 10
+  MinY:
+  - -2
+  - -2
+  - -2
+  - -2
+  - -2
+  MaxY:
+  - 2
+  - 2
+  - 2
+  - 2
+  - 2
+  MinZ:
+  - -0.5
+  - -0.5
+  - -0.5
+  - -0.5
+  - -0.5
+  MaxZ:
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.5
+  MinSwing:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  MaxSwing:
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  MinPitchTurn:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  MaxPitchTurn:
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
 --- !u!82 &654163944
 AudioSource:
   m_ObjectHideFlags: 0
@@ -2536,6 +2592,12 @@ RectTransform:
   m_AnchoredPosition: {x: -9.5, y: 4}
   m_SizeDelta: {x: 2560, y: 1440}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1870456451 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 951940300826270567, guid: 237388b3a3fbb4edbbd906c9ea6e84cf,
+    type: 3}
+  m_PrefabInstance: {fileID: 1376373488236827993}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &111555480334152110 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5620717605818630451, guid: 56a62024bb93c4617b1f294211472a86,
@@ -2665,6 +2727,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: HUD
       objectReference: {fileID: 0}
+    - target: {fileID: 2327430013147013964, guid: 237388b3a3fbb4edbbd906c9ea6e84cf,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4019282859826893323, guid: 237388b3a3fbb4edbbd906c9ea6e84cf,
         type: 3}
       propertyPath: m_Camera
@@ -2683,7 +2750,7 @@ PrefabInstance:
     - target: {fileID: 4246227786287875781, guid: 237388b3a3fbb4edbbd906c9ea6e84cf,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 1.13
+      value: 3.5
       objectReference: {fileID: 0}
     - target: {fileID: 4246227786287875781, guid: 237388b3a3fbb4edbbd906c9ea6e84cf,
         type: 3}

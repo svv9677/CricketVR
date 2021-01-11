@@ -1197,6 +1197,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bc548084ff40b4d92866e1c47c1ccb8e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  txtScore: {fileID: 8489424233815753892}
+  txtRunRate: {fileID: 7392157349330856529}
+  txtBatsman1: {fileID: 5296608623891170624}
+  txtBatsman2: {fileID: 5207244733969357704}
+  txtBatsman1Score: {fileID: 4424312004558393974}
+  txtBatsman2Score: {fileID: 2205659811097537898}
+  batIcon1: {fileID: 9211524027718598972}
+  batIcon2: {fileID: 0}
+  txtOvers: {fileID: 1655679953}
+  txtBowler: {fileID: 726048489}
+  txtBowlerStyle: {fileID: 215286172}
+  txtBalls: {fileID: 301303845}
+  Runs: 0
+  Wickets: 0
+  Overs: 0
+  Balls: 0
+  TotalOvers: 0
+  BowledBalls: []
+  NextBatsmanIndex: 0
+  NextBowlerIndex: 0
 --- !u!1 &980371554923661248
 GameObject:
   m_ObjectHideFlags: 0
@@ -2244,80 +2264,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!1 &6095912725701208119
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 7766846937048312717}
-  - component: {fileID: 2296607374265210465}
-  - component: {fileID: 821468550251329449}
-  m_Layer: 0
-  m_Name: batIcon2
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &7766846937048312717
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6095912725701208119}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_Children: []
-  m_Father: {fileID: 2045816742172077664}
-  m_RootOrder: 2
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.5}
-  m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 20, y: 0}
-  m_SizeDelta: {x: 40, y: 40}
-  m_Pivot: {x: 0, y: 0.5}
---- !u!222 &2296607374265210465
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6095912725701208119}
-  m_CullTransparentMesh: 0
---- !u!114 &821468550251329449
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6095912725701208119}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: fcfdd1733c30a41f49497ddcadc7207e, type: 3}
-  m_Type: 0
-  m_PreserveAspect: 0
-  m_FillCenter: 1
-  m_FillMethod: 4
-  m_FillAmount: 1
-  m_FillClockwise: 1
-  m_FillOrigin: 0
-  m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &6157090478474834304
 GameObject:
   m_ObjectHideFlags: 0
@@ -2691,7 +2637,6 @@ RectTransform:
   m_Children:
   - {fileID: 7219155501717135017}
   - {fileID: 1086441680430416514}
-  - {fileID: 7766846937048312717}
   m_Father: {fileID: 2593460006695377107}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

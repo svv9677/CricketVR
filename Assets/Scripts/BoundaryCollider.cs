@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 public class BoundaryCollider : MonoBehaviour
 {
@@ -8,7 +6,7 @@ public class BoundaryCollider : MonoBehaviour
     {
         if(other.gameObject.name == "Ball" && Main.Instance.gameState == eGameState.InGame_BallHitLoop)
         {
-            Main.Instance.ResetDelay = 4f;
+            Main.Instance.resetDelay = 4f;
             if(Main.Instance.gameState == eGameState.InGame_BallHitLoop)
                 Main.Instance.gameState = eGameState.InGame_BallPastBoundary;
             else

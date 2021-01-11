@@ -5,31 +5,29 @@
 √ Ball physics collider tweaks to impart lateral impulse for swing effect
 √ Add preliminary sounds (ambient crowd, bat collision)
 √ Fix ground levels, fix lights, fix complex stands
+√ Fix pitch & 30 yards seams
+√ AI Fielders
+√ Define types of bowling - Pace, Spin (with templates)
+	√ Define params for type of bowling 
+√ Bat physics collider tweaks with a custom script to include bat's momentum into ball physics (ongoing)
 
-~ Bat physics collider tweaks with a custom script to include bat's momentum into ball physics (ongoing)
+
+~ Scoring Mechanism
 ~ Stumps & their physics (bails pending)
 
+- Fix wickets collision issues
 - Slide bowling machine and pick a spot laterally at the pitch
-- Cheer audio on big shots & outs
+- UI / fanfare for scoring & wickets
+	- Cheer audio on big shots & outs
+- UI for final results
+- UI for initial menu
 
-- Define types of bowling - Pace, Spin (with templates)
-- Define params for type of bowling 
-	- Pace - swing, speed
-	- Spin - spin, speed
-	- (as bracket values so we can randomize in between)
 - Define difficulty settings & hook their functionality, tweakable:
 	- Swing amount, Bat collider
+	- Identify all randomization points
 - Complete controller mapping & their functionality in game
 	- Buttons, triggers, analog on both contrtollers & their keyboard mappings
-- Ball marker on pitch
 
-
-
-- Fix pitch & 30 yards seams
-- AI Fielders
-- Scoring Mechanism
-	- Add iTween
-	
 
 
 
@@ -41,9 +39,3 @@ Logic Flow
 On Device - UI Toggle/Slider - onXXX(t/val) - set member var - updateXXX(false) - if diff, update & set player prefs
 In Editor - Inspector set member var 	- Main.Update() - updateXXX(true) - as above PLUS update UI / save prefs
 From code - 		  set member var 	- Main.Update() - updateXXX(true) - as above PLUS update UI / save prefs
-
-0.18, 0.1, 0.18
--35.4, 0.7, 14, -5
-
--0.249, 0.15, 0.18
-21, 1.05, 10, 5

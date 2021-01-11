@@ -19,9 +19,10 @@ public class Stump : MonoBehaviour
     {
         if (collision.gameObject.name == "Ball")
         {
-            if (Main.Instance.gameState == eGameState.InGame_DeliverBallLoop ||
-                Main.Instance.gameState == eGameState.InGame_BallHit ||
-                Main.Instance.gameState == eGameState.InGame_BallHitLoop)
+            Main inst = Main.Instance;
+            if (inst.gameState == eGameState.InGame_DeliverBallLoop ||
+                inst.gameState == eGameState.InGame_BallHit ||
+                inst.gameState == eGameState.InGame_BallHitLoop)
             {
                 if (ballRigidBody == null)
                     ballRigidBody = collision.gameObject.GetComponent<Rigidbody>();
@@ -32,8 +33,7 @@ public class Stump : MonoBehaviour
 
                 StartCoroutine(PlayBallHitStumpSoundDelayed(transform.position));
 
-                Main.Instance.ResetDelay = 4f;
-                Main.Instance.gameState = eGameState.InGame_ResetToReady;
+                inst.gameState = eGameState.InGame_Bowled;
             }
         }
     }
