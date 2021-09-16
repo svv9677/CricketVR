@@ -94,8 +94,8 @@ public class Ball : MonoBehaviour
                     {
                         forceAmount *= 10f;
                         myRigidBody.AddForce(right * forceAmount * inst.currentBowlingConfig.swing, ForceMode.Force);
-                        Debug.Log("SWING: " + (right * forceAmount * inst.currentBowlingConfig.swing).ToString() +
-                            ", forceAmt: " + forceAmount.ToString() + ", right: " + right.ToString());
+                        //Debug.Log("SWING: " + (right * forceAmount * inst.currentBowlingConfig.swing).ToString() +
+                        //    ", forceAmt: " + forceAmount.ToString() + ", right: " + right.ToString());
                     }
                 }
             }
@@ -130,7 +130,7 @@ public class Ball : MonoBehaviour
                     if (right.magnitude > 0f)
                     {
                         myRigidBody.AddForce(right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f, ForceMode.Impulse);
-                        Debug.Log("TURN: " + (right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f).ToString());
+                        //Debug.Log("TURN: " + (right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f).ToString());
                     }
                 }
             }

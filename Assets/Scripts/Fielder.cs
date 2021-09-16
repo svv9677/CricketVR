@@ -20,7 +20,7 @@ public class Fielder : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        if(theObject != null)
+        if (theObject != null)
         {
             Material[] mats = theObject.GetComponent<Renderer>().materials;
             foreach (Material mat in mats)
@@ -70,7 +70,7 @@ public class Fielder : MonoBehaviour
 
     public void OnCollisionEnter(Collision collision)
     {
-        if(collision.gameObject.name == "Ball" && !holdBall)
+        if (collision.gameObject.name == "Ball" && !holdBall)
         {
             Main inst = Main.Instance;
             if (inst.gameState != eGameState.InGame_BallHitLoop && inst.gameState != eGameState.InGame_DeliverBallLoop)
@@ -81,9 +81,9 @@ public class Fielder : MonoBehaviour
             if (isKeeper)
             {
                 // batsman missed the ball
-                if(inst.gameState == eGameState.InGame_DeliverBallLoop)
+                if (inst.gameState == eGameState.InGame_DeliverBallLoop)
                     inst.gameState = eGameState.InGame_BallMissed;
-                if(inst.gameState == eGameState.InGame_BallHitLoop)
+                if (inst.gameState == eGameState.InGame_BallHitLoop)
                 {
                     inst.currentFielderName = transform.name;
                     inst.gameState = eGameState.InGame_BallFielded;
@@ -117,7 +117,7 @@ public class Fielder : MonoBehaviour
         if (holdBall)
             inst.theBall.transform.position = transform.position + (transform.forward * 0.35f) + transform.up;
 
-        if(inst.gameState == eGameState.InGame_SelectDelivery ||
+        if (inst.gameState == eGameState.InGame_SelectDelivery ||
            inst.gameState == eGameState.InGame_SelectDeliveryLoop ||
            inst.gameState == eGameState.InGame_DeliverBall ||
            inst.gameState == eGameState.InGame_Ready ||
@@ -142,7 +142,7 @@ public class Fielder : MonoBehaviour
 
         if (inst.gameState == eGameState.InGame_DeliverBallLoop)
         {
-            if(fielderState != eFielderState.TakingStart && fielderState != eFielderState.ToTakingStart &&
+            if (fielderState != eFielderState.TakingStart && fielderState != eFielderState.ToTakingStart &&
                 !isKeeper)
             {
                 fielderState = eFielderState.ToTakingStart;
@@ -158,10 +158,10 @@ public class Fielder : MonoBehaviour
             }
         }
 
-        if(inst.gameState == eGameState.InGame_BallHit ||
+        if (inst.gameState == eGameState.InGame_BallHit ||
            inst.gameState == eGameState.InGame_BallHitLoop)
         {
-            if(fielderState != eFielderState.Fielded &&
+            if (fielderState != eFielderState.Fielded &&
                 !isKeeper)
             {
                 fielderState = eFielderState.MovingTowardsBall;

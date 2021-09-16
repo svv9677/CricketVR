@@ -30,11 +30,17 @@ public static class Constants
     public static readonly string[] CT_SwingPrefixes = { "none", "pace", "inSwing", "outSwing", "legSpin", "offSpin", "random" };
 
     // Configs for bowling params in the order  -  minX, maxX,  minY,  maxY,   minZ,  maxZ, minSwn, maxSwn, minTrn, maxTrn
-    public static readonly float[] paceCfg     = {   6f,   8f,   -2f, -0.5f, -0.05f, 0.25f,     0f,     0f,     0f,     0f };
-    public static readonly float[] inSwingCfg  = {   5f,   7f,   -1f, -0.5f,  0.25f, 0.75f,   0.4f,   0.9f,   0.1f,   0.2f };
-    public static readonly float[] outSwingCfg = {   5f,   7f,   -1f, -0.5f, -0.25f, 0.05f,   0.4f,   0.9f,   0.1f,   0.2f };
-    public static readonly float[] legSpinCfg  = { 2.5f, 3.5f,  0.5f,    1f,  -0.1f,  0.2f,   0.1f,   0.3f,   0.2f,   0.6f };
-    public static readonly float[] offSpinCfg  = { 2.5f, 3.5f,  0.5f,    1f,  0.05f,  0.3f,   0.1f,   0.3f,   0.2f,   0.6f };
+    //public static readonly float[] paceCfg     = {   6f,   8f,   -2f, -0.5f, -0.05f, 0.25f,     0f,     0f,     0f,     0f };
+    //public static readonly float[] inSwingCfg  = {   5f,   7f,   -1f, -0.5f,  0.25f, 0.75f,   0.4f,   0.9f,   0.1f,   0.2f };
+    //public static readonly float[] outSwingCfg = {   5f,   7f,   -1f, -0.5f, -0.25f, 0.05f,   0.4f,   0.9f,   0.1f,   0.2f };
+    //public static readonly float[] legSpinCfg  = { 2.5f, 3.5f,  0.5f,    1f,  -0.1f,  0.2f,   0.1f,   0.3f,   0.2f,   0.6f };
+    //public static readonly float[] offSpinCfg  = { 2.5f, 3.5f,  0.5f,    1f,  0.05f,  0.3f,   0.1f,   0.3f,   0.2f,   0.6f };
+
+    public static readonly float[] paceCfg = { 3f, 3f, 0.5f, 0.5f, 0f, 0f, 0f, 0f, 0f, 0f };
+    public static readonly float[] inSwingCfg = { 3f, 3f, 0.5f, 0.5f, 0f, 0f, 0f, 0f, 0f, 0f };
+    public static readonly float[] outSwingCfg = { 3f, 3f, 0.5f, 0.5f, 0f, 0f, 0f, 0f, 0f, 0f };
+    public static readonly float[] legSpinCfg = { 3f, 3f, 0.5f, 0.5f, 0f, 0f, 0f, 0f, 0f, 0f };
+    public static readonly float[] offSpinCfg = { 3f, 3f, 0.5f, 0.5f, 0f, 0f, 0f, 0f, 0f, 0f };
 }
 
 public enum eBattingStyle

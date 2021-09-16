@@ -1,0 +1,236 @@
+Using pre-set license
+
+ COMMAND LINE ARGUMENTS:
+/Applications/Unity/Hub/Editor/2020.3.11f1/Unity.app/Contents/MacOS/Unity
+-adb2
+-batchMode
+-noUpm
+-name
+AssetImportWorker0
+-projectPath
+/Users/tarunvadapalli/Documents/Git/CricketVR
+-logFile
+Logs/AssetImportWorker0.log
+-srvPort
+51088
+Successfully changed project path to: /Users/tarunvadapalli/Documents/Git/CricketVR
+/Users/tarunvadapalli/Documents/Git/CricketVR
+Using Asset Import Pipeline V2.
+Refreshing native plugins compatible for Editor in 156.61 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 19.76 ms.
+Initialize engine version: 2020.3.11f1 (99c7afb366b3)
+[Subsystems] Discovering subsystems at path /Applications/Unity/Hub/Editor/2020.3.11f1/Unity.app/Contents/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path /Users/tarunvadapalli/Documents/Git/CricketVR/Assets
+GfxDevice: creating device client; threaded=0
+2021-09-07 17:22:02.940 Unity[4022:81273] Color LCD preferred device: NVIDIA GeForce GT 650M (high power)
+2021-09-07 17:22:02.940 Unity[4022:81273] Metal devices available: 2
+2021-09-07 17:22:02.940 Unity[4022:81273] 0: NVIDIA GeForce GT 650M (high power)
+2021-09-07 17:22:02.940 Unity[4022:81273] 1: Intel HD Graphics 4000 (low power)
+2021-09-07 17:22:02.941 Unity[4022:81273] Using device NVIDIA GeForce GT 650M (high power)
+Initializing Metal device caps: NVIDIA GeForce GT 650M
+Shader 'Oculus/OVRMRCameraFrameLit': fallback shader 'Alpha-Diffuse' not found
+Initialize mono
+Mono path[0] = '/Applications/Unity/Hub/Editor/2020.3.11f1/Unity.app/Contents/Managed'
+Mono path[1] = '/Applications/Unity/Hub/Editor/2020.3.11f1/Unity.app/Contents/MonoBleedingEdge/lib/mono/unityjit'
+Mono config path = '/Applications/Unity/Hub/Editor/2020.3.11f1/Unity.app/Contents/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56022
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: /Applications/Unity/Hub/Editor/2020.3.11f1/Unity.app/Contents/PlaybackEngines/MacStandaloneSupport/UnityEditor.OSXStandalone.Extensions.dll
+Registered in 0.000882 seconds.
+Native extension for OSXStandalone target not found
+Refreshing native plugins compatible for Editor in 111.57 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 0.75 ms.
+Mono: successfully reloaded assembly
+- Completed reload, in  5.224 seconds
+Platform modules already initialized, skipping
+Registering precompiled user dll's ...
+Registered in 0.006822 seconds.
+Begin MonoManager ReloadAssembly
+Native extension for OSXStandalone target not found
+Refreshing native plugins compatible for Editor in 1.65 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 0.72 ms.
+Mono: successfully reloaded assembly
+- Completed reload, in  2.006 seconds
+Platform modules already initialized, skipping
+========================================================================
+Worker process is ready to serve import requests
+Shader 'Oculus/OVRMRCameraFrameLit': fallback shader 'Alpha-Diffuse' not found
+Launching external process: /Applications/Unity/Hub/Editor/2020.3.11f1/Unity.app/Contents/Tools/UnityShaderCompiler
+Launched and connected shader compiler UnityShaderCompiler after 0.02 seconds
+Refreshing native plugins compatible for Editor in 1.60 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 0.73 ms.
+Unloading 2935 Unused Serialized files (Serialized files now loaded: 0)
+System memory in use before: 215.8 MB.
+System memory in use after: 215.7 MB.
+
+Unloading 84 unused Assets to reduce memory usage. Loaded Objects now: 3320.
+Total: 8.410623 ms (FindLiveObjects: 0.488601 ms CreateObjectMapping: 0.290784 ms MarkObjects: 7.160259 ms  DeleteObjects: 0.469539 ms)
+
+========================================================================
+Received Import Request.
+  path: Assets/Resources/Animations/Stop Running Animation.fbx
+  artifactKey: Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running Animation.fbx using Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: '5ed1329e43fc2dc97273b33a60d564f0') in 4.769820 seconds
+  Import took 4.781484 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 0.001146 seconds.
+  path: Assets/Resources/Animations/Stop Running Animation.fbx
+  artifactKey: Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running Animation.fbx using Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: '5ed1329e43fc2dc97273b33a60d564f0') in 1.131636 seconds
+  Import took 1.143100 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 90.104682 seconds.
+  path: Assets/Resources/Animations/Stop Running Animation.fbx
+  artifactKey: Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running Animation.fbx using Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: 'bdaf66b2a6fb7b48fa407f688112dbf7') in 0.328539 seconds
+  Import took 0.336218 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 60.323559 seconds.
+  path: Assets/Resources/Animations/Stop Running Animation.fbx
+  artifactKey: Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running Animation.fbx using Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: 'dd4986261cc46f3525d52d0e667ec5a0') in 0.554691 seconds
+  Import took 0.561752 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 102.786561 seconds.
+  path: Assets/Resources/Animations/Stop Running Animation.fbx
+  artifactKey: Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running Animation.fbx using Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: 'fa466b31fc98437f3bbf3de03dcc4aad') in 0.390469 seconds
+  Import took 0.397599 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 0.000329 seconds.
+  path: Assets/Resources/Animations/Stop Running.anim
+  artifactKey: Guid(ed2ae1272497f4fe2845dd6643208e4a) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running.anim using Guid(ed2ae1272497f4fe2845dd6643208e4a) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: 'b4182e4878fd171bea059dc60576a7de') in 0.462473 seconds
+  Import took 0.468763 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 45.901966 seconds.
+  path: Assets/Resources/Animations/Stop Running Animation.fbx
+  artifactKey: Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running Animation.fbx using Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: '8cc1cc6a028992d7725c1e969c187977') in 0.445172 seconds
+  Import took 0.452302 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 0.169835 seconds.
+  path: Assets/Resources/Animations/Stop Running Animation.fbx
+  artifactKey: Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running Animation.fbx using Guid(73ca3952de2e04b7ba9f6b9e2963355b) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: '8cc1cc6a028992d7725c1e969c187977') in 0.225875 seconds
+  Import took 0.233717 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 13.765518 seconds.
+  path: Assets/Resources/Animations/Stop Running 1.anim
+  artifactKey: Guid(2567c9391ab2b4009826a427c13598bf) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running 1.anim using Guid(2567c9391ab2b4009826a427c13598bf) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: '9a55910b02e32385ce363e607b7fa4ee') in 0.010327 seconds
+  Import took 0.017250 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 42.414056 seconds.
+  path: Assets/Resources/Animations/Stop Running Old.anim
+  artifactKey: Guid(ed2ae1272497f4fe2845dd6643208e4a) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running Old.anim using Guid(ed2ae1272497f4fe2845dd6643208e4a) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: 'c0a497671b454e2c57d8266d9f7d3cd5') in 0.011117 seconds
+  Import took 0.017770 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 7.367041 seconds.
+  path: Assets/Resources/Animations/Stop Running.anim
+  artifactKey: Guid(2567c9391ab2b4009826a427c13598bf) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Stop Running.anim using Guid(2567c9391ab2b4009826a427c13598bf) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: 'c186d6ce0c853bb12f6fc66ed8d51915') in 0.009668 seconds
+  Import took 0.016497 seconds .
+
+========================================================================
+Received Import Request.
+  Time since last request: 98.802352 seconds.
+  path: Assets/Resources/Animations/Idle.anim
+  artifactKey: Guid(8d712aa8baacc4881aae5b5f17d0933e) Importer(815301076,1909f56bfc062723c751e8b465ee728b)
+Start importing Assets/Resources/Animations/Idle.anim using Guid(8d712aa8baacc4881aae5b5f17d0933e) Importer(815301076,1909f56bfc062723c751e8b465ee728b)  -> (artifact id: '6616ee32a1e28f611318310ab0ce4ca8') in 0.009381 seconds
+  Import took 0.016138 seconds .
+
+========================================================================
+Received Prepare
+Registering precompiled user dll's ...
+Registered in 0.015650 seconds.
+Begin MonoManager ReloadAssembly
+Native extension for OSXStandalone target not found
+Refreshing native plugins compatible for Editor in 1.68 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 0.70 ms.
+Mono: successfully reloaded assembly
+- Completed reload, in  1.978 seconds
+Platform modules already initialized, skipping
+Switching build target platform(2) subTarget(0) extendedPlatform(0) -> platform(13) subTarget(524288) extendedPlatform(0)
+Shader 'Oculus/OVRMRCameraFrameLit': fallback shader 'Alpha-Diffuse' not found
+Refreshing native plugins compatible for Editor in 1.87 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 0.76 ms.
+Unloading 2844 Unused Serialized files (Serialized files now loaded: 0)
+System memory in use before: 238.4 MB.
+System memory in use after: 238.3 MB.
+
+Unloading 75 unused Assets to reduce memory usage. Loaded Objects now: 3368.
+Total: 8.480619 ms (FindLiveObjects: 0.473797 ms CreateObjectMapping: 0.261710 ms MarkObjects: 7.297473 ms  DeleteObjects: 0.446039 ms)
+
+AssetImportParameters requested are different than current active one (requested -> active):
+  custom:graphics/normal-map-encoding: 01000000000000000000000000000000 -> 02000000000000000000000000000000
+========================================================================
+Received Prepare
+Registering precompiled user dll's ...
+Registered in 0.020332 seconds.
+Begin MonoManager ReloadAssembly
+Native extension for OSXStandalone target not found
+Refreshing native plugins compatible for Editor in 1.76 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 1.20 ms.
+Mono: successfully reloaded assembly
+- Completed reload, in  2.415 seconds
+Platform modules already initialized, skipping
+Switching build target platform(2) subTarget(0) extendedPlatform(0) -> platform(13) subTarget(524288) extendedPlatform(0)
+Shader 'Oculus/OVRMRCameraFrameLit': fallback shader 'Alpha-Diffuse' not found
+Refreshing native plugins compatible for Editor in 1.67 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 0.73 ms.
+Unloading 2844 Unused Serialized files (Serialized files now loaded: 0)
+System memory in use before: 238.7 MB.
+System memory in use after: 238.6 MB.
+
+Unloading 75 unused Assets to reduce memory usage. Loaded Objects now: 3372.
+Total: 9.503611 ms (FindLiveObjects: 0.641309 ms CreateObjectMapping: 0.363022 ms MarkObjects: 7.935097 ms  DeleteObjects: 0.561764 ms)
+
+AssetImportParameters requested are different than current active one (requested -> active):
+  custom:graphics/normal-map-encoding: 01000000000000000000000000000000 -> 02000000000000000000000000000000
+========================================================================
+Received Prepare
+Registering precompiled user dll's ...
+Registered in 0.023526 seconds.
+Begin MonoManager ReloadAssembly
+Native extension for OSXStandalone target not found
+Refreshing native plugins compatible for Editor in 2.04 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 1.30 ms.
+Mono: successfully reloaded assembly
+- Completed reload, in  2.407 seconds
+Platform modules already initialized, skipping
+Switching build target platform(2) subTarget(0) extendedPlatform(0) -> platform(13) subTarget(524288) extendedPlatform(0)
+Shader 'Oculus/OVRMRCameraFrameLit': fallback shader 'Alpha-Diffuse' not found
+Refreshing native plugins compatible for Editor in 1.67 ms, found 6 plugins.
+Preloading 1 native plugins for Editor in 0.71 ms.
+Unloading 2844 Unused Serialized files (Serialized files now loaded: 0)
+System memory in use before: 239.0 MB.
+System memory in use after: 238.9 MB.
+
+Unloading 75 unused Assets to reduce memory usage. Loaded Objects now: 3376.
+Total: 10.264253 ms (FindLiveObjects: 0.811444 ms CreateObjectMapping: 0.367221 ms MarkObjects: 8.516492 ms  DeleteObjects: 0.567088 ms)
+
+AssetImportParameters requested are different than current active one (requested -> active):
+  custom:graphics/normal-map-encoding: 01000000000000000000000000000000 -> 02000000000000000000000000000000
