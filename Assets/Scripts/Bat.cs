@@ -22,6 +22,8 @@ public class Bat : MonoBehaviour
     protected GameObject trackerObject;
     [SerializeField]
     protected AudioClip audioShot1, audioShot2, audioShot3;
+    [SerializeField]
+    protected GameObject fieldersParent;
 
     public bool grabbable = true;
 
@@ -29,6 +31,8 @@ public class Bat : MonoBehaviour
     public Transform attachParent;
     [HideInInspector]
     public Vector3 trackerVelocity;
+    [HideInInspector]
+    public bool hasHitBall;
 
     private bool grabbing = false;
     private Collider[] myColliders;
@@ -49,6 +53,8 @@ public class Bat : MonoBehaviour
 
         myColliders = GetComponentsInChildren<Collider>();
         myRigidBody = GetComponent<Rigidbody>();
+
+        hasHitBall = false;
     }
 
     public void CheckAndGrab()
@@ -99,7 +105,7 @@ public class Bat : MonoBehaviour
                 ballInitialVelocity = inst.theBallScript.lastVelocity;
 
                 float dp = 0f;
-                if (trackerVelocity.magnitude > 0f)
+                if (trackerVelocity.magnitude > 0.1f)
                 {
                     Vector3 force;
                     // Clamp magnitude to min & max
@@ -120,7 +126,7 @@ public class Bat : MonoBehaviour
                     {
                         // heading in opposite direction, so harder impact
                         amplifier = inst.ampMax;
-                        ballAmplifier = 2f;
+                        ballAmplifier = 4f;
                     }
 
                     // Calculate the final force now with all the params
@@ -133,6 +139,7 @@ public class Bat : MonoBehaviour
                     //                 ", initial: " + ballInitialVelocity.ToString() +
                     //                 ", dp: " + dp.ToString());
                     inst.theBallRigidBody.velocity += force;
+                    inst.theBallRigidBody.velocity = Vector3.ClampMagnitude(inst.theBallRigidBody.velocity, 60f);
                 }
                 // if we are not moving the bat, check if we want to retain the ball's velocity,
                 //  based on bat's direction
@@ -148,7 +155,7 @@ public class Bat : MonoBehaviour
                         inst.theBallRigidBody.velocity *= (Random.Range(2f, 5f) / magnit);
                     }
                 }
-
+                
                 // Play sound
                 Vector3 delta = inst.theBallRigidBody.velocity - trackerVelocity;
                 float mag = delta.magnitude;
@@ -170,6 +177,9 @@ public class Bat : MonoBehaviour
 
                 // Haptics feedback
                 StartCoroutine(ProvideVibration());
+
+                hasHitBall = true;
+                fieldersParent.BroadcastMessage("StartRotateTowardsIntercept");
             }
             else
                 Debug.Log("CAUTION: " + gameObject.name + " collided with ball, but game state was " + inst.gameState.ToString());

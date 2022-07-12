@@ -115,7 +115,7 @@ public class HUD : MonoBehaviour
         NextBatsmanIndex = 2;
 
         Bowlers = new List<Bowler>();
-        string[] boNames = { "Starc", "Lyon", "Hazlewood", "Cummins", "Green" };
+        string[] boNames = { "Broad", "Rashid", "Ali", "Anderson", "Archer" };
         eSwingType[] boTypes = { eSwingType.InSwing, eSwingType.LegSpin, eSwingType.OffSpin, eSwingType.OutSwing, eSwingType.Pace };
         for(int i=0; i<5; i++)
         {
@@ -123,6 +123,7 @@ public class HUD : MonoBehaviour
             Bowlers.Add(bo);
         }
         CurrentBowler = Bowlers[0];
+        //CurrentBowler = Bowlers[2];               // QWERTYUIOP
         Main.Instance.swingType = CurrentBowler.Type;
         NextBowlerIndex = 0;
 
@@ -168,7 +169,15 @@ public class HUD : MonoBehaviour
         {
             // Ball was missed: possible outcomes - dot ball, wide(s) or bye(s)
             //  For now, not using extras in the game
-            AddRuns(0);
+            if (Main.Instance.theBallScript.wide)
+            {
+                AddRuns(10);
+            }
+            else
+            {
+                AddRuns(0);
+            }
+            
 
             UpdateUI();
         }
@@ -246,7 +255,11 @@ public class HUD : MonoBehaviour
                     BowledBalls.Add(runs.ToString());
                 }
                 break;
-            default:
+            case 10:
+                {
+                    IncrementRuns(1);
+                    BowledBalls.Add("wd");
+                }
                 break;
         }
     }
@@ -265,6 +278,7 @@ public class HUD : MonoBehaviour
             NextBowlerIndex = 0;
 
         CurrentBowler = Bowlers[NextBowlerIndex];
+        //CurrentBowler = Bowlers[2];                    // QWERTYUIOP
         Main.Instance.swingType = CurrentBowler.Type;
     }
 
@@ -321,11 +335,24 @@ public class HUD : MonoBehaviour
         if (count > 0)
         {
             string str = "";
-            for (int i = count; i > 0; i--)
+            int legal = 0;
+
+            for (int i = 0; i < count; i++)
             {
-                if (i % 6 == 0)
-                    str += " | ";
-                str += BowledBalls[i - 1] + " ";
+                str = BowledBalls[i] + " " + str;
+
+                if (!BowledBalls[i].Equals("wd"))
+                {
+                    legal++;
+                    if (legal == 6)
+                    {
+                        str = " | " + str;
+                        legal = 0;
+                    }
+                }
+                
+                
+
             }
             txtBalls.text = str;
         }

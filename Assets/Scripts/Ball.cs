@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 
 public class Ball : MonoBehaviour
 {
@@ -14,6 +15,8 @@ public class Ball : MonoBehaviour
     [HideInInspector]
     public bool bounced;
     [HideInInspector]
+    public bool wide;
+    [HideInInspector]
     public Vector3 lastVelocity;
 
     // Start is called before the first frame update
@@ -23,6 +26,7 @@ public class Ball : MonoBehaviour
         myRigidBody.maxAngularVelocity = 100f;
         fresh = true;
         bounced = false;
+        wide = false;
     }
 
     void FixedUpdate()
@@ -102,7 +106,12 @@ public class Ball : MonoBehaviour
         }
     }
 
-    public void OnCollisionEnter(Collision collisionInfo)
+    private void LateUpdate()
+    {
+        lastVelocity = myRigidBody.velocity;
+    }
+
+    public void OnCollisionExit(Collision collisionInfo)
     {
         Main inst = Main.Instance;
         if(inst.gameState == eGameState.InGame_DeliverBall ||
@@ -112,11 +121,13 @@ public class Ball : MonoBehaviour
             if (fresh && collisionInfo.gameObject.name == "Plane")
             {
                 fresh = false;
+                inst.currentBowlingConfig.applySwing = false;
 
                 // treat in-swing as leg-spin and out-swing as off-spin
                 // Add spin as a percentage of its current force
-                if(inst.currentBowlingConfig != null && inst.currentBowlingConfig.applyPitchTurn)
+                if (inst.currentBowlingConfig != null && inst.currentBowlingConfig.applyPitchTurn)
                 {
+                    
                     var direction = -myRigidBody.velocity.normalized;
                     Vector3 right = Vector3.zero;
                     bool inSwing = Random.Range(0f, 1f) > 0.5f;
@@ -130,9 +141,11 @@ public class Ball : MonoBehaviour
                     if (right.magnitude > 0f)
                     {
                         myRigidBody.AddForce(right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f, ForceMode.Impulse);
-                        //Debug.Log("TURN: " + (right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f).ToString());
+                        Debug.Log("TURN: " + (right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f).ToString());
                     }
                 }
+
+                
             }
         }
         if(inst.gameState == eGameState.InGame_BallHit ||
@@ -143,10 +156,16 @@ public class Ball : MonoBehaviour
                 bounced = true;
         }
 
-        if (collisionInfo.gameObject.name.Contains("Stump") && audioClip != null)
-        {
-            AudioSource.PlayClipAtPoint(audioClip, transform.position);
-        }
-
+        //if (collisionInfo.gameObject.name.Contains("Stump") && audioClip != null)
+        //{
+        //    if (this.GetComponent<Collider>().bounds.Intersects(collisionInfo.gameObject.GetComponent<Collider>().bounds))
+        //    {
+        //        AudioSource.PlayClipAtPoint(audioClip, transform.position);
+        //    }
+        //}
     }
+
+    
+
+    
 }

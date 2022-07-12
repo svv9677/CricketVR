@@ -78,7 +78,7 @@ public class BowlingProfile
     public BowlingParams GetRandomDelivery()
     {
         BowlingParams param = new BowlingParams();
-        float director = (swingType == eSwingType.InSwing || swingType == eSwingType.OutSwing) ? -1f : 1f;
+        float director = (swingType == eSwingType.InSwing || swingType == eSwingType.OutSwing) ? -1f : 11f;
 
         param.swingType = swingType;
         param.torqueX = director * 50f;

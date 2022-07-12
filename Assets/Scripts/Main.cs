@@ -1,5 +1,7 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -187,6 +189,9 @@ public class Main : MonoBehaviour
     private int historyTextLength;
     private const int MAX_VIEWABLE_LINES = 17;
 
+    
+
+
     private void Awake()
     {
         if (theBall != null)
@@ -217,6 +222,8 @@ public class Main : MonoBehaviour
         this.historyTextLength = 0;
 
         Application.logMessageReceived += this.HandleLog;
+
+
     }
 
     public void OnDestroy()
@@ -270,6 +277,8 @@ public class Main : MonoBehaviour
 
         initialized = true;
         gameState = eGameState.None;
+
+        
     }
 
     public void SetupMenus()
@@ -826,6 +835,11 @@ public class Main : MonoBehaviour
         if (!initialized)
             return;
 
+        if (Main.Instance == null)
+        {
+            Main.Instance = this;
+        }
+
         // Update values from inspector, when in editor, otherwise, toggle UI will drive this
         if (Application.isEditor)
         {
@@ -915,14 +929,19 @@ public class Main : MonoBehaviour
                         Vector3 speed = new Vector3(currentBowlingConfig.speedX, currentBowlingConfig.speedY, currentBowlingConfig.speedZ);
                         // enable physics
                         theBallRigidBody.isKinematic = false;
+                        //Set collision type to continuous dynamic
+                        theBallRigidBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                        // Set interpolation mode to interpolate
+                        theBallRigidBody.interpolation = RigidbodyInterpolation.Interpolate;
                         // Add the required force & rotation
                         theBallRigidBody.AddTorque(torque, ForceMode.Impulse);
                         theBallRigidBody.AddForce(speed, ForceMode.Impulse);
                         // save it
-                        theBallScript.lastVelocity = speed;
+                        //theBallScript.lastVelocity = speed;   (commented out because the lastVelocity for the bat collision equations should be updated after the ball hits the pitch.
                         // mark as fresh delivery!
                         theBallScript.fresh = true;
                         theBallScript.bounced = false;
+                        theBallScript.wide = false;
 
                         gameState = eGameState.InGame_DeliverBallLoop;
                     }
@@ -1035,7 +1054,20 @@ public class Main : MonoBehaviour
         {
             ToggleUI(!menuToggle);
         }
+
+        
     }
+
+    
+
+    /*private float GetYVel(float length, float z)
+    {
+        float h = ballStartingPos.y - 0.2f;
+        float g = Physics.gravity.magnitude;
+        float d = length - ballStartingPos.z;
+        float y = ((2 * z * z * h) - (d * d * g)) / (2 * d * z);
+        return -y;
+    }*/
 
     private void ToggleUI(bool flag)
     {
