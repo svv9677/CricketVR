@@ -137,20 +137,12 @@ public class AnimatedFielder : MonoBehaviour
                 }
                 //Main.Instance.currentFielderName = transform.name;
             }
-            else
-            {
-                isBallInRange = false;
-            }
 
             if (!isBallReachable)
             {
                 if (Vector3.Distance(transform.position, inst.theBall.transform.position) <= 1f)
                 {
                     isBallInRange = true;
-                }
-                else
-                {
-                    isBallInRange = false;
                 }
             }
         }
@@ -524,6 +516,7 @@ public class AnimatedFielder : MonoBehaviour
             {
                 if (!isRunning_FieldTheBall)
                 {
+                    Main.Instance.currentFielderName = transform.name;
                     StartCoroutine(FieldTheBall());
                     isRunning_FieldTheBall = true;
                 }

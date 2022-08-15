@@ -2,12 +2,122 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+//public class BowlingParams
+//{
+//    public eSwingType swingType;
+//    public float torqueX;
+//    public float speedX;
+//    public float speedY;
+//    public float speedZ;
+//    public float swing;
+//    public float pitchTurn;
+//    public bool applySwing;
+//    public bool applyPitchTurn;
+
+//    public BowlingParams()
+//    {
+//        swingType = eSwingType.None;
+//        torqueX = 50f;
+//        speedX = 7f;
+//        speedY = -1f;
+//        speedZ = 0f;
+//        swing = 0f;
+//        pitchTurn = 0f;
+//        applySwing = false;
+//        applyPitchTurn = false;
+//    }
+
+//    public override string ToString()
+//    {
+//        return swingType.ToString() + ", " + torqueX.ToString() + ", (" +
+//                speedX.ToString() + "," + speedY.ToString() + "," + speedZ.ToString() + "), " +
+//                swing.ToString() + ", " + pitchTurn.ToString() + ", (" +
+//                applySwing.ToString() + "/" + applyPitchTurn.ToString() + ")";
+//    }
+//}
+
+//public class BowlingProfile
+//{
+//    public eSwingType swingType;
+
+//    public float minX;
+//    public float maxX;
+//    public float minY;
+//    public float maxY;
+//    public float minZ;
+//    public float maxZ;
+
+//    public float minSwing;
+//    public float maxSwing;
+//    public float minPitchTurn;
+//    public float maxPitchTurn;
+
+//    public BowlingProfile(eSwingType _swingType = eSwingType.Pace,
+//                          float _minX = 0f, float _maxX = 10f,
+//                          float _minY = -2f, float _maxY = 2f,
+//                          float _minZ = -0.5f, float _maxZ = 0.5f,
+//                          float _minSwing = 0f, float _maxSwing = 1f,
+//                          float _minPitchTurn = 0f, float _maxPitchTurn = 1f
+//                          )
+//    {
+//        swingType = _swingType;
+
+//        minX = _minX;
+//        maxX = _maxX;
+//        minY = _minY;
+//        maxY = _maxY;
+//        minZ = _minZ;
+//        maxZ = _maxZ;
+
+//        minSwing = _minSwing;
+//        maxSwing = _maxSwing;
+//        minPitchTurn = _minPitchTurn;
+//        maxPitchTurn = _maxPitchTurn;
+//    }
+
+//    public BowlingParams GetRandomDelivery()
+//    {
+//        BowlingParams param = new BowlingParams();
+//        float director = (swingType == eSwingType.InSwing || swingType == eSwingType.OutSwing) ? -1f : 11f;
+
+//        param.swingType = swingType;
+//        param.torqueX = director * 50f;
+//        param.speedX = Random.Range(minX, maxX);
+//        param.speedY = Random.Range(minY, maxY);
+//        param.speedZ = Random.Range(minZ, maxZ);
+//        param.swing = Random.Range(minSwing, maxSwing);
+//        param.pitchTurn = Random.Range(minPitchTurn, maxPitchTurn);
+//        param.applySwing = Random.Range(0f, 1f) > 0.05f || swingType == eSwingType.InSwing || swingType == eSwingType.OutSwing;
+//        param.applyPitchTurn = Random.Range(0f, 1f) > 0.15f || swingType == eSwingType.LegSpin || swingType == eSwingType.OffSpin;
+
+//        // For spin bowling, if we are looping (Y is greater than half of maxY), then limit the x-speed to not throw a no-ball
+//        if (swingType == eSwingType.LegSpin || swingType == eSwingType.OffSpin)
+//        {
+//            if (param.speedY > ((minY+maxY)/2f))
+//                param.speedX = Mathf.Clamp(param.speedX, minX, (minX + maxX) / 2f);
+//        }
+//        // For in-swing, if swing amount is large, make sure we start from way off-side
+//        if(swingType == eSwingType.InSwing)
+//        {
+//            if (param.swing > ((minSwing + maxSwing) / 2f))
+//                param.speedZ = Mathf.Clamp(param.speedZ, (minZ + maxZ) / 2f, maxZ);
+//        }
+//        // Same applies for out swing
+//        if (swingType == eSwingType.OutSwing)
+//        {
+//            if (param.swing > ((minSwing + maxSwing) / 2f))
+//                param.speedZ = Mathf.Clamp(param.speedZ, minZ, (minZ + maxZ) / 2f);
+//        }
+//        return param;
+//    }
+//}
+
 public class BowlingParams
 {
     public eSwingType swingType;
     public float torqueX;
     public float speedX;
-    public float speedY;
+    public float length;
     public float speedZ;
     public float swing;
     public float pitchTurn;
@@ -19,7 +129,7 @@ public class BowlingParams
         swingType = eSwingType.None;
         torqueX = 50f;
         speedX = 7f;
-        speedY = -1f;
+        length = 1f;
         speedZ = 0f;
         swing = 0f;
         pitchTurn = 0f;
@@ -30,7 +140,7 @@ public class BowlingParams
     public override string ToString()
     {
         return swingType.ToString() + ", " + torqueX.ToString() + ", (" +
-                speedX.ToString() + "," + speedY.ToString() + "," + speedZ.ToString() + "), " +
+                speedX.ToString() + "," + length.ToString() + "," + speedZ.ToString() + "), " +
                 swing.ToString() + ", " + pitchTurn.ToString() + ", (" +
                 applySwing.ToString() + "/" + applyPitchTurn.ToString() + ")";
     }
@@ -42,8 +152,8 @@ public class BowlingProfile
 
     public float minX;
     public float maxX;
-    public float minY;
-    public float maxY;
+    public float minLen;
+    public float maxLen;
     public float minZ;
     public float maxZ;
 
@@ -54,7 +164,7 @@ public class BowlingProfile
 
     public BowlingProfile(eSwingType _swingType = eSwingType.Pace,
                           float _minX = 0f, float _maxX = 10f,
-                          float _minY = -2f, float _maxY = 2f,
+                          float _minLen = -2f, float _maxLen = 2f,
                           float _minZ = -0.5f, float _maxZ = 0.5f,
                           float _minSwing = 0f, float _maxSwing = 1f,
                           float _minPitchTurn = 0f, float _maxPitchTurn = 1f
@@ -64,8 +174,8 @@ public class BowlingProfile
 
         minX = _minX;
         maxX = _maxX;
-        minY = _minY;
-        maxY = _maxY;
+        minLen = _minLen;
+        maxLen = _maxLen;
         minZ = _minZ;
         maxZ = _maxZ;
 
@@ -83,7 +193,7 @@ public class BowlingProfile
         param.swingType = swingType;
         param.torqueX = director * 50f;
         param.speedX = Random.Range(minX, maxX);
-        param.speedY = Random.Range(minY, maxY);
+        param.length = Random.Range(minLen, maxLen);
         param.speedZ = Random.Range(minZ, maxZ);
         param.swing = Random.Range(minSwing, maxSwing);
         param.pitchTurn = Random.Range(minPitchTurn, maxPitchTurn);
@@ -91,13 +201,13 @@ public class BowlingProfile
         param.applyPitchTurn = Random.Range(0f, 1f) > 0.15f || swingType == eSwingType.LegSpin || swingType == eSwingType.OffSpin;
 
         // For spin bowling, if we are looping (Y is greater than half of maxY), then limit the x-speed to not throw a no-ball
-        if (swingType == eSwingType.LegSpin || swingType == eSwingType.OffSpin)
-        {
-            if (param.speedY > ((minY+maxY)/2f))
-                param.speedX = Mathf.Clamp(param.speedX, minX, (minX + maxX) / 2f);
-        }
+        //if (swingType == eSwingType.LegSpin || swingType == eSwingType.OffSpin)
+        //{
+        //    if (param.speedY > ((minY + maxY) / 2f))
+        //        param.speedX = Mathf.Clamp(param.speedX, minX, (minX + maxX) / 2f);
+        //}
         // For in-swing, if swing amount is large, make sure we start from way off-side
-        if(swingType == eSwingType.InSwing)
+        if (swingType == eSwingType.InSwing)
         {
             if (param.swing > ((minSwing + maxSwing) / 2f))
                 param.speedZ = Mathf.Clamp(param.speedZ, (minZ + maxZ) / 2f, maxZ);

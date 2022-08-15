@@ -3,7 +3,6 @@ using UnityEngine;
 
 public class KeeperCollider : MonoBehaviour
 {
-    public static bool canCheck;
 
     public void OnTriggerExit(Collider other)
     {
@@ -18,11 +17,7 @@ public class KeeperCollider : MonoBehaviour
                 {
                     Main.Instance.theBallScript.wide = true;
                 }
-                else
-                {
-                    StartCoroutine(CheckBallMissed());
-                }
-                
+                    CheckBallMissed();
             }
                 
             else
@@ -30,9 +25,8 @@ public class KeeperCollider : MonoBehaviour
         }
     }
 
-    public IEnumerator CheckBallMissed()
+    public void CheckBallMissed()
     {
-        yield return new WaitUntil(() => canCheck == true);
         if (Main.Instance.gameState == eGameState.InGame_DeliverBallLoop)
         {
             Main.Instance.gameState = eGameState.InGame_BallMissed;

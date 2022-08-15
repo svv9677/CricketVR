@@ -31,20 +31,42 @@ public static class Constants
 
     // Configs for bowling params in the order:  minX,   maxX,   minY,   maxY,   minZ,   maxZ, minSwn, maxSwn, minTrn, maxTrn
 
-    public static readonly float[] paceCfg = { 7f, 10f, -2.5f, -1f, -0.05f, 0.25f, 0f, 0f, 0f, 0f };
-    public static readonly float[] inSwingCfg = { 6f, 8f, -2f, -0.3f, 0.7f, 1f, 0.4f, 0.9f, -0.03f, 0.03f };
-    public static readonly float[] outSwingCfg = { 6f, 8f, -2f, -0.3f, -0.8f, -0.2f, 0.4f, 0.9f, -0.03f, 0.03f };
-    public static readonly float[] legSpinCfg = { 3f, 4f, 0f, 0.5f, -0.1f, 0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
-    public static readonly float[] offSpinCfg = { 3f, 4f, 0f, 0.5f, 0f, 0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
+    //public static readonly float[] paceCfg = { 7f, 10f, -2.5f, -1f, -0.05f, 0.25f, 0f, 0f, 0f, 0f };
+    //public static readonly float[] inSwingCfg = { 6f, 8f, -2f, -0.3f, 0.7f, 1f, 0.4f, 0.9f, -0.03f, 0.03f };
+    //public static readonly float[] outSwingCfg = { 6f, 8f, -2f, -0.3f, -0.8f, -0.2f, 0.4f, 0.9f, -0.03f, 0.03f };
+    //public static readonly float[] legSpinCfg = { 3f, 4f, 0f, 0.5f, -0.1f, 0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
+    //public static readonly float[] offSpinCfg = { 3f, 4f, 0f, 0.5f, 0f, 0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
+
+    //public static readonly float[] paceCfg = { 7f, 10f, -1.5f, -0.5f, -0.2f, 0.1f, 0f, 0f, 0f, 0f };
+    //public static readonly float[] inSwingCfg = { 6f, 8f, -1f, 0f, 0.4f, 0.6f, 0.4f, 1f, -0.03f, 0.03f };
+    //public static readonly float[] outSwingCfg = { 6f, 8f, -1f, 0f, -1f, -0.7f, 0.4f, 1f, -0.03f, 0.03f };
+    //public static readonly float[] legSpinCfg = { 3f, 4f, 0.5f, 0.9f, -0.2f, 0f, 0.1f, 0.3f, 0.2f, 0.5f };
+    //public static readonly float[] offSpinCfg = { 3f, 4f, 0.5f, 0.9f, -0.1f, 0.1f, 0.1f, 0.3f, 0.2f, 0.5f };
 
 
-    // For testing (same ball every time)
+    // Configs for bowling params in the order:  minX,   maxX,   minLen,   maxLen,   minZ,   maxZ, minSwn, maxSwn, minTrn, maxTrn
 
-    //public static readonly float[] paceCfg = { 7f, 7f, -1f, -1f, 0f, 0f, 0f, 0f, 0f, 0f };
+    // TODO Change below length values correctly
+    //public static readonly float[] paceCfg = { 7f, 10f, -2.5f, -1f, -0.05f, 0.25f, 0f, 0f, 0f, 0f };
+    //public static readonly float[] inSwingCfg = { 6f, 8f, -2f, -0.3f, 0.7f, 1f, 0.4f, 0.9f, -0.03f, 0.03f };
+    //public static readonly float[] outSwingCfg = { 6f, 8f, -2f, -0.3f, -0.8f, -0.2f, 0.4f, 0.9f, -0.03f, 0.03f };
+    //public static readonly float[] legSpinCfg = { 3f, 4f, 0f, 0.5f, -0.1f, 0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
+    //public static readonly float[] offSpinCfg = { 3f, 4f, 0f, 0.5f, 0f, 0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
+
+    public static readonly float[] paceCfg = { 7f, 10f, -2f, 9f, -0.2f, 0.1f, 0f, 0f, 0f, 0f };
+    public static readonly float[] inSwingCfg = { 6f, 8f, -2f, 9f, 0.4f, 0.6f, 0.4f, 1f, -0.03f, 0.03f };
+    public static readonly float[] outSwingCfg = { 6f, 8f, -2f, 9f, -1f, -0.7f, 0.4f, 1f, -0.03f, 0.03f };
+    public static readonly float[] legSpinCfg = { 3.5f, 4.5f, 4f, 10f, -0.2f, 0f, 0.1f, 0.3f, 0.2f, 0.5f };
+    public static readonly float[] offSpinCfg = { 3.5f, 4.5f, 4f, 10f, -0.1f, 0.1f, 0.1f, 0.3f, 0.2f, 0.5f };
+
+
+    //For testing(same ball every time)
+    //public static readonly float[] paceCfg = { 7f, 7f, 9f, 9f, 0.1f, 0.1f, 0f, 0f, 0f, 0f };
     //public static readonly float[] inSwingCfg = paceCfg;
     //public static readonly float[] outSwingCfg = paceCfg;
     //public static readonly float[] legSpinCfg = paceCfg;
     //public static readonly float[] offSpinCfg = paceCfg;
+
 
 }
 

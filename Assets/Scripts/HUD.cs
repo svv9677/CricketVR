@@ -104,7 +104,7 @@ public class HUD : MonoBehaviour
         BowledBalls = new List<string>();
 
         Batsmen = new List<Batsman>();
-        string[] batNames = { "Sachin", "Sehwag", "Kohli", "Rahul", "Shikhar", "Rohit", "Dhoni", "Hardik", "Jadeja", "Bumrah", "Bhuvi" };
+        string[] batNames = { "Ishan", "Shreyas", "Samson", "Hardik", "Deepak", "Karthik", "Axar", "Kuldeep", "Avesh", "Bishnoi", "Arshdeep" };
         for(int i=0; i<11; i++)
         {
             Batsman bat = new Batsman(batNames[i]);
@@ -115,9 +115,9 @@ public class HUD : MonoBehaviour
         NextBatsmanIndex = 2;
 
         Bowlers = new List<Bowler>();
-        string[] boNames = { "Broad", "Rashid", "Ali", "Anderson", "Archer" };
+        string[] boNames = { "Bumrah", "Chahal", "Ashwin", "Bhuvneshwar", "Shami" };
         eSwingType[] boTypes = { eSwingType.InSwing, eSwingType.LegSpin, eSwingType.OffSpin, eSwingType.OutSwing, eSwingType.Pace };
-        for(int i=0; i<5; i++)
+        for(int i=0; i<boNames.Length; i++)
         {
             Bowler bo = new Bowler(boNames[i], boTypes[i]);
             Bowlers.Add(bo);
@@ -125,6 +125,7 @@ public class HUD : MonoBehaviour
         CurrentBowler = Bowlers[0];
         //CurrentBowler = Bowlers[2];               // QWERTYUIOP
         Main.Instance.swingType = CurrentBowler.Type;
+        AnimatedBowler.Instance.UpdateInfo(Bowlers.IndexOf(CurrentBowler));
         NextBowlerIndex = 0;
 
         UpdateUI();
@@ -150,7 +151,7 @@ public class HUD : MonoBehaviour
             else
             {
                 double seconds = System.DateTime.UtcNow.Subtract(StartOfShot).TotalSeconds;
-                Debug.Log("SHOT TIMER: " + seconds.ToString());
+                //Debug.Log("SHOT TIMER: " + seconds.ToString());
                 if (seconds < 2f)
                     AddRuns(0);
                 else if (seconds < 4.5f)
@@ -280,6 +281,7 @@ public class HUD : MonoBehaviour
         CurrentBowler = Bowlers[NextBowlerIndex];
         //CurrentBowler = Bowlers[2];                    // QWERTYUIOP
         Main.Instance.swingType = CurrentBowler.Type;
+        AnimatedBowler.Instance.UpdateInfo(Bowlers.IndexOf(CurrentBowler));
     }
 
     void IncrementRuns(int runs)

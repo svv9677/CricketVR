@@ -19,6 +19,8 @@ public class Ball : MonoBehaviour
     [HideInInspector]
     public Vector3 lastVelocity;
 
+    private float firstImpact;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -97,9 +99,12 @@ public class Ball : MonoBehaviour
                     if (right != Vector3.zero && forceAmount > 0f)
                     {
                         forceAmount *= 10f;
+                        right.x = 0f;
+                        right.y = 0f;
                         myRigidBody.AddForce(right * forceAmount * inst.currentBowlingConfig.swing, ForceMode.Force);
                         //Debug.Log("SWING: " + (right * forceAmount * inst.currentBowlingConfig.swing).ToString() +
-                        //    ", forceAmt: " + forceAmount.ToString() + ", right: " + right.ToString());
+                            //", forceAmt: " + forceAmount.ToString() + ", right: " + right.ToString());
+                        
                     }
                 }
             }
@@ -111,6 +116,17 @@ public class Ball : MonoBehaviour
         lastVelocity = myRigidBody.velocity;
     }
 
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (fresh && collision.gameObject.name == "Plane")
+        {
+            firstImpact = transform.position.x;
+            //print("1: " + transform.position.x);
+            //print(Main.Instance.currentBowlingConfig.length);
+            //print("### " + transform.position.z);
+        }
+    }
+
     public void OnCollisionExit(Collision collisionInfo)
     {
         Main inst = Main.Instance;
@@ -120,6 +136,8 @@ public class Ball : MonoBehaviour
             // If we hit pitch, and this is our first bounce after release of delivery
             if (fresh && collisionInfo.gameObject.name == "Plane")
             {
+                //print(transform.position.x);
+                //print(((firstImpact + transform.position.x) / 2) - Main.Instance.currentBowlingConfig.length);
                 fresh = false;
                 inst.currentBowlingConfig.applySwing = false;
 
@@ -141,7 +159,7 @@ public class Ball : MonoBehaviour
                     if (right.magnitude > 0f)
                     {
                         myRigidBody.AddForce(right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f, ForceMode.Impulse);
-                        Debug.Log("TURN: " + (right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f).ToString());
+                        //Debug.Log("TURN: " + (right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f).ToString());
                     }
                 }
 
