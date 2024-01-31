@@ -131,6 +131,7 @@ MonoBehaviour:
   myParticles: {fileID: 0}
   fresh: 0
   bounced: 0
+  wide: 0
   lastVelocity: {x: 0, y: 0, z: 0}
 --- !u!198 &919132149594783421
 ParticleSystem:

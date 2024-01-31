@@ -43,6 +43,12 @@ public class Main : MonoBehaviour
     [SerializeField]
     public GameObject theStumps;
     [SerializeField]
+    public GameObject theKeeper;
+    [SerializeField]
+    public GameObject theStadium;
+    [SerializeField]
+    public GameObject theBoundaryCollider;
+    [SerializeField]
     protected OVRPlayerController theController;
     [SerializeField]
     protected GameObject BowlingMachineFace;
@@ -62,6 +68,7 @@ public class Main : MonoBehaviour
     protected GameObject dbgOverlayParent;
     [SerializeField]
     protected GameObject hudParent;
+    
 
     [Header("Settings")]
     [SerializeField]
@@ -177,6 +184,12 @@ public class Main : MonoBehaviour
     private Text _MaxPitchTurnText;
     private Slider _MaxPitchTurnSlider;
 
+    public float BatAmplifier = 75f;
+    private float _BatAmplifier = -100f;
+    private Text _BatAmplifierText;
+    private Slider _BatAmplifierSlider;
+
+
     // Internal variables
     private bool initialized;
     private bool menuToggle;
@@ -264,6 +277,7 @@ public class Main : MonoBehaviour
         _swingType = eSwingType.None;
 
         updateDifficulty(true);
+        updateBatColliderSize();
         updateBattingStyle(true);
         updateStadiumMode(true);
         updateZOffset(true);
@@ -277,8 +291,6 @@ public class Main : MonoBehaviour
 
         initialized = true;
         gameState = eGameState.None;
-
-        
     }
 
     public void SetupMenus()
@@ -344,6 +356,11 @@ public class Main : MonoBehaviour
         var p4 = DebugUIBuilder.instance.AddSlider("Max Amplifier", 0.0f, 25.0f, onAmpMaxChange, false, 1);
         _ampMaxText = p4.GetComponentsInChildren<Text>()[1];
         _ampMaxSlider = p4.GetComponentInChildren<Slider>();
+        // BatAmplifier
+        var ba = DebugUIBuilder.instance.AddSlider(Constants.CT_BatAmplifier, 50f, 200f, delegate (float f) { BatAmplifier = f; updateTweakables(); }, false, 1);
+        _BatAmplifierText = ba.GetComponentsInChildren<Text>()[1];
+        _BatAmplifierSlider = ba.GetComponentInChildren<Slider>();
+
         // Bowling type
         var spw = DebugUIBuilder.instance.AddLabel("Bowling Type - ", 1);
         _swingTypeText = spw.GetComponent<Text>();
@@ -357,16 +374,16 @@ public class Main : MonoBehaviour
         _MaxXText = pr1.GetComponentsInChildren<Text>()[1];
         _MaxXSlider = pr1.GetComponentInChildren<Slider>();
         _MaxXSlider.onValueChanged.AddListener(delegate (float f) { MaxX = f; updateTweakables(); });
-        // MinY
-        pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MinY, -3f, 2f, onVoid, false, 1);
-        _MinYText = pr1.GetComponentsInChildren<Text>()[1];
-        _MinYSlider = pr1.GetComponentInChildren<Slider>();
-        _MinYSlider.onValueChanged.AddListener(delegate (float f) { MinY = f; updateTweakables(); });
-        // MaxY
-        pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MaxY, -3f, 2f, onVoid, false, 1);
-        _MaxYText = pr1.GetComponentsInChildren<Text>()[1];
-        _MaxYSlider = pr1.GetComponentInChildren<Slider>();
-        _MaxYSlider.onValueChanged.AddListener(delegate (float f) { MaxY = f; updateTweakables(); });
+        //// MinY
+        //pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MinY, -3f, 2f, onVoid, false, 1);
+        //_MinYText = pr1.GetComponentsInChildren<Text>()[1];
+        //_MinYSlider = pr1.GetComponentInChildren<Slider>();
+        //_MinYSlider.onValueChanged.AddListener(delegate (float f) { MinY = f; updateTweakables(); });
+        //// MaxY
+        //pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MaxY, -3f, 2f, onVoid, false, 1);
+        //_MaxYText = pr1.GetComponentsInChildren<Text>()[1];
+        //_MaxYSlider = pr1.GetComponentInChildren<Slider>();
+        //_MaxYSlider.onValueChanged.AddListener(delegate (float f) { MaxY = f; updateTweakables(); });
         // MinZ
         pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MinZ, -0.75f, 0.75f, onVoid, false, 1);
         _MinZText = pr1.GetComponentsInChildren<Text>()[1];
@@ -415,14 +432,27 @@ public class Main : MonoBehaviour
 
         // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
         if (difficulty == eDifficulty.Easy && !_easyToggle.isOn)
+        {
             _easyToggle.isOn = true;
+            updateBatColliderSize();
+        }
         else if (difficulty == eDifficulty.Medium && !_mediumToggle.isOn)
+        {
             _mediumToggle.isOn = true;
+            updateBatColliderSize();
+        }
         else if (difficulty == eDifficulty.Hard && !_hardToggle.isOn)
+        {
             _hardToggle.isOn = true;
+            updateBatColliderSize();
+        }
 
         if (changed)
+        {
             PlayerPrefs.Save();
+        }
+
+            
     }
     public void onRadioEasy(Toggle t)
     {
@@ -452,6 +482,34 @@ public class Main : MonoBehaviour
         {
             difficulty = eDifficulty.Hard;
             updateDifficulty();
+        }
+    }
+
+    void updateBatColliderSize()
+    {
+        switch (difficulty)
+        {
+            case eDifficulty.Easy:
+                {
+                    Vector3 theSize = theBatScript.originalSize;
+                    theSize.x *= Constants.BatColliderMultiplierEasy;
+                    theBatScript.batCollider.size = theSize;
+                }
+                break;
+            case eDifficulty.Medium:
+                {
+                    Vector3 theSize = theBatScript.originalSize;
+                    theSize.x *= Constants.BatColliderMultiplierMedium;
+                    theBatScript.batCollider.size = theSize;
+                }
+                break;
+            case eDifficulty.Hard:
+                {
+                    Vector3 theSize = theBatScript.originalSize;
+                    theSize.x *= Constants.BatColliderMultiplierHard;
+                    theBatScript.batCollider.size = theSize;
+                }
+                break;
         }
     }
 
@@ -686,7 +744,14 @@ public class Main : MonoBehaviour
             reloadTweakables();
         }
 
-        if(bowlingProfileManager != null)
+        if (_BatAmplifier != BatAmplifier)
+        {
+            _BatAmplifier = BatAmplifier;
+            _BatAmplifierText.text = _BatAmplifier.ToString();
+            _BatAmplifierSlider.value = _BatAmplifier;
+        }
+
+        if (bowlingProfileManager != null)
         {
             BowlingProfile profile = bowlingProfileManager.GetProfile(swingType);
             if (_MinX != MinX)
@@ -909,7 +974,16 @@ public class Main : MonoBehaviour
                     {
                         // Get current bowler from Score keeper
                         currentBowlingConfig = bowlingProfileManager.GetProfile(theHUD.CurrentBowler.Type).GetRandomDelivery();
-
+                        CameraReplay.Instance.startCapturing = null;
+                        CameraReplay.Instance.startDisplaying = null;
+                        CameraReplay.Instance.StopDisplaying();
+                        CameraReplay.Instance.setViewSetting(0);
+                        ShotDistance.Instance.setText("0.0 m");
+                        TestDisplay.Instance.setText("");
+                        BallSpeed.Instance.setText("");
+                        foreach (GameObject obj in TestDisplay.Instance.arrows)
+                            Destroy(obj);
+                        TestDisplay.Instance.arrows.Clear();
                         // TODO: Move bowling machine
 
                         // For now, switch directly to loop state
@@ -950,7 +1024,10 @@ public class Main : MonoBehaviour
                         theBallScript.fresh = true;
                         theBallScript.bounced = false;
                         theBallScript.wide = false;
+                        theBatScript.hasHitBall = false;
 
+                        CameraReplay.Instance.StartRecording(0f);
+                        StartCoroutine(BallSpeed.Instance.updateBallSpeed());
                         gameState = eGameState.InGame_DeliverBallLoop;
                     }
                     break;
@@ -967,6 +1044,7 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
+                        CameraReplay.Instance.StopRecording(2f);
                         gameState = eGameState.InGame_BallHitLoop;
                     }
                     break;
@@ -997,6 +1075,7 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
+                        CameraReplay.Instance.StopRecording(1f);
                         gameState = eGameState.InGame_BowledLoop;
 
                         // Wait for '2' seconds and reset to Ready
@@ -1012,6 +1091,7 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
+                        CameraReplay.Instance.StopRecording(0f);
                         gameState = eGameState.InGame_BallMissedLoop;
 
                         // Wait for '2' seconds and reset to Ready
@@ -1063,10 +1143,8 @@ public class Main : MonoBehaviour
             ToggleUI(!menuToggle);
         }
 
-        
+        theHUD.txtVersion.text = ((float)(1f / Time.deltaTime)).ToString();
     }
-
-    
 
     /*private float GetYVel(float length, float z)
     {
@@ -1098,8 +1176,10 @@ public class Main : MonoBehaviour
     private void StopTheBall()
     {
         // pause the particles
-        theBallScript.myParticles.Stop();
+        //theBallScript.myParticles.Stop();
+        //theBallScript.myParticles.Clear();  PARTICLE
         theBallScript.myParticles.Clear();
+        theBallScript.myParticles.enabled = false;
         // disable physics
         theBallRigidBody.isKinematic = true;
         // reset ball position to inside machine

@@ -8,8 +8,10 @@ public class Ball : MonoBehaviour
     [SerializeField]
     protected AudioClip audioClip;
 
+    //[HideInInspector]
+    //public ParticleSystem myParticles;
     [HideInInspector]
-    public ParticleSystem myParticles;
+    public TrailRenderer myParticles;
     [HideInInspector]
     public bool fresh;
     [HideInInspector]
@@ -34,8 +36,10 @@ public class Ball : MonoBehaviour
     void FixedUpdate()
     {
         Main inst = Main.Instance;
+        //if (myParticles == null)  PARTICLE
+        //    myParticles = GetComponent<ParticleSystem>();
         if (myParticles == null)
-            myParticles = GetComponent<ParticleSystem>();
+           myParticles = GetComponent<TrailRenderer>();
 
         //If, ball comes to a stop by itself, BEFORE a shot, assume that it was a dead ball
         if (bounced && myRigidBody.velocity.magnitude < 0.1f && inst.gameState == eGameState.InGame_DeliverBallLoop)
@@ -54,18 +58,27 @@ public class Ball : MonoBehaviour
             inst.gameState != eGameState.InGame_DeliverBall &&
             inst.gameState != eGameState.InGame_DeliverBallLoop)
         {
-            if(myParticles.isPlaying)
+            //if (myParticles.isPlaying) PARTICLE
+            //{
+            //    myParticles.Stop();
+            //    myParticles.Clear();
+            //}
+            if (myParticles.enabled)
             {
-                myParticles.Stop();
                 myParticles.Clear();
+                myParticles.enabled = false;
             }
         }
-        else if (!myParticles.isPlaying)
+        //else if (!myParticles.isPlaying) PARTICLE
+        //{
+        //    myParticles.Play();
+        //}
+        else if (!myParticles.enabled)
         {
-            myParticles.Play();
+            myParticles.enabled = true;
         }
 
-        if(inst.gameState == eGameState.InGame_BallHitLoop ||
+        if (inst.gameState == eGameState.InGame_BallHitLoop ||
             inst.gameState == eGameState.InGame_BallMissedLoop ||
             inst.gameState == eGameState.InGame_BallPastBoundaryLoop ||
             inst.gameState == eGameState.InGame_BowledLoop ||
@@ -79,8 +92,9 @@ public class Ball : MonoBehaviour
             var direction = -myRigidBody.velocity.normalized;
             var forceAmount = (p * v * v * cd * a) / 2;
 
-            if (forceAmount > 0f)
-                myRigidBody.AddForce(direction * forceAmount, ForceMode.Force);
+            // Adds backward air resistance to the ball. By making this a comment, the air resistance is used only for calculating swing.
+            //if (forceAmount > 0f)
+            //    myRigidBody.AddForce(direction * forceAmount, ForceMode.Force);
 
             if(inst.gameState == eGameState.InGame_DeliverBallLoop)
             {
@@ -109,6 +123,22 @@ public class Ball : MonoBehaviour
                 }
             }
         }
+
+        if (transform.position.y <= -10f)
+        {
+            myRigidBody.velocity = Vector3.zero;
+            myRigidBody.isKinematic = true;
+        }
+    }
+
+    public void PlayTrail()
+    {
+
+    }
+
+    public void StopTrail()
+    {
+
     }
 
     private void LateUpdate()
@@ -116,25 +146,25 @@ public class Ball : MonoBehaviour
         lastVelocity = myRigidBody.velocity;
     }
 
-    private void OnCollisionEnter(Collision collision)
-    {
-        if (fresh && collision.gameObject.name == "Plane")
-        {
-            firstImpact = transform.position.x;
-            //print("1: " + transform.position.x);
-            //print(Main.Instance.currentBowlingConfig.length);
-            //print("### " + transform.position.z);
-        }
-    }
+    //private void OnCollisionEnter(Collision collision)
+    //{
+    //    if (fresh && collision.gameObject.name == "Plane")
+    //    {
+    //        firstImpact = transform.position.x;
+    //        //print("1: " + transform.position.x);
+    //        //print(Main.Instance.currentBowlingConfig.length);
+    //        //print("### " + transform.position.z);
+    //    }
+    //}
 
-    public void OnCollisionExit(Collision collisionInfo)
+    public void OnCollisionEnter(Collision collisionInfo)
     {
         Main inst = Main.Instance;
         if(inst.gameState == eGameState.InGame_DeliverBall ||
             inst.gameState == eGameState.InGame_DeliverBallLoop)
         {
             // If we hit pitch, and this is our first bounce after release of delivery
-            if (fresh && collisionInfo.gameObject.name == "Plane")
+            if (fresh && collisionInfo.gameObject.tag == "Ground")
             {
                 //print(transform.position.x);
                 //print(((firstImpact + transform.position.x) / 2) - Main.Instance.currentBowlingConfig.length);

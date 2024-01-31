@@ -201,7 +201,7 @@ public class DebugUIBuilder : MonoBehaviour
       float x = marginH;
       float y = -marginV;
       float maxWidth = 0.0f;
-      for (int elemIdx = 0; elemIdx < elemCount; ++elemIdx)
+      for (int elemIdx = 0; elemIdx < elemCount; elemIdx++)
       {
         RectTransform r = elems[elemIdx];
         r.anchoredPosition = new Vector2(x, y);

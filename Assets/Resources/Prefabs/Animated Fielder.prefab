@@ -2556,7 +2556,7 @@ Transform:
   m_GameObject: {fileID: 8313717269029061528}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.07, y: 1.07, z: 1.07}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 2492360259389702828}
   - {fileID: 864155744111099714}
@@ -2597,14 +2597,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0456773970732427b99375e05df5b685, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  animatedFielderManagementScript: {fileID: 0}
   theObject: {fileID: 0}
   fielderHand: {fileID: 6583286730138798283}
   isKeeper: 0
   myAnimator: {fileID: 3371997339564606296}
-  runClip: {fileID: 0}
   JerseyMaterial: {fileID: 0}
   StartPosition: {x: 0, y: 0, z: 0}
   isRunning_RotateTowardsIntercept: 0
+  shouldFieldBall: 0
   pickUpDistance: 0
 --- !u!54 &692636565167192209
 Rigidbody:

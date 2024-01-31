@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
 public class Batsman
@@ -49,6 +50,8 @@ public class HUD : MonoBehaviour
     protected TMPro.TextMeshProUGUI txtBowlerStyle;
     [SerializeField]
     protected TMPro.TextMeshProUGUI txtBalls;
+    [SerializeField]
+    public TMPro.TextMeshProUGUI txtVersion;
 
 
     public static HUD Instance = null;
@@ -115,19 +118,22 @@ public class HUD : MonoBehaviour
         NextBatsmanIndex = 2;
 
         Bowlers = new List<Bowler>();
-        string[] boNames = { "Bumrah", "Chahal", "Ashwin", "Bhuvneshwar", "Shami" };
-        eSwingType[] boTypes = { eSwingType.InSwing, eSwingType.LegSpin, eSwingType.OffSpin, eSwingType.OutSwing, eSwingType.Pace };
+        string[] boNames = { "Bumrah", "Shami", "Bhuvneshwar", "Siraj", "Ashwin", "Chahal", "Hooda", "Bishnoi" };
+        eSwingType[] boTypes = { eSwingType.InSwing, eSwingType.Pace, eSwingType.OutSwing, eSwingType.Pace, eSwingType.OffSpin, eSwingType.LegSpin, eSwingType.OffSpin, eSwingType.LegSpin };
         for(int i=0; i<boNames.Length; i++)
         {
             Bowler bo = new Bowler(boNames[i], boTypes[i]);
             Bowlers.Add(bo);
+            AnimatedBowler.Instance.myBowlers.data.Add(AnimatedBowler.Instance.configs.data[((int)boTypes[i]) - 1]);
         }
         CurrentBowler = Bowlers[0];
         //CurrentBowler = Bowlers[2];               // QWERTYUIOP
         Main.Instance.swingType = CurrentBowler.Type;
+        UpdateKeeperPosition();
         AnimatedBowler.Instance.UpdateInfo(Bowlers.IndexOf(CurrentBowler));
         NextBowlerIndex = 0;
 
+        
         UpdateUI();
     }
 
@@ -281,7 +287,45 @@ public class HUD : MonoBehaviour
         CurrentBowler = Bowlers[NextBowlerIndex];
         //CurrentBowler = Bowlers[2];                    // QWERTYUIOP
         Main.Instance.swingType = CurrentBowler.Type;
+        UpdateKeeperPosition();
         AnimatedBowler.Instance.UpdateInfo(Bowlers.IndexOf(CurrentBowler));
+    }
+
+    void UpdateKeeperPosition()
+    {
+        switch (Main.Instance.swingType)
+        {
+            case eSwingType.Pace:
+                {
+                    Main.Instance.theKeeper.transform.position = Constants.KeeperPositionFast;
+                }
+                break;
+            case eSwingType.InSwing:
+                {
+                    Main.Instance.theKeeper.transform.position = Constants.KeeperPositionMedium;
+                }
+                break;
+            case eSwingType.OutSwing:
+                {
+                    Main.Instance.theKeeper.transform.position = Constants.KeeperPositionMedium;
+                }
+                break;
+            case eSwingType.OffSpin:
+                {
+                    Main.Instance.theKeeper.transform.position = Constants.KeeperPositionSlow;
+                }
+                break;
+            case eSwingType.LegSpin:
+                {
+                    Main.Instance.theKeeper.transform.position = Constants.KeeperPositionSlow;
+                }
+                break;
+            default:
+                {
+                    Main.Instance.theKeeper.transform.position = Constants.KeeperPositionMedium;
+                }
+                break;
+        }
     }
 
     void IncrementRuns(int runs)
@@ -333,6 +377,7 @@ public class HUD : MonoBehaviour
 
     public void UpdateUI()
     {
+        //txtVersion.text = "Version: " + PlayerSettings.bundleVersion;
         int count = BowledBalls.Count;
         if (count > 0)
         {

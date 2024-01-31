@@ -96,7 +96,8 @@ public class Fielder : MonoBehaviour
             }
 
             // pause the particles
-            inst.theBallScript.myParticles.Stop();
+            //inst.theBallScript.myParticles.Stop();   PARTICLE
+            //inst.theBallScript.myParticles.Clear();
             inst.theBallScript.myParticles.Clear();
             // disable physics
             inst.theBallRigidBody.isKinematic = true;

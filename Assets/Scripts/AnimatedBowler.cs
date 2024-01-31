@@ -5,7 +5,7 @@ using UnityEngine.PlayerLoop;
 
 public class AnimatedBowler : MonoBehaviour
 {
-    public static AnimatedBowler Instance = null;
+    public static AnimatedBowler Instance;
 
     [SerializeField]
     private GameObject hand;
@@ -20,22 +20,24 @@ public class AnimatedBowler : MonoBehaviour
     private Coroutine startBowling;
     private bool hasRun_StartBowling;
 
-    private AFInfoData myBowlers;
+    public AFInfoData myBowlers;
     private AFInfo currentBowlerInfo;
 
     private bool glide;
     private int myFrame;
     private Vector3 myPrevPos;
 
+    public AFInfoData configs;
+
     private void Awake()
     {
+        configs = new AFInfoData();
+        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.6f), new Vector3(0f, 90f, 0f), 2, 4.5f, 1, 3));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.5f), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.5f), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x), 0f, 2.2f), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x), 0f, 2.2f), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
         myBowlers = new AFInfoData();
-        myBowlers.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.6f), new Vector3(0f, 90f, 0f), 2, 4.5f, 0, 2));
-        myBowlers.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x), 0f, 2.2f), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
-        myBowlers.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x), 0f, 2.2f), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
-        myBowlers.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.6f), new Vector3(0f, 90f, 0f), 2, 4.5f, 0, 2));
-        myBowlers.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.6f), new Vector3(0f, 90f, 0f), 2, 4.5f, 1, 3));
-        
     }
 
     // Start is called before the first frame update
@@ -204,8 +206,8 @@ public class AnimatedBowler : MonoBehaviour
     {
         Main inst = Main.Instance;
 
-        if (inst.gameState == eGameState.InGame_Ready ||
-            inst.gameState == eGameState.InGame_ResetToReadyLoop)
+        if (inst.gameState != eGameState.InGame_SelectDelivery ||
+            inst.gameState != eGameState.InGame_SelectDeliveryLoop)
         {
             float distance = Vector3.Distance(transform.position, currentBowlerInfo.startPos);
             if (distance <= 1.7f)
@@ -219,7 +221,7 @@ public class AnimatedBowler : MonoBehaviour
     }
 }
 
-class AFInfo
+public class AFInfo
 {
     public Vector3 startPos;
     public Vector3 startRot;
@@ -239,7 +241,7 @@ class AFInfo
     }
 }
 
-class AFInfoData
+public class AFInfoData
 {
     public List<AFInfo> data;
 

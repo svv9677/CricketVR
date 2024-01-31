@@ -26,6 +26,15 @@ public static class Constants
     public const string CT_MaxSwing = "maxSwing";
     public const string CT_MinPitchTurn = "minTurn";
     public const string CT_MaxPitchTurn = "maxTurn";
+    public const string CT_BatAmplifier = "batAmplifier";
+
+    public const float BatColliderMultiplierEasy = 4f;
+    public const float BatColliderMultiplierMedium = 2f;
+    public const float BatColliderMultiplierHard = 1f;
+
+    public static readonly Vector3 KeeperPositionSlow = new Vector3(11.6f, 0f, 0f);
+    public static readonly Vector3 KeeperPositionMedium = new Vector3(16f, 0f, 0f);
+    public static readonly Vector3 KeeperPositionFast = new Vector3(20f, 0f, 0f);
 
     public static readonly string[] CT_SwingPrefixes = { "none", "pace", "inSwing", "outSwing", "legSpin", "offSpin", "random" };
 
@@ -44,29 +53,39 @@ public static class Constants
     //public static readonly float[] offSpinCfg = { 3f, 4f, 0.5f, 0.9f, -0.1f, 0.1f, 0.1f, 0.3f, 0.2f, 0.5f };
 
 
-    // Configs for bowling params in the order:  minX,   maxX,   minLen,   maxLen,   minZ,   maxZ, minSwn, maxSwn, minTrn, maxTrn
+    // (REAL) Configs for bowling params in the order:  minX,   maxX,   minLen,   maxLen,   minZ,   maxZ, minSwn, maxSwn, minTrn, maxTrn
+    // Multiply x y z values by 18 to convert to kmh: (7 / 0.2mass * 3.6) = 126 kph
+    //public static readonly float[] paceCfg = { 7f, 10f, 0f, 9f, -0.4f, 0f, 0f, 0f, 0f, 0f };
+    //public static readonly float[] inSwingCfg = { 6f, 8f, -2f, 9f, 0.35f, 0.55f, 0.2f, 0.8f, -0.02f, 0.02f };
+    //public static readonly float[] outSwingCfg = { 6f, 8f, -2f, 9f, -0.65f, -0.6f, 0.2f, 0.8f, -0.02f, 0.02f };
+    //public static readonly float[] legSpinCfg = { 3.5f, 4.5f, 4f, 10f, -0.3f, -0.1f, 0.1f, 0.3f, 0.2f, 0.5f };
+    //public static readonly float[] offSpinCfg = { 3.5f, 4.5f, 4f, 10f, -0.2f, 0f, 0.1f, 0.3f, 0.2f, 0.5f };
 
-    // TODO Change below length values correctly
-    //public static readonly float[] paceCfg = { 7f, 10f, -2.5f, -1f, -0.05f, 0.25f, 0f, 0f, 0f, 0f };
-    //public static readonly float[] inSwingCfg = { 6f, 8f, -2f, -0.3f, 0.7f, 1f, 0.4f, 0.9f, -0.03f, 0.03f };
-    //public static readonly float[] outSwingCfg = { 6f, 8f, -2f, -0.3f, -0.8f, -0.2f, 0.4f, 0.9f, -0.03f, 0.03f };
-    //public static readonly float[] legSpinCfg = { 3f, 4f, 0f, 0.5f, -0.1f, 0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
-    //public static readonly float[] offSpinCfg = { 3f, 4f, 0f, 0.5f, 0f, 0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
-
-    public static readonly float[] paceCfg = { 7f, 10f, -2f, 9f, -0.2f, 0.1f, 0f, 0f, 0f, 0f };
-    public static readonly float[] inSwingCfg = { 6f, 8f, -2f, 9f, 0.4f, 0.6f, 0.4f, 1f, -0.03f, 0.03f };
-    public static readonly float[] outSwingCfg = { 6f, 8f, -2f, 9f, -1f, -0.7f, 0.4f, 1f, -0.03f, 0.03f };
-    public static readonly float[] legSpinCfg = { 3.5f, 4.5f, 4f, 10f, -0.2f, 0f, 0.1f, 0.3f, 0.2f, 0.5f };
-    public static readonly float[] offSpinCfg = { 3.5f, 4.5f, 4f, 10f, -0.1f, 0.1f, 0.1f, 0.3f, 0.2f, 0.5f };
+    // Modified values for more realistic speeds...
+    public static readonly float[] paceCfg = { 7.8f, 8.6f, 0f, 9f, -0.4f, 0f, 0f, 0f, 0f, 0f };
+    public static readonly float[] inSwingCfg = { 6.9f, 7.8f, -2f, 9f, 0.35f, 0.55f, 0.2f, 0.8f, -0.02f, 0.02f };
+    public static readonly float[] outSwingCfg = { 6.9f, 7.8f, -2f, 9f, -0.65f, -0.6f, 0.2f, 0.8f, -0.02f, 0.02f };
+    public static readonly float[] legSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.4f, -0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
+    public static readonly float[] offSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.2f, 0f, 0.1f, 0.3f, 0.2f, 0.5f };
 
 
     //For testing(same ball every time)
-    //public static readonly float[] paceCfg = { 7f, 7f, 9f, 9f, 0.1f, 0.1f, 0f, 0f, 0f, 0f };
+    //public static readonly float[] paceCfg = { 7f, 7f, 7f, 7f, 0.1f, 0.1f, 0f, 0f, 0f, 0f };
     //public static readonly float[] inSwingCfg = paceCfg;
     //public static readonly float[] outSwingCfg = paceCfg;
     //public static readonly float[] legSpinCfg = paceCfg;
     //public static readonly float[] offSpinCfg = paceCfg;
 
+    public static readonly Vector3[] fieldingPositions = {
+        new Vector3(-25f, 0f, -14f),
+        new Vector3(-27f, 0f, 13f),
+        new Vector3(-29f, 0f, -45f),
+        new Vector3(47f, 0f, 28f),
+        new Vector3(32f, 0f, -44f),
+        new Vector3(10f, 0f, 19f),
+        new Vector3(-10f, 0f, 18f),
+        new Vector3(-11f, 0f, 53f),
+        new Vector3(-54f, 0f, -5f)};
 
 }
 
