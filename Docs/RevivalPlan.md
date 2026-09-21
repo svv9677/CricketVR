@@ -12,8 +12,8 @@ Prepared 2026-09-20 against commit `e8e5bec` (master, clean). Last updated 2026-
 | P0 | **Done** | Baseline tagged `pre-revival`. The build-blocker premise was **disproved** — see the corrected P0.1 below. |
 | P4 | **Done**, 1 deferred | `.gitattributes` added, `.gitignore` rewritten, 10 generated files untracked. `Assets/Resources/` relocation deferred to P2. |
 | P3 | **Partial** | Dead files, unused field and log gating done. Bulk comment removal and structural items still open. |
-| P2 | Not started | |
-| P1 | Not started | |
+| P2 | **Done** | 8 dead packages removed, ~614 MB of SDK/sample assets deleted. Tracked files 3365 → 978. |
+| P1 | **Mostly done** | Unity 6.3.24f1 upgrade landed; OpenXR loader active and **the OVR rig survives**. Outstanding: Android SDK levels, device build. |
 
 **Verification standard used:** after each change, the full 172-source `Assembly-CSharp` set is
 compiled with Roslyn against all 252 references with `UnityEditor.dll` deliberately excluded — the
@@ -70,6 +70,39 @@ installed, and `adb` is on PATH.
 
 ## P1 — Engine and SDK
 
+> ### ✅ OUTCOME (2026-09-21) — much cheaper than planned
+>
+> Project upgraded in place to **Unity 6000.3.24f1**. Results:
+>
+> - **The vendored Oculus Integration compiles clean on Unity 6.3 — 0 errors.** ⚠️ This plan
+>   previously predicted it would not work. That was wrong: Meta's statement is about *support
+>   policy*, not compile compatibility, and this document over-translated it.
+> - Unity's API Updater rewrote **all 24** `Rigidbody.velocity` → `linearVelocity` automatically
+>   (`velocity` is `[Obsolete]` with `(UnityUpgradable)`, **not removed**). `angularVelocity`
+>   unchanged. Verified: all 26 edits mechanical and semantics-preserving.
+> - `com.unity.textmeshpro` removed, `com.unity.ugui` → 2.0.0 — as predicted.
+> - `com.unity.feature.vr` 1.0.1 added, pulling in `com.unity.xr.openxr` 1.16.1,
+>   `com.unity.xr.interaction.toolkit` 3.3.2 and `com.unity.xr.oculus` 4.5.5.
+> - **Android loader switched to OpenXR, and `OVRCameraRig`/`OVRManager` still work.** This killed
+>   the projected rig-and-settings-menu rebuild — the single largest piece of work in this phase.
+>   `DebugUIBuilder` and its 39 call sites are untouched.
+> - ⚠️ **Caveat:** Play-mode validation used the *Standalone* OpenXR config. The **Android** path is
+>   still unproven — no APK has been produced.
+>
+> **Decision: keep `com.unity.xr.oculus`.** It is no longer the active loader, but 15 code sites in
+> `OVRManager`, `OVRCameraRig`, `OVRPlugin`, `OVRXRSDKNative`, `OVRDisplay`, `OVRBoundary` and
+> `OVRCommon` are guarded by `USING_XR_SDK_OCULUS` / `USING_COMPATIBLE_OCULUS_XR_PLUGIN_VERSION`.
+> Removing it changes how the working rig compiles, for negligible gain.
+>
+> **DebugUI was NOT relocated.** The planned rescue to `Assets/ThirdParty/` assumed deleting all of
+> `Assets/Oculus`. Since `Assets/Oculus/VR` is being kept, `Core/DebugUI` stays where it is and its
+> siblings were deleted around it — same result, no GUID risk.
+>
+> **Still outstanding:** `AndroidTargetSdkVersion` 0 → 34 and `AndroidMinSdkVersion` 25 → 32 (Unity
+> auto-bumped 24 → 25 on upgrade; both need setting in the Player Settings UI while the editor owns
+> the file), then a device build.
+
+
 ### Where things stand
 | | Current | Notes |
 |---|---|---|
@@ -101,14 +134,85 @@ files plus prefabs, 2 MB total — and depends only on `OVRCameraRig`, `OVRRayca
 to `Assets/ThirdParty/DebugUI/` and delete the other ~655 MB.** Rebuilding the menu in uGUI
 properly is a separate, optional, later task — not a revival blocker.
 
-**Stage 1 — Meta XR SDK migration.** Replace the vendored SDK with `com.meta.xr.sdk.all` via UPM.
-Keep the DebugUI bridge. ~5 real integration points to fix.
+⚠️ **CORRECTION (2026-09-21): the staging below was wrong.** The original plan proposed migrating
+the SDK on 2022.3 first, then upgrading the engine. That ordering is not available:
 
-**Stage 2 — Unity 6 LTS.** Meta's current Unity setup docs specify 6000.0.66f2+ (6.1+ recommended)
-for Quest. ⚠️ Confirm the minimum Unity version for whichever Meta XR SDK release you land on
-before committing to an order — it may force Stage 2 ahead of Stage 1.
+- **Unity 6 requires Meta XR SDK v74 or later.** The vendored Oculus Integration (OVRPlugin
+  **1.55.0**, ~v29, mid-2021) is not supported on Unity 6 at all.
+- Meta's own migration guidance states that moving from Oculus Integration to the Meta XR SDKs
+  **"requires the removal of existing content"** — you delete `Assets/Oculus`, you do not upgrade it
+  in place.
+- ⚠️ Unresolved: sources conflict on whether Meta XR SDK v74+ still supports Unity 2022.3 LTS.
+  Confirm in the Package Manager before choosing an order. If it does, doing the SDK migration on
+  2022.3 first is still the lower-risk path; if not, both must happen together.
 
-**Stage 3 — URP. Defer.** Meta and Unity both recommend URP for Quest now, and Unity 6.3 LTS added
+**Therefore: deleting the vendored SDK is now mandatory, not an optimisation.** It is no longer a
+655 MB disk saving — it is a prerequisite for the engine upgrade.
+
+### New decision required: OculusXR plugin vs Unity OpenXR
+
+`com.unity.xr.oculus` (the Oculus XR Plugin, currently **4.0.0**) is **itself deprecated** and
+scheduled for removal; it is deprecated as of Unity 6.5 and no longer recommended for production.
+Unity directs new work to the **Unity OpenXR Plugin** (`com.unity.xr.openxr`), optionally with
+`com.unity.xr.meta-openxr` for Meta-specific features.
+
+| | Path A — Meta XR SDK + OculusXR | Path B — Unity OpenXR |
+|---|---|---|
+| `com.unity.xr.oculus` | 4.0.0 → **4.5.5** (the 6000.3 version) | removed |
+| `OVRInput` (15 call sites) | **survives unchanged** — ships in Meta XR Core | must be rewritten against Unity's XR input |
+| Longevity | on a deprecated plugin | Unity's recommended direction |
+| Effort now | lower | higher |
+
+**Recommendation: Path A for the upgrade itself.** The point of this phase is to get back to a
+running game on a supported engine; rewriting the input layer at the same time adds risk for no
+gameplay benefit. The input surface is tiny and well isolated (one `Main.GetButton()` helper plus
+4 haptics calls in `Bat.cs`), so Path B stays cheap to do later as its own step.
+
+### Rescue DebugUI *before* deleting `Assets/Oculus`
+
+Verified: `DebugUIBuilder`, `LaserPointer` and `HandedInputSelector` are the only pieces the project
+needs from `SampleFramework`. Everything they depend on — `OVRCameraRig`, `OVRRaycaster`,
+`OVRInputModule`, `OVRPlugin` — lives in `Assets/Oculus/VR/` (the `Oculus.VR` asmdef), which maps to
+**Meta XR Core SDK** and therefore survives the migration.
+
+Copy `Assets/Oculus/SampleFramework/Core/DebugUI/` (3 scripts + `Fonts/`, `Prefabs/`, `Textures/`,
+~2 MB) to `Assets/ThirdParty/DebugUI/` **with the `.meta` files**, so GUIDs are preserved and the
+scene's existing references keep resolving. Give it its own asmdef referencing `Oculus.VR` — that
+also unblocks the `CricketVR.Runtime` asmdef (see P3 item 5).
+
+### Package changes for Unity 6000.3
+
+| Package | Now | Action |
+|---|---|---|
+| `com.unity.xr.oculus` | 4.0.0 | → **4.5.5** (Path A) or remove (Path B) |
+| `com.unity.xr.management` | 4.3.3 | let Unity 6 resolve |
+| `com.unity.textmeshpro` | 3.0.6 | ⚠️ **deprecated — merged into `com.unity.ugui`** as of 2023.2. Remove the entry; TMP comes from uGUI 2.x. 20 TMPro references and `Assets/TextMesh Pro/` exist, so expect a TMP Essentials re-import prompt, and check fonts render (there are known Unity 6 font-rendering regressions after upgrade). |
+| `com.unity.ugui` | 1.0.0 | → 2.x (brings TMP) |
+| ads / analytics / purchasing / iet-framework / ai.navigation / timeline / 2d.* | various | **remove in P2 first** — do not carry dead packages through an engine upgrade |
+| Meta XR SDK | absent | add `com.meta.xr.sdk.all` (or just `core`) **v74+** |
+
+### Code changes for Unity 6000.3
+
+| Change | Sites | Notes |
+|---|---|---|
+| `Rigidbody.velocity` → `linearVelocity` | **24**, across 7 files | AnimatedFielder 9 · Ball 7 · Stump 2 · Main 2 · Bat 2 · Fielder 1 · BallSpeed 1. All confirmed to be on `Rigidbody` — none on `ParticleSystem`/`CharacterController`. ⚠️ **Unverified whether `velocity` is removed (compile error) or merely `[Obsolete]` (warning) in 6000.3.** The docs page 404s while `linearVelocity` resolves, which suggests removal from docs at minimum. Resolve definitively by inspecting `UnityEngine.PhysicsModule.dll` once the editor is installed. |
+| `Rigidbody.angularVelocity` | 1 (`Bat.cs:193`) | ✅ **unchanged** — verified still present in 6000.3 under that exact name. |
+| `OVRInput` | 15 | Path A: no change. Path B: rewrite. |
+| `DebugUIBuilder` | 39 | No change **if** the DebugUI rescue above is done first. |
+| `UnityEngine.UI.Text` | 36 | Still supported in Unity 6; no forced migration to TMP. |
+| `FindObjectOfType` / `WWW` / `Physics.autoSimulation` | **0** | Clean — none of the usual upgrade landmines are present. |
+
+### Project settings to re-check after upgrade
+
+- `m_ContactsGeneration: 0` = **Legacy Contacts Generation**. ⚠️ Verify this option still exists in
+  6000.3; if Unity forces PCM, bat/ball contact behaviour may change. This is gameplay-affecting
+  given the manual collision resolution in `Bat.cs`.
+- Fixed Timestep is **0.007 s** (~143 Hz) — unusually high; re-measure frame cost on device after
+  the upgrade.
+- Render pipeline is **Built-in** and no SRP package is installed. Unity 6 still supports Built-in,
+  so the upgrade does **not** force URP. Stage 3 below remains genuinely optional.
+
+**Stage 3 — URP. Still deferred.** Meta and Unity both recommend URP for Quest, and Unity 6.3 added
 XR post-processing that runs efficiently on tile GPUs. But converting 47 materials from Built-in
 will cause visual regressions and is a real chunk of work. Do it after the game is playable again.
 

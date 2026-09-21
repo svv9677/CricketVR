@@ -1004,7 +1004,7 @@ public class Main : MonoBehaviour
                     {
                         // Remove hand parent
                         theBall.transform.SetParent(null);
-                        theBallRigidBody.velocity = Vector3.zero;
+                        theBallRigidBody.linearVelocity = Vector3.zero;
                         Vector3 torque = new Vector3(currentBowlingConfig.torqueX, 0f, 0f);
                         //Vector3 speed = new Vector3(currentBowlingConfig.speedX, currentBowlingConfig.speedY, currentBowlingConfig.speedZ);
                         float myY = GetYVel(theBall.transform.position * 3.28f, currentBowlingConfig.speedX / theBallRigidBody.mass * 3.28f, currentBowlingConfig.length * 3.28f);
@@ -1187,7 +1187,7 @@ public class Main : MonoBehaviour
         // reset ball position to inside machine
         theBall.transform.position = new Vector3(-8.95f, 2.95f, 0f);
         // make the ball static
-        theBallRigidBody.velocity = Vector3.zero;
+        theBallRigidBody.linearVelocity = Vector3.zero;
     }
 
     public IEnumerator WaitAndSetGameState(float delay, eGameState state)

@@ -138,8 +138,8 @@ public class AnimatedFielder : MonoBehaviour
         Vector3 ballPos = Main.Instance.theBall.transform.position;
         if (myAnimInfo.IsName("1 Run"))
         {
-            pickUpDistance = inst.theBallRigidBody.velocity.magnitude * Time.deltaTime * 30f;
-            Vector3 ballFuture = inst.theBall.transform.position + Vector3.Scale(inst.theBallRigidBody.velocity, Vector3.Scale(new Vector3(30f, 30f, 30f), new Vector3(Time.deltaTime, Time.deltaTime, Time.deltaTime)));
+            pickUpDistance = inst.theBallRigidBody.linearVelocity.magnitude * Time.deltaTime * 30f;
+            Vector3 ballFuture = inst.theBall.transform.position + Vector3.Scale(inst.theBallRigidBody.linearVelocity, Vector3.Scale(new Vector3(30f, 30f, 30f), new Vector3(Time.deltaTime, Time.deltaTime, Time.deltaTime)));
             if (canCalculate && Vector3.Distance(transform.position, ballPos) <= pickUpDistance && Vector3.Distance(transform.position, ballFuture) <= 1f/22f * 30f)
             {
                 if (Main.Instance.currentFielderName == "")
@@ -358,8 +358,8 @@ public class AnimatedFielder : MonoBehaviour
         float fx = transform.position.x;
         float fz = transform.position.z;
 
-        float bvx = Main.Instance.theBallRigidBody.velocity.x;
-        float bvz = Main.Instance.theBallRigidBody.velocity.z;
+        float bvx = Main.Instance.theBallRigidBody.linearVelocity.x;
+        float bvz = Main.Instance.theBallRigidBody.linearVelocity.z;
         float fv = 2.75f / 22f / Time.deltaTime;
 
 
@@ -654,7 +654,7 @@ public class AnimatedFielder : MonoBehaviour
         // disable physics
         inst.theBallRigidBody.isKinematic = true;
         // make the ball static
-        inst.theBallRigidBody.velocity = Vector3.zero;
+        inst.theBallRigidBody.linearVelocity = Vector3.zero;
         inst.gameState = eGameState.InGame_BallFielded;
 
         isRunning_FieldTheBall = false;
@@ -668,8 +668,8 @@ public class AnimatedFielder : MonoBehaviour
         b = Main.Instance.theBall.transform.position.x;  // Initial x of ball
         d = Main.Instance.theBall.transform.position.z;  // Initial y of ball
 
-        e = Main.Instance.theBallRigidBody.velocity.x;  // X velocity of ball
-        f = Main.Instance.theBallRigidBody.velocity.z;  // Y velocity of ball
+        e = Main.Instance.theBallRigidBody.linearVelocity.x;  // X velocity of ball
+        f = Main.Instance.theBallRigidBody.linearVelocity.z;  // Y velocity of ball
         g = 2.9f / 22f / Time.deltaTime;  // Person speed
 
         List<float> radians = new List<float>();
@@ -693,7 +693,7 @@ public class AnimatedFielder : MonoBehaviour
         {
             isBallReachable = false;
             CapsuleCollider collider = Main.Instance.theBoundaryCollider.GetComponent<CapsuleCollider>();
-            Vector3 interceptPoint = Main.Instance.theBallRigidBody.velocity.normalized * Main.Instance.theBoundaryCollider.transform.localScale.x * collider.radius;
+            Vector3 interceptPoint = Main.Instance.theBallRigidBody.linearVelocity.normalized * Main.Instance.theBoundaryCollider.transform.localScale.x * collider.radius;
             float distance = Vector2.Distance(new Vector2(a, c), new Vector2(interceptPoint.x, interceptPoint.z));
             float time1 = distance / g;
             return new Vector3(interceptPoint.x, interceptPoint.z, time1);
@@ -727,7 +727,7 @@ public class AnimatedFielder : MonoBehaviour
         else
         {
             CapsuleCollider collider = Main.Instance.theBoundaryCollider.GetComponent<CapsuleCollider>();
-            Vector3 interceptPoint = Main.Instance.theBallRigidBody.velocity.normalized * Main.Instance.theBoundaryCollider.transform.localScale.x * collider.radius;
+            Vector3 interceptPoint = Main.Instance.theBallRigidBody.linearVelocity.normalized * Main.Instance.theBoundaryCollider.transform.localScale.x * collider.radius;
             float distance = Vector2.Distance(new Vector2(a, c), new Vector2(interceptPoint.x, interceptPoint.z));
             time = distance / g;
             return new Vector3(interceptPoint.x, interceptPoint.z, time);

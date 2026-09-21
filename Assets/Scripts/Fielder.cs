@@ -102,7 +102,7 @@ public class Fielder : MonoBehaviour
             // disable physics
             inst.theBallRigidBody.isKinematic = true;
             // make the ball static
-            inst.theBallRigidBody.velocity = Vector3.zero;
+            inst.theBallRigidBody.linearVelocity = Vector3.zero;
 
         }
     }

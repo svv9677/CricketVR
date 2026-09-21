@@ -42,8 +42,8 @@ public class Stump : MonoBehaviour
                 ballRigidBody = inst.theBallRigidBody;
 
             // dampen the velocity on the ball
-            float mag = ballRigidBody.velocity.magnitude;
-            ballRigidBody.velocity *= Random.Range(2f, 5f) / mag;
+            float mag = ballRigidBody.linearVelocity.magnitude;
+            ballRigidBody.linearVelocity *= Random.Range(2f, 5f) / mag;
 
             StartCoroutine(PlayBallHitStumpSoundDelayed(transform.position));
 

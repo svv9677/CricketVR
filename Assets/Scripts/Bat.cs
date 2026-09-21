@@ -190,7 +190,7 @@ public class Bat : MonoBehaviour
                 // Using momentum
                 Vector3 ballMomentum = ballInitialVelocity;
                 float contactRadius = 1f;  // TODO insert calculation for distance to contact
-                Vector3 batMomentum = myRigidBody.velocity + myRigidBody.angularVelocity * contactRadius;
+                Vector3 batMomentum = myRigidBody.linearVelocity + myRigidBody.angularVelocity * contactRadius;
 
 
                 Vector3 ballBounce;
@@ -212,7 +212,7 @@ public class Bat : MonoBehaviour
                 ballBounce = ballBounce / 75f;
                 Vector3 finalVel = ballBounce + batSwing;
                 finalVel *= Main.Instance.BatAmplifier * contactRadius;
-                inst.theBallRigidBody.velocity = finalVel;
+                inst.theBallRigidBody.linearVelocity = finalVel;
                 BallSpeed.Instance.updateBatAndFinalSpeed(batSwing.magnitude, finalVel.magnitude);
 
                 dp = Vector3.Dot(ballInitialVelocity, gameObject.transform.up);

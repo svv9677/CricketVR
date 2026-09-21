@@ -42,7 +42,7 @@ public class Ball : MonoBehaviour
            myParticles = GetComponent<TrailRenderer>();
 
         //If, ball comes to a stop by itself, BEFORE a shot, assume that it was a dead ball
-        if (bounced && myRigidBody.velocity.magnitude < 0.1f && inst.gameState == eGameState.InGame_DeliverBallLoop)
+        if (bounced && myRigidBody.linearVelocity.magnitude < 0.1f && inst.gameState == eGameState.InGame_DeliverBallLoop)
         {
             inst.resetDelay = 0.5f;
             inst.gameState = eGameState.InGame_ResetToReady;
@@ -88,8 +88,8 @@ public class Ball : MonoBehaviour
             var p = 0.25f; // 1.225f;
             var cd = 0.25f; // 0.47f;
             var a = Mathf.PI * 0.0575f * 0.0575f;
-            var v = myRigidBody.velocity.magnitude;
-            var direction = -myRigidBody.velocity.normalized;
+            var v = myRigidBody.linearVelocity.magnitude;
+            var direction = -myRigidBody.linearVelocity.normalized;
             var forceAmount = (p * v * v * cd * a) / 2;
 
             // Adds backward air resistance to the ball. By making this a comment, the air resistance is used only for calculating swing.
@@ -126,7 +126,7 @@ public class Ball : MonoBehaviour
 
         if (transform.position.y <= -10f)
         {
-            myRigidBody.velocity = Vector3.zero;
+            myRigidBody.linearVelocity = Vector3.zero;
             myRigidBody.isKinematic = true;
         }
     }
@@ -143,7 +143,7 @@ public class Ball : MonoBehaviour
 
     private void LateUpdate()
     {
-        lastVelocity = myRigidBody.velocity;
+        lastVelocity = myRigidBody.linearVelocity;
     }
 
     //private void OnCollisionEnter(Collision collision)
@@ -176,7 +176,7 @@ public class Ball : MonoBehaviour
                 if (inst.currentBowlingConfig != null && inst.currentBowlingConfig.applyPitchTurn)
                 {
                     
-                    var direction = -myRigidBody.velocity.normalized;
+                    var direction = -myRigidBody.linearVelocity.normalized;
                     Vector3 right = Vector3.zero;
                     bool inSwing = Random.Range(0f, 1f) > 0.5f;
                     if (inst.currentBowlingConfig.swingType == eSwingType.InSwing || inst.currentBowlingConfig.swingType == eSwingType.LegSpin ||
@@ -188,7 +188,7 @@ public class Ball : MonoBehaviour
 
                     if (right.magnitude > 0f)
                     {
-                        myRigidBody.AddForce(right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f, ForceMode.Impulse);
+                        myRigidBody.AddForce(right * inst.currentBowlingConfig.pitchTurn * myRigidBody.linearVelocity.magnitude * 0.1f, ForceMode.Impulse);
                         //Debug.Log("TURN: " + (right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f).ToString());
                     }
                 }
