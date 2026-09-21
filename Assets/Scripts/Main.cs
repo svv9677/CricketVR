@@ -49,8 +49,6 @@ public class Main : MonoBehaviour
     [SerializeField]
     public GameObject theBoundaryCollider;
     [SerializeField]
-    protected OVRPlayerController theController;
-    [SerializeField]
     protected GameObject BowlingMachineFace;
     [SerializeField]
     protected Material NightMaterial;
@@ -102,6 +100,10 @@ public class Main : MonoBehaviour
     private Slider _hudOffsetSlider;
 
     [Header("Debug Tweaks")]
+    [Tooltip("Log game-state transitions made via WaitAndSetGameState. Mirrored into the in-world console by HandleLog.")]
+    [SerializeField]
+    private bool verboseStateLogging = false;
+
     public bool overlayVisible = true;
     private bool _overlayVisible = false;
     private Toggle _overlayToggle;
@@ -1192,7 +1194,8 @@ public class Main : MonoBehaviour
     {
         yield return new WaitForSeconds(delay);
 
-        Debug.Log("Setting GameState from: " + gameState.ToString() + " to: " + state.ToString());
+        if (verboseStateLogging)
+            Debug.Log("Setting GameState from: " + gameState.ToString() + " to: " + state.ToString());
         gameState = state;
     }
 

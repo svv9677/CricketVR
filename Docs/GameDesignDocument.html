@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CricketVR — Game Design Document (reverse-engineered)</title>
+<style>
+:root{
+  --bg:#fbfaf7;
+  --surface:#ffffff;
+  --surface-2:#f2efe9;
+  --text:#1d1f22;
+  --text-dim:#5a6069;
+  --rule:#ddd8cf;
+  --accent:#16624a;
+  --accent-soft:#e3efe9;
+  --code-bg:#efece5;
+  --code-text:#37504a;
+  --warn:#8a5a00;
+  --warn-bg:#fdf3dd;
+  --warn-rule:#e0bc6a;
+  --gap:#8a2f2f;
+  --gap-bg:#fbe9e7;
+  --gap-rule:#e0a09a;
+  --inf:#2c4f86;
+  --inf-bg:#e6eefb;
+  --inf-rule:#9db6dd;
+  --ok:#1d6b45;
+  --partial:#8a5a00;
+  --no:#8a2f2f;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14161a;
+    --surface:#1b1e24;
+    --surface-2:#23272e;
+    --text:#e6e6e4;
+    --text-dim:#a2a9b4;
+    --rule:#343a43;
+    --accent:#6fd0aa;
+    --accent-soft:#1d322b;
+    --code-bg:#252a31;
+    --code-text:#9fd8c4;
+    --warn:#e8c06a;
+    --warn-bg:#332c19;
+    --warn-rule:#6b5a2c;
+    --gap:#f0918a;
+    --gap-bg:#33201f;
+    --gap-rule:#6e3c39;
+    --inf:#8fb6ef;
+    --inf-bg:#1c2536;
+    --inf-rule:#3b5070;
+    --ok:#6fd0aa;
+    --partial:#e8c06a;
+    --no:#f0918a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161a; --surface:#1b1e24; --surface-2:#23272e; --text:#e6e6e4; --text-dim:#a2a9b4;
+  --rule:#343a43; --accent:#6fd0aa; --accent-soft:#1d322b; --code-bg:#252a31; --code-text:#9fd8c4;
+  --warn:#e8c06a; --warn-bg:#332c19; --warn-rule:#6b5a2c; --gap:#f0918a; --gap-bg:#33201f;
+  --gap-rule:#6e3c39; --inf:#8fb6ef; --inf-bg:#1c2536; --inf-rule:#3b5070;
+  --ok:#6fd0aa; --partial:#e8c06a; --no:#f0918a;
+}
+*{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:17px;
+  line-height:1.65;
+}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px 96px;}
+header.doc{padding:48px 0 8px;border-bottom:1px solid var(--rule);margin-bottom:8px;}
+h1{font-size:2.1rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em;}
+.sub{color:var(--text-dim);font-size:1.02rem;margin:0 0 .6em;}
+.meta{color:var(--text-dim);font-size:.85rem;margin:0;}
+h2{font-size:1.5rem;margin:2.4em 0 .5em;padding-top:.4em;border-top:1px solid var(--rule);letter-spacing:-.01em;}
+h3{font-size:1.14rem;margin:1.8em 0 .4em;color:var(--accent);}
+h4{font-size:1rem;margin:1.4em 0 .3em;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;font-weight:700;}
+p{margin:.7em 0;}
+ul,ol{padding-left:1.35em;margin:.6em 0;}
+li{margin:.3em 0;}
+a{color:var(--accent);}
+code{
+  background:var(--code-bg);color:var(--code-text);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  font-size:.86em;padding:.1em .34em;border-radius:4px;
+  overflow-wrap:anywhere;
+}
+nav.toc{
+  background:var(--surface);border:1px solid var(--rule);border-radius:10px;
+  padding:14px 18px;margin:24px 0 8px;
+}
+nav.toc h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.09em;color:var(--text-dim);
+  margin:0 0 .5em;border:0;padding:0;}
+nav.toc ol{margin:0;padding-left:1.4em;font-size:.94rem;columns:2;column-gap:28px;}
+nav.toc li{margin:.18em 0;break-inside:avoid;}
+nav.toc a{text-decoration:none;}
+nav.toc a:hover{text-decoration:underline;}
+@media (max-width:620px){nav.toc ol{columns:1;}}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1em 0;}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:520px;}
+caption{caption-side:top;text-align:left;color:var(--text-dim);font-size:.85rem;padding-bottom:.4em;}
+th,td{border:1px solid var(--rule);padding:.5em .65em;text-align:left;vertical-align:top;}
+th{background:var(--surface-2);font-weight:700;}
+tbody tr:nth-child(even) td{background:var(--surface);}
+.note{border-left:4px solid;border-radius:0 8px 8px 0;padding:.7em 1em;margin:1.1em 0;font-size:.95rem;}
+.note p{margin:.35em 0;}
+.note .tag{display:inline-block;font-size:.7rem;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;margin-right:.55em;vertical-align:.08em;}
+.inferred{background:var(--inf-bg);border-color:var(--inf-rule);}
+.inferred .tag{color:var(--inf);}
+.gapnote{background:var(--gap-bg);border-color:var(--gap-rule);}
+.gapnote .tag{color:var(--gap);}
+.conflict{background:var(--warn-bg);border-color:var(--warn-rule);}
+.conflict .tag{color:var(--warn);}
+.st{font-weight:700;white-space:nowrap;}
+.st-done{color:var(--ok);}
+.st-part{color:var(--partial);}
+.st-no{color:var(--no);}
+.kv{list-style:none;padding:0;}
+.kv li{border-bottom:1px solid var(--rule);padding:.4em 0;}
+.kv b{font-weight:700;}
+.lead{font-size:1.06rem;color:var(--text-dim);}
+hr{border:0;border-top:1px solid var(--rule);margin:2em 0;}
+footer{color:var(--text-dim);font-size:.85rem;border-top:1px solid var(--rule);padding-top:1em;margin-top:3em;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+<h1>CricketVR — Game Design Document</h1>
+<p class="sub">Reverse-engineered from the source tree as it stands. Everything below is what the code <em>currently</em> does, not what it was meant to do — except where the owner's <code>NOTES</code> file is quoted as intent.</p>
+<p class="meta">Unity 2022.3.4f1 &middot; Android / Oculus-Meta Quest &middot; <code>com.RaoVadapalli.CricketVR</code> &middot; bundleVersion <code>0.20.4.1</code> &middot; last functional commit <code>800c3c5</code> (2024-01-30)</p>
+</header>
+
+<nav class="toc">
+<h2>Contents</h2>
+<ol>
+<li><a href="#overview">Overview &amp; high concept</a></li>
+<li><a href="#ruleset">The adapted ruleset as implemented</a></li>
+<li><a href="#loop">Core gameplay loop</a></li>
+<li><a href="#player">Player mechanics (VR batting)</a></li>
+<li><a href="#bowling">Bowling system</a></li>
+<li><a href="#fielding">Fielding &amp; AI</a></li>
+<li><a href="#physics">Physics &amp; feel</a></li>
+<li><a href="#ui">UI / UX &amp; HUD</a></li>
+<li><a href="#audio">Audio</a></li>
+<li><a href="#world">World &amp; presentation</a></li>
+<li><a href="#settings">Difficulty &amp; settings model</a></li>
+<li><a href="#status">Current state of completeness</a></li>
+<li><a href="#gaps">Known gaps &amp; design questions</a></li>
+<li><a href="#appendix">Appendix: file &amp; project map</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================= -->
+<h2 id="overview">1. Overview &amp; high concept</h2>
+
+<p class="lead">CricketVR is a single-player, first-person <strong>VR batting simulator</strong>. You stand at the striker's end of a full-size stadium, a motion-captured AI bowler runs in and delivers a physically-simulated ball, and you swing a tracked bat held in your dominant hand. Nine AI fielders and a keeper chase what you hit. A scoreboard tracks a short, compressed limited-overs match.</p>
+
+<h3>Platform &amp; technical frame</h3>
+<ul class="kv">
+<li><b>Engine:</b> Unity <code>2022.3.4f1</code> (<code>ProjectSettings/ProjectVersion.txt</code>). Upgraded from an older version in the most recent commit <code>e8e5bec</code>; the last commit that changed gameplay is <code>800c3c5</code>, 2024-01-30.</li>
+<li><b>Target:</b> Android, <code>AndroidMinSdkVersion 24</code>, identifier <code>com.RaoVadapalli.CricketVR</code>, landscape-left default orientation (<code>ProjectSettings/ProjectSettings.asset</code>).</li>
+<li><b>XR:</b> Oculus XR loader (<code>Assets/XR/Loaders/Oculus Loader.asset</code>) with Android stereo rendering mode <code>2</code> (multiview) and V2 signing (<code>Assets/XR/Settings/Oculus Settings.asset</code>). A Windows MR loader is also present but unused. Rig is the Oculus Integration <code>OVRPlayerController</code>; the settings UI is the Oculus sample <code>DebugUIBuilder</code>.</li>
+<li><b>Quality:</b> current quality level index 2 ("Medium": 1 pixel light, hard shadows, no MSAA, no vsync) (<code>ProjectSettings/QualitySettings.asset</code>).</li>
+<li><b>Physics tick:</b> fixed timestep <code>0.007</code> s (~143 Hz) — deliberately high for a fast small ball (<code>ProjectSettings/TimeManager.asset</code>).</li>
+</ul>
+
+<h3>Scenes</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Scene</th><th>In build?</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><code>Assets/Scenes/CricketVR.unity</code></td><td>Enabled</td><td>The game. Stadium, pitch, bowler, 9 animated fielders + keeper, HUD, debug overlay, replay camera.</td></tr>
+<tr><td><code>Assets/Scenes/Nets.unity</code></td><td>Not in build list</td><td>Practice/nets variant. Same wiring plus <code>Floor</code>, <code>Walls</code>, <code>Cube_01..03</code>. <code>Bat.cs:260</code> special-cases this scene name to auto-reset 2 s after any shot.</td></tr>
+<tr><td><code>Assets/Scenes/Splash.unity</code></td><td>Disabled</td><td>Empty stub — a camera and a directional light only.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Target player &amp; session fantasy</h3>
+<p>Built by the owner and his son as a personal project. The fantasy is <em>being the batsman</em>: read the bowler's type off the scoreboard, watch the ball out of a real run-up, swing, and watch it fly with a distance readout and an instant replay. The match model is deliberately compressed — <strong>5 overs</strong> by default and no second innings — so a full "match" is roughly 30 deliveries. The owner describes it as cricket "slightly adapted for a faster turnaround of a match"; the adaptations that actually exist in code are listed in §2.</p>
+
+<div class="note inferred"><p><span class="tag">Inferred</span> No menu, tutorial, onboarding or end-of-match screen exists. The game state machine's <code>None</code> state comments <code>// For now, skip the menus</code> and jumps straight into play (<code>Main.cs:946–950</code>). The "session" as shipped is: put the headset on, you are already at the crease.</p></div>
+
+<!-- ============================================================= -->
+<h2 id="ruleset">2. The adapted cricket ruleset — as implemented</h2>
+
+<p>All match bookkeeping lives in one place: <code>Assets/Scripts/HUD.cs</code>. It subscribes to <code>Main.onGameStateChanged</code> and converts game-state transitions into runs, wickets and balls (<code>HUD.cs:146–217</code>). <code>Main.cs</code> itself contains <strong>no</strong> scoring code.</p>
+
+<h3>2.1 Match shape</h3>
+<div class="tablewrap">
+<table>
+<caption>Match structure constants</caption>
+<thead><tr><th>Rule</th><th>Value</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Overs per match</td><td><strong>5</strong> (default argument of <code>Reset</code>; nothing ever calls it with another value)</td><td><code>HUD.cs:99</code>, <code>HUD.cs:106</code></td></tr>
+<tr><td>Legal balls per over</td><td><strong>6</strong></td><td><code>HUD.cs:340</code></td></tr>
+<tr><td>Innings</td><td><strong>One.</strong> There is no second innings, no target, no opposition score.</td><td>absent</td></tr>
+<tr><td>Batting side</td><td>11 named batsmen: Ishan, Shreyas, Samson, Hardik, Deepak, Karthik, Axar, Kuldeep, Avesh, Bishnoi, Arshdeep</td><td><code>HUD.cs:110–118</code></td></tr>
+<tr><td>Bowling side</td><td>8 named bowlers with fixed types (see §5.1)</td><td><code>HUD.cs:121–128</code></td></tr>
+<tr><td>Striker / non-striker</td><td>Batsmen[0] on strike, Batsmen[1] as runner; next man in is index 2</td><td><code>HUD.cs:116–118</code></td></tr>
+<tr><td>Run rate</td><td><code>Runs / (Overs + Balls/6)</code>, 0 before the first ball</td><td><code>HUD.cs:77–83</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>2.2 Outcome of a delivery</h3>
+<p>Every delivery resolves into exactly one of six game states, and each state maps to a score event. This is the heart of the adapted ruleset.</p>
+
+<div class="tablewrap">
+<table>
+<caption>Delivery outcome → score. "bounced" means the ball touched the ground <em>after</em> leaving the bat (<code>Ball.cs:199–205</code>).</caption>
+<thead><tr><th>Game state</th><th>Condition</th><th>Result</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td><code>InGame_Bowled</code></td><td>Any stump is displaced &gt; 0.01 m or rotated &gt; 0.01° in a frame</td><td><strong>Wicket</strong> (<code>AddRuns(-1)</code>); ball counts; scorecard mark <code>W</code></td><td><code>Stump.cs:19–51</code>, <code>HUD.cs:206–210</code></td></tr>
+<tr><td><code>InGame_BallFielded</code></td><td>Fielded and <code>bounced == false</code></td><td><strong>Caught → wicket.</strong> Any clean interception of a ball that has not touched the ground is a catch.</td><td><code>HUD.cs:152–156</code></td></tr>
+<tr><td><code>InGame_BallFielded</code></td><td>Fielded and <code>bounced == true</code></td><td><strong>Runs by elapsed real time</strong> since bat contact — see table 2.3</td><td><code>HUD.cs:159–171</code></td></tr>
+<tr><td><code>InGame_BallPastBoundary</code></td><td>Ball exits the boundary trigger with <code>bounced == false</code></td><td><strong>6 runs</strong></td><td><code>HUD.cs:194–198</code></td></tr>
+<tr><td><code>InGame_BallPastBoundary</code></td><td>Ball exits the boundary trigger after bouncing</td><td><strong>4 runs</strong></td><td><code>HUD.cs:201</code></td></tr>
+<tr><td><code>InGame_BallMissed</code></td><td>Ball passed the keeper plane, <code>wide == false</code></td><td><strong>Dot ball</strong>; ball counts; mark <code>*</code></td><td><code>HUD.cs:185</code>, <code>HUD.cs:235–242</code></td></tr>
+<tr><td><code>InGame_BallMissed</code></td><td>Ball passed through a wide collider (<code>wide == true</code>)</td><td><strong>Wide: +1 run, ball does NOT count</strong>; mark <code>wd</code></td><td><code>KeeperCollider.cs:16–19</code>, <code>HUD.cs:179–181</code>, <code>HUD.cs:265–270</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>2.3 Runs from a struck ball — the "running" abstraction</h3>
+<p>This is the single biggest adaptation of real cricket. There is no running between the wickets and no run-out. Instead, runs are awarded from the <strong>wall-clock time between bat contact and the ball being fielded</strong>: the longer the ball is loose, the more you score.</p>
+
+<div class="tablewrap">
+<table>
+<caption><code>HUD.cs:159–171</code>. Timer starts on <code>InGame_BallHit</code> (<code>HUD.cs:212–216</code>) using <code>System.DateTime.UtcNow</code>.</caption>
+<thead><tr><th>Seconds from contact to fielded</th><th>Runs</th><th>Strike rotates?</th><th>Scorecard mark</th></tr></thead>
+<tbody>
+<tr><td>&lt; 2.0</td><td>0 (dot)</td><td>no</td><td><code>*</code></td></tr>
+<tr><td>2.0 – 4.5</td><td>1</td><td><strong>yes</strong></td><td><code>1</code></td></tr>
+<tr><td>4.5 – 7.5</td><td>2</td><td>no</td><td><code>2</code></td></tr>
+<tr><td>7.5 – 11.0</td><td>3</td><td><strong>yes</strong></td><td><code>3</code></td></tr>
+<tr><td>&ge; 11.0</td><td>4 (all-run)</td><td>no</td><td><code>4</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note inferred"><p><span class="tag">Inferred</span> The odd-runs-rotate-strike rule follows real cricket (<code>HUD.cs:244–252</code> handles 1 and 3; <code>HUD.cs:255–263</code> handles 2, 4 and 6 without a swap). Note that because the ball can take &gt;11 s to be fielded on a big shot that <em>stays inside</em> the rope, a boundary-strength hit that stops just short still only earns 4 — which is arguably the intended "all run four".</p></div>
+
+<h3>2.4 What counts as a wicket</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Dismissal</th><th>Implemented?</th><th>Detail</th></tr></thead>
+<tbody>
+<tr><td>Bowled</td><td class="st st-done">Yes</td><td>Per-stump motion check in <code>Stump.Update()</code>. Fires if the stump moves at all during <code>DeliverBallLoop</code>, <code>BallHit</code> or <code>BallHitLoop</code>. Ball velocity is damped to a random 2–5 m/s and the stump sound plays after a 0.3 s delay (<code>Stump.cs:44–50</code>).</td></tr>
+<tr><td>Caught</td><td class="st st-done">Yes</td><td>Purely "fielded before the ball bounced". There is no catch animation, no drop chance, no difficulty modifier (<code>HUD.cs:152–156</code>).</td></tr>
+<tr><td>Hit wicket</td><td class="st st-part">Implicitly</td><td>Not modelled separately, but knocking your own stumps over after playing a shot satisfies the same <code>Stump.Hit()</code> condition and is scored as <strong>Bowled</strong>.</td></tr>
+<tr><td>LBW</td><td class="st st-no">No</td><td>No leg-before logic anywhere in the codebase. There are no batsman leg colliders.</td></tr>
+<tr><td>Run out</td><td class="st st-no">No</td><td>No running phase to be run out in. Fielders never throw — the <code>5 Throw</code> animator state exists but is never triggered (<code>AnimatedFielder.cs:641–643</code>).</td></tr>
+<tr><td>Stumped</td><td class="st st-no">No</td><td>Keeper never gathers-and-breaks. Keeper contact during a delivery is a plain "missed" (<code>Fielder.cs:83–85</code>).</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>2.5 Extras</h3>
+<ul>
+<li><strong>Wides are implemented.</strong> Two box triggers sit on the batsman's stump line at <code>x = 10.3</code>, size <code>1 × 15 × 6</code>, and slide laterally to follow the player each frame (<code>WideCollider.cs:19–43</code>). If the player stands central, the legal corridor is roughly <code>z ∈ (−0.3, +1.2)</code>, i.e. about <strong>1.5 m wide</strong>, and it is deliberately asymmetric — the off-side collider sits further out (offset <code>1.08</code>/<code>1.2</code>) than the leg-side one (offset <code>0.18</code>/<code>0.3</code>).</li>
+<li>A wide adds <strong>1 run and does not count as a ball</strong>, exactly as in real cricket (<code>HUD.cs:265–270</code>). The over-separator logic in the scoreboard string skips <code>wd</code> when counting to six (<code>HUD.cs:391–399</code>).</li>
+<li><strong>Byes and leg-byes are not implemented.</strong> The code says so explicitly: <code>// Ball was missed: possible outcomes - dot ball, wide(s) or bye(s) / For now, not using extras in the game</code> (<code>HUD.cs:177–178</code>).</li>
+<li><strong>No-balls are not implemented.</strong> There is no front-foot line, no beamer/bouncer height check. The only surviving trace is a commented-out clamp in <code>BowlingProfileManager.cs:203–208</code> that once limited spin speed "to not throw a no-ball".</li>
+</ul>
+
+<div class="note conflict"><p><span class="tag">Code bug</span> A wide credits the run to the striker's personal score, not to extras: <code>case 10</code> calls <code>IncrementRuns(1)</code>, which does <code>CurrentBatsman.Runs += runs</code> (<code>HUD.cs:267</code>, <code>HUD.cs:331–335</code>). Real cricket books this as an extra.</p></div>
+
+<h3>2.6 How an over, an innings and the match end</h3>
+<ul>
+<li><strong>End of over</strong> (<code>HUD.cs:337–357</code>): on the 6th legal ball, <code>Balls</code> resets to 0, <code>Overs++</code>, the batsmen swap ends, and <code>SelectNextBowler()</code> advances to the next bowler in the list, wrapping round after the 8th (<code>HUD.cs:281–292</code>). The new bowler's type is pushed into <code>Main.swingType</code>, the keeper is repositioned, and the bowler model's run-up config is swapped.</li>
+<li><strong>End of innings:</strong> <em>not implemented.</em> When <code>Overs == TotalOvers</code> the code only writes <code>Debug.LogWarning("MATCH DONE!!!!")</code> and play continues into a 6th over (<code>HUD.cs:352–355</code>).</li>
+<li><strong>All out:</strong> <em>not implemented.</em> When the next-batsman index passes 10 it logs <code>"GAME OVER!! ALL OUT"</code> and then wraps the index back to 0, so the same batsmen simply come round again (<code>HUD.cs:370–375</code>).</li>
+</ul>
+
+<div class="note gapnote"><p><span class="tag">Gap</span> <strong>The match cannot end.</strong> Both terminal conditions are console log lines. Nothing resets the scoreboard, shows a result, or returns to a menu. This is the single largest missing piece of the ruleset and matches the owner's pending items "UI for final results" and "UI for initial menu".</p></div>
+
+<div class="note conflict"><p><span class="tag">NOTES vs code</span> <code>NOTES</code> marks <strong>Scoring Mechanism</strong> as <code>~</code> (in progress). In reality the per-ball scoring model in <code>HUD.cs</code> is essentially complete — runs, wickets, overs, strike rotation, bowler rotation, run rate, and a ball-by-ball scorecard string all work. What is missing is (a) terminating the innings/match, (b) any fanfare or result UI, and (c) extras beyond wides. Treat "scoring" as <em>done at the ball level, absent at the match level</em>.</p></div>
+
+<!-- ============================================================= -->
+<h2 id="loop">3. Core gameplay loop — ball by ball</h2>
+
+<p>The loop is an explicit state machine in <code>Main.Update()</code> (<code>Main.cs:944–1137</code>). Each "real" state does its work once and immediately falls through to a matching <code>...Loop</code> state, which waits for an external trigger — a collider, a coroutine, or an animation event. The whole switch is skipped while the settings menu is open (<code>Main.cs:942</code>).</p>
+
+<div class="tablewrap">
+<table>
+<caption>State machine (<code>eGameState</code>, <code>Constants.cs:125–147</code>)</caption>
+<thead><tr><th>State</th><th>What happens</th><th>Exits when</th></tr></thead>
+<tbody>
+<tr><td><code>None</code></td><td>Menus skipped entirely</td><td>immediately → <code>ResetToReady</code></td></tr>
+<tr><td><code>InGame_Ready</code></td><td>Bowling-machine signal face turns <strong>green</strong> (<code>Main.cs:927–933</code>)</td><td>player presses <strong>A</strong> → stumps reset, ball parked, → <code>SelectDelivery</code></td></tr>
+<tr><td><code>InGame_SelectDelivery</code></td><td>Rolls a random delivery from the current bowler's profile; clears replay, distance, speed and debug-arrow displays</td><td>immediately → <code>SelectDeliveryLoop</code></td></tr>
+<tr><td><code>InGame_SelectDeliveryLoop</code></td><td>Bowler walks to his mark and plays Idle → Jog ×N → Run ×N → bowling action</td><td>animation event <code>ReleaseBall</code> on the delivery clip (<code>AnimatedBowler.cs:173–179</code>)</td></tr>
+<tr><td><code>InGame_DeliverBall</code></td><td>Ball unparented from the bowler's hand; torque + impulse applied; continuous-dynamic collision and interpolation enabled; replay recording starts; release-speed readout scheduled</td><td>immediately → <code>DeliverBallLoop</code></td></tr>
+<tr><td><code>InGame_DeliverBallLoop</code></td><td>Ball flies, swings in the air, then turns off the pitch on first bounce</td><td><strong>bat trigger</strong> → <code>BallHit</code>; <strong>stump moved</strong> → <code>Bowled</code>; <strong>keeper/wide plane exit</strong> → <code>BallMissed</code>; <strong>ball stops dead</strong> → <code>ResetToReady</code> after 0.5 s (<code>Ball.cs:45–49</code>)</td></tr>
+<tr><td><code>InGame_BallHit</code></td><td>Replay recording stops with a 2 s tail; run timer starts</td><td>immediately → <code>BallHitLoop</code></td></tr>
+<tr><td><code>InGame_BallHitLoop</code></td><td>Three nearest fielders chase; trail renders; live distance readout updates</td><td><strong>fielder pick-up</strong> → <code>BallFielded</code>; <strong>boundary trigger exit</strong> → <code>BallPastBoundary</code></td></tr>
+<tr><td><code>InGame_BallFielded</code></td><td>Score resolved (catch or timed runs)</td><td>coroutine, 2 s → <code>ResetToReady</code></td></tr>
+<tr><td><code>InGame_BallPastBoundary</code></td><td>Score resolved (4 or 6); <code>resetDelay</code> forced to <strong>4 s</strong> (<code>BoundaryCollider.cs:9</code>)</td><td>coroutine, 2 s → <code>ResetToReady</code></td></tr>
+<tr><td><code>InGame_BallMissed</code></td><td>Dot or wide; replay stops immediately; <code>resetDelay</code> forced to <strong>2 s</strong></td><td>coroutine, 2 s → <code>ResetToReady</code></td></tr>
+<tr><td><code>InGame_Bowled</code></td><td>Wicket; replay stops with a 1 s tail</td><td>coroutine, 2 s → <code>ResetToReady</code></td></tr>
+<tr><td><code>InGame_ResetToReady</code></td><td>Waits <code>resetDelay</code> (default 2 s, slider 0–5)</td><td>→ <code>InGame_Ready</code>; fielders snap home, bowler walks back</td></tr>
+<tr><td><code>InMenu</code></td><td>Declared but empty — never entered</td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Player-facing rhythm:</strong> green light → press A → bowler runs in (~3–5 s of animation) → ball → swing or miss → 2–4 s of outcome and replay → 2 s reset → green light again. Roughly 10–15 s per ball, so a 5-over match is about 6–8 minutes of play.</p>
+
+<div class="note inferred"><p><span class="tag">Inferred</span> Pressing <strong>X</strong> at any moment force-jumps to <code>InGame_ResetToReady</code> (<code>Main.cs:936–939</code>), under the comment <code>// Temporary stuff</code>. It is an escape hatch for stuck balls, not a designed feature — and because the state machine skips the scoring states, a ball abandoned this way is never scored.</p></div>
+
+<!-- ============================================================= -->
+<h2 id="player">4. Player mechanics — VR batting</h2>
+
+<h3>4.1 Holding the bat</h3>
+<p>The bat is never physically grabbed. It is <strong>hard-parented to the dominant hand anchor every <code>LateUpdate</code></strong>, with a per-hand position and rotation offset (<code>Bat.cs:307–339</code>):</p>
+<ul>
+<li><code>battingStyle</code> (<code>Right</code>/<code>Left</code>) selects <code>rightHandParent</code> or <code>leftHandParent</code> as <code>attachParent</code> (<code>Main.cs:519–548</code>). Default is <strong>right-handed</strong> (<code>Main.cs:259</code>, PlayerPrefs key <code>style</code>).</li>
+<li>Only the right-hand grab offsets are overridden in the scene; the left-hand offsets sit at the prefab defaults.</li>
+<li><code>SetBatIgnoreHandCollision(true)</code> disables physical collision between bat and hand colliders while held (<code>Bat.cs:91–103</code>).</li>
+<li>The bat is hidden entirely while the settings menu is open (<code>Main.cs:1165</code>, <code>1172</code>).</li>
+</ul>
+
+<h3>4.2 The bat collider</h3>
+<p>In the scene the bat carries a <strong>trigger</strong> <code>BoxCollider</code> of size <code>(0.25, 0.25, 1.2)</code> on a <strong>kinematic</strong> rigidbody. Difficulty scales only the <code>x</code> (width) axis:</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Difficulty</th><th>Multiplier</th><th>Effective collider width</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Easy</td><td>×4</td><td>~1.00 m</td><td><code>Constants.cs:31</code></td></tr>
+<tr><td>Medium</td><td>×2</td><td>~0.50 m</td><td><code>Constants.cs:32</code></td></tr>
+<tr><td>Hard</td><td>×1</td><td>~0.25 m</td><td><code>Constants.cs:33</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Applied in <code>Main.updateBatColliderSize()</code> (<code>Main.cs:488–517</code>), based on <code>theBatScript.originalSize</code> captured in <code>Bat.Start()</code>.</p>
+
+<h3>4.3 The custom bat–ball collision (the "momentum" model)</h3>
+<p>The git log records the key change: <em>"Changed bat and ball collision from collider to trigger and calculated it manually."</em> The handler is <code>Bat.OnTriggerEnter</code> (<code>Bat.cs:106–268</code>) and runs once per delivery, guarded by <code>hasHitBall</code>.</p>
+<ol>
+<li><strong>Capture incoming velocity.</strong> <code>ballInitialVelocity = theBallScript.lastVelocity</code> — the ball's velocity as of the previous <code>LateUpdate</code> (<code>Ball.cs:144–147</code>). This is deliberately the post-bounce velocity, per the comment at <code>Main.cs:1022</code>.</li>
+<li><strong>Reflect off the bat face.</strong> The bat's local <code>up</code> is the blade normal. Let <code>angle = 180° − Angle(bat.up, ballInitialVelocity)</code>. If <code>angle &lt; 45°</code>, the ball is reflected (<code>(−v).normalized + bat.up</code>); otherwise it is deflected forward (<code>v.normalized + bat.up</code>), in both cases renormalised and rescaled to the incoming speed (<code>Bat.cs:196–206</code>). <code>dampenFactor</code> is hard-coded to <code>1</code>, i.e. no energy loss.</li>
+<li><strong>Add the swing.</strong> <code>avgBatSpeed</code> is the mean of the last 5 frames of tracker-position delta magnitude (<code>Bat.cs:208</code>, <code>Bat.cs:292–305</code>). <code>batSwing = bat.up × cos(Angle(bat.up, trackerVelocity)) × avgBatSpeed</code> — i.e. only the component of hand motion along the blade normal contributes (<code>Bat.cs:211</code>).</li>
+<li><strong>Combine.</strong> <code>finalVel = (ballBounce / 75 + batSwing) × BatAmplifier × contactRadius</code>, with <code>BatAmplifier</code> defaulting to <strong>75</strong> (slider 50–200) and <code>contactRadius</code> hard-coded to <strong>1</strong>. With the default amplifier this reduces to <code>ballBounce + 75 × batSwing</code> — the deflected ball speed plus a heavily amplified swing term (<code>Bat.cs:212–215</code>).</li>
+<li><strong>Feedback.</strong> Controller vibration at full amplitude for 0.1 s on the batting hand (<code>Bat.cs:276–289</code>), one of three impact sounds (§9), a distance readout, and — if the debug overlay is on — four coloured world-space arrows showing <code>ballBounce</code>, <code>batSwing</code>, <code>bat.up</code> and tracker velocity (<code>Bat.cs:243–255</code>).</li>
+<li>Replay camera switches to the chase view after 1 s (<code>Bat.cs:258</code>).</li>
+</ol>
+
+<div class="note gapnote"><p><span class="tag">Gap</span> <strong>Sweet spot is not modelled.</strong> <code>contactRadius = 1f; // TODO insert calculation for distance to contact</code> (<code>Bat.cs:192</code>) and <code>float dampenFactor = 1f;</code> with a matching TODO in the commented-out older path (<code>Bat.cs:163–164</code>). Every contact anywhere on the blade produces identical power. This is the most obvious lever for "feel" work.</p></div>
+
+<div class="note conflict"><p><span class="tag">Dead code</span> <code>Bat.cs:191–193</code> computes <code>batMomentum</code> from <code>myRigidBody.velocity + myRigidBody.angularVelocity * contactRadius</code>. The bat's rigidbody is <strong>kinematic and moved by transform</strong>, so both are always zero — and the variable is never read afterwards. The real "momentum" comes from <code>trackerVelocity</code>, not from physics.</p></div>
+
+<div class="note inferred"><p><span class="tag">Inferred / unit bug</span> <code>trackerVelocity</code> is a raw per-frame position delta (<code>Bat.cs:294</code>) — metres per frame, not metres per second — yet <code>BallSpeed.updateBatAndFinalSpeed</code> converts it as if it were m/s (<code>BallSpeed.cs:39</code>). The displayed "Bat: N kph" is therefore off by a factor of the frame rate. The gameplay is unaffected because <code>BatAmplifier</code> was tuned against the same wrong-unit quantity, but any frame-rate change silently changes shot power.</p></div>
+
+<h3>4.4 Controller mapping</h3>
+<div class="tablewrap">
+<table>
+<caption><code>Main.GetKeyCodeForButton</code> / <code>Main.GetButton</code> (<code>Main.cs:1202–1227</code>). Editor uses the keyboard, device uses <code>OVRInput</code>.</caption>
+<thead><tr><th>Quest button</th><th>Editor key</th><th>Action</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td><strong>A</strong> (<code>Button.One</code>)</td><td>Right Shift</td><td>Bowl the next ball (only in <code>InGame_Ready</code>)</td><td><code>Main.cs:959</code></td></tr>
+<tr><td><strong>B</strong> (<code>Button.Two</code>)</td><td><code>/</code></td><td>Toggle settings / debug menu; hides the bat while open</td><td><code>Main.cs:1141</code>, <code>1158–1174</code></td></tr>
+<tr><td><strong>X</strong> (<code>Button.Three</code>)</td><td>Left Shift</td><td>Force reset to Ready (debug escape hatch)</td><td><code>Main.cs:936</code></td></tr>
+<tr><td><strong>Y</strong> (<code>Button.Four</code>)</td><td><code>Z</code></td><td><em>Mapped but never read.</em></td><td><code>Main.cs:1212</code></td></tr>
+<tr><td>Triggers, grips, thumbsticks</td><td>—</td><td>Nothing game-specific. Locomotion is whatever <code>OVRPlayerController</code> provides.</td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+<p>This matches the <code>NOTES</code> pending item <em>"Complete controller mapping &amp; their functionality in game — Buttons, triggers, analog on both controllers &amp; their keyboard mappings."</em></p>
+
+<!-- ============================================================= -->
+<h2 id="bowling">5. Bowling system</h2>
+
+<h3>5.1 Bowlers and types</h3>
+<p>Eight bowlers rotate one over each, wrapping after the eighth (<code>HUD.cs:121–128</code>, <code>HUD.cs:281–292</code>):</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>#</th><th>Name</th><th>Type (<code>eSwingType</code>)</th><th>Run-up / action</th><th>Keeper stands at</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Bumrah</td><td>InSwing</td><td>"Bumrah" action, anim speed 4.5, jog ×1, run ×4</td><td>x = 16 (medium)</td></tr>
+<tr><td>2</td><td>Shami</td><td>Pace</td><td>"Steyn" action, anim speed 4.5, jog ×2, run ×5 (longest run-up)</td><td>x = 20 (fast)</td></tr>
+<tr><td>3</td><td>Bhuvneshwar</td><td>OutSwing</td><td>"Bumrah" action</td><td>x = 16 (medium)</td></tr>
+<tr><td>4</td><td>Siraj</td><td>Pace</td><td>"Steyn" action</td><td>x = 20 (fast)</td></tr>
+<tr><td>5</td><td>Ashwin</td><td>OffSpin</td><td>"Lyon" action, anim speed 3, jog ×1, run ×2 (walks in)</td><td>x = 11.6 (slow)</td></tr>
+<tr><td>6</td><td>Chahal</td><td>LegSpin</td><td>"Lyon" action</td><td>x = 11.6 (slow)</td></tr>
+<tr><td>7</td><td>Hooda</td><td>OffSpin</td><td>"Lyon" action</td><td>x = 11.6 (slow)</td></tr>
+<tr><td>8</td><td>Bishnoi</td><td>LegSpin</td><td>"Lyon" action</td><td>x = 11.6 (slow)</td></tr>
+</tbody>
+</table>
+</div>
+<p>Run-up configs: <code>AnimatedBowler.Awake()</code> (<code>AnimatedBowler.cs:34–40</code>) — the table above shows the <em>effective</em> loop counts, i.e. the stored values plus the <code>+1</code> / <code>+2</code> offsets applied at <code>AnimatedBowler.cs:135–136</code> (stored: pace 1/3, swing 0/2, spin 0/0); the animator <code>Action</code> integer selects the clip — <code>1</code> = Jog, <code>2</code> = Steyn, <code>3</code> = Lyon, <code>4</code> = Bumrah, <code>−1</code> = Walk back, <code>0</code> = Idle (verified from the transitions in <code>Assets/Resources/Animations/Bowling/Steyn.controller</code>). The bowler's start position is pushed back <code>2.2 m</code> per extra jog/run repeat (<code>AnimatedBowler.cs:235</code>), so pace bowlers have visibly longer run-ups than spinners. Run-up animation speed is scaled by delivery pace: <code>animator.SetFloat("Time", (0.5 × speedX + 1.5) / animSpeed)</code> (<code>AnimatedBowler.cs:138</code>). The keeper is repositioned by <code>HUD.UpdateKeeperPosition()</code> (<code>HUD.cs:294–329</code>) using <code>Constants.cs:35–37</code>.</p>
+
+<h3>5.2 What defines a delivery</h3>
+<p>A <code>BowlingProfile</code> holds min/max ranges; <code>GetRandomDelivery()</code> rolls one <code>BowlingParams</code> per ball (<code>BowlingProfileManager.cs:188–222</code>). The profiles are built from the tables in <code>Constants.cs:65–69</code>.</p>
+
+<div class="tablewrap">
+<table>
+<caption>Live bowling profiles. Order: <code>minX, maxX, minLen, maxLen, minZ, maxZ, minSwing, maxSwing, minTurn, maxTurn</code>. Speed in kph = <code>speedX × 18</code> (impulse ÷ mass 0.2 × 3.6), per the comment at <code>Constants.cs:57</code>.</caption>
+<thead><tr><th>Profile</th><th>speedX (impulse)</th><th>Release speed</th><th>length (pitch x)</th><th>speedZ (line)</th><th>swing</th><th>pitchTurn</th></tr></thead>
+<tbody>
+<tr><td><code>paceCfg</code></td><td>7.8 – 8.6</td><td><strong>140 – 155 kph</strong></td><td>0 – 9</td><td>−0.4 – 0</td><td>0</td><td>0</td></tr>
+<tr><td><code>inSwingCfg</code></td><td>6.9 – 7.8</td><td><strong>124 – 140 kph</strong></td><td>−2 – 9</td><td>+0.35 – +0.55</td><td>0.2 – 0.8</td><td>−0.02 – +0.02</td></tr>
+<tr><td><code>outSwingCfg</code></td><td>6.9 – 7.8</td><td><strong>124 – 140 kph</strong></td><td>−2 – 9</td><td>−0.65 – −0.60</td><td>0.2 – 0.8</td><td>−0.02 – +0.02</td></tr>
+<tr><td><code>legSpinCfg</code></td><td>3.8 – 4.7</td><td><strong>68 – 85 kph</strong></td><td>4 – 10</td><td>−0.4 – −0.2</td><td>0.1 – 0.3</td><td>0.2 – 0.5</td></tr>
+<tr><td><code>offSpinCfg</code></td><td>3.8 – 4.7</td><td><strong>68 – 85 kph</strong></td><td>4 – 10</td><td>−0.2 – 0</td><td>0.1 – 0.3</td><td>0.2 – 0.5</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Reading <code>length</code>:</strong> it is the world <code>x</code> coordinate where the ball is solved to pitch. The batsman's stumps sit at <code>x = 10.3</code> and the bowler's at <code>x = −10.36</code> (scene prefab instance positions), so distance in front of the striker's stumps is <code>10.3 − length</code>:</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Type</th><th>Pitches this far in front of the striker's stumps</th><th>Cricket reading</th></tr></thead>
+<tbody>
+<tr><td>Pace</td><td>1.3 m – 10.3 m</td><td>full to genuinely short</td></tr>
+<tr><td>In/Out swing</td><td>1.3 m – 12.3 m</td><td>full to very short (widest length spread)</td></tr>
+<tr><td>Leg/Off spin</td><td>0.3 m – 6.3 m</td><td>yorker-full to short-of-a-length; never a true bouncer</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Other per-delivery parameters:</strong></p>
+<ul>
+<li><code>torqueX = director × 50</code>, where <code>director</code> is <code>−1</code> for InSwing/OutSwing and <code>11</code> for everything else → <strong>−50</strong> for swing bowlers, <strong>+550</strong> for pace and spin (<code>BowlingProfileManager.cs:191, 194</code>). Applied as an impulse torque about world X (<code>Main.cs:1006, 1017</code>), with <code>maxAngularVelocity</code> raised to 100 (<code>Ball.cs:30</code>). This is the visible seam rotation.</li>
+<li><code>applySwing = Random(0,1) &gt; 0.05 || type is In/Out swing</code> → in-air swing on ~95% of deliveries, always for swing bowlers (<code>BowlingProfileManager.cs:200</code>).</li>
+<li><code>applyPitchTurn = Random(0,1) &gt; 0.15 || type is Leg/Off spin</code> → turn off the pitch on ~85% of deliveries, always for spinners (<code>BowlingProfileManager.cs:201</code>).</li>
+<li><strong>Line/swing coupling:</strong> when an in-swinger rolls a large swing value, its starting line is clamped to the off-side half of the range; the mirror clamp applies to out-swingers (<code>BowlingProfileManager.cs:210–220</code>). This keeps a big swinger from starting on the stumps and finishing a metre outside them.</li>
+</ul>
+
+<h3>5.3 Release and trajectory solve</h3>
+<p>On <code>InGame_DeliverBall</code> the ball is unparented from the bowler's hand, made dynamic with continuous-dynamic collision and interpolation, then given a torque impulse and a force impulse (<code>Main.cs:1001–1031</code>). The vertical component is solved rather than randomised:</p>
+<p><code>GetYVel(startPos × 3.28, speedX / mass × 3.28, length × 3.28)</code> (<code>Main.cs:1008</code>, implementation <code>Main.cs:1291–1301</code>) works in feet: <code>time = (length − startPos.x) / startVelX</code>, then <code>startVelY = 16 × time + (height − startPos.y / time)</code> with <code>height = 0.1</code>. The result is converted back to a metric impulse at <code>Main.cs:1009</code>.</p>
+
+<div class="note conflict"><p><span class="tag">Suspect</span> The expression <code>(height - startPos.y / time)</code> almost certainly should be <code>((height - startPos.y) / time)</code> — as written, only <code>startPos.y</code> is divided by <code>time</code>. Two earlier, physically-correct projectile solves sit commented out immediately above and below it (<code>Main.cs:1149–1156</code>, <code>1280–1287</code>, <code>1345–1352</code>). The current version is empirically tuned, not derived; this is worth revisiting before retuning lengths.</p></div>
+
+<h3>5.4 Swing in the air, turn off the pitch</h3>
+<ul>
+<li><strong>In-air swing</strong> (<code>Ball.cs:99–124</code>, only during <code>DeliverBallLoop</code>): a drag-like magnitude <code>F = (ρ v² C<sub>d</sub> A)/2</code> with tuned constants <code>ρ = 0.25</code>, <code>C<sub>d</sub> = 0.25</code>, <code>A = π × 0.0575²</code>, then multiplied by <strong>10</strong> and by the delivery's <code>swing</code> value. The direction is <code>Cross(±flightDir, up)</code> with <strong><code>x</code> and <code>y</code> forced to zero</strong> — so the force is purely lateral along world Z. InSwing and LegSpin go one way, OutSwing and OffSpin the other; <code>Random</code> picks a side 50/50.</li>
+<li><strong>Actual air resistance is disabled.</strong> The backward drag <code>AddForce</code> is commented out at <code>Ball.cs:96–97</code> with the note that the formula is now used only to size the swing force.</li>
+<li><strong>Turn off the pitch</strong> (<code>Ball.cs:160–197</code>): on the <em>first</em> contact with a <code>Ground</code>-tagged collider, <code>fresh</code> goes false, <code>applySwing</code> is switched off, and a lateral impulse <code>right × pitchTurn × |v| × 0.1</code> is applied — direction reversed relative to the in-air swing, so a ball that swings in then turns away, as a real leg-break does. Per the comment at <code>Ball.cs:174</code>, in-swing is treated as leg-spin and out-swing as off-spin for this purpose.</li>
+</ul>
+
+<h3>5.5 Randomisation points</h3>
+<p>The <code>NOTES</code> pending item <em>"Identify all randomization points"</em> — here they are, all of them:</p>
+<ol>
+<li><code>speedX</code>, <code>length</code>, <code>speedZ</code>, <code>swing</code>, <code>pitchTurn</code>: uniform in the profile range (<code>BowlingProfileManager.cs:195–199</code>).</li>
+<li><code>applySwing</code> 5% off-chance, <code>applyPitchTurn</code> 15% off-chance (<code>BowlingProfileManager.cs:200–201</code>).</li>
+<li>Swing/turn <em>side</em> for <code>eSwingType.Random</code> only: 50/50 (<code>Ball.cs:105</code>, <code>Ball.cs:181</code>).</li>
+<li>Profile choice when the type is <code>Random</code>: uniform over the five profiles (<code>BowlingProfileManager.cs:250–263</code>). <em>Not reachable in normal play</em> — <code>swingType</code> always comes from the named bowler.</li>
+<li>Ball velocity damping on stump contact: random 2–5 m/s (<code>Stump.cs:46</code>).</li>
+</ol>
+
+<!-- ============================================================= -->
+<h2 id="fielding">6. Fielding &amp; AI</h2>
+
+<h3>6.1 Who is on the field</h3>
+<ul>
+<li><strong>Nine animated fielders</strong>, <code>AFielder_01</code> … <code>AFielder_09</code>, each running <code>AnimatedFielder.cs</code>. Their home positions come from <code>Constants.fieldingPositions</code> (<code>Constants.cs:79–88</code>), indexed by the last digit of the GameObject name (<code>AnimatedFielder.cs:73</code>). The spread ranges from ~21 m (short cover at <code>(10, 0, 19)</code>) out to ~54 m (deep at <code>(−54, 0, −5)</code>).</li>
+<li><strong>One keeper</strong>, <code>Fielder_Keeper</code>, an instance of <code>Fielder.prefab</code> running the older <code>Fielder.cs</code>. <code>isKeeper</code> is set at runtime by name match (<code>Fielder.cs:40–41</code>). He does not chase; he is repositioned per bowler type (§5.1).</li>
+<li><strong>A disabled legacy set</strong>: an <code>Old Fielders</code> group holding <code>Fielder_01</code>…<code>Fielder_09</code> (iTween-driven <code>Fielder.cs</code>) sits in the scene with <code>m_IsActive: 0</code>. It is the pre-animation implementation, kept for reference.</li>
+<li>One field setting only. There is no per-bowler field, no captaincy, no attacking/defensive field.</li>
+</ul>
+
+<h3>6.2 Fielder behaviour by phase</h3>
+<ul>
+<li><strong>Between balls</strong> — fielders snap back to their home position and look at the middle; all chase flags reset (<code>AnimatedFielder.cs:174–212</code>).</li>
+<li><strong>During the delivery</strong> — every non-keeper walks <strong>2 m forward</strong> (the "taking start" creep) via an iTween move at <code>Main.fielderSpeed</code> (default 1.5, slider 0.5–2.5) (<code>AnimatedFielder.cs:214–230</code>).</li>
+<li><strong>On a shot</strong> — each fielder solves an intercept, then only the <strong>three fastest</strong> actually chase (see below).</li>
+<li><strong>Interception</strong> — <code>AnimatedFielder.Update()</code> looks ahead by <code>|v| × Δt × 30</code> and claims the ball when it is inside <code>pickUpDistance</code> and the projected ball position is within <code>(1/22) × 30 ≈ 1.36 m</code>, but only if no other fielder has claimed it (<code>AnimatedFielder.cs:139–163</code>). A simple within-1 m check also claims it.</li>
+<li><strong>Pick-up</strong> — plays animator state <code>4 Pick Up</code>; at 29% through the clip the ball snaps to a hand bone, then goes kinematic and the state becomes <code>InGame_BallFielded</code> (<code>AnimatedFielder.cs:605–658</code>).</li>
+</ul>
+
+<h3>6.3 The intercept solver</h3>
+<p><code>GetInterceptPoint()</code> (<code>AnimatedFielder.cs:663–738</code>) is a closed-form pursuit solution: given the fielder's position <code>(a, c)</code>, the ball's position <code>(b, d)</code> and ground velocity <code>(e, f)</code>, and a runner speed <code>g</code>, it solves for the run angle whose straight-line chase meets the ball, takes the smallest positive time, and returns <code>(interceptX, interceptZ, time)</code>. Both roots are wrapped in <code>try/catch</code> into an intentionally empty handler (<code>AnimatedFielder.cs:797–800</code>); if no real root exists the fielder instead targets where the ball would cross the boundary and marks <code>isBallReachable = false</code> (<code>AnimatedFielder.cs:693–700</code>).</p>
+<ul>
+<li><strong>Runner speed</strong> is <code>g = 2.9 / 22 / Time.deltaTime</code> (<code>AnimatedFielder.cs:672</code>) — 2.9 m of root motion over 22 animation frames, converted to per-second. At 72 fps that is about <strong>9.5 m/s</strong>, which is sprinter-fast. Note this means fielder speed is <em>frame-rate dependent</em>, and that the <code>fielderSpeed</code> slider does <strong>not</strong> affect it — the slider only drives the iTween "taking start" creep and the legacy <code>Fielder.cs</code>.</li>
+<li><strong>Arbitration:</strong> <code>AnimatedFielderManagement.LateUpdate()</code> waits until all 9 intercept times are in, sorts them, and sets <code>shouldFieldBall = true</code> for exactly the <strong>three</strong> fastest (<code>AnimatedFielderManagement.cs:32–47</code>). Ties are broken by nudging duplicate keys down by 0.01 (<code>AnimatedFielder.cs:294–301</code>).</li>
+<li>There is a second, unused solver <code>GetInterceptPoint2()</code> (<code>AnimatedFielder.cs:740–795</code>) that additionally takes a reaction delay <code>d</code>.</li>
+</ul>
+
+<h3>6.4 Catches, boundaries and throws</h3>
+<ul>
+<li><strong>Catches are not animated.</strong> The <code>6 Catch</code> animator state exists in <code>Fielder Controller.controller</code> and <code>Catch.anim</code> is authored, but the code only ever plays <code>4 Pick Up</code>. The explicit TODO reads <em>"Insert logic for choosing between the 'Catch' animation and the 'Pick Up' animation based on the height of the ball"</em> (<code>AnimatedFielder.cs:620–622</code>). A catch is therefore just "picked up before it bounced".</li>
+<li><strong>Throws are not implemented.</strong> <em>"Insert logic for throwing: calculating distance, speed and angle of throw"</em> (<code>AnimatedFielder.cs:641–643</code>). The fielder simply holds the ball until the reset.</li>
+<li><strong>Boundary</strong>: a <code>CapsuleCollider</code> trigger, radius <code>56</code> × local scale <code>1.3333</code> ≈ <strong>74.7 m</strong>, height 200 (≈266 m tall), so effectively a vertical cylinder around the ground. <code>OnTriggerExit</code> fires only while in <code>InGame_BallHitLoop</code> (<code>BoundaryCollider.cs:5–14</code>). The same radius is read back by the fielder AI when no intercept exists (<code>AnimatedFielder.cs:696</code>).</li>
+<li><strong>Keeper plane</strong>: a <code>1 × 15 × 25</code> box trigger parented to the keeper. When the ball exits it during <code>DeliverBallLoop</code>, the delivery is a miss (<code>KeeperCollider.cs:7–26</code>). The same script is also attached to both wide colliders, where it additionally sets <code>wide = true</code> by checking <code>gameObject.name.Contains("WideCollider")</code>.</li>
+</ul>
+
+<div class="note conflict"><p><span class="tag">NOTES vs code</span> <code>NOTES</code> marks <strong>AI Fielders</strong> as done (<code>√</code>). The chase, arbitration and pick-up are indeed working — but with no catch animation, no throw, no dive, no misfield and no run-out, the fielding side is a scoring oracle rather than an opponent. Treat "AI Fielders" as <em>movement done, fielding actions not started</em>.</p></div>
+
+<!-- ============================================================= -->
+<h2 id="physics">7. Physics &amp; feel</h2>
+
+<div class="tablewrap">
+<table>
+<caption>Physical constants</caption>
+<thead><tr><th>Property</th><th>Value</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Fixed timestep</td><td>0.007 s (~143 Hz)</td><td><code>ProjectSettings/TimeManager.asset</code></td></tr>
+<tr><td>Gravity</td><td>(0, −9.81, 0)</td><td><code>ProjectSettings/DynamicsManager.asset</code></td></tr>
+<tr><td>Contact offset / bounce threshold</td><td>0.001 / 2</td><td><code>DynamicsManager.asset</code></td></tr>
+<tr><td>Ball mass / drag / angular drag</td><td>0.2 kg / 0.25 / 0.25</td><td><code>Assets/Resources/Prefabs/Ball.prefab</code></td></tr>
+<tr><td>Ball collider</td><td><code>SphereCollider</code> radius 0.033 m (real ball ≈ 0.036 m)</td><td><code>Ball.prefab</code></td></tr>
+<tr><td>Ball <code>maxAngularVelocity</code></td><td>raised to 100 rad/s at runtime</td><td><code>Ball.cs:30</code></td></tr>
+<tr><td>Ball physic material</td><td>bounciness 0.35, friction 0.1, max-combine</td><td><code>Materials/Ball.physicMaterial</code></td></tr>
+<tr><td>Pitch physic material</td><td><strong>bounciness 0.7</strong>, friction 0.6</td><td><code>Materials/Pitch.physicMaterial</code></td></tr>
+<tr><td>Bat physic material</td><td>bounciness 0.05, friction 1</td><td><code>Materials/Bat.physicMaterial</code></td></tr>
+<tr><td>Stumps</td><td>3 separate rigidbodies, mass 0.35 each, zero drag, non-kinematic. <strong>No bails.</strong></td><td><code>Prefabs/Stumps.prefab</code></td></tr>
+<tr><td>Ball collision mode</td><td><code>ContinuousDynamic</code> + <code>Interpolate</code> on release; <code>ContinuousSpeculative</code> once fielded</td><td><code>Main.cs:1013–1015</code>, <code>AnimatedFielder.cs:649</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><strong>Ball trail:</strong> a <code>TrailRenderer</code> using <code>Materials/BallTrail.mat</code> is enabled only during the delivery, shot, missed and past-boundary states, and cleared otherwise (<code>Ball.cs:51–79</code>). Note it lives on the <em>scene instance</em> of the ball, not in <code>Ball.prefab</code> — <code>Ball.cs:41–42</code> fetches it lazily every <code>FixedUpdate</code> and would null-reference in any scene that instantiates the bare prefab. A <code>ParticleSystem</code> also exists on the ball prefab, but every line of particle code is commented out and tagged <code>PARTICLE</code> — the trail replaced it.</p>
+
+<p><strong>Safety nets:</strong> a ball that falls below <code>y = −10</code> is frozen (<code>Ball.cs:127–131</code>); a ball that has bounced and comes to rest below 0.1 m/s during the delivery loop is treated as a dead ball and resets after 0.5 s (<code>Ball.cs:44–49</code>).</p>
+
+<div class="note inferred"><p><span class="tag">Inferred</span> The pitch's bounciness of 0.7 against a ball bounciness of 0.35 combined with <em>maximum</em> (<code>bounceCombine: 3</code>) means the effective restitution off the pitch is 0.7 — a very lively surface. Combined with the swing force being multiplied by an arbitrary 10× and the bat's 75× amplifier, the physics is best described as <em>tuned by feel against a set of magic numbers</em>, not derived. Any retune should change one at a time.</p></div>
+
+<!-- ============================================================= -->
+<h2 id="ui">8. UI / UX &amp; HUD</h2>
+
+<h3>8.1 The scoreboard (<code>HUD.prefab</code>, world-space, in front of the player)</h3>
+<p>Driven by <code>HUD.UpdateUI()</code> (<code>HUD.cs:378–419</code>). It shows:</p>
+<ul>
+<li><code>Runs/Wickets</code>, e.g. <code>37/2</code></li>
+<li>Run rate (raw float, unformatted)</li>
+<li>Both batsmen's names and individual scores; striker first</li>
+<li>Overs as <code>O.B (total)</code>, e.g. <code>3.4 (5)</code></li>
+<li>Current bowler's name and style label from <code>Constants.CT_SwingPrefixes</code> — <code>none, pace, inSwing, outSwing, legSpin, offSpin, random</code> (<code>Constants.cs:39</code>)</li>
+<li>A reversed ball-by-ball string (<code>W</code>, <code>*</code>, <code>1</code>–<code>6</code>, <code>wd</code>) with <code>|</code> separators every six <em>legal</em> balls</li>
+</ul>
+<p>HUD depth is adjustable 3–5 m via a slider, persisted as <code>hud_offset</code> (<code>Main.cs:656–681</code>).</p>
+
+<div class="note conflict"><p><span class="tag">Code smell</span> The <code>txtVersion</code> label is hijacked as an FPS counter — <code>theHUD.txtVersion.text = (1f / Time.deltaTime).ToString()</code>, every frame, unrounded (<code>Main.cs:1146</code>). The real version line is commented out at <code>HUD.cs:380</code> because <code>PlayerSettings</code> is editor-only. <code>HUD.cs</code> also still has a top-level <code>using UnityEditor;</code> (<code>HUD.cs:3</code>) — <strong>this will fail an Android player build</strong> unless it is removed or wrapped in <code>#if UNITY_EDITOR</code>.</p></div>
+
+<h3>8.2 In-world displays (scene group <code>Displays</code>)</h3>
+<ul>
+<li><strong>Ball Speed</strong> (<code>BallSpeed.cs</code>): three fixed-updates after release it prints <code>Release: N kph</code>; after bat contact it appends <code>Bat: N kph</code> and <code>Bounce: N kph</code> (the outgoing shot speed). See the unit caveat in §4.3.</li>
+<li><strong>Shot Distance</strong> (<code>ShotDistance.cs</code>): live 2D (ground-plane) distance between ball and bat, rounded to 0.1 m, updated every <code>FixedUpdate</code> while the ball is live, reset to <code>0.0 m</code> on each new delivery. The predictive landing-point version of this (<code>calculateDistance</code>) is entirely commented out (<code>ShotDistance.cs:44–64</code>) and is called but does nothing (<code>Bat.cs:241</code>).</li>
+<li><strong>Test Display</strong> (<code>TestDisplay.cs</code>): impact diagnostics — four coloured arrows instantiated from <code>Arrow.prefab</code> (red = ball bounce vector, yellow = bat swing, green = bat face normal, blue = tracker velocity) plus the raw numbers. Only shown when the overlay is on (<code>Bat.cs:243–255</code>).</li>
+<li><strong>Replay Display</strong>: a quad showing the replay render texture (<code>Textures/ReplayCam.renderTexture</code>).</li>
+</ul>
+
+<h3>8.3 Debug pad / settings menu</h3>
+<p>Built on the Oculus sample <code>DebugUIBuilder</code> as an in-world overlay, toggled with <strong>B</strong>. Two pages (<code>Main.SetupMenus</code>, <code>Main.cs:296–421</code>):</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Page 0 — Settings</th><th>Page 1 — Tweakable Parameters</th></tr></thead>
+<tbody>
+<tr><td>
+Batting Style — Left / Right (radio)<br>
+Difficulty — Easy / Medium / Hard (radio)<br>
+Stadium — Night / Day (radio)<br>
+Menu Position slider (3–10 m)<br>
+HUD Position slider (3–5 m)
+</td><td>
+Show Overlay (toggle)<br>
+Reset Delay (0–5 s)<br>
+Fielder Speed (0.5–2.5)<br>
+Min / Max Amplifier (0–15 / 0–25) — <em>legacy, unused by the live bat path</em><br>
+<code>batAmplifier</code> (50–200)<br>
+Live bowling ranges for the <em>current</em> bowler type: <code>minX</code>, <code>maxX</code>, <code>minZ</code>, <code>maxZ</code>, <code>minSwing</code>, <code>maxSwing</code>, <code>minTurn</code>, <code>maxTurn</code>
+</td></tr>
+</tbody>
+</table>
+</div>
+<p>The bowling sliders write straight into the live <code>BowlingProfile</code> object for <code>Main.swingType</code> (<code>Main.cs:754–825</code>), so tweaks take effect on the next ball. When the bowler changes at the end of an over, <code>reloadTweakables()</code> reloads the slider values from <code>Constants</code> for the new type (<code>Main.cs:833–868</code>).</p>
+<p>A scrolling console mirror is also rendered in-world: <code>Application.logMessageReceived</code> is captured and colourised (white / yellow / red), keeping 100 lines and showing the last 17 (<code>Main.cs:199–203</code>, <code>1229–1266</code>).</p>
+
+<div class="note gapnote"><p><span class="tag">Gap</span> <strong>There is no length slider.</strong> <code>minLen</code>/<code>maxLen</code> are the parameters that most affect how playable a delivery is, but their sliders are commented out (<code>Main.cs:376–387</code>) and <code>profile.minLen</code>/<code>maxLen</code> are never written at runtime. The leftover <code>MinY</code>/<code>MaxY</code> fields are loaded from the length columns by <code>reloadTweakables()</code> (<code>Main.cs:862–863</code>) but go nowhere.</p></div>
+
+<h3>8.4 Replay camera</h3>
+<p><code>CameraReplay.cs</code> captures the replay camera's render texture into a <code>List&lt;Texture2D&gt;</code> every <strong>7 fixed updates</strong> and plays it back onto a material at 1× speed, looping with a 1 s pause (<code>CameraReplay.cs:73–143</code>). Two framings:</p>
+<ul>
+<li><strong>View 0</strong> — fixed position, field of view <strong>7°</strong> (a long lens on the pitch).</li>
+<li><strong>View 1</strong> — repositions to <code>(−14, 1.78, 0)</code> and tracks the ball with a 60° FOV; engaged 1 s after bat contact (<code>Bat.cs:258</code>).</li>
+</ul>
+<p>Recording starts at release, and stops with a type-dependent tail: 2 s after a shot, 1 s after being bowled, immediately on a miss (<code>Main.cs:1047, 1078, 1094</code>).</p>
+
+<div class="note inferred"><p><span class="tag">Performance risk / unverified</span> Every replay frame is a full <code>new Texture2D</code> allocation held in a list until the next delivery (<code>CameraReplay.cs:98–100</code>). At 143 Hz fixed step and one capture per 7 steps that is ~20 textures per second of play. On Quest hardware this is the most likely source of hitching or memory pressure; it has not been profiled here.</p></div>
+
+<!-- ============================================================= -->
+<h2 id="audio">9. Audio</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Asset</th><th>Used by</th><th>Trigger</th></tr></thead>
+<tbody>
+<tr><td><code>Sounds/Crowd.mp3</code></td><td><code>AudioSource</code> on the <code>Main</code> GameObject</td><td>Ambient bed — play-on-awake, looping, volume 0.15, routed through a mixer group</td></tr>
+<tr><td><code>Sounds/Shot1.mp3</code></td><td><code>Bat.cs:226</code></td><td>Soft contact: <code>|ballV − batV| &lt; 25</code> or the ball is hitting the back of the bat</td></tr>
+<tr><td><code>Sounds/Shot2.mp3</code></td><td><code>Bat.cs:231</code></td><td>Medium contact: 25 ≤ delta &lt; 30</td></tr>
+<tr><td><code>Sounds/Shot3.mp3</code></td><td><code>Bat.cs:236</code></td><td>Hard contact: delta ≥ 30</td></tr>
+<tr><td><code>Sounds/Stumps.mp3</code></td><td><code>Stump.cs:54–58</code></td><td>Stump displaced — played at the stump position after a 0.3 s delay</td></tr>
+</tbody>
+</table>
+</div>
+<p>All impact sounds use <code>AudioSource.PlayClipAtPoint</code>, so they are spatialised at the point of contact. The ball prefab also carries an unused <code>audioClip</code> reference to <code>Shot2.mp3</code> — its stump-collision playback is commented out (<code>Ball.cs:207–213</code>).</p>
+<div class="note gapnote"><p><span class="tag">Gap</span> There is <strong>no cheer, no appeal, no commentary, no reactive crowd</strong> — the crowd is one looping bed at a constant 0.15. This matches the <code>NOTES</code> pending item <em>"Cheer audio on big shots &amp; outs"</em>. Boundaries and wickets are currently silent events.</p></div>
+
+<!-- ============================================================= -->
+<h2 id="world">10. World &amp; presentation</h2>
+
+<h3>10.1 Layout (world coordinates, from the scene)</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Object</th><th>Position</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>Striker's stumps (<code>Stumps</code>)</td><td>(10.3, 0.04, 0)</td><td>The batting end. Play runs along +X.</td></tr>
+<tr><td>Bowler's stumps (<code>Stumps (1)</code>)</td><td>(−10.36, 0.04, 0)</td><td>Pitch length ≈ <strong>20.66 m</strong> (real: 20.12 m)</td></tr>
+<tr><td>Ball at rest / release origin</td><td>(−8.95, 0.917, −0.404)</td><td><code>StopTheBall()</code> parks it at (−8.95, 2.95, 0) between balls (<code>Main.cs:1186</code>)</td></tr>
+<tr><td>Bowler model</td><td>(−9, 0, 2.3)</td><td>Start of mark moves back 2.2 m per run-up repeat</td></tr>
+<tr><td>Keeper</td><td>x = 11.6 / 16 / 20</td><td>1.3 m / 5.7 m / 9.7 m behind the stumps for spin / medium / pace</td></tr>
+<tr><td>Wide colliders</td><td>x = 10.3, z ≈ −3.3 and +4.2</td><td>Follow the player laterally; ~1.5 m legal corridor</td></tr>
+<tr><td>Boundary</td><td>cylinder r ≈ 74.7 m</td><td>Larger than a real ground (65–75 m is typical from the <em>centre</em>, and this is centred on the ground origin)</td></tr>
+<tr><td>Fielders</td><td>9 positions, 21–54 m out</td><td><code>Constants.cs:79–88</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>10.2 Art &amp; lighting</h3>
+<ul>
+<li><strong>Stadium:</strong> <code>FullStadium.fbx</code> with a matching material set. The <code>NOTES</code> item <em>"Fix ground levels, fix lights, fix complex stands"</em> is marked done.</li>
+<li><strong>Pitch:</strong> two objects — <code>Pitch Base</code> (<code>Hard Pitch.mat</code>) and <code>Pitch Markings</code> at y = 0.01 (<code>PitchMarkings.mat</code> / <code>pitch markings.png</code>), which carries the creases and the 30-yard circle. <code>NOTES</code> marks <em>"Fix pitch &amp; 30 yards seams"</em> as done.</li>
+<li><strong>Day/Night:</strong> a hard switch, not a cycle. <code>updateStadiumMode()</code> swaps <code>RenderSettings.skybox</code> between a Day and a Night material and toggles two light groups (<code>Main.cs:574–604</code>). The scene has 5 <code>Spot Light</code>s (the floodlight towers, active at night) and 2 <code>Sun Light</code>s (day). <strong>Night is the default</strong> (<code>Main.cs:260</code>, PlayerPrefs <code>mode</code>).</li>
+<li><strong>Bowling machine:</strong> a <code>BowlingMachine</code> model whose face material acts as a ready light — green in <code>InGame_Ready</code>, red otherwise (<code>Main.cs:927–933</code>). It is a holdover from before the animated bowler existed; the <code>NOTES</code> item <em>"Slide bowling machine and pick a spot laterally at the pitch"</em> and the <code>// TODO: Move bowling machine</code> at <code>Main.cs:987</code> both still stand.</li>
+<li><strong>Source art</strong> lives in <code>RAW-Assets/</code>: <code>Bat2.blend</code>, <code>Models/Fielder.blend</code>, <code>Models/Ground.blend</code>, textures <code>ball-white.png</code>, <code>ground.png</code>, <code>pitch.jpg</code>, and <code>UI/Logo.psd</code> — a logo exists but is not used in any scene.</li>
+</ul>
+
+<!-- ============================================================= -->
+<h2 id="settings">11. Difficulty &amp; settings model</h2>
+
+<h3>11.1 The owner's documented settings flow</h3>
+<p>From <code>NOTES</code>, verbatim — and the code does follow it:</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Origin</th><th>Flow</th></tr></thead>
+<tbody>
+<tr><td>On device</td><td>UI Toggle/Slider → <code>onXXX(t/val)</code> → set member var → <code>updateXXX(false)</code> → if different, update and set PlayerPrefs</td></tr>
+<tr><td>In editor</td><td>Inspector sets member var → <code>Main.Update()</code> → <code>updateXXX(true)</code> → as above <strong>plus</strong> update UI and save prefs</td></tr>
+<tr><td>From code</td><td>Set member var → <code>Main.Update()</code> → <code>updateXXX(true)</code> → as above plus update UI and save prefs</td></tr>
+</tbody>
+</table>
+</div>
+<p>Implemented at <code>Main.cs:908–918</code> (the editor-only per-frame refresh) and in each <code>updateDifficulty</code> / <code>updateBattingStyle</code> / <code>updateStadiumMode</code> / <code>updateZOffset</code> / <code>updateHUDOffset</code> / <code>updateTweakables</code> pair. Prefs are also flushed whenever the menu is closed (<code>Main.cs:1170</code>).</p>
+
+<h3>11.2 Persisted settings</h3>
+<div class="tablewrap">
+<table>
+<caption>PlayerPrefs keys (<code>Constants.cs:7–17</code>), defaults read at <code>Main.cs:258–275</code></caption>
+<thead><tr><th>Key</th><th>Setting</th><th>Default</th></tr></thead>
+<tbody>
+<tr><td><code>difficulty</code></td><td>Easy / Medium / Hard</td><td>1 = <strong>Easy</strong></td></tr>
+<tr><td><code>style</code></td><td>Right / Left handed</td><td>1 = <strong>Right</strong></td></tr>
+<tr><td><code>mode</code></td><td>Night / Day</td><td>1 = <strong>Night</strong></td></tr>
+<tr><td><code>menu_offset</code></td><td>Menu distance, 3–10 m</td><td>3</td></tr>
+<tr><td><code>hud_offset</code></td><td>HUD distance, 3–5 m</td><td>4 (scene inspector says 5)</td></tr>
+<tr><td><code>overlay</code></td><td>Debug overlay visible</td><td>1 = on</td></tr>
+<tr><td><code>reset_delay</code></td><td>Delay back to Ready</td><td>2 s</td></tr>
+<tr><td><code>fielder_speed</code></td><td>iTween fielder speed</td><td>1.5</td></tr>
+<tr><td><code>amp_min</code> / <code>amp_max</code></td><td>Legacy bat amplifiers</td><td>10 / 15 (unused by the live bat path)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>11.3 What difficulty actually does</h3>
+<div class="note conflict"><p><span class="tag">NOTES vs code</span> <code>NOTES</code> lists <em>"Define difficulty settings &amp; hook their functionality, tweakable: Swing amount, Bat collider"</em> as <strong>pending</strong>, and the code agrees. Difficulty currently changes <strong>only the bat collider width</strong> (×4 / ×2 / ×1). <code>updateDifficulty()</code> carries the TODO <code>// TODO: Take action for appropriate difficulty, and set 'changed'</code> and its <code>changed</code> flag is never set true, so the prefs save at <code>Main.cs:451</code> is dead (<code>Main.cs:422–455</code>). Ball speed, swing amount, length spread, wide corridor, fielder speed and catch reliability are all <strong>identical on every difficulty.</strong></p></div>
+
+<!-- ============================================================= -->
+<h2 id="status">12. Current state of completeness</h2>
+
+<p>Derived from <code>NOTES</code> (<code>√</code> done, <code>~</code> in progress, <code>-</code> pending) cross-checked against the code. The <strong>Verdict</strong> column is what the code actually supports.</p>
+
+<div class="tablewrap">
+<table>
+<caption>Feature status matrix</caption>
+<thead><tr><th>Feature</th><th>NOTES</th><th>Verdict</th><th>Evidence / what is actually missing</th></tr></thead>
+<tbody>
+<tr><td>Bat attached to dominant hand by batting style</td><td>√</td><td class="st st-done">Done</td><td><code>Bat.cs:307–339</code>, <code>Main.cs:519–548</code>. Left-hand grab offsets are prefab defaults and may want a pass.</td></tr>
+<tr><td>DebugPad as in-world UI overlay</td><td>√</td><td class="st st-done">Done</td><td><code>Main.SetupMenus</code>, Oculus <code>DebugUIBuilder</code>, plus an in-world console mirror.</td></tr>
+<tr><td>Settings menu — style, day/night, difficulty</td><td>√</td><td class="st st-done">Done</td><td>All three radio groups work and persist. (Difficulty's <em>effect</em> is a separate row.)</td></tr>
+<tr><td>Ball trails in air</td><td>√</td><td class="st st-done">Done</td><td><code>TrailRenderer</code> gated by game state, <code>Ball.cs:51–79</code>. Particle version abandoned.</td></tr>
+<tr><td>Lateral impulse for swing</td><td>√</td><td class="st st-done">Done</td><td><code>Ball.cs:99–124</code> in-air, <code>Ball.cs:176–193</code> off the pitch.</td></tr>
+<tr><td>Preliminary sounds (crowd, bat)</td><td>√</td><td class="st st-done">Done</td><td>5 clips wired. No reactive audio.</td></tr>
+<tr><td>Ground levels, lights, stands</td><td>√</td><td class="st st-done">Done</td><td>Stadium + day/night light groups.</td></tr>
+<tr><td>Pitch &amp; 30-yard markings</td><td>√</td><td class="st st-done">Done</td><td><code>Pitch Markings</code> object, <code>pitch markings.png</code>.</td></tr>
+<tr><td>AI Fielders</td><td>√</td><td class="st st-part">Partial</td><td>Chase, arbitration (top 3) and pick-up work. <strong>No catch animation, no throw, no dive, no misfield.</strong> <code>AnimatedFielder.cs:620–622, 641–643</code>.</td></tr>
+<tr><td>Bowling types (pace/spin) with templates and params</td><td>√</td><td class="st st-done">Done</td><td>5 profiles, 8 named bowlers, per-ball randomisation, live tweak sliders.</td></tr>
+<tr><td>Bat momentum in ball physics (custom script)</td><td>√ (ongoing)</td><td class="st st-part">Partial</td><td>Works, but with hard-coded <code>contactRadius = 1</code>, <code>dampenFactor = 1</code>, dead <code>batMomentum</code>, and a frame-rate-dependent swing speed. <code>Bat.cs:190–215</code>.</td></tr>
+<tr><td>Scoring mechanism</td><td>~</td><td class="st st-part">Partial — better than NOTES says</td><td>Per-ball scoring is complete (<code>HUD.cs</code>). <strong>Innings/match never end</strong> (<code>HUD.cs:352–355, 370–375</code>); wides credited to the batsman; no byes.</td></tr>
+<tr><td>Stumps &amp; physics (bails pending)</td><td>~</td><td class="st st-part">Partial</td><td>3 loose rigidbody stumps that reset each ball. <strong>No bails exist in <code>Stumps.prefab</code>.</strong> Detection is a per-frame motion threshold, not a ball-contact test.</td></tr>
+<tr><td>Wicket collision issues</td><td>-</td><td class="st st-no">Not started</td><td>Any 0.01 m nudge in <code>DeliverBallLoop</code>/<code>BallHit</code>/<code>BallHitLoop</code> is "bowled" — including your own bat (<code>Stump.cs:19–51</code>). Also a copy-paste bug at <code>Stumps.cs:42</code> and <code>:49</code>: <code>stumps[1]</code> and <code>stumps[2]</code> are both assigned <code>LegStump</code>'s component (harmless today because the array is never read).</td></tr>
+<tr><td>Sliding bowling machine / lateral spot pick</td><td>-</td><td class="st st-no">Not started</td><td><code>// TODO: Move bowling machine</code> (<code>Main.cs:987</code>). The machine is now only a ready-light.</td></tr>
+<tr><td>UI / fanfare for scoring &amp; wickets</td><td>-</td><td class="st st-no">Not started</td><td>Score updates silently on the board. No popups, no particles.</td></tr>
+<tr><td>Cheer audio on big shots &amp; outs</td><td>-</td><td class="st st-no">Not started</td><td>Only 5 clips exist; no cheer asset.</td></tr>
+<tr><td>UI for final results</td><td>-</td><td class="st st-no">Not started</td><td>Match end is a <code>Debug.LogWarning</code>.</td></tr>
+<tr><td>UI for initial menu</td><td>-</td><td class="st st-no">Not started</td><td><code>eGameState.InMenu</code> exists and is empty; <code>None</code> skips straight to play.</td></tr>
+<tr><td>Difficulty settings hooked up (swing amount, bat collider)</td><td>-</td><td class="st st-part">Partial</td><td>Bat collider only. Swing amount, speed, length and fielding are unaffected. <code>Main.cs:422–455</code>.</td></tr>
+<tr><td>Identify all randomization points</td><td>-</td><td class="st st-done">Documented here</td><td>See §5.5 — five points total.</td></tr>
+<tr><td>Complete controller mapping</td><td>-</td><td class="st st-no">Not started</td><td>Three buttons used, one mapped-but-dead, no triggers/grips/sticks. §4.4.</td></tr>
+<tr><td>Second innings / opponent / target</td><td>(not in NOTES)</td><td class="st st-no">Not started</td><td>No concept of a chase, a target or a result.</td></tr>
+<tr><td>Replay system</td><td>(not in NOTES)</td><td class="st st-part">Partial</td><td>Works; two fixed camera framings; memory behaviour unprofiled. <code>CameraReplay.cs</code>.</td></tr>
+<tr><td>Android build health</td><td>(not in NOTES)</td><td class="st st-no">At risk</td><td><code>HUD.cs:3</code> has <code>using UnityEditor;</code> at file scope — this breaks player builds. Also the project was just upgraded to 2022.3.4f1 (<code>e8e5bec</code>) and has not been verified since.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>12.1 Where NOTES and the code disagree — summary</h3>
+<ol>
+<li><strong>Scoring is further along than NOTES claims.</strong> Marked <code>~</code>, but per-ball scoring, strike rotation, bowler rotation, run rate and the ball-by-ball scorecard all work. The real hole is match termination and result UI.</li>
+<li><strong>AI Fielders is less complete than NOTES claims.</strong> Marked <code>√</code>, but catching and throwing — the two actions that make fielding a threat — are unwritten TODOs.</li>
+<li><strong>"Bat physics ... (ongoing)" is accurate</strong>, and the ongoing part is specifically sweet-spot/contact-point modelling.</li>
+<li><strong>The dead legacy layer is larger than NOTES suggests.</strong> <code>AnimatedFielderUnchanged.cs</code> (803 lines) differs from <code>AnimatedFielder.cs</code> by exactly one commented-out line and is attached to nothing; the entire <code>Old Fielders</code> group is disabled; <code>Assets/Editor/CustomEditorScript.cs</code> is 100% commented out; <code>BowlingProfileManager.cs</code> carries a full commented-out earlier copy of its own classes.</li>
+</ol>
+
+<!-- ============================================================= -->
+<h2 id="gaps">13. Known gaps &amp; design questions for the revival</h2>
+
+<h3>13.1 Must-decide design questions</h3>
+<ol>
+<li><strong>What ends a match?</strong> Today nothing does. Options: 5 overs, all-out at 10 wickets (currently the batting list wraps instead), or a target-chase mode. Whatever is chosen also needs a reset path — <code>HUD.Reset(totalOvers)</code> already exists and takes a parameter that nothing supplies.</li>
+<li><strong>Is 5 overs right?</strong> It is a default argument, never surfaced to the player. Should overs be a menu choice (3 / 5 / 10)?</li>
+<li><strong>Keep the time-based running model, or build real running?</strong> The elapsed-seconds table (§2.3) is the boldest adaptation in the game and is what makes a match fast. Building real running-between-wickets would unlock run-outs and a reason for fielders to throw — but would slow the loop and needs a locomotion answer in VR.</li>
+<li><strong>What should difficulty actually change?</strong> The bat collider alone is a blunt instrument. Candidates, all already parameterised: speed ranges, <code>swing</code>/<code>pitchTurn</code> ranges, length spread, wide corridor width, fielder count in the chase (currently fixed at 3), and a catch-drop probability once catching exists.</li>
+<li><strong>Should the bowling machine come back, or go?</strong> It is now only a green/red ready light while an animated bowler does the work. Either delete it and replace the ready signal with something diegetic, or restore the "slide and pick a spot" plan as a visible telegraph of line.</li>
+<li><strong>Who is the second team?</strong> There is no opponent score, no toss, no result. A one-innings high-score run may be the honest framing for this game — that is a design decision, not an omission to fix by default.</li>
+<li><strong>Is the boundary the right size?</strong> ~74.7 m radius from the ground origin is generous; combined with the 75× bat amplifier it may make sixes either trivial or impossible. Worth measuring before retuning the bat.</li>
+</ol>
+
+<h3>13.2 Technical debt to clear before feature work</h3>
+<ul>
+<li><strong>Verify the project still builds and runs</strong> on current Quest firmware after the 2022.3.4f1 upgrade. The upgrade commit changed nothing else, so it has almost certainly never been run on-device.</li>
+<li><strong>Remove <code>using UnityEditor;</code> from <code>HUD.cs:3</code></strong> (and the commented <code>PlayerSettings.bundleVersion</code> line at <code>HUD.cs:380</code>) or guard them — this is a build-breaker for Android players.</li>
+<li><strong>Stop hijacking <code>txtVersion</code> as an FPS counter</strong> (<code>Main.cs:1146</code>) — and if an FPS readout is wanted, round it.</li>
+<li><strong>Make shot power frame-rate independent.</strong> <code>trackerVelocity</code> should be divided by <code>Time.deltaTime</code> and <code>BatAmplifier</code> retuned once, rather than leaving power coupled to headset frame rate (<code>Bat.cs:294</code>).</li>
+<li><strong>Make fielder speed frame-rate independent</strong> for the same reason (<code>AnimatedFielder.cs:672</code>), and either wire the <code>fielderSpeed</code> slider to the animated fielders or relabel it.</li>
+<li><strong>Fix or intentionally keep the <code>GetYVel</code> parenthesisation</strong> (<code>Main.cs:1296</code>) — see §5.3. Lengths cannot be trusted until this is settled.</li>
+<li><strong>Replace the stump-motion heuristic</strong> with an actual ball-to-stump contact test, so that the batsman brushing the stumps is scored as hit-wicket (or not at all) rather than as bowled (<code>Stump.cs:19–26</code>).</li>
+<li><strong>Delete the dead layer:</strong> <code>AnimatedFielderUnchanged.cs</code>, the disabled <code>Old Fielders</code> group, <code>Assets/Editor/CustomEditorScript.cs</code>, the commented class copies in <code>BowlingProfileManager.cs</code>, the commented bat path in <code>Bat.cs:121–187</code>, and the <code>PARTICLE</code>-tagged particle code in <code>Ball.cs</code>. ~2,000 lines of noise that will otherwise mislead whoever picks this up.</li>
+<li><strong>Book wides as extras</strong> rather than crediting the striker (<code>HUD.cs:267</code>).</li>
+<li><strong>Profile the replay texture allocation</strong> (<code>CameraReplay.cs:98</code>) on-device before adding any more per-frame work.</li>
+</ul>
+
+<h3>13.3 Things the code cannot tell us</h3>
+<div class="note gapnote"><p><span class="tag">Unresolved</span> The following could not be determined from the repository and need the owner's memory:</p>
+<ul>
+<li>Whether the 5-over / one-innings shape was the final intent or a placeholder for testing.</li>
+<li>Whether the elapsed-time run table was hand-tuned against play or just a first guess.</li>
+<li>Why <code>BatAmplifier</code> landed on 75 and the swing force on ×10 — no tuning notes exist.</li>
+<li>Whether the <code>Nets</code> scene is a keeper (a practice mode) or a scratch scene; it is not in the build list.</li>
+<li>Whether the batsman/bowler name lists are placeholders or an intended nostalgic roster.</li>
+<li>Whether the bowling machine is meant to be removed or restored.</li>
+</ul>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="appendix">14. Appendix — file &amp; project map</h2>
+
+<h3>14.1 Project-owned scripts (everything else under <code>Assets/</code> is vendor SDK)</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>File</th><th>Lines</th><th>Role</th><th>Live?</th></tr></thead>
+<tbody>
+<tr><td><code>Assets/Scripts/Main.cs</code></td><td>1353</td><td>Singleton. Game state machine, settings, menus, console mirror, input, ball release.</td><td>yes</td></tr>
+<tr><td><code>Assets/Scripts/HUD.cs</code></td><td>420</td><td><strong>All scoring and match bookkeeping.</strong> Batsman/Bowler models, scoreboard.</td><td>yes (in <code>HUD.prefab</code>)</td></tr>
+<tr><td><code>Assets/Scripts/Ball.cs</code></td><td>219</td><td>Swing in flight, turn off the pitch, trail gating, dead-ball detection.</td><td>yes (in <code>Ball.prefab</code>)</td></tr>
+<tr><td><code>Assets/Scripts/Bat.cs</code></td><td>342</td><td>Hand attachment, trigger-based custom bat/ball collision, haptics, impact audio.</td><td>yes (in <code>Bat.prefab</code>)</td></tr>
+<tr><td><code>Assets/Scripts/BowlingProfileManager.cs</code></td><td>268</td><td>5 bowling profiles and per-ball randomisation. Upper half is a commented-out earlier copy.</td><td>yes (plain C#)</td></tr>
+<tr><td><code>Assets/Scripts/Constants.cs</code></td><td>160</td><td>Profile tables, fielding positions, keeper positions, difficulty multipliers, all enums.</td><td>yes</td></tr>
+<tr><td><code>Assets/Scripts/AnimatedFielder.cs</code></td><td>802</td><td>Animated fielder AI: intercept solve, chase, pick-up.</td><td>yes ×9</td></tr>
+<tr><td><code>Assets/Scripts/AnimatedFielderManagement.cs</code></td><td>49</td><td>Picks the 3 fastest fielders to chase.</td><td>yes ×1</td></tr>
+<tr><td><code>Assets/Scripts/AnimatedFielderUnchanged.cs</code></td><td>803</td><td>Near-identical copy of <code>AnimatedFielder.cs</code> (one line commented).</td><td><strong>no — attached to nothing</strong></td></tr>
+<tr><td><code>Assets/Scripts/AnimatedBowler.cs</code></td><td>251</td><td>Run-up configs, animator driving, ball hand-parenting, <code>ReleaseBall</code> animation event.</td><td>yes (in <code>Bowler.prefab</code>)</td></tr>
+<tr><td><code>Assets/Scripts/Fielder.cs</code></td><td>185</td><td>Legacy iTween fielder. Still used <strong>for the keeper only</strong>.</td><td>keeper only</td></tr>
+<tr><td><code>Assets/Scripts/Stumps.cs</code></td><td>83</td><td>Resets the three stumps each ball.</td><td>yes</td></tr>
+<tr><td><code>Assets/Scripts/Stump.cs</code></td><td>59</td><td>Per-stump motion detection → <code>InGame_Bowled</code> + stump sound.</td><td>yes ×3</td></tr>
+<tr><td><code>Assets/Scripts/BoundaryCollider.cs</code></td><td>16</td><td>Ball exits the boundary cylinder → <code>InGame_BallPastBoundary</code>.</td><td>yes ×1</td></tr>
+<tr><td><code>Assets/Scripts/KeeperCollider.cs</code></td><td>37</td><td>Ball beats the bat → <code>InGame_BallMissed</code>; marks wides.</td><td>yes ×3</td></tr>
+<tr><td><code>Assets/Scripts/WideCollider.cs</code></td><td>45</td><td>Slides the wide planes to follow the player.</td><td>yes ×2</td></tr>
+<tr><td><code>Assets/Scripts/ShotDistance.cs</code></td><td>70</td><td>Live shot-distance readout. Predictive version commented out.</td><td>yes</td></tr>
+<tr><td><code>Assets/Scripts/CameraReplay.cs</code></td><td>167</td><td>Frame capture and replay onto a material; two camera framings.</td><td>yes</td></tr>
+<tr><td><code>Assets/BallSpeed.cs</code></td><td>50</td><td>Release / bat / outgoing speed readouts in kph.</td><td>yes</td></tr>
+<tr><td><code>Assets/TestDisplay.cs</code></td><td>54</td><td>Debug text and world-space arrow vectors for bat impact.</td><td>yes</td></tr>
+<tr><td><code>Assets/Editor/CustomEditorScript.cs</code></td><td>29</td><td>Custom inspector for <code>Main</code> — <strong>entirely commented out.</strong></td><td>no</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>14.2 Development arc (git)</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Date</th><th>Commit</th><th>Milestone</th></tr></thead>
+<tbody>
+<tr><td>2020-12-04</td><td><code>666016b</code></td><td>Initial VR template</td></tr>
+<tr><td>2020-12-16</td><td><code>fb2c072</code></td><td>Bowling working, night skybox and lights</td></tr>
+<tr><td>2020-12-17</td><td><code>9ab0e53</code></td><td>Settings menu functional; batting style and day/night toggles; tweakable ball speed</td></tr>
+<tr><td>2021-09-15</td><td><code>eb8c0ad</code></td><td>Animations added</td></tr>
+<tr><td>2022-07-12</td><td><code>3b584aa</code></td><td>Wides added, fielders improved (Tarun)</td></tr>
+<tr><td>2022-08-15</td><td><code>681145d</code></td><td>Animated bowler; length-based trajectory solve replaces raw Y velocity</td></tr>
+<tr><td>2024-01-30</td><td><code>800c3c5</code></td><td><strong>Last gameplay commit.</strong> Bat/ball collision moved from collider to trigger with manual calculation; ball-speed and distance displays; fielder and bowler tuning</td></tr>
+<tr><td>2026-09-20</td><td><code>e8e5bec</code></td><td>Engine upgrade to Unity 2022.3.4f1 — no gameplay changes</td></tr>
+</tbody>
+</table>
+</div>
+<p>Two authors: "Rao" (framework, state machine, settings, scoring, bowling profiles) and "Tarun" (fielder AI, wides, bat collision rewrite, displays).</p>
+
+<footer>
+<p>Reverse-engineered from <code>/Users/rao/Git/CricketVR</code>. Every rule, number and file reference above was read out of the source, the scene/prefab YAML, the project settings or <code>NOTES</code>. Claims that could not be verified from the repository are tagged <em>Inferred</em>, <em>Unresolved</em> or <em>Unverified</em>.</p>
+</footer>
+
+</div>
+</body>
+</html>

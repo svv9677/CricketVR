@@ -1,15 +1,57 @@
-.vs
-Assembly-CSharp-Editor.csproj
-Assembly-CSharp.csproj
-CricketVR.sln
-Oculus.Platform.csproj
-Oculus.Platform.Editor.csproj
-Oculus.VR.csproj
-Oculus.VR.Editor.csproj
-Oculus.VR.Scripts.Editor.csproj
-AndroidBuild
-Library
-obj
-Temp
-RAW-Assets-LARGE-NO-BKP
-Logs
+# Unity generated folders
+Library/
+Temp/
+Obj/
+obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+Recordings/
+
+# Asset meta data should only be ignored when the corresponding asset is also ignored
+!/[Aa]ssets/**/*.meta
+
+# Visual Studio / Rider / VS Code generated
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity3D generated crash reports
+sysinfo.txt
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+*.app
+AndroidBuild/
+
+# Crashlytics
+crashlytics-build.properties
+
+# Project-specific
+RAW-Assets-LARGE-NO-BKP/
+InitCodeMarker
+
+# OS cruft
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
