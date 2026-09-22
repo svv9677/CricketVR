@@ -55,3 +55,4 @@ InitCodeMarker
 ._*
 Thumbs.db
 ehthumbs.db
+/.utmp

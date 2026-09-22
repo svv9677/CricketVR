@@ -28,20 +28,14 @@ public class OVRExternalComposition : OVRComposition
 	public Camera foregroundCamera = null;
 	public GameObject backgroundCameraGameObject = null;
 	public Camera backgroundCamera = null;
-#if OVR_ANDROID_MRC
-	public bool renderCombinedFrame = false;
-	public AudioListener audioListener;
-	public OVRMRAudioFilter audioFilter;
-	public RenderTexture[] mrcRenderTextureArray = new RenderTexture[2];
-	public int frameIndex;
-	public int lastMrcEncodeFrameSyncId;
-
-	// when rendererSupportsCameraRect is false, mrcRenderTextureArray would only store the background frame (regular width)
-	public RenderTexture[] mrcForegroundRenderTextureArray = new RenderTexture[2];
-
-	// this is used for moving MRC camera where we would need to be able to synchronize the camera position from the game with that on the client for composition
-	public double[] cameraPoseTimeArray = new double[2];
-#endif
+	[System.NonSerialized] public bool renderCombinedFrame = false;
+	[System.NonSerialized] public AudioListener audioListener;
+	[System.NonSerialized] public OVRMRAudioFilter audioFilter;
+	[System.NonSerialized] public RenderTexture[] mrcRenderTextureArray = new RenderTexture[2];
+	[System.NonSerialized] public int frameIndex;
+	[System.NonSerialized] public int lastMrcEncodeFrameSyncId;
+	[System.NonSerialized] public RenderTexture[] mrcForegroundRenderTextureArray = new RenderTexture[2];
+	[System.NonSerialized] public double[] cameraPoseTimeArray = new double[2];
 
 	public override OVRManager.CompositionMethod CompositionMethod() { return OVRManager.CompositionMethod.External; }
 
@@ -467,8 +461,6 @@ public class OVRExternalComposition : OVRComposition
 
 }
 
-#if OVR_ANDROID_MRC
-
 public class OVRMRAudioFilter : MonoBehaviour
 {
 	private bool running = false;
@@ -491,6 +483,5 @@ public class OVRMRAudioFilter : MonoBehaviour
 		}
 	}
 }
-#endif
 
 #endif

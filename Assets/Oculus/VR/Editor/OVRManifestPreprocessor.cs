@@ -239,35 +239,7 @@ public class OVRManifestPreprocessor
                 modifyIfFound,
                 "value", projectConfig.focusAware ? "true" : "false");
 
-            // Add support devices manifest according to the target devices
-            if (OVRDeviceSelector.isTargetDeviceQuestFamily)
-            {
-                string targetDeviceValue = "quest";
-                if (OVRDeviceSelector.isTargetDeviceQuest && OVRDeviceSelector.isTargetDeviceQuest2)
-                {
-                    targetDeviceValue = "quest|quest2";
-                }
-                else if (OVRDeviceSelector.isTargetDeviceQuest2)
-                {
-                    targetDeviceValue = "quest2";
-                }
-                else if (OVRDeviceSelector.isTargetDeviceQuest)
-                {
-                    targetDeviceValue = "quest";
-                }
-                else
-                {
-                    Debug.LogError("Unexpected target devices");
-                }
-                AddOrRemoveTag(doc,
-                    androidNamepsaceURI,
-                    "/manifest/application",
-                    "meta-data",
-                    "com.oculus.supportedDevices",
-                    true,
-                    modifyIfFound,
-                    "value", targetDeviceValue);
-            }
+            // supportedDevices is now provided by the OpenXR xrmanifest.androidlib
 
             // Add system keyboard tag
             AddOrRemoveTag(doc,
