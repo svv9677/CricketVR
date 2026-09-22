@@ -1,0 +1,15 @@
+Render pipeline:       Built-in
+MeshRenderers:         25
+SkinnedMeshRenderers:  61
+Triangles (sum):       292570
+Unique materials:      32
+Materials w/ normal:   0
+Lights:                5
+Reflection probes:     0
+Light probe groups:    0
+Lightmaps:             0
+Static (ContributeGI): 4
+Ambient mode:          Flat
+Skybox material:       <NONE>
+Sun assigned:          no
+Fog:                   False

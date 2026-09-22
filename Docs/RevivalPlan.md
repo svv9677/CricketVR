@@ -1,7 +1,7 @@
 # CricketVR — Revival Plan (recommendations only)
 
-**Status: P0 done · P4 done (one item deferred) · P3 partially done. Nothing committed — all
-changes are staged or in the working tree for Rao to review and commit himself.**
+**Status: P0, P2 and P4 done · P1 done pending a device build · P3 partially done.
+All work through `046d910` is committed by Rao; the working tree is clean.**
 
 Prepared 2026-09-20 against commit `e8e5bec` (master, clean). Last updated 2026-09-21.
 
@@ -13,11 +13,13 @@ Prepared 2026-09-20 against commit `e8e5bec` (master, clean). Last updated 2026-
 | P4 | **Done**, 1 deferred | `.gitattributes` added, `.gitignore` rewritten, 10 generated files untracked. `Assets/Resources/` relocation deferred to P2. |
 | P3 | **Partial** | Dead files, unused field and log gating done. Bulk comment removal and structural items still open. |
 | P2 | **Done** | 8 dead packages removed, ~614 MB of SDK/sample assets deleted. Tracked files 3365 → 978. |
-| P1 | **Mostly done** | Unity 6.3.24f1 upgrade landed; OpenXR loader active and **the OVR rig survives**. Outstanding: Android SDK levels, device build. |
+| P1 | **Done, unvalidated** | Unity 6000.3.24f1 upgrade landed; OpenXR loader now active on **both Android and Standalone**, Meta Quest feature and Touch/Touch Pro/Touch Plus profiles enabled, Windows MR removed. Android SDK levels were already 32/34. Outstanding: **a Quest device build — the only remaining validation of the OpenXR runtime path.** |
 
 **Verification standard used:** after each change, the full 172-source `Assembly-CSharp` set is
 compiled with Roslyn against all 252 references with `UnityEditor.dll` deliberately excluded — the
-player's view of the code. Currently **0 errors**. This is not a substitute for a real APK build
+player's view of the code (post-P2 this set is 22 sources). Currently **0 errors**. A separate
+single-pass GUID scan checks for unresolvable `m_Script` references; the expected baseline is **4
+pre-existing dangling GUIDs** (see below). This is not a substitute for a real APK build
 (it does not exercise IL2CPP, the linker or Gradle), which remains unverified.
 
 Companion documents: [GameDesignDocument.html](GameDesignDocument.html) · [TechnicalDesignDocument.md](TechnicalDesignDocument.md)
@@ -314,6 +316,18 @@ depends on them existing.
   projectile solutions sit commented out beside it.
 - `Main.Factorial()` computes a summation, not a factorial.
 - `CameraReplay` allocates unbounded `Texture2D` frames.
+
+### Known dangling script GUIDs — baseline 4 (all pre-existing)
+
+Verified against `046d910`; none were introduced by the revival cleanup.
+
+| GUID | Where | Note |
+|---|---|---|
+| `3e94b2dc…`, `afbfc819…` | `Assets/Resources/Animations/Bowling/Steyn.controller` | Missing `StateMachineBehaviour`s. **Worth investigating** — this is the bowling animator whose animation events call `AnimatedBowler.ReleaseBall()`. |
+| `f5f67c52…` | 5 Oculus sample scenes | Leftover sample content. |
+| `f70555f1…` | 9 DebugUI prefabs + `UI.unity` | Part of the vendored DebugUI. |
+
+Treat 4 as the expected count after any asset deletion; investigate only if it rises.
 
 ---
 
