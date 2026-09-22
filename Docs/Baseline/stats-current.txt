@@ -1,15 +1,15 @@
 Render pipeline:       UniversalRenderPipelineAsset
-MeshRenderers:         37
+MeshRenderers:         41
 SkinnedMeshRenderers:  61
-Triangles (sum):       264470
-Unique materials:      34
-Materials w/ normal:   6
+Triangles (sum):       265660
+Unique materials:      35
+Materials w/ normal:   4
 Lights:                2
-Reflection probes:     0
+Reflection probes:     1
 Light probe groups:    0
 Lightmaps:             2
 Static (ContributeGI): 21
 Ambient mode:          Trilight
-Skybox material:       <NONE>
+Skybox material:       ProceduralSkybox
 Sun assigned:          Sun Light 1
-Fog:                   False
+Fog:                   True
