@@ -275,17 +275,8 @@ public class Bat : MonoBehaviour
 
     public IEnumerator ProvideVibration()
     {
-        if (attachParent == leftHandParent)
-            OVRInput.SetControllerVibration(1f, 1f, OVRInput.Controller.LTouch);
-        else
-            OVRInput.SetControllerVibration(1f, 1f, OVRInput.Controller.RTouch);
-
+        XRInput.SendHaptics(attachParent == leftHandParent, 1f, 0.1f);
         yield return new WaitForSeconds(0.1f);
-
-        if (attachParent == leftHandParent)
-            OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch);
-        else
-            OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.RTouch);
     }
 
     // Update is called once per frame

@@ -70,7 +70,7 @@ public class DebugUIBuilder : MonoBehaviour
   private Vector2[] insertPositions;
   private List<RectTransform>[] insertedElements;
   public Vector3 menuOffset;
-  OVRCameraRig rig;
+  Transform rig;
   private Dictionary<string, ToggleGroup> radioGroups = new Dictionary<string, ToggleGroup>();
   LaserPointer lp;
   LineRenderer lr;
@@ -83,7 +83,7 @@ public class DebugUIBuilder : MonoBehaviour
     instance = this;
     menuOffset = transform.localPosition; // TODO: this is unpredictable/busted
     gameObject.SetActive(false);
-    rig = FindObjectOfType<OVRCameraRig>();
+    rig = Camera.main != null ? Camera.main.transform.parent : transform;
     for (int i = 0; i < toEnable.Count; ++i)
     {
       toEnable[i].SetActive(false);
@@ -103,7 +103,9 @@ public class DebugUIBuilder : MonoBehaviour
 
     if (uiHelpersToInstantiate)
     {
-      GameObject.Instantiate(uiHelpersToInstantiate);
+      var helpers = GameObject.Instantiate(uiHelpersToInstantiate);
+      foreach (var ovrInput in helpers.GetComponentsInChildren<UnityEngine.EventSystems.OVRInputModule>(true))
+        Destroy(ovrInput);
     }
 
     lp = FindObjectOfType<LaserPointer>();
@@ -118,33 +120,27 @@ public class DebugUIBuilder : MonoBehaviour
     {
       toEnable.Add(lp.gameObject);
     }
-    GetComponent<OVRRaycaster>().pointer = lp.gameObject;
     lp.gameObject.SetActive(false);
-#if UNITY_EDITOR
-    string scene = SceneManager.GetActiveScene().name;
-    OVRPlugin.SendEvent("debug_ui_builder",
-      ((scene == "DebugUI") ||
-       (scene == "DistanceGrab") ||
-       (scene == "OVROverlay") ||
-       (scene == "Locomotion")).ToString(),
-      "sample_framework");
-#endif
   }
 
   public void UpdatePosition()
   {
-    transform.position = rig.transform.TransformPoint(menuOffset);
+    if (rig != null)
+      transform.position = rig.TransformPoint(menuOffset);
   }
 
   public void Show()
   {
     Relayout();
     gameObject.SetActive(true);
-    transform.position = rig.transform.TransformPoint(menuOffset);
-    Vector3 newEulerRot = rig.transform.rotation.eulerAngles;
-    newEulerRot.x = 0.0f;
-    newEulerRot.z = 0.0f;
-    transform.eulerAngles = newEulerRot;
+    if (rig != null)
+    {
+      transform.position = rig.TransformPoint(menuOffset);
+      Vector3 newEulerRot = rig.rotation.eulerAngles;
+      newEulerRot.x = 0.0f;
+      newEulerRot.z = 0.0f;
+      transform.eulerAngles = newEulerRot;
+    }
 
     if (reEnable == null || reEnable.Length < toDisable.Count) reEnable = new bool[toDisable.Count];
     reEnable.Initialize();

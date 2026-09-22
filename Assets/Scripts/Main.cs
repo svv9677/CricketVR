@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class Main : MonoBehaviour
@@ -291,8 +292,46 @@ public class Main : MonoBehaviour
         bowlingProfileManager = new BowlingProfileManager();
         bowlingProfileManager.InitProfilesFromParams();
 
+        SetupXRControllers();
+
         initialized = true;
         gameState = eGameState.None;
+    }
+
+    private void SetupXRControllers()
+    {
+        foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+        {
+            if (mb != null && mb.GetType().Name.StartsWith("OVR"))
+                mb.enabled = false;
+        }
+
+        if (theBatScript != null && theBatScript.leftHandParent != null)
+        {
+            Transform anchor = theBatScript.leftHandParent.parent;
+            if (anchor != null && anchor.GetComponent<XRControllerTracker>() == null)
+            {
+                var tracker = anchor.gameObject.AddComponent<XRControllerTracker>();
+                tracker.isLeftHand = true;
+            }
+        }
+        if (theBatScript != null && theBatScript.rightHandParent != null)
+        {
+            Transform anchor = theBatScript.rightHandParent.parent;
+            if (anchor != null && anchor.GetComponent<XRControllerTracker>() == null)
+            {
+                var tracker = anchor.gameObject.AddComponent<XRControllerTracker>();
+                tracker.isLeftHand = false;
+            }
+        }
+
+        // Add keyboard movement controller to the player root
+        if (theBatScript != null && theBatScript.leftHandParent != null)
+        {
+            Transform playerRoot = theBatScript.leftHandParent.parent?.parent?.parent;
+            if (playerRoot != null && playerRoot.GetComponent<SimplePlayerController>() == null)
+                playerRoot.gameObject.AddComponent<SimplePlayerController>();
+        }
     }
 
     public void SetupMenus()
@@ -935,7 +974,7 @@ public class Main : MonoBehaviour
         }
 
         // Temporary stuff
-        if (GetButton(OVRInput.Button.Three))
+        if (GetButton(XRButton.X))
         {
             gameState = eGameState.InGame_ResetToReady;
         }
@@ -958,7 +997,7 @@ public class Main : MonoBehaviour
                     break;
                 case eGameState.InGame_Ready:
                     {
-                        if (GetButton(OVRInput.Button.One))
+                        if (GetButton(XRButton.A))
                         {
                             currentFielderName = "";
 
@@ -1140,7 +1179,7 @@ public class Main : MonoBehaviour
         }
 
         // Debug UI toggle!
-        if (GetButton(OVRInput.Button.Two))
+        if (GetButton(XRButton.B))
         {
             ToggleUI(!menuToggle);
         }
@@ -1202,31 +1241,32 @@ public class Main : MonoBehaviour
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Helper functions section
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private KeyCode GetKeyCodeForButton(OVRInput.Button button)
+    private Key GetKeyForButton(XRButton button)
     {
         switch(button)
         {
-            case OVRInput.Button.One:
-                return KeyCode.RightShift;  // A -> Right Shift
-            case OVRInput.Button.Two:
-                return KeyCode.Slash;       // B -> /
-            case OVRInput.Button.Three:
-                return KeyCode.LeftShift;   // X -> Left Shift
-            case OVRInput.Button.Four:
-                return KeyCode.Z;           // Y -> Z
+            case XRButton.A: return Key.RightShift;
+            case XRButton.B: return Key.Slash;
+            case XRButton.X: return Key.LeftShift;
+            case XRButton.Y: return Key.Z;
         }
-
-        return KeyCode.None;
+        return Key.None;
     }
 
-    public bool GetButton(OVRInput.Button button, bool justDown = true)
+    public bool GetButton(XRButton button, bool justDown = true)
     {
-        if(justDown)
-            return (Application.isEditor && Input.GetKeyDown(GetKeyCodeForButton(button)) ||
-                !Application.isEditor && OVRInput.GetDown(button));
-        else
-            return (Application.isEditor && Input.GetKey(GetKeyCodeForButton(button)) ||
-                !Application.isEditor && OVRInput.Get(button));
+        bool keyboard = false;
+        if (Keyboard.current != null)
+        {
+            var key = Keyboard.current[GetKeyForButton(button)];
+            keyboard = justDown ? key.wasPressedThisFrame : key.isPressed;
+        }
+        return keyboard || (justDown ? XRInput.GetDown(button) : XRInput.Get(button));
+    }
+
+    void LateUpdate()
+    {
+        XRInput.LateUpdate();
     }
 
     private void HandleLog(string message, string stackTrace, LogType logType)
