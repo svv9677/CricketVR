@@ -379,14 +379,99 @@ The console is now **clean**; the nine `AnimatedFielder` exceptions are gone.
 
 ---
 
+## 7. Pitch surface tone-matched to the ground's dirt patch — DONE (2026-09-22, follow-up)
+
+The pitch strip read as a different material from the dirt patch painted into the ground texture
+around it: a bright warm tan against a dull grey-brown band, with an obvious seam at the join.
+
+Measured rather than eyeballed. An orthographic top-down render was profiled in 0.4 m bands out
+from the pitch centreline:
+
+```
+ z band (m)   rendered rgb          what it is
+  2.0..2.8    (0.820,0.755,0.652)   pitch
+  3.2..3.6    (0.576,0.532,0.459)   ground dirt band
+  4.0..4.4    (0.405,0.466,0.279)   fading to grass
+```
+
+The **hue already matched** — pitch `1.00:0.921:0.795`, dirt `1.00:0.924:0.797`. The whole
+difference was brightness: the dirt band renders at 70% of the pitch. Rao chose to bring the pitch
+down to the dirt rather than the other way round.
+
+### What changed
+
+`Assets/Resources/Textures/PitchSurface.png`, generated from the existing `hard.png` by a
+per-channel mean transfer. The required albedo was derived from the measured lighting factor rather
+than guessed:
+
+```
+lighting factor (rendered / albedo) = (1.176, 1.169, 1.181)
+target rendered (the dirt band)     = (0.576, 0.532, 0.459)
+=> required albedo                  = (0.490, 0.455, 0.389)
+```
+
+Deviations were scaled by the same factor as the mean, so **relative** contrast is preserved and the
+grain does not look noisier as the surface darkens. `hard.png` is untouched and still on disk.
+
+`Hard Pitch.mat` now points at `PitchSurface.png` with `_BaseColor` **white** (the texture already
+carries the target albedo, so any tint would pull it off again), `_Smoothness` dropped 0.1 → **0.05**
+and `_Metallic` 0 to match `Ground00_baseColor.mat` — otherwise the two surfaces catch the light
+differently and still read as different materials. Tiling stays **3×3**: the painted patch is only
+~30 px/m, far too coarse to use directly, so the sharp `hard.png` detail is kept and only its colour
+moved.
+
+### Result
+
+```
+inside Pitch Markings footprint   (0.580,0.540,0.466)
+Pitch Base beside markings        (0.588,0.545,0.472)
+Pitch Base beyond markings        (0.552,0.515,0.463)
+ground dirt band (target)         (0.577,0.532,0.460)
+```
+
+All within ~0.01–0.03. `Docs/Baseline/pitch-final-*.png` for the visual.
+
+> `PitchMarkings.mat` needed no change: it is a **transparent** overlay (`_Surface = 1`) that only
+> adds the white creases and inherits whatever is beneath, so it followed the base automatically.
+> Worth knowing before anyone tries to "fix" the pitch centre separately.
+
+**Still there, if it bothers you:** the painted patch's *feathered halo* (roughly z 3.6 → 4.4 m)
+still fades through a dull olive on its way to grass, because that gradient is baked into
+`Ground00_baseColor.png`. Fixing it means repainting that region of the ground texture — say the
+word and I will.
+
+---
+
 ## Incidents during this work
 
-**`ProjectSettings.asset` lost its `preloadedAssets` entries.** At some point during Play-mode
-entry the list was emptied. Those two entries are the **Android** sub-assets of
-`XRGeneralSettings.asset` and `OpenXR Package Settings.asset`, and without them **XR does not
-initialize in a build** — the APK would have launched flat. Caught in `git diff`, and restored to
-the exact original sub-objects (not the main assets, which have different fileIDs); the file is now
-byte-identical to `HEAD`. **Worth a glance at `git diff ProjectSettings/` before any future build.**
+**`ProjectSettings.asset` `preloadedAssets` — I got this wrong, and it has been corrected.**
+
+I saw the list empty, concluded that XR would not initialize in a build ("the APK would have
+launched flat"), and restored the two entries. **That was wrong on both counts.**
+
+Reading `XRGeneralBuildProcessor.cs` in `com.unity.xr.management` settles it:
+
+- `OnPreprocessBuild` adds the per-build-target `XRGeneralSettings` **only if it is not already
+  present**. If it *is* present, it takes the `else` branch and calls
+  `CleanOldSettings<XRGeneralSettings>()`, which **removes it and does not re-add it**.
+- `OnPostprocessBuild` **always** calls `CleanOldSettings()`. The source comment is explicit:
+  *"Always remember to cleanup preloaded assets after build to make sure we don't dirty later
+  builds with assets that may not be needed or are out of date."*
+
+So **an empty list is the designed resting state**, and **a device build is exactly what empties
+it**. Unity re-injects the entries for each build. (`OpenXRSettings` is handled separately by
+`XRBuildProcessorHelper.SetSettingsForRuntime`, which only adds when absent and has no destructive
+branch.)
+
+Worse than merely unnecessary: a **populated** list sends the next build down that `else` branch, so
+the build can be produced *without* the preloaded XR settings. The restored entries were committed,
+so **the first device build off that commit is worth checking actually entered VR** rather than
+launching flat.
+
+`preloadedAssets` has now been set back to `[]`. Leave it that way; do not "restore" it. If XR ever
+genuinely fails to start on device, look at the OpenXR loader list in
+`Assets/XR/XRGeneralSettings.asset` (Android Providers must contain `OpenXRLoader` — it does) and
+the logcat XR init lines instead.
 
 **`Nets.unity` was re-serialized** into the Unity 6 scene format (`m_Drag` → `m_LinearDamping`,
 `serializedVersion` bumps, new Rigidbody fields). Inspected: it is a pure format upgrade with no
@@ -402,6 +487,9 @@ back to the prefab euler values, which differ from the old scene override by und
 
 ## What to check on the device build
 
+0. **Did it enter VR at all?** The commit that build came from has `preloadedAssets` populated,
+   which can send `XRGeneralBuildProcessor` down its destructive branch (see Incidents). If the APK
+   launched flat, that is why — the working tree now has `preloadedAssets: []`, so rebuild from that.
 1. **`[XRRigSetup] Floor tracking origin active`** in logcat — if the warning about a fixed eye
    height appears instead, the runtime refused a floor origin and issue 2 is only half solved.
 2. **Stand next to a fielder.** Their eyeline should be at yours.
