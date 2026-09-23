@@ -164,7 +164,7 @@ public class Ball : MonoBehaviour
             inst.gameState == eGameState.InGame_DeliverBallLoop)
         {
             // If we hit pitch, and this is our first bounce after release of delivery
-            if (fresh && collisionInfo.gameObject.tag == "Ground")
+            if (fresh && collisionInfo.gameObject.CompareTag("Ground"))
             {
                 //print(transform.position.x);
                 //print(((firstImpact + transform.position.x) / 2) - Main.Instance.currentBowlingConfig.length);
@@ -199,8 +199,10 @@ public class Ball : MonoBehaviour
         if(inst.gameState == eGameState.InGame_BallHit ||
             inst.gameState == eGameState.InGame_BallHitLoop)
         {
-            // If we hit pitch after shot, mark as bounce 
-            if (collisionInfo.gameObject.name == "Plane")
+            // If we hit the ground after the shot, mark as bounce.
+            // (Was name == "Plane" - an object that does not exist in the CricketVR scene,
+            //  so this never fired and the dead-ball reset in FixedUpdate never ran.)
+            if (collisionInfo.gameObject.CompareTag("Ground"))
                 bounced = true;
         }
 

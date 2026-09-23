@@ -37,6 +37,21 @@ public static class XRInput
         _prev[XRButton.Y] = Get(XRButton.Y);
     }
 
+    /// <summary>Thumbstick axes for one hand, with a small dead zone. Zero when absent.</summary>
+    public static Vector2 GetThumbstick(bool leftHand, float deadZone = 0.15f)
+    {
+        var chars = (leftHand ? InputDeviceCharacteristics.Left : InputDeviceCharacteristics.Right)
+                    | InputDeviceCharacteristics.Controller;
+        _devices.Clear();
+        InputDevices.GetDevicesWithCharacteristics(chars, _devices);
+        for (int i = 0; i < _devices.Count; i++)
+        {
+            if (_devices[i].TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 val))
+                return val.magnitude < deadZone ? Vector2.zero : val;
+        }
+        return Vector2.zero;
+    }
+
     public static void SendHaptics(bool leftHand, float amplitude, float duration)
     {
         var chars = (leftHand ? InputDeviceCharacteristics.Left : InputDeviceCharacteristics.Right)

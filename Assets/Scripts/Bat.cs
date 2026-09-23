@@ -13,13 +13,15 @@ public class Bat : MonoBehaviour
     [SerializeField]
     public Transform rightHandParent;
     [SerializeField]
-    protected Vector3 leftGrabOffsetPosition;
+    public Vector3 leftGrabOffsetPosition;
+    // Euler degrees, not a raw quaternion. The old Quaternion fields held degree values
+    // typed into x/y/z/w (magnitude ~38), which normalised to an arbitrary rotation.
     [SerializeField]
-    protected Quaternion leftGrabOffsetRotation;
+    public Vector3 leftGrabOffsetEuler;
     [SerializeField]
-    protected Vector3 rightGrabOffsetPosition;
+    public Vector3 rightGrabOffsetPosition;
     [SerializeField]
-    protected Quaternion rightGrabOffsetRotation;
+    public Vector3 rightGrabOffsetEuler;
     [SerializeField]
     protected GameObject trackerObject;
     [SerializeField]
@@ -188,10 +190,9 @@ public class Bat : MonoBehaviour
 
 
                 // Using momentum
-                Vector3 ballMomentum = ballInitialVelocity;
                 float contactRadius = 1f;  // TODO insert calculation for distance to contact
-                Vector3 batMomentum = myRigidBody.linearVelocity + myRigidBody.angularVelocity * contactRadius;
-
+                // (Removed ballMomentum/batMomentum: both were computed and never used, and the
+                //  bat rigidbody is teleported every LateUpdate so its velocities are always zero.)
 
                 Vector3 ballBounce;
                 float dampenFactor = 1f;
@@ -208,7 +209,8 @@ public class Bat : MonoBehaviour
                 float avgBatSpeed = trackerMags.Average();
                 
                 // Calculate amount of bat movement in the direction of the bat face...
-                Vector3 batSwing = gameObject.transform.up * Mathf.Cos(Mathf.Deg2Rad * Vector3.Angle(gameObject.transform.up, trackerVelocity)) * avgBatSpeed;
+                Vector3 batSwing = gameObject.transform.up * Mathf.Cos(Mathf.Deg2Rad * Vector3.Angle(gameObject.transform.up, trackerVelocity))
+                                   * avgBatSpeed * SwingTuningReferenceDeltaTime;
                 ballBounce = ballBounce / 75f;
                 Vector3 finalVel = ballBounce + batSwing;
                 finalVel *= Main.Instance.BatAmplifier * contactRadius;
@@ -218,7 +220,7 @@ public class Bat : MonoBehaviour
                 dp = Vector3.Dot(ballInitialVelocity, gameObject.transform.up);
 
                 // Play sound
-                Vector3 delta = ballInitialVelocity - (trackerVelocity.normalized * avgBatSpeed);
+                Vector3 delta = ballInitialVelocity - (trackerVelocity.normalized * avgBatSpeed * SwingTuningReferenceDeltaTime);
                 float mag = delta.magnitude;
                 if (mag < 25f || dp <= 0f)
                 {
@@ -279,10 +281,17 @@ public class Bat : MonoBehaviour
         yield return new WaitForSeconds(0.1f);
     }
 
+    // The bat-swing term below was originally tuned against a per-frame position delta
+    // (metres/frame) rather than a velocity, which made every shot frame-rate dependent.
+    // trackerVelocity is now a true m/s velocity; this constant is the frame time that the
+    // existing BatAmplifier / ampMin / ampMax tuning implicitly assumed (72 Hz on Quest),
+    // so shot power is unchanged on device but no longer varies with framerate.
+    public const float SwingTuningReferenceDeltaTime = 1f / 72f;
+
     // Update is called once per frame
     private void Update()
     {
-        trackerVelocity = trackerPos - trackerPreviousPos;
+        trackerVelocity = (trackerPos - trackerPreviousPos) / Mathf.Max(Time.deltaTime, 1e-5f);
         if (trackerMags.Count < 5)
         {
             trackerMags.Add(trackerVelocity.magnitude);
@@ -309,17 +318,17 @@ public class Bat : MonoBehaviour
             Vector3 destPos = attachParent.TransformPoint(Vector3.zero); // Replace with any local offset on hand, if needed
             Quaternion destRot = attachParent.rotation * Quaternion.identity; // Replace with any local rotation on hand
 
-            Vector3 grabOffsetPosition = Vector3.zero;
-            Quaternion grabOffsetRotation = Quaternion.identity;
+            Vector3 grabOffsetPosition;
+            Quaternion grabOffsetRotation;
             if (attachParent == rightHandParent)
             {
                 grabOffsetPosition = rightGrabOffsetPosition;
-                grabOffsetRotation = rightGrabOffsetRotation;
+                grabOffsetRotation = Quaternion.Euler(rightGrabOffsetEuler);
             }
             else
             {
                 grabOffsetPosition = leftGrabOffsetPosition;
-                grabOffsetRotation = leftGrabOffsetRotation;
+                grabOffsetRotation = Quaternion.Euler(leftGrabOffsetEuler);
             }
 
             Vector3 finalPos = destPos + destRot * grabOffsetPosition;

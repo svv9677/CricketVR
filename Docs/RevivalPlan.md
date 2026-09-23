@@ -22,7 +22,7 @@ single-pass GUID scan checks for unresolvable `m_Script` references; the expecte
 pre-existing dangling GUIDs** (see below). This is not a substitute for a real APK build
 (it does not exercise IL2CPP, the linker or Gradle), which remains unverified.
 
-Companion documents: [GameDesignDocument.html](GameDesignDocument.html) · [TechnicalDesignDocument.md](TechnicalDesignDocument.md)
+Companion documents: [GameDesignDocument.html](GameDesignDocument.html) · [TechnicalDesignDocument.md](TechnicalDesignDocument.md) · [IssueBacklog.md](IssueBacklog.md) — 5 open gameplay/visual issues raised 2026-09-22
 
 ---
 
