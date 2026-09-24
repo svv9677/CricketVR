@@ -142,9 +142,9 @@ MonoBehaviour:
   leftHandParent: {fileID: 0}
   rightHandParent: {fileID: 0}
   leftGrabOffsetPosition: {x: 0.18, y: 0.1, z: 0.18}
-  leftGrabOffsetEuler: {x: -35.4, y: 0.7, z: 14}
+  leftGrabOffsetEuler: {x: 270, y: 180, z: 0}
   rightGrabOffsetPosition: {x: -0.25, y: 0.15, z: 0.18}
-  rightGrabOffsetEuler: {x: 21, y: 1.05, z: 10}
+  rightGrabOffsetEuler: {x: 270, y: 180, z: 0}
   trackerObject: {fileID: 3831318129957227716}
   audioShot1: {fileID: 8300000, guid: 7497715cb2e0b4a24872345d117ce5a1, type: 3}
   audioShot2: {fileID: 8300000, guid: 3393a69671fe345eb9f5709b44266067, type: 3}

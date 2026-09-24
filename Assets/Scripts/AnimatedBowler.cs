@@ -27,6 +27,41 @@ public class AnimatedBowler : MonoBehaviour
     private int myFrame;
     private Vector3 myPrevPos;
 
+    /// <summary>
+    /// True from the start of the run-up until the release animation event. While it is set the
+    /// ball is driven onto the hand every LateUpdate.
+    ///
+    /// <para>This replaces parenting the ball to the hand bone. That approach used
+    /// <c>SetParent(hand.transform)</c>, which keeps the ball's world position and therefore gives
+    /// it a large local offset - the bowler is teleported to the top of his run-up in the same
+    /// frame, so the offset was about 12 m - and then relied on a <c>parent.name == hand.name</c>
+    /// check in LateUpdate to zero it again. On device that zeroing did not happen from the second
+    /// delivery onwards, leaving the ball orbiting the hand on a 12 m arm. Device telemetry:</para>
+    ///
+    /// <code>
+    /// runup: ballPos=(-11.48, 9.92, 3.73) ballLocal=(-8.382, 6.285, -3.876) parent=Offset
+    /// [Delivery] ... [corrected: release (-1.36, 7.11, 8.10) outside the plausible box]
+    /// </code>
+    ///
+    /// <para>Driving the position directly has no local-space offset to lose and no name
+    /// comparison to get wrong.</para>
+    /// </summary>
+    private bool ballInHand;
+
+    /// <summary>
+    /// Where the hand was at the exact frame the release animation event fired. This is the single
+    /// source of truth for where a delivery starts; reading the ball's own transform instead meant
+    /// reading whatever the ball had drifted to.
+    /// </summary>
+    public Vector3 ReleasePosition { get; private set; }
+
+    /// False until the first release of the session, so callers know whether ReleasePosition means
+    /// anything yet.
+    public bool HasReleasePosition { get; private set; }
+
+    /// The bowling hand, for callers that need it directly. Null if the reference was lost.
+    public Transform HandTransform => hand == null ? null : hand.transform;
+
     public AFInfoData configs;
 
     private void Awake()
@@ -65,6 +100,10 @@ public class AnimatedBowler : MonoBehaviour
     {
         Main inst = Main.Instance;
 
+        // First, before anything below can fail: keep the ball on the hand. The old pin sat at the
+        // bottom of LateUpdate, so any exception above it silently left the ball behind.
+        HoldBall(inst);
+
         if (inst.gameState == eGameState.InGame_Ready ||
             inst.gameState == eGameState.InGame_ResetToReadyLoop)
         {
@@ -97,11 +136,6 @@ public class AnimatedBowler : MonoBehaviour
             }
         }
 
-        if (inst.theBall.transform.parent != null && inst.theBall.transform.parent.gameObject.name == hand.name)
-        {
-            inst.theBall.transform.localPosition = Vector3.zero;
-        }
-
         if (animator.GetInteger("Action") == -1)
         {
             Quaternion prev = transform.rotation;
@@ -126,11 +160,55 @@ public class AnimatedBowler : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Pins the ball to the bowling hand for as long as he is carrying it. Runs first in
+    /// LateUpdate, after the Animator has posed the skeleton for this frame, so the ball sits on
+    /// the hand in the pose the player actually sees.
+    /// </summary>
+    private void HoldBall(Main inst)
+    {
+        if (!ballInHand || hand == null || inst == null || inst.theBall == null)
+            return;
+
+        // The ball is only ever carried during the run-up. Bounding it by state as well as by the
+        // flag means a missed ReleaseBall event cannot drag the ball around during play.
+        if (inst.gameState != eGameState.InGame_SelectDelivery &&
+            inst.gameState != eGameState.InGame_SelectDeliveryLoop)
+        {
+            ballInHand = false;
+            return;
+        }
+
+        Vector3 target = hand.transform.position;
+        Rigidbody rb = inst.theBallRigidBody;
+
+        // Move the RIGIDBODY, not just the Transform. The ball is kinematic while it is carried,
+        // and a kinematic body with interpolation enabled has its Transform overwritten from the
+        // rigidbody's own pose before rendering - so a plain `transform.position = ...` here is
+        // silently thrown away. Measured: the ball fell 0.45 m, then 0.84 m, then 1.54 m behind
+        // the hand as the arm sped up. `Physics.autoSyncTransforms` is false in this project, so
+        // nothing pushes the Transform back into PhysX to compensate.
+        //
+        // This is also what broke the old parented version. Its pin wrote `localPosition = 0` and
+        // that write was discarded the same way; parenting merely hid the damage, because the
+        // hierarchy re-applied whatever stale local offset the ball had. On device that offset was
+        // about 12 m, which is where the wild release points came from.
+        if (rb != null)
+        {
+            rb.interpolation = RigidbodyInterpolation.None;   // restored at release, in Main
+            rb.position = target;
+        }
+        inst.theBall.transform.position = target;
+    }
+
     private IEnumerator StartBowling()
     {
         Main inst = Main.Instance;
         inst.theBallRigidBody.isKinematic = true;
-        inst.theBall.transform.SetParent(hand.transform);
+        // Carry the ball by driving its world position (see ballInHand) rather than parenting it.
+        inst.theBall.transform.SetParent(null);
+        ballInHand = true;
+        HoldBall(inst);
 
         animator.SetInteger("Jog Repeat", currentBowlerInfo.jogRepeat + 1);
         animator.SetInteger("Run Repeat", currentBowlerInfo.runRepeat + 2);
@@ -170,8 +248,20 @@ public class AnimatedBowler : MonoBehaviour
         currentBowlerInfo = myBowlers.data[index];
     }
 
+    /// <summary>
+    /// Animation event fired at the top of the bowling action, the frame the ball leaves the hand.
+    /// Capture the hand pose here: this is the only moment at which it is the release point, and
+    /// sampling it anywhere else picks up however far the arm has swung through since.
+    /// </summary>
     public void ReleaseBall()
     {
+        ballInHand = false;
+        if (hand != null)
+        {
+            ReleasePosition = hand.transform.position;
+            HasReleasePosition = true;
+        }
+
         Main.Instance.gameState = eGameState.InGame_DeliverBall;
 
         animator.SetInteger("Action", 0);

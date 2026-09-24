@@ -73,6 +73,222 @@ AFTER : bounced=True
 PASS - outfield bounce now registers, so the dead-ball auto-reset can fire.
 ```
 
+### Second root cause, found 2026-09-22 from a device capture — THE BIG ONE
+
+The tag fix above was real but it was **not** what made the ball look wrong. A device video showed
+the ball pitching almost at the bowler's feet and flying into the stands. Instrumenting a real
+Editor delivery found this at release:
+
+```
+=== DELIVERY === cfg: InSwing, speedX=7.18, length=3.97
+  ball kinematic=False pos=(-7.83, 1.43, 0.06) vel=(7.64, -11.66, 0.40) |v|=13.95
+```
+
+**The ball already had 13.95 m/s before the delivery impulse was applied.**
+
+While it is parented to the bowler's hand the ball is kinematic, and a kinematic body carries its
+motion across the switch to dynamic. `Main.cs` zeroed the velocity at line 1046 — **while the body
+was still kinematic**, which is a no-op; `isKinematic = false` only happened six lines later. So the
+bowler's hand-swing velocity (mostly *downward*, from the arm coming over) was added on top of the
+intended impulse.
+
+A controlled experiment, same impulse, only the inherited velocity differing:
+
+| | release vy | pitches at | target |
+|---|---|---|---|
+| as shipped | −14.42 m/s | **x = −3.85** | 3.97 |
+| velocity genuinely zeroed | −2.78 m/s | **x = 3.27** | 3.97 |
+
+Every ball left the hand ~5× too steep, pitched **~8 m short** near the bowler's feet, and reached
+the batsman chest-high at ~165 km/h. That is the "wacky ball physics".
+
+**Fix:** *assign* the release velocity instead of `AddForce`-ing onto whatever the body carried:
+
+```csharp
+theBallRigidBody.linearVelocity = speed / theBallRigidBody.mass;
+```
+
+Assignment overwrites, so it is immune to the carry-over (zeroing after `isKinematic = false` was
+tried first and did **not** reliably stick). It is exactly the intended impulse from rest. The
+author had this very line in the file, commented out.
+
+Verified on a real Editor delivery: release `vel=(34.88, -0.40, 2.26)` = exactly `speedX/mass`, and
+the ball pitched at **x ≈ 7.3** against a target length of 8.58, arriving at 31 m/s instead of 52.
+
+### Third pass, 2026-09-23 — the delivery set-up rebuilt
+
+Patching the old release path kept failing on device, so it was replaced outright with
+[BallDelivery.cs](../Assets/Scripts/BallDelivery.cs). The old path had three compounding faults:
+
+1. **The release point was an animation bone.** Whatever the bowler's hand happened to be doing on
+   the frame the animation event fired became the start of the trajectory. Measured once at
+   `(1.56, 4.05, 6.08)` - mid-pitch and 4 m in the air.
+2. **The solver divided by an unchecked flight time.** Once the release point was past the target
+   pitching point, `time` went negative and the vertical velocity flipped sign - firing the ball
+   upward at ~42 m/s. That is the "sky high into the stands".
+3. **It mixed feet and metres**, and `height - startPos.y / time` was missing the parentheses to
+   mean `(height - startPos.y) / time`.
+
+`BallDelivery.Solve` replaces all of it with one exact projectile solve in metres:
+
+```
+t  = (pitchX - releaseX) / speed
+vy = (bounceHeight - releaseY + 0.5*g*t*t) / t
+```
+
+plus validation of every input: the release point is clamped into a plausible box (falling back to
+a nominal release point if it is wild or NaN), speed is clamped to 15-45 m/s, the pitching point is
+clamped onto the strip, and the ball must still be far enough behind it to be a real delivery.
+Anything corrected is logged with the offending value.
+
+**Verified analytically across every config in `Constants.cs`** - error 0.0000 m on all of them:
+
+| type | speed | release vy | pitches at | error |
+|---|---|---|---|---|
+| pace | 140-155 km/h | -6.06 .. -1.91 | exactly as asked | 0.0000 |
+| in/out swing | 124-140 km/h | -7.20 .. -1.33 | exactly as asked | 0.0000 |
+| leg/off spin | 68-85 km/h | +0.92 .. +1.75 (looped, correct) | exactly as asked | 0.0000 |
+
+and the four release points that actually broke on device now all produce a correct delivery:
+
+```
+hand=(1.56, 4.05, 6.08)  ->  vy -7.94, pitches x=4.00   (was vy +42, into the stands)
+hand=(16.00, 1.50, 0.00) ->  vy -3.50, pitches x=4.00
+hand=(10.20, 1.00, 0.00) ->  vy -1.80, pitches x=4.00
+hand=(NaN,  1.00, 0.00)  ->  falls back to nominal, pitches x=4.00
+```
+
+Confirmed end-to-end on real Editor deliveries: release `(35.789, -2.203, 2.588)` - vx exactly
+`speedX/mass` - pitching on `Pitch Markings` and carrying to the keeper at ~30 m/s, repeatably.
+
+**Also fixed:** `StopTheBall()` set `isKinematic = true` *before* zeroing the velocity, which Unity
+warns about ("Setting linear velocity of a kinematic body is not supported") and which is the same
+no-op that let motion leak between deliveries. Zeroing now happens first.
+
+**Bat orientation corrected too:** the grab offset is now `(270, 180, 0)`, solved so the bat
+reproduces its authored pose - `up = (-1, 0, 0)`, face pointing down the pitch. It was
+`(21.18, -0.5, 9.98)`, which gave `up = (-0.354, 0.918, -0.176)`, i.e. **92% vertical**, so every
+contact launched the ball skyward. Exact only for a level controller; still needs `BatOffsetTuner`
+on device to match a real grip.
+
+### Why the device looked worse than the Editor
+
+The shot direction is driven entirely by the **bat's `transform.up`**
+([Bat.cs:201](../Assets/Scripts/Bat.cs:201), [:211](../Assets/Scripts/Bat.cs:211)), then multiplied
+by `BatAmplifier = 75`. In the Editor the hand anchors are untracked, so the bat never moves and
+never touches the ball. On device it does. Measured: with a level controller the current grab offset
+gives `bat.up = (-0.354, 0.918, -0.176)` — **92% vertical**, so any contact launches the ball nearly
+straight up at ~40 m/s. That is the 158 m / 185 m / 321 m readouts in the capture, and it is
+**issue 3, not a physics bug**. Dial the offset in with `BatOffsetTuner` and it goes away.
+
+### Also noted, not changed (one fix at a time)
+
+- **`GetYVel` operator precedence**, [Main.cs:1336](../Assets/Scripts/Main.cs:1336):
+  `(height - startPos.y / time)` should be `((height - startPos.y) / time)`. Real, but worth only
+  ~1 m of length error, so it is left for a separate change rather than bundled into this one.
+- **Spurious boundary exits.** Teleporting the ball fires `OnTriggerExit` on the boundary capsule —
+  seen at radius 7.5 m and 15.4 m in the logs. Harmless today because `BoundaryCollider` only acts
+  in `InGame_BallHitLoop`, but keep that guard.
+- **`Assets/Scripts/BallDiagnostics.cs`** is the temporary instrumentation used to find this
+  (per-delivery config, release velocity, every contact with before/after velocity). Not attached to
+  anything; attach it to `Main` and `BallContactLogger` to the `Ball` for the next device round,
+  then delete.
+
+### Fourth pass, 2026-09-24 — the real root cause, found from device logcat
+
+The third pass made the *maths* of the delivery exact but still fed it a release point read off
+the ball's own transform. On device that reading was garbage from the second delivery onwards.
+
+**How it was finally caught.** The in-world diagnostics board is unreadable in a 1080p headset
+capture (≈11 px per line), so decoding the video was a dead end. Instead, with the Quest attached
+over USB:
+
+```bash
+adb logcat -c && adb logcat -v time -s Unity:I > dev.txt
+```
+
+That gives the full `Debug.Log` stream off the device, and it named the fault immediately:
+
+```
+runup: ballPos=(-11.48, 9.92, 3.73) ballLocal=(-8.382, 6.285, -3.876) parent=Offset
+[Delivery] ... [corrected: release (-1.36, 7.11, 8.10) outside the plausible box
+                -> (-5.00, 3.00, 2.50). pitch x -1.31 is only 3.69 m ahead of release]
+```
+
+The ball was parented to the bowling hand **12.3 m away from it**, orbiting on that arm through
+the whole run-up. At release its transform read `(-1.36, 7.11, 8.10)` — mid-pitch, seven metres
+up and eight metres to the leg side. `BallDelivery` then clamped that to the corner of its
+plausible box, which is both the "snap to a different position" and the "bounces outside the
+pitch and goes sky high" the videos showed. Delivery 1 was always fine; 2 onwards never were.
+
+**Root cause: a `Transform` write on an interpolating kinematic `Rigidbody` is discarded.**
+
+`AnimatedBowler` carried the ball by parenting it to the hand bone with
+`SetParent(hand.transform)`, which keeps world position and therefore hands the ball a large
+local offset — the bowler is teleported to the top of his run-up in the same LateUpdate, so the
+offset was ~12 m. A line at the bottom of `LateUpdate` was supposed to erase it:
+
+```csharp
+if (ball.transform.parent != null && ball.transform.parent.gameObject.name == hand.name)
+    ball.transform.localPosition = Vector3.zero;
+```
+
+The ball is kinematic while carried and its Rigidbody has interpolation enabled, so Unity
+overwrites the Transform from the Rigidbody's own pose before rendering, and
+`Physics.autoSyncTransforms` is `false` in this project, so nothing pushes the Transform back
+into PhysX. The write was thrown away. Parenting hid the damage — the hierarchy kept re-applying
+whatever stale local offset the ball had, so the ball still *moved with* the hand and looked
+roughly right, it just sat 12 m from it.
+
+This was measured directly. Replacing the parenting with a plain
+`ball.transform.position = hand.position` and nothing else made the discard visible as a lag that
+grew with arm speed:
+
+```
+gap=0.449m -> 0.840m -> 1.536m -> 1.921m
+```
+
+**Fix, two independent halves.**
+
+1. `AnimatedBowler.HoldBall` (new) carries the ball by driving the **Rigidbody**, with
+   interpolation switched off while it is held, and runs *first* in `LateUpdate` so nothing below
+   it can skip the carry by throwing. Parenting is gone, so there is no local offset to lose and
+   no name comparison to get wrong. `Main` restores `Interpolate` at release.
+2. `AnimatedBowler.ReleaseBall` — the animation event itself — captures `ReleasePosition` from the
+   hand at the exact frame the ball leaves it, and `Main` solves the delivery from *that*, not
+   from the ball. Even when the carry failed completely (ball 1.2 m adrift) the delivery still
+   started from the correct hand position, so the two halves cover each other.
+
+`Main` now also places the ball on the solved release point unconditionally. That is safe because
+the point comes from the hand: on a healthy delivery the ball is already there and it moves by
+nothing, so there is no snap.
+
+**`ReleaseBoxMin.y` lowered 0.80 → 0.50.** Measured release heights are 0.63–1.97 m depending on
+where the arm is; 0.80 was clamping real deliveries and nudging the ball upward.
+
+### How it was verified
+
+Editor, capped to 72 fps with `Time.fixedDeltaTime = 0.007` so the physics/render ratio matches
+the Quest, auto-bowling repeatedly:
+
+| | before | after |
+|---|---|---|
+| ball-to-hand gap through the run-up | 0.45 → 1.92 m, growing | 0.012 – 0.135 m |
+| release point, successive deliveries | y 0.63 → 1.66, x −7.65 → −8.58 | (−8.45, 1.97, 0.29), (−8.43, 1.97, 0.29) |
+| `[Delivery]` corrections logged | every delivery clamped | none |
+
+The residual 13 cm is a sampling artefact: the diagnostic reads in `Update`, one animation frame
+before `LateUpdate` re-pins the ball. The release height rose to a plausible 1.97 m because the
+point is now sampled at the animation event, when the arm is at the top, instead of from a
+transform lagging behind it.
+
+### Note on the earlier "device-only" framing
+
+It was never device-only in principle — the same discarded write happens in the Editor. The
+Editor just lost centimetres where the device lost metres, because the size of the discard
+depends on the render/physics step ratio. Chasing it as an Editor-vs-device difference was a
+detour; pulling the device's own log was what settled it.
+
 ### Still open (deliberately not changed)
 
 The tuning below was almost certainly compensating for the bugs above. **Re-judge it now, before
@@ -439,6 +655,81 @@ All within ~0.01–0.03. `Docs/Baseline/pitch-final-*.png` for the visual.
 still fades through a dull olive on its way to grass, because that gradient is baked into
 `Ground00_baseColor.png`. Fixing it means repainting that region of the ground texture — say the
 word and I will.
+
+---
+
+## 8. "Unity is unable to start the game on the device" — FIXED (2026-09-23)
+
+The APK installed fine but Build and Run refused to launch it. From `Editor.log`, on every build:
+
+```
+DeploymentOperationFailedException: No activity in the manifest with action MAIN and
+category LAUNCHER. Try launching the application manually on the device.
+NoTargetsFoundException: Could not launch build
+```
+
+Rao's diagnosis was right: it is the Android manifest. The generated launcher activity had
+
+```xml
+<intent-filter>
+    <action android:name="android.intent.action.MAIN" />
+    <category android:name="com.oculus.intent.category.VR" />
+    <category android:name="android.intent.category.INFO" />   <!-- no LAUNCHER -->
+</intent-filter>
+```
+
+### Cause
+
+The project has **no custom `AndroidManifest.xml`** - Unity generates it, and then the vendored
+Oculus SDK rewrites it. [OVRManifestPreprocessor.cs](../Assets/Oculus/VR/Editor/OVRManifestPreprocessor.cs)
+does this unconditionally, in its own words:
+
+```csharp
+// remove launcher and leanback launcher
+AddOrRemoveTag(doc, ..., "android.intent.category.LAUNCHER",
+    required: false, modifyIfFound: true);   // always remove launcher
+// add info category
+AddOrRemoveTag(doc, ..., "android.intent.category.INFO",
+    required: true,  modifyIfFound: true);   // always add info launcher
+```
+
+That is the old Oculus **Store** convention - a shipped title is hidden from the 2D Android
+launcher and surfaced only through the VR library. It is wrong for sideloaded development builds,
+because Unity's deploy step looks for MAIN + LAUNCHER to start the app. The install succeeds and
+only the launch fails, which is exactly the "deployed successfully but will not start" symptom.
+
+It is applied by `OVRGradleGeneration` (an `IPostGenerateGradleAndroidProject` with
+**callbackOrder 99999**, so it runs last).
+
+### Fix
+
+[RestoreLauncherCategory.cs](../Assets/Editor/RestoreLauncherCategory.cs) - an
+`IPostGenerateGradleAndroidProject` with `callbackOrder = int.MaxValue`, so it runs *after* the
+Oculus one, finds the intent-filter carrying `action.MAIN` and appends
+`android.intent.category.LAUNCHER` if it is missing.
+
+`INFO` and `com.oculus.intent.category.VR` are deliberately left alone - they are harmless, and
+Meta's own submission template (`Assets/Oculus/VR/Editor/AndroidManifest.OVRSubmission.xml`) ships
+`LAUNCHER` alongside them.
+
+Done this way rather than by editing `OVRManifestPreprocessor.cs` so that an Oculus SDK update
+cannot silently revert it.
+
+**Verified** against the real generated manifest - the patch finds the one MAIN filter and produces:
+
+```
+<action   android:name="android.intent.action.MAIN"/>
+<category android:name="com.oculus.intent.category.VR"/>
+<category android:name="android.intent.category.INFO"/>
+<category android:name="android.intent.category.LAUNCHER"/>
+```
+
+> **If you ever need to start a build that predates this fix**, the app is installed and works -
+> only the auto-launch is missing:
+> ```
+> adb shell am start -n com.RaoVadapalli.CricketVR/com.unity3d.player.UnityPlayerGameActivity
+> ```
+> Note the entry point is **GameActivity**, not the older `UnityPlayerActivity`.
 
 ---
 

@@ -1043,21 +1043,59 @@ public class Main : MonoBehaviour
                     {
                         // Remove hand parent
                         theBall.transform.SetParent(null);
-                        theBallRigidBody.linearVelocity = Vector3.zero;
                         Vector3 torque = new Vector3(currentBowlingConfig.torqueX, 0f, 0f);
-                        //Vector3 speed = new Vector3(currentBowlingConfig.speedX, currentBowlingConfig.speedY, currentBowlingConfig.speedZ);
-                        float myY = GetYVel(theBall.transform.position * 3.28f, currentBowlingConfig.speedX / theBallRigidBody.mass * 3.28f, currentBowlingConfig.length * 3.28f);
-                        Vector3 speed = new Vector3(currentBowlingConfig.speedX, myY * theBallRigidBody.mass / 3.28f, currentBowlingConfig.speedZ);
+
+                        // Take the release point from the bowler's hand, captured by the release
+                        // animation event itself (AnimatedBowler.ReleaseBall), not from the ball's
+                        // own transform. The ball is supposed to be sitting on the hand, so in the
+                        // healthy case these are the same point and nothing moves. They are not the
+                        // same when carrying the ball has failed - on device the ball was orbiting
+                        // the hand on a 12 m arm and its transform read (-1.36, 7.11, 8.10), eight
+                        // metres off the pitch and seven in the air. The hand is the thing the
+                        // player watches, so it is the thing the delivery should start from.
+                        Vector3 releaseFrom = theBall.transform.position;
+                        AnimatedBowler bowler = AnimatedBowler.Instance;
+                        if (bowler != null && bowler.HasReleasePosition)
+                            releaseFrom = bowler.ReleasePosition;
+
+                        // Work out the whole release from one validated solve (see BallDelivery).
+                        // The config's speedX / speedZ are impulse magnitudes, so divide by mass to
+                        // get the real speeds; `length` is the world X the ball should pitch at.
+                        float speedMps = currentBowlingConfig.speedX / theBallRigidBody.mass;
+                        float lateralMps = currentBowlingConfig.speedZ / theBallRigidBody.mass;
+                        BallDelivery.Solution delivery = BallDelivery.Solve(
+                            releaseFrom, currentBowlingConfig.length, speedMps, lateralMps);
+                        if (!string.IsNullOrEmpty(delivery.warnings))
+                            Debug.LogWarning($"[Delivery] {delivery}");
+                        else if (verboseStateLogging)
+                            Debug.Log($"[Delivery] {delivery}");
+
                         // enable physics
                         theBallRigidBody.isKinematic = false;
                         //Set collision type to continuous dynamic
                         theBallRigidBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
                         // Set interpolation mode to interpolate
                         theBallRigidBody.interpolation = RigidbodyInterpolation.Interpolate;
-                        // Add the required force & rotation
+                        // Put the ball exactly on the solved release point. This is safe to do
+                        // unconditionally now that the point comes from the hand rather than from
+                        // the ball: on a healthy delivery the ball is already there and this moves
+                        // it by nothing, so there is no snap. When carrying the ball has gone
+                        // wrong it is the correction that keeps the delivery sane.
+                        theBall.transform.position = delivery.releasePosition;
+
+                        // ASSIGN both velocities rather than AddForce onto whatever the body was
+                        // carrying. While parented to the bowler's hand the ball is kinematic, and
+                        // a kinematic body carries its hand motion (~14-16 m/s, mostly downward)
+                        // across the switch to dynamic. Assignment overwrites; AddForce would add.
+                        // Zero first, then set. The assignment alone is already sufficient (it
+                        // overwrites rather than accumulates), but zeroing explicitly makes the
+                        // intent obvious and costs nothing.
+                        theBallRigidBody.linearVelocity = Vector3.zero;
+                        theBallRigidBody.angularVelocity = Vector3.zero;
+                        // delivery.releaseVelocity is the old `speed / theBallRigidBody.mass`,
+                        // but solved against a validated release point (see BallDelivery).
+                        theBallRigidBody.linearVelocity = delivery.releaseVelocity;
                         theBallRigidBody.AddTorque(torque, ForceMode.Impulse);
-                        theBallRigidBody.AddForce(speed, ForceMode.Impulse);
-                        //theBallRigidBody.velocity = speed / theBallRigidBody.mass;
                         
                         // save it
                         //theBallScript.lastVelocity = speed;   (commented out because the lastVelocity for the bat collision equations should be updated after the ball hits the pitch.
@@ -1221,12 +1259,15 @@ public class Main : MonoBehaviour
         //theBallScript.myParticles.Clear();  PARTICLE
         theBallScript.myParticles.Clear();
         theBallScript.myParticles.enabled = false;
+        // Stop the ball BEFORE making it kinematic. Setting velocity on a kinematic body is a
+        // no-op (Unity even warns about it), which is what let the ball carry its motion into
+        // the next delivery.
+        theBallRigidBody.linearVelocity = Vector3.zero;
+        theBallRigidBody.angularVelocity = Vector3.zero;
         // disable physics
         theBallRigidBody.isKinematic = true;
         // reset ball position to inside machine
         theBall.transform.position = new Vector3(-8.95f, 2.95f, 0f);
-        // make the ball static
-        theBallRigidBody.linearVelocity = Vector3.zero;
     }
 
     public IEnumerator WaitAndSetGameState(float delay, eGameState state)
@@ -1271,6 +1312,13 @@ public class Main : MonoBehaviour
 
     private void HandleLog(string message, string stackTrace, LogType logType)
     {
+        // BallDiagnostics emits several lines per physics step. Mirroring that onto the in-world
+        // console buries everything else and covers the view in a headset capture. It is still in
+        // the device log, which is the useful place to read it from:
+        //     adb logcat -c && adb logcat -v time -s Unity:I
+        if (message != null && message.StartsWith("[DIAG]"))
+            return;
+
         string color;
 
         // Check if we are ignoring a certain type of message.
@@ -1336,6 +1384,22 @@ public class Main : MonoBehaviour
         //Main inst = Main.Instance;
         float height = 0.1f;
         float time = (length - startPos.x) / startVelX;
+
+        // Guard: if the ball is released from at/behind the target pitching point, `time` goes
+        // zero or negative and the expression below flips sign, returning a huge POSITIVE vy -
+        // the ball is fired vertically at ~40 m/s instead of being bowled. That is exactly what
+        // happens when the ball is not sitting in the bowler's hand at release. Clamp to a
+        // plausible flight time so a bad release position degrades to a sane delivery instead of
+        // a rocket.
+        const float minFlightTime = 0.15f;
+        if (!(time > minFlightTime))
+        {
+            Debug.LogWarning($"[GetYVel] implausible flight time {time:F3}s from startPos {startPos / 3.28f} " +
+                             $"to length {length / 3.28f} - the ball is probably not in the bowler's hand. " +
+                             $"Clamping to {minFlightTime}s.");
+            time = minFlightTime;
+        }
+
         float startVelY = (16f * time) + (height - startPos.y / time);
         //// Air Resistance Formula
         //var p = 0.25f; // 1.225f;
