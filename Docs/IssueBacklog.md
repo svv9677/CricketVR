@@ -733,7 +733,318 @@ cannot silently revert it.
 
 ---
 
+---
+
+## 9. Pitch height, culling, and the stumps — FIXED (2026-09-24)
+
+Four reports from a close-up device session, which turned out to be three different faults.
+
+### 9a. The pitch sat 25 mm proud of the ground
+
+Measured by raycasting straight down at five points along the strip:
+
+| surface | was | now |
+|---|---|---|
+| stadium ground (`NMD_stD_pinch_0`) | −0.0051 | unchanged |
+| `Pitch Base` top | +0.0100 (15.1 mm proud) | −0.0021 (3 mm) |
+| `Pitch Markings` top | +0.0200 (25.1 mm proud) | −0.0001 (5 mm) |
+
+Both slabs are `scale.y = 0.010` on a unit-extent mesh, so the top is `localPosition.y + 0.01`.
+3 mm base-over-ground and 2 mm markings-over-base is far more than the depth buffer needs here —
+with `near = 0.3`, `far = 1000` the worst-case precision down the length of the pitch is under
+0.2 mm — so there is no z-fighting, while the lip is now only 5 mm instead of 25 mm.
+
+The outfield (`NMD_stD_Ground00_0`) is at −0.0469, but that step already existed between the
+stadium's own pitch square and the grass; it is not something the pitch slabs introduced.
+
+### 9b. The pitch and the bowler's-end stumps "disappearing" — two unrelated causes
+
+**The pitch: stale occlusion culling.** Renderer bounds were checked first and are exact — the
+declared mesh bounds equal the real vertex extents for both slabs and all six stumps — so frustum
+culling cannot drop an object that is still partly on screen. That leaves occlusion culling, and
+the scene's baked Umbra data was **944 bytes for 162 renderers**, which is a degenerate or stale
+bake. Cleared it (`StaticOcclusionCulling.Clear()`, `umbraDataSize` 944 → 0). An open stadium bowl
+occludes almost nothing, so the data was buying no performance while wrongly culling.
+
+*This one is reasoned, not proven:* occlusion culling cannot be exercised headlessly, so it is the
+last remaining candidate after the others were eliminated rather than a reproduction. Worth a
+specific look on the next device build.
+
+**The stumps: they were being shot out of the ground.** Not a rendering fault at all. The first
+device log of the session had already recorded it:
+
+```
+CONTACT 'LegStump' tag='Untagged' state=InGame_SelectDeliveryLoop
+  velBefore=(0.00, 0.00, 0.00) velAfter=(-1733.63, -296.90, 314.08) |v|=1786.70
+```
+
+The carried ball is teleported ~11 m onto the bowler's hand when he jumps to the top of his
+run-up. PhysX reads a kinematic body's teleport as motion, so it saw the ball sweep through the
+bowler's-end stumps at **1786 m/s** and launched them. Only the batting end has a `Stumps`
+component, so the bowler's end is never reset and they stayed gone — "sometimes disappear".
+
+Fixed by taking the ball's collider out of the world whenever it is not live: disabled in
+`AnimatedBowler.HoldBall` while carried, disabled in `Main.StopTheBall` before its long teleport
+back from the boundary, re-enabled in `InGame_DeliverBall`.
+
+### 9c. The batting-end stumps fell over on every reset
+
+Reproduced in **1.0 s** of play with nothing else happening:
+
+```
+Stumps/Stump     tilt=21.22deg  pos=(10.4680, ...)   <- drifted 0.168 m
+Stumps/OffStump  tilt=38.34deg  z 0.150 -> 0.2723
+Stumps/LegStump  tilt=38.34deg  z -0.150 -> -0.2723
+Stumps (1)/*     tilt=0.00deg   asleep                <- bowler's end, untouched
+```
+
+They splay **radially outward from (10.2, ·, 0)** — the player rig. `XRPlayerController` carries a
+`CharacterController` of radius 0.3 at x = 10.2; the stumps stand at x = 10.30, z = 0/±0.15, so all
+three are 0.10–0.18 m from its axis and sit *inside* it. Layer `Body` and layer `Stumps` had
+collisions enabled, so the batsman's proxy capsule shoved the stumps over every frame. That is
+exactly why only the batting end was affected.
+
+Fixed in the layer collision matrix: `Body` ↔ `Stumps` now ignored, alongside the `Body` ↔ `Ball`
+entry that was already there. `Stumps` ↔ `Ball` is untouched, so being bowled still works.
+
+Three supporting fixes, all the same fault family as the ball bug in section 1:
+
+* **`Stumps.Reset()` never zeroed velocity.** It toggled `isKinematic` around a transform write, and
+  a Rigidbody keeps its velocity across that toggle, so a stump that had been knocked flying came
+  back to its mark still carrying the motion. Rewritten as `ResetOne`, which forces the body
+  dynamic, zeroes, writes the pose through `rb.position`/`rb.rotation` as well as the Transform
+  (`autoSyncTransforms` is false), and zeroes again on the way out.
+* **`Main.StopTheBall` was zeroing a body that was already kinematic.** The ball is normally parked
+  by the boundary or a fielder before this runs, so the zeroing was silently discarded — every
+  delivery logged *"Setting angular velocity of a kinematic body is not supported"*. It now forces
+  the body dynamic first.
+* **`Fielder` and `AnimatedFielder`** both set `isKinematic = true` and *then* zeroed the velocity,
+  which does nothing. Order swapped, and angular velocity zeroed too.
+* Re-seated all six stumps so the capsule rests exactly on the new markings surface
+  (origin y 0.0400 → 0.0249, capsule bottom −0.0001 vs markings top −0.0001, zero penetration).
+  The capsule sits on a 1.25 parent scale, so the bottom is 0.025 below the origin, not 0.020.
+
+### How it was verified
+
+Play mode, auto-bowling, several deliveries:
+
+| | before | after |
+|---|---|---|
+| max stump tilt | 38.34° within 1.0 s | **0.000°** |
+| max stump drift from its mark | 0.168 m | **0.00000 m** |
+| stumps asleep at rest | batting end never settled | all six asleep |
+| kinematic-velocity warnings | several per delivery | **none** |
+| console warnings + errors | — | **zero** |
+
+Ball delivery was re-checked at the same time and is unaffected: release points stayed within
+y 1.96–2.01 across consecutive deliveries with no `[Delivery]` corrections logged.
+
+### Still open
+
+`Main.theStumpsScript` only points at the batting end, so `Stumps (1)` at the bowler's end has no
+`Stumps` component and is never reset. Nothing knocks it over any more, but if something ever does,
+it stays down. Worth wiring up when convenient.
+
+---
+
+## 10. Pitch detail map and the dark edge — FIXED (2026-09-24)
+
+### 10a. Pitch Base had no detail map  (superseded by 10f)
+
+The ground got a detail map in section 4; the pitch never did, so it went flat and smooth as soon
+as the camera was close. Generated `Assets/Resources/Textures/PitchDetail.png` the same way
+`GrassDetail.png` was made — greyscale high-pass of `PitchSurface.png`, mean-normalised — and wired
+it into `Hard Pitch.mat` as `_DetailAlbedoMap` with `_DETAIL_MULX2`.
+
+The recipe is kept at `Docs/tools/make_pitch_detail_map.py` so it can be regenerated or retuned.
+It also makes the tile wrap: the first 64 columns and rows are cross-faded with the last 64, so
+column 0 continues naturally from the final column. Measured across the wrap:
+
+```
+wrap seam X 21.28 vs interior 23.83    Y 22.86 vs interior 24.78   (levels)
+```
+
+Both seams are *below* the typical interior pixel-to-pixel difference, so the tile is seamless.
+
+Sizing: the top surface is 34 x 6 m over UV 0..1, so tiling (40, 7.06) gives 0.85 m per repeat in
+both axes — a square grain at 301 px/m, matching the ground's detail density (365 px/m) so the two
+surfaces blend where they meet. Imported at 256 px, ASTC 6x6, **aniso 8**, trilinear, repeat.
+
+| camera height | local contrast with detail | without | mean (brightness) |
+|---|---|---|---|
+| 0.25 m | 0.0385 | 0.0225 | 0.3326 vs 0.3346 |
+| 0.60 m | 0.0337 | 0.0260 | 0.3321 vs 0.3330 |
+| 1.70 m | 0.0291 | 0.0281 | 0.3242 vs 0.3246 |
+| 5.00 m | 0.0900 | 0.0900 | 0.3152 vs 0.3155 |
+
++71% fine detail up close, fading to nothing by 5 m, with brightness unchanged at every height.
+
+### 10b. A detail map must be neutral in LINEAR space — the ground had been 30% too dark
+
+Adding the detail map made the pitch obviously darker. Measured by rendering the surface with and
+without it:
+
+```
+PITCH   with detail (0.2344, 0.2210, 0.1962)   without (0.3424, 0.3239, 0.2896)   -> 0.685x
+GROUND  with detail (0.3202, 0.4388, 0.1890)   without (0.4534, 0.6256, 0.2629)   -> 0.706x
+```
+
+**The ground had the same fault, and had done since section 4 — it had been rendering about 30%
+too dark and I did not catch it.**
+
+URP's `_DETAIL_MULX2` computes `albedo *= detail * 2`, so "no change" means the detail sample must
+be **0.5 in linear space**. Both maps are a 127.5 grey, but both were imported with
+`sRGBTexture = true`, so 127.5 decoded to 0.214 linear and multiplied the surface by 0.43.
+
+Fixed by importing both detail maps as **linear** (`sRGBTexture = false`). 127.5 is then read as
+0.5 directly and the multiply is exactly 1.0. Re-measured:
+
+```
+PITCH   with detail (0.3420, 0.3235, 0.2893)   without (0.3424, 0.3239, 0.2896)
+GROUND  with detail (0.4523, 0.6243, 0.2623)   without (0.4534, 0.6256, 0.2629)
+```
+
+Energy-neutral to within 0.3%. The ground is correspondingly brighter than it has been since the
+section 4 work.
+
+### 10c. The dark line around the pitch was the slab's side wall, not a shadow
+
+Shadow casting was already `Off` on both `Pitch Base` and `Pitch Markings`, so nothing was casting.
+The dark line is the **vertical side wall of the slab**: `Pitch.fbx` is a solid box and its 48
+side-facing triangles have horizontal normals, so they shade almost black under an overhead sun.
+At `scale.y = 0.010` on a mesh spanning ±1 local units, that wall is **2 cm tall** — a very visible
+dark stripe all the way round at close range.
+
+Built `Assets/Resources/Meshes/PitchTop.asset` from the 242 up-facing triangles only (274 verts →
+192, dropping the 48 side and 2 bottom triangles) and assigned it to both MeshFilters. The
+**MeshColliders keep the original solid `Pitch` mesh**, so physics is untouched:
+
+```
+                 RENDER y             COLLIDER y            raycast
+Pitch Markings   [-0.0001..-0.0001]   [-0.0201..-0.0001]    hits -0.0001  (unchanged)
+Pitch Base       [-0.0021..-0.0021]   [-0.0221..-0.0021]    hits -0.0021  (unchanged)
+```
+
+The rendered surfaces are now zero-thickness planes at exactly the heights set in section 9a, and
+the ball still lands on a 2 cm solid.
+
+### 10d. The pitch went dark because the rebuilt mesh lost its lightmap UVs — my regression
+
+After 10c the pitch rendered noticeably dark and would not blend into the dirt around it. The
+question asked was whether the lighting needed rebaking. It did not.
+
+`Pitch Base` and `Pitch Markings` are both lightmapped (`lightmapIndex = 0`, each with its own
+`lightmapScaleOffset`), and a lightmapped renderer samples the bake through **UV2**. The
+`PitchTop` mesh built in 10c was assembled from `vertices / uv / normals / triangles` only, so it
+had no UV2 at all:
+
+```
+source Pitch.fbx  uv=274  uv2=274  normals=274  tangents=274
+PitchTop (broken)  uv=192  uv2=0    normals=192  tangents=0
+```
+
+With UV2 missing the slabs sampled the wrong part of the lightmap and came out dark and blotchy.
+Rebuilt carrying every channel the source has — uv, **uv2**, normals, tangents — and remapping them
+through the same vertex remap as the positions.
+
+```
+tone across the pitch edge at x=-4          before uv2 fix        after
+  z = 0.0  (on the strip)                   (0.356,0.332,0.304)   (0.596,0.553,0.481)
+  z = 2.0  (on the strip)                   (0.290,0.265,0.222)   (0.596,0.553,0.481)
+  z = 2.9  (edge of the strip)              (0.287,0.260,0.220)   (0.591,0.543,0.476)
+  z = 3.2  (ground's painted dirt)          (0.800,0.735,0.638)   unchanged
+```
+
+The pitch is 67% brighter and now uniform along its length - the variation between z=0 and z=2.0
+was the lightmap being sampled at essentially arbitrary coordinates. Against the surrounding dirt
+it now reads 0.75x instead of 0.45x, which is the blend that was being asked for.
+
+**Lesson: any mesh rebuilt in script for a lightmapped renderer must carry UV2.** Dropping it does
+not error, warn, or show up in the mesh inspector at a glance - it just renders wrong. The section
+10c verification checked geometry and collider heights and never looked at the lightmap, which is
+why this shipped as "fixed".
+
+### 10e. Pitch tone matched to the surrounding dirt
+
+With 10d fixed the pitch was still reading darker than the ground's dirt square. Measured, the
+difference was **purely brightness, not hue** — the per-channel ratios to the dirt were 1.342,
+1.329, 1.326, near-identical — so a single neutral gain was the right correction rather than a
+recolour.
+
+Applied as a gain on `PitchSurface.png` itself (not a `_BaseColor` tint, which would have needed an
+out-of-range value above 1 that the material inspector can clamp away on any later edit). The gain
+is applied in **linear light**, where albedo actually multiplies: the LUT converts each sRGB byte to
+linear, scales, and converts back. A naive multiply of the sRGB bytes would have undershot badly —
+the 1.34x wanted in output terms is 2.08x in linear.
+
+Two measured passes: gain 1.91 left a residual ratio of 1.040, so the final gain is **2.082**.
+
+```
+               before          after           ground dirt
+pitch tone     (0.60,0.55,0.48) (0.822,0.763,0.665)  (0.825,0.762,0.665)
+ratio dirt/pitch    1.34x            1.003, 0.999, 1.001
+```
+
+Matched to within 0.3% on every channel, and continuous across the edge (z=0 0.822, z=2.9 0.814,
+z=3.2 0.800, z=3.6 0.791). No pixel clips: the brightest source texel reaches 230 of 255.
+
+The original texture is preserved in git, and the whole adjustment is the single `gain` argument in
+`Docs/tools/` — if the pitch should read as a slightly distinct worn strip rather than blending
+completely, lower it.
+
+### 10f. Matching the grain, not just the tone
+
+With the tone matched the pitch still read wrong up close: coarse green-grey mottling where the
+dirt beside it is fine and uniform. Measured, the cause is a difference in how the two surfaces
+are built, not a difference in colour:
+
+| | base map resolution in world terms |
+|---|---|
+| `Ground00_baseColor` | 2048 px over 134.82 m = **15.2 px/m** |
+| `PitchSurface` (was) | 1200 x 302 over 11.33 x 2.0 m = **106 x 151 px/m** |
+
+The ground's dirt is a very smooth base plus fine grain from its detail map - its base physically
+cannot resolve anything finer than about 6.6 cm. The pitch was a photograph seven times finer, so
+it supplied its own mid-frequency mottle, and a green cast (+4.4 levels of `g - (r+b)/2`) from the
+grass in the photo, which the dirt does not have.
+
+Fixed by giving the pitch the same division of labour:
+
+* `PitchSurface.png` rebuilt by `Docs/tools/rebuild_pitch_texture.py` - the tone gain from 10e,
+  then resampled down to **15.2 px/m** and back (resampling rather than blurring, so it stays
+  anisotropic for free), the green cast neutralised, and the mean restored so the 10e tone match
+  survives. Overall stddev falls 19.1/19.6/20.6 -> 9.4/9.1/8.5.
+* The pitch now uses the **ground's own `GrassDetail` map**, at the same world density, so the fine
+  grain on both sides of the boundary is literally the same texture at the same scale:
+  1.6441 m (U) / 0.8221 m (V) per repeat = **311.4 px/m on both surfaces**. `PitchDetail.png`,
+  made in 10a before this was understood, is deleted.
+
+Measured across matched camera footprints, pitch against the dirt beside it:
+
+| footprint | pitch contrast | dirt contrast | pitch rgb | dirt rgb |
+|---|---|---|---|---|
+| 0.063 m | 0.0565 | 0.0597 | (0.824,0.768,0.667) | (0.844,0.779,0.683) |
+| 0.126 m | 0.0580 | 0.0585 | (0.821,0.765,0.664) | (0.833,0.770,0.674) |
+| 0.252 m | 0.0579 | 0.0576 | (0.819,0.762,0.660) | (0.823,0.761,0.664) |
+| 0.631 m | 0.0438 | 0.0586 | (0.812,0.756,0.652) | (0.800,0.744,0.638) |
+
+Grain matches to within 5% at every close range, and green excess drops to 0.023 against the
+dirt's 0.016-0.026. At the coarsest footprint the pitch is now about 25% *less* varied than the
+dirt - it errs on the smooth side rather than the mottled side, which is the right direction to
+miss in.
+
+The original photo is kept at `Docs/tools/PitchSurface_source.png` so the whole pipeline - gain,
+smoothing, green removal - is re-runnable and tunable from one script.
+
 ## Incidents during this work
+
+**Rebuilt a lightmapped mesh without its UV2 (2026-09-24).** Stripping the side faces off the pitch
+slab in section 10c produced a mesh with no lightmap UVs, so both pitch surfaces sampled the bake
+at the wrong coordinates and rendered dark and blotchy. I reported 10c as verified having checked
+only render bounds, collider bounds and raycast heights - none of which can see a lightmap fault.
+Rao spotted it on the device and asked whether the lighting needed rebaking; it did not, the mesh
+just needed its UV2 back. When a script rebuilds a mesh, copy every channel the source carries.
+
 
 **`ProjectSettings.asset` `preloadedAssets` — I got this wrong, and it has been corrected.**
 

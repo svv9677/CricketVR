@@ -182,6 +182,15 @@ public class AnimatedBowler : MonoBehaviour
         Vector3 target = hand.transform.position;
         Rigidbody rb = inst.theBallRigidBody;
 
+        // A carried ball must not collide with anything. It is teleported roughly 11 m onto the
+        // hand when the bowler jumps to the top of his run-up, and PhysX reads a kinematic body's
+        // teleport as motion: it reported the ball sweeping through the bowler's-end stumps at
+        // 1786 m/s and launched them out of the ground. They have no reset, so they stayed gone -
+        // which is what "the stumps at the bowling end sometimes disappear" actually was.
+        Collider ballCollider = inst.theBall.GetComponent<Collider>();
+        if (ballCollider != null && ballCollider.enabled)
+            ballCollider.enabled = false;
+
         // Move the RIGIDBODY, not just the Transform. The ball is kinematic while it is carried,
         // and a kinematic body with interpolation enabled has its Transform overwritten from the
         // rigidbody's own pose before rendering - so a plain `transform.position = ...` here is

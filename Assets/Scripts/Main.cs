@@ -1070,6 +1070,13 @@ public class Main : MonoBehaviour
                         else if (verboseStateLogging)
                             Debug.Log($"[Delivery] {delivery}");
 
+                        // The collider is switched off while the bowler carries the ball, so that
+                        // teleporting it onto his hand cannot shove the stumps (see
+                        // AnimatedBowler.HoldBall). Switch it back on now the ball is live.
+                        Collider ballCollider = theBall.GetComponent<Collider>();
+                        if (ballCollider != null)
+                            ballCollider.enabled = true;
+
                         // enable physics
                         theBallRigidBody.isKinematic = false;
                         //Set collision type to continuous dynamic
@@ -1262,12 +1269,26 @@ public class Main : MonoBehaviour
         // Stop the ball BEFORE making it kinematic. Setting velocity on a kinematic body is a
         // no-op (Unity even warns about it), which is what let the ball carry its motion into
         // the next delivery.
+        //
+        // The ball has usually already been parked as kinematic by the time we get here - by the
+        // boundary, a fielder or the keeper - so it has to be made dynamic again first or the
+        // zeroing below is silently discarded. That was still happening: every delivery logged
+        // "Setting angular velocity of a kinematic body is not supported" from this line.
+        theBallRigidBody.isKinematic = false;
         theBallRigidBody.linearVelocity = Vector3.zero;
         theBallRigidBody.angularVelocity = Vector3.zero;
         // disable physics
         theBallRigidBody.isKinematic = true;
+        // Take the collider out of the world before teleporting. This can be a long jump - from
+        // the boundary rope back to the bowler's mark - and PhysX treats a kinematic body's
+        // teleport as motion, so an enabled collider sweeps everything on the way and knocks the
+        // stumps over. Re-enabled when the ball is delivered.
+        Collider parkedCollider = theBall.GetComponent<Collider>();
+        if (parkedCollider != null)
+            parkedCollider.enabled = false;
         // reset ball position to inside machine
         theBall.transform.position = new Vector3(-8.95f, 2.95f, 0f);
+        theBallRigidBody.position = theBall.transform.position;
     }
 
     public IEnumerator WaitAndSetGameState(float delay, eGameState state)

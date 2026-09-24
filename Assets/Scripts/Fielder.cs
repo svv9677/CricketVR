@@ -99,10 +99,12 @@ public class Fielder : MonoBehaviour
             //inst.theBallScript.myParticles.Stop();   PARTICLE
             //inst.theBallScript.myParticles.Clear();
             inst.theBallScript.myParticles.Clear();
+            // Make the ball static BEFORE disabling physics - a velocity write to a kinematic
+            // body is ignored, so the old order left the ball carrying its motion.
+            inst.theBallRigidBody.linearVelocity = Vector3.zero;
+            inst.theBallRigidBody.angularVelocity = Vector3.zero;
             // disable physics
             inst.theBallRigidBody.isKinematic = true;
-            // make the ball static
-            inst.theBallRigidBody.linearVelocity = Vector3.zero;
 
         }
     }

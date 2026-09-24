@@ -651,10 +651,12 @@ public class AnimatedFielder : MonoBehaviour
         inst.theBallScript.myParticles.enabled = false;
         //Set collision type to continuous speculative
         inst.theBallRigidBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        // Make the ball static BEFORE disabling physics - a velocity write to a kinematic body is
+        // ignored, so the old order left the ball carrying its motion.
+        inst.theBallRigidBody.linearVelocity = Vector3.zero;
+        inst.theBallRigidBody.angularVelocity = Vector3.zero;
         // disable physics
         inst.theBallRigidBody.isKinematic = true;
-        // make the ball static
-        inst.theBallRigidBody.linearVelocity = Vector3.zero;
         inst.gameState = eGameState.InGame_BallFielded;
 
         isRunning_FieldTheBall = false;
