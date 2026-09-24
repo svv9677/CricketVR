@@ -1036,6 +1036,157 @@ miss in.
 The original photo is kept at `Docs/tools/PitchSurface_source.png` so the whole pipeline - gain,
 smoothing, green removal - is re-runnable and tunable from one script.
 
+---
+
+## 11. Crowd atlas rebuilt — FIXED (2026-09-24)
+
+The stand read as vertical coloured bars over brown mud, with no recognisable people. Three
+separate causes, all in the atlas rather than the mesh or the shader.
+
+### What was wrong
+
+**1. Far too few pixels per person.** `CrowdProcedural.png` was 1024x512 for a
+50-people x 14-row grid, so each spectator had **20.5 x 36.6 px**. Nothing legible fits in that.
+
+**2. The figure filled only part of its cell.** The old art drew a small rectangular body in the
+lower ~60% of the cell and left noisy brown "seat" above it. `CrowdStandBuilder` maps the whole
+cell onto the riser, so roughly 40% of every row rendered as brown noise. At any distance that
+noise is what the crowd averaged to.
+
+**3. Visible background between every person.** Real crowds are packed. Gaps down both sides of
+each figure turned the stand into stripes, and per-pixel noise below ~2 screen pixels is just mud -
+contrast between head, shirt and shadow is what reads at distance, not detail.
+
+### What changed
+
+`Docs/tools/make_crowd_atlas.py` generates the atlas; re-run it to retune. The new one is
+**2048x1024**, so each spectator gets **41 x 73 px** - four times the pixels.
+
+* Figures fill their cell: rounded head, hair cap, neck, shouldered torso, lower-body shading.
+* Drawn **1.02-1.16 cells wide so neighbours overlap** - no background between people.
+* Heads sit at the TOP of the cell. Each row's riser is 1.85x the step height, so the bottom of
+  every quad is hidden behind the row in front; dead space has to be down there, not above heads.
+* Flat dark backdrop (54, 47, 43) instead of noise - it reads as seating in shadow and lets heads
+  and shirts pop.
+* Palette weighted like an Indian crowd - India blue and white dominant, saffron next, everything
+  else sparse. An evenly spread rainbow reads as confetti.
+* 3.5% empty seats and a per-person lighting factor of 0.78-1.0, so the mass is broken up.
+* ~8% with arms raised.
+* Drawn with wraparound so the tile still repeats seamlessly around the bowl.
+
+### Import settings
+
+The old texture was ETC2_RGB at **aniso 1** - the stands are viewed at a steep grazing angle, which
+is exactly where aniso 1 smears. Now ASTC 6x6, **aniso 8**, trilinear, mipmapped, wrap U = Repeat
+(the atlas tiles around the bowl) and wrap V = **Clamp** so rows cannot bleed into each other.
+2048x1024 ASTC 6x6 is 0.89 MB.
+
+The shader is untouched: it is opaque by design for the tile GPU, so gaps are painted dark rather
+than left transparent, and no alpha test is introduced.
+
+### 11b. Uniform row height, and a patchier crowd (2026-09-24)
+
+**Rows did not occupy equal vertical space.** Each row carries exactly one atlas cell, i.e. one
+spectator, so two things matter equally: the RISER, which is the height that person is drawn at,
+and the STEP between rows, which is how much of them is left visible above the row in front.
+Following the extracted profile per row got both wrong, because the profile recovered from the
+source mesh is lumpy at its ends and not even monotonic in the middle:
+
+```
+CrowdLower  row  0->1   step 1.130 but radius +0.063   <- a near vertical wall
+            row 16->17  radius 82.75 -> 81.23          <- it goes BACKWARDS
+            riser per row 1.087 .. 2.090
+CrowdUpper  row  0->1   step 1.123 but radius +0.086   <- the same wall
+            riser per row 1.095 .. 2.909
+```
+
+That is exactly what showed up in the headset: the front two rows of each stand reared up, and the
+lower stand's top row folded back on itself.
+
+Now the stand's overall extent is kept - the first and last rows stay where the profile puts them -
+and everything between is distributed evenly, with the radius running straight from bottom to top:
+
+```
+CrowdLower  y 0.500 -> 13.902   step 0.7054  riser 1.3049   radius step 1.3520
+CrowdUpper  y 17.500 -> 28.671  step 0.7447  riser 1.3778   radius step 1.5516
+both:  54% of each spectator visible, identical on every row; radius never goes backwards
+```
+
+Verified across all 1920 + 1536 quads: step spread 0.001 m (rounding only), riser spread 0.0000 m.
+
+As in the riser-only pass, the fix is in `CrowdStandBuilder` for future rebuilds but was **applied
+directly to the mesh assets**. `ExtractProfile` reads whatever mesh is currently assigned, and that
+is the stepped mesh rather than the original cone, so re-running the builder would recover a
+different profile again and drift the stand. Each quad was rewritten at its new radius and height,
+keeping its angle, UVs and vertex colours.
+
+**Density.** The first pass packed every seat, which reads as a uniform mass. A single global
+"empty seat" probability does not fix that - it gives an even sprinkle. The variation has to be
+between rows and in the *run length* of the gaps, so:
+
+* `ROW_FILL_RANGE = (0.78, 0.96)` - a draw rate re-rolled per atlas row. Note this is not the final
+  occupancy: a failed roll skips a run of seats, so it lands around 64-92% full.
+* `GAP_RUN_MAX = 3` - an empty stretch is 1 to 3 seats wide, not always exactly one.
+* `WIDTH_RANGE = (0.82, 1.08)` - neighbours mostly touch. Drawing everyone thin to make gaps just
+  looks like a sparse grid; the gaps should come from the empty runs.
+* `X_JITTER = 0.18` of a cell, and per-person lighting 0.74 - 1.0.
+
+Tuning either of these is one constant at the top of `Docs/tools/make_crowd_atlas.py`.
+
+### 11c. Crowd alignment with the stands — two faults found and fixed
+
+Asked to verify that the crowd lines up with the stands in every direction. It did not, in two
+independent ways.
+
+**1. The lower crowd was 2.30 m off the stadium's axis.** Its transform was
+`(1.500, 0.900, -1.740)`, while `CrowdUpper` and both stadium shells sit on the world axis. A
+least-squares circle fit confirms it:
+
+```
+NMD_stD_second_floor_0 (y 13..15)   centre (0.000,  0.002)   r 89.82
+CrowdLower             (y  7..9)    centre (1.500, -1.740)   r 71.86
+CrowdUpper             (y 18..20)   centre (0.000,  0.000)   r 64.17
+```
+
+Both crowd rings are perfect circles, but the lower one was drawn around the wrong point, so
+measured about the stadium's axis its front-row radius swung **58.20 .. 62.76 m, a 4.56 m wobble**
+around the bowl - poking out of the stand on one side and sinking into it on the other.
+
+**2. Both tiers floated in front of the seating surface, and the rakes disagreed.** Sampling the
+stadium shells gives the real rake as a ring-by-ring profile:
+
+```
+NMD_stD_second_floor_0   r 61.94 @ y 0.00  ->  72.38 @ y 6.25  ->  89.82 @ y 14.90   (two slopes)
+NMD_stD_One_floor_0      r 63.21 @ y 16.55 ->  89.07 @ y 30.45                        (one slope)
+```
+
+The crowd used a single straight rake on each tier, so it drifted against that:
+
+| | crowd rake | stand rake | distance in front |
+|---|---|---|---|
+| lower | 1.917 | 1.670 below y=6.25, then 2.016 | 2.59 .. 3.78 m |
+| upper | 2.083 | 1.860 | 0.49 .. 2.98 m |
+
+The front row was the worst of it: at r=60.50 it sat **inside the advertising hoardings**, which
+reach r=61.6 - the crowd was in front of the boards rather than behind them.
+
+**Fix.** Both tiers are now placed on the measured stand surface: each row's radius is the stand's
+radius at that row's own height, minus a 0.25 m inset so it does not z-fight with the concrete.
+Because the radius is looked up per row, the lower tier automatically follows the stadium's
+two-slope rake while the rows stay evenly spaced in height, which is what 11b established. The
+lower crowd's transform offset was baked into the mesh and the transform zeroed, so both tiers are
+now on the stadium axis like everything else.
+
+```
+                      front row r      distance from the stand      radius swing about the axis
+CrowdLower   60.50 -> 64.03            -0.250 m everywhere          4.56 m  ->  0.000 m
+CrowdUpper   62.00 -> 64.73            -0.250 m everywhere          0.000 m ->  0.000 m
+```
+
+Checked across 24 directions on both tiers: radius identical to three decimal places, so the crowd
+is concentric with the bowl all the way round. Vertical spacing from 11b is unchanged
+(0.705 / 0.745 m per row). The front row now sits behind and above the hoardings.
+
 ## Incidents during this work
 
 **Rebuilt a lightmapped mesh without its UV2 (2026-09-24).** Stripping the side faces off the pitch

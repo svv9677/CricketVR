@@ -133,16 +133,39 @@ public static class CrowdStandBuilder
 
         float segStep = Mathf.PI * 2f / Segments;
 
+        // ---- evenly spaced rows, straight rake ----------------------------------------------
+        // Each row carries exactly one atlas cell, i.e. one spectator. That makes two things
+        // matter equally: the RISER, which is the height the person is drawn at, and the STEP
+        // between rows, which is how much of that person is left visible above the row in front.
+        // Following the extracted profile per row got both wrong, because the profile recovered
+        // from the source mesh is lumpy at its ends and not even monotonic in the middle:
+        //
+        //     CrowdLower  row 0->1  step 1.130 but radius +0.063  (a near vertical wall)
+        //                 row 16->17 radius 82.75 -> 81.23        (it goes BACKWARDS)
+        //     CrowdUpper  row 0->1  step 1.123 but radius +0.086  (the same wall)
+        //
+        // so the front two rows of each stand reared up and the lower stand's top row folded back
+        // on itself. Instead: keep the stand's overall extent - the first and last row stay
+        // exactly where the profile puts them - and distribute everything between them evenly,
+        // with the radius running straight from bottom to top. Every row then occupies the same
+        // vertical space and shows the same fraction of each spectator.
+        Vector2 first = profile[0];
+        Vector2 last = profile[profile.Count - 1];
+        float rowStep = seatRows > 1 ? (last.y - first.y) / (seatRows - 1) : 0.5f;
+        float radiusStep = seatRows > 1 ? (last.x - first.x) / (seatRows - 1) : 0f;
+        float uniformRiser = Mathf.Max(0.35f, rowStep * RiserOverlap);
+        log.AppendLine("  rows: y " + first.y.ToString("F2") + " -> " + last.y.ToString("F2")
+                       + ", step " + rowStep.ToString("F4")
+                       + " m, riser " + uniformRiser.ToString("F4")
+                       + " m (" + (rowStep / uniformRiser * 100f).ToString("F0") + "% of each person visible)");
+        log.AppendLine("       r " + first.x.ToString("F2") + " -> " + last.x.ToString("F2")
+                       + ", step " + radiusStep.ToString("F4") + " m");
+
         for (int row = 0; row < seatRows; row++)
         {
-            float t0 = row / (float)seatRows;
-            float t1 = (row + 1) / (float)seatRows;
-            Vector2 p0 = SampleProfile(profile, t0);
-            Vector2 p1 = SampleProfile(profile, t1);
-
-            float radius = p0.x;
-            float baseY = p0.y;
-            float riser = Mathf.Max(0.35f, (p1.y - p0.y) * RiserOverlap);
+            float radius = first.x + radiusStep * row;
+            float baseY = first.y + rowStep * row;
+            float riser = uniformRiser;
 
             // How many times the atlas repeats around this row, rounded so the seam closes.
             float circumference = 2f * Mathf.PI * radius;
