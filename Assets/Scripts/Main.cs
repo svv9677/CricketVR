@@ -63,6 +63,16 @@ public class Main : MonoBehaviour
     protected Text debugText;
     [SerializeField]
     protected Text consoleText;
+
+    /// <summary>
+    /// Extra lines for the in-world debug overlay (Controllers/DebugOverlay), set by other
+    /// systems each frame. Main owns <see cref="debugText"/> and rewrites it every Update, so
+    /// anything else wanting to show something there hands the text over here rather than writing
+    /// to the Text component - otherwise it would be overwritten on the next frame.
+    /// Set it to null or empty to show nothing.
+    /// </summary>
+    [System.NonSerialized]
+    public string debugExtra;
     [SerializeField]
     protected GameObject dbgOverlayParent;
     [SerializeField]
@@ -92,13 +102,6 @@ public class Main : MonoBehaviour
     private float _zOffset;
     private Text _zOffsetText;
     private Slider _zOffsetSlider;
-
-    [SerializeField]
-    [Range(3f, 5f)]
-    protected float hudOffset;
-    private float _hudOffset;
-    private Text _hudOffsetText;
-    private Slider _hudOffsetSlider;
 
     [Header("Debug Tweaks")]
     [Tooltip("Log game-state transitions made via WaitAndSetGameState. Mirrored into the in-world console by HandleLog.")]
@@ -262,7 +265,6 @@ public class Main : MonoBehaviour
         battingStyle = (eBattingStyle)PlayerPrefs.GetInt(Constants.PP_BattingStyle, 1);
         stadiumMode = (eStadiumMode)PlayerPrefs.GetInt(Constants.PP_StadiumMode, 1);
         zOffset = PlayerPrefs.GetFloat(Constants.PP_ZOffset, 3f);
-        hudOffset = PlayerPrefs.GetFloat(Constants.PP_HudOffset, 4f);
 
         // Read Tweakables
         // Set default using private vars, and set private var to -1000 so that we
@@ -284,8 +286,6 @@ public class Main : MonoBehaviour
         updateBattingStyle(true);
         updateStadiumMode(true);
         updateZOffset(true);
-        updateHUDOffset(true);
-
         updateTweakables(true);
 
         currentBowlingConfig = new BowlingParams();
@@ -368,10 +368,6 @@ public class Main : MonoBehaviour
         var pr = DebugUIBuilder.instance.AddSlider("Menu Position", 3.0f, 10.0f, onZChange, true);
         _zOffsetText = pr.GetComponentsInChildren<Text>()[1];
         _zOffsetSlider = pr.GetComponentInChildren<Slider>();
-        // offsetHUD
-        var pr2 = DebugUIBuilder.instance.AddSlider("HUD Position", 3.0f, 5.0f, onHUDChange, false);
-        _hudOffsetText = pr2.GetComponentsInChildren<Text>()[1];
-        _hudOffsetSlider = pr2.GetComponentInChildren<Slider>();
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         /// Debug Tweakables
@@ -692,33 +688,6 @@ public class Main : MonoBehaviour
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// HUD Offset
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    private void updateHUDOffset(bool savePrefs = false)
-    {
-        if (_hudOffset != hudOffset)
-        {
-            _hudOffset = hudOffset;
-            _hudOffsetText.text = hudOffset.ToString();
-            _hudOffsetSlider.value = hudOffset;
-
-            RectTransform trans = hudParent.GetComponent<RectTransform>();
-            Vector3 pos = trans.anchoredPosition3D;
-            pos.z = hudOffset;
-            trans.anchoredPosition3D = pos;
-
-            PlayerPrefs.SetFloat(Constants.PP_HudOffset, hudOffset);
-            if (savePrefs)
-                PlayerPrefs.Save();
-        }
-    }
-    public void onHUDChange(float val)
-    {
-        hudOffset = val;
-        updateHUDOffset();
-    }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Debug Tweakables
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private void updateTweakables(bool savePrefs = false)
@@ -953,8 +922,6 @@ public class Main : MonoBehaviour
             updateDifficulty(true);
             updateStadiumMode(true);
             updateZOffset(true);
-            updateHUDOffset(true);
-
             updateTweakables(true);
         }
 
@@ -963,6 +930,8 @@ public class Main : MonoBehaviour
             debugText.text = "GameState: " + gameState.ToString();
             if (currentBowlingConfig != null)
                 debugText.text += "\n" + currentBowlingConfig.ToString();
+            if (!string.IsNullOrEmpty(debugExtra))
+                debugText.text += "\n" + debugExtra;
         }
 
         if(SignalMaterial != null)
@@ -1020,11 +989,7 @@ public class Main : MonoBehaviour
                         CameraReplay.Instance.StopDisplaying();
                         CameraReplay.Instance.setViewSetting(0);
                         ShotDistance.Instance.setText("0.0 m");
-                        TestDisplay.Instance.setText("");
                         BallSpeed.Instance.setText("");
-                        foreach (GameObject obj in TestDisplay.Instance.arrows)
-                            Destroy(obj);
-                        TestDisplay.Instance.arrows.Clear();
                         // TODO: Move bowling machine
 
                         // For now, switch directly to loop state

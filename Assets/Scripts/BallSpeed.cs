@@ -31,7 +31,7 @@ public class BallSpeed : MonoBehaviour
         miles = Mathf.Round(miles * 10f) / 10f;
 
         //setText(km + " kph\n" + miles + " mph");
-        setText("Release: " + km + " kph");
+        setText(km + " kph");
     }
 
     public void updateBatAndFinalSpeed(float batSpeed, float finalSpeed)

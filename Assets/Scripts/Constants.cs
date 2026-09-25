@@ -8,7 +8,6 @@ public static class Constants
     public const string PP_BattingStyle = "style";
     public const string PP_StadiumMode = "mode";
     public const string PP_ZOffset = "menu_offset";
-    public const string PP_HudOffset = "hud_offset";
 
     public const string PP_Overlay = "overlay";
     public const string PP_ResetDelay = "reset_delay";

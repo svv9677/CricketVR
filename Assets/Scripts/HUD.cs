@@ -406,7 +406,9 @@ public class HUD : MonoBehaviour
             txtBalls.text = "";
 
         txtScore.text = Runs.ToString() + "/" + Wickets.ToString();
-        txtRunRate.text = RunRate.ToString();
+        // Two decimals. RunRate is runs/overs, so the raw ToString() gives things like
+        // "6.8571429" - far too long for the scoreboard's bracketed field.
+        txtRunRate.text = RunRate.ToString("F2");
         txtBatsman1.text = CurrentBatsman.Name;
         txtBatsman1Score.text = CurrentBatsman.Runs.ToString();
         txtBatsman2.text = CurrentRunner.Name;

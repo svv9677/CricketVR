@@ -83,6 +83,8 @@ public class BatOffsetTuner : MonoBehaviour
             bat.leftGrabOffsetPosition += dPos;
         }
 
+        // B dumps the current values to the log as well, for a permanent record:
+        //   adb logcat -v time -s Unity:I
         if (XRInput.GetDown(XRButton.B))
             Dump(batInRightHand);
 
@@ -109,14 +111,28 @@ public class BatOffsetTuner : MonoBehaviour
             batInRightHand ? "RIGHT" : "LEFT", p.x, p.y, p.z, e.x, e.y, e.z));
     }
 
+    /// <summary>
+    /// Live readout on the in-world debug overlay (Controllers/DebugOverlay, the board standing
+    /// in the ground behind the batsman). Main owns that Text and rewrites it every frame, so the
+    /// lines are handed to it through Main.debugExtra rather than written directly.
+    /// </summary>
     private void ShowOverlay(bool batInRightHand)
     {
-        if (TestDisplay.Instance == null) return;
+        Main main = Main.Instance;
+        if (main == null) return;
+
         Vector3 p = batInRightHand ? bat.rightGrabOffsetPosition : bat.leftGrabOffsetPosition;
         Vector3 e = batInRightHand ? bat.rightGrabOffsetEuler : bat.leftGrabOffsetEuler;
-        TestDisplay.Instance.setText("BAT OFFSET TUNER  [" + (batInRightHand ? "RIGHT" : "LEFT") + " hand]");
-        TestDisplay.Instance.addText("axis pair: " + _pair + "   (A = cycle, B = dump, Y = reset)", true);
-        TestDisplay.Instance.addText(string.Format("pos   ({0:F4}, {1:F4}, {2:F4})", p.x, p.y, p.z), true);
-        TestDisplay.Instance.addText(string.Format("euler ({0:F2}, {1:F2}, {2:F2})", e.x, e.y, e.z), true);
+        main.debugExtra = string.Format(
+            "BAT OFFSET TUNER  [{0} hand]\naxis pair: {1}   (A = cycle, B = dump, Y = reset)\n" +
+            "pos   ({2:F4}, {3:F4}, {4:F4})\neuler ({5:F2}, {6:F2}, {7:F2})",
+            batInRightHand ? "RIGHT" : "LEFT", _pair, p.x, p.y, p.z, e.x, e.y, e.z);
+    }
+
+    /// Leave the overlay as we found it, so the readout does not linger once tuning stops.
+    private void OnDisable()
+    {
+        if (Main.Instance != null)
+            Main.Instance.debugExtra = null;
     }
 }

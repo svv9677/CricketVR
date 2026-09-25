@@ -242,20 +242,6 @@ public class Bat : MonoBehaviour
                 StartCoroutine(ProvideVibration());
                 ShotDistance.Instance.calculateDistance(inst.theBall.transform.position, finalVel); ;
 
-                if (Main.Instance.overlayVisible)
-                {
-                    Vector3 startPos = new Vector3(0f, 3f, 0f);
-                    TestDisplay.Instance.setText("Ball Bounce: " + ballBounce.ToString());
-                    TestDisplay.Instance.addArrow(startPos, ballBounce, Color.red);
-                    TestDisplay.Instance.addText("Bat Swing Total: " + batSwing.ToString(), true);
-                    TestDisplay.Instance.addArrow(startPos, batSwing, Color.yellow);
-                    TestDisplay.Instance.addText("Bat Up: " + gameObject.transform.up.ToString(), true);
-                    TestDisplay.Instance.addArrow(startPos, gameObject.transform.up, Color.green);
-                    TestDisplay.Instance.addText("Tracker Velocity: " + (trackerVelocity.normalized * avgBatSpeed).ToString(), true);
-                    TestDisplay.Instance.addArrow(startPos, trackerVelocity.normalized * avgBatSpeed, Color.blue);
-                    TestDisplay.Instance.addText("Angle: " + Vector3.Angle(gameObject.transform.up, trackerVelocity).ToString(), true);
-                }
-
                 hasHitBall = true;
                 CameraReplay.Instance.setViewSetting(1, 1f);
                 //fieldersParent.BroadcastMessage("StartRotateTowardsIntercept");
