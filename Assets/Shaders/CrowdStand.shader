@@ -15,13 +15,29 @@ Shader "CricketVR/CrowdStand"
         [MainTexture] _BaseMap       ("Crowd Atlas", 2D)            = "white" {}
         [MainColor]   _BaseColor     ("Tint", Color)                = (1,1,1,1)
 
+        [Header(Background Key)]
+        // The atlas has no alpha channel; its people sit on a flat brown. We alpha-clip pixels
+        // close to that brown so the stands show through. _KeyColor is the brown in LINEAR space
+        // (the atlas is sRGB, so the sampled colour is linear too) - default is atlas RGB 54/47/43.
+        _KeyColor      ("Background Colour (linear)", Vector)       = (0.037, 0.028, 0.024, 0)
+        _KeyTolerance  ("Key Tolerance", Range(0, 0.2))             = 0.02
+        _KeySoftness   ("Key Edge Softness", Range(0, 0.1))         = 0.006
+
         [Header(Idle Motion)]
         _BobAmplitude   ("Bob Amplitude (m)", Range(0, 0.25))       = 0.035
         _BobFrequency   ("Bob Frequency (Hz)", Range(0, 3))         = 0.8
+        _IdleVariety    ("Idle Variety (0..1)", Range(0, 1))        = 0.6
+        _IdlePeriod     ("Idle Reshuffle Period (s)", Range(2, 30)) = 8
+
+        [Header(Cheer)]
+        // Extra motion when the crowd is excited (a boundary or a wicket). Driven at runtime by
+        // the global _CrowdExcitement, so these are the ceilings the cheer ramps up toward.
+        _CheerBobGain   ("Cheer Bob Gain", Range(0, 6))             = 3.5
+        _CheerFreqGain  ("Cheer Freq Gain", Range(0, 4))            = 1.5
+        _JumpHeight     ("Cheer Jump Height (m)", Range(0, 1))      = 0.35
+        _JumpFrequency  ("Cheer Jump Freq (Hz)", Range(0, 4))       = 1.6
 
         [Header(Wave)]
-        _WaveEnabled    ("Wave Enabled (0 or 1)", Range(0,1))       = 0
-        _WavePhase      ("Wave Phase (radians)", Float)             = 0
         _WaveWidth      ("Wave Width (radians)", Range(0.05, 2))    = 0.45
         _WaveHeight     ("Wave Height (m)", Range(0, 2))            = 0.75
         _WaveRowLag     ("Wave Row Lag (radians)", Range(0, 1))     = 0.15
@@ -38,9 +54,12 @@ Shader "CricketVR/CrowdStand"
     {
         Tags
         {
-            "RenderType"        = "Opaque"
+            // Alpha-tested, not blended: we clip the brown background but still write depth and
+            // render in one pass with no sorting - the cheap way to key out a background on a
+            // tile GPU. The stands (opaque, Geometry queue) draw first, so they show through.
+            "RenderType"        = "TransparentCutout"
             "RenderPipeline"    = "UniversalPipeline"
-            "Queue"             = "Geometry"
+            "Queue"             = "AlphaTest"
         }
 
         Pass
@@ -86,11 +105,18 @@ Shader "CricketVR/CrowdStand"
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
                 float4 _BaseColor;
+                float4 _KeyColor;
+                float  _KeyTolerance;
+                float  _KeySoftness;
                 float4 _FlashColor;
                 float  _BobAmplitude;
                 float  _BobFrequency;
-                float  _WaveEnabled;
-                float  _WavePhase;
+                float  _IdleVariety;
+                float  _IdlePeriod;
+                float  _CheerBobGain;
+                float  _CheerFreqGain;
+                float  _JumpHeight;
+                float  _JumpFrequency;
                 float  _WaveWidth;
                 float  _WaveHeight;
                 float  _WaveRowLag;
@@ -99,6 +125,17 @@ Shader "CricketVR/CrowdStand"
                 float  _FlashRate;
                 float  _PeoplePerRepeat;
             CBUFFER_END
+
+            // Runtime drive, set as GLOBAL uniforms by CrowdController (never per-material, so the
+            // SRP Batcher keeps batching and both stands react from one Shader.SetGlobalFloat).
+            //   _CrowdExcitement  0..1  overall cheer level (bob gain, freq, jumping, flashes)
+            //   _CrowdWaveEnabled 0/1   gate for the travelling wave
+            //   _CrowdWavePhase   rad   moving centre of the wave, swept by the controller
+            //   _CrowdFlash       0..1  camera-flash burst amount (night)
+            float _CrowdExcitement;
+            float _CrowdWaveEnabled;
+            float _CrowdWavePhase;
+            float _CrowdFlash;
 
             float CrowdHash21(float2 p)
             {
@@ -116,19 +153,38 @@ Shader "CricketVR/CrowdStand"
 
                 float3 positionOS = IN.positionOS.xyz;
 
-                // --- idle bob: whole quad moves together, so nobody shears ---
+                float exc = saturate(_CrowdExcitement);
                 float phase = IN.color.r * CROWD_TWO_PI;
-                float bob = sin(_Time.y * _BobFrequency * CROWD_TWO_PI + phase) * _BobAmplitude;
-
-                // --- travelling wave: gaussian bump centred on _WavePhase ---
                 float angle = IN.color.b * CROWD_TWO_PI;
-                float centre = _WavePhase + IN.color.g * _WaveRowLag;
+
+                // --- randomised idle: each arc of the stand gets its own beat, reshuffled every
+                // _IdlePeriod seconds, so the resting crowd never bobs in lockstep. Costs one hash.
+                float section = floor(IN.color.b * 24.0);           // ~24 arcs around the bowl
+                float epoch   = floor(_Time.y / max(_IdlePeriod, 0.5));
+                float rnd     = CrowdHash21(float2(section, epoch)); // 0..1, stable within an epoch
+                float idleAmp  = 1.0 + (rnd - 0.5) * 2.0 * _IdleVariety;   // 1 +/- variety
+                float idleFreq = 1.0 + (rnd - 0.5) * _IdleVariety;
+                float idlePhase = phase + rnd * CROWD_TWO_PI;
+
+                // --- bob: whole quad moves together, so nobody shears. Amplitude and speed both
+                // ramp up with excitement toward the cheer ceilings. ---
+                float amp  = _BobAmplitude * idleAmp * (1.0 + _CheerBobGain * exc);
+                float freq = _BobFrequency * idleFreq * (1.0 + _CheerFreqGain * exc);
+                float bob  = sin(_Time.y * freq * CROWD_TWO_PI + idlePhase) * amp;
+
+                // --- jump: at high excitement they hop upward (rectified sine, phase-staggered so
+                // it reads as a bouncing crowd rather than one synchronised leap). ---
+                float hop = max(0.0, sin(_Time.y * _JumpFrequency * CROWD_TWO_PI + idlePhase));
+                float jump = hop * hop * _JumpHeight * exc;
+
+                // --- travelling wave: gaussian bump centred on the global _CrowdWavePhase ---
+                float centre = _CrowdWavePhase + IN.color.g * _WaveRowLag;
                 float d = abs(angle - centre);
                 d = min(d, CROWD_TWO_PI - d);                       // shortest way round
                 float wave = exp(-(d * d) / (2.0 * _WaveWidth * _WaveWidth))
-                             * _WaveHeight * _WaveEnabled;
+                             * _WaveHeight * saturate(_CrowdWaveEnabled);
 
-                positionOS.y += bob + wave;
+                positionOS.y += bob + jump + wave;
 
                 OUT.positionCS = TransformObjectToHClip(positionOS);
                 OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
@@ -139,15 +195,28 @@ Shader "CricketVR/CrowdStand"
             half4 CrowdFragment(Varyings IN) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(IN);
-                half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor;
+                half4 raw = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);
 
-                // Occasional camera flashes, one person at a time. Free when _FlashStrength = 0.
-                if (_FlashStrength > 0.0)
+                // Key out the flat brown background so the stands behind show through. Distance in
+                // (linear) colour space to _KeyColor; anything within _KeyTolerance is discarded,
+                // with a short soft edge to take the jaggies off the silhouettes.
+                float keyDist = distance(raw.rgb, _KeyColor.rgb);
+                float coverage = smoothstep(_KeyTolerance, _KeyTolerance + _KeySoftness, keyDist);
+                clip(coverage - 0.5);
+
+                half4 albedo = raw * _BaseColor;
+
+                // Occasional camera flashes, one person at a time. A cheer (_CrowdFlash) fires many
+                // more at once and a little brighter. Free when both strengths are 0 (e.g. daytime).
+                float flashStrength = _FlashStrength + _CrowdFlash * 2.0;
+                if (flashStrength > 0.0)
                 {
                     float2 cell = floor(float2(IN.uv.x * _PeoplePerRepeat, IN.uv.y * 64.0));
                     float t = floor(_Time.y * _FlashRate);
                     float r = CrowdHash21(cell + t * 17.13);
-                    float flash = step(_FlashDensity, r) * _FlashStrength;
+                    // Cheering drops the threshold, so a much larger fraction of the crowd flashes.
+                    float density = _FlashDensity - saturate(_CrowdFlash) * 0.05;
+                    float flash = step(density, r) * flashStrength;
                     albedo.rgb += _FlashColor.rgb * flash;
                 }
 
