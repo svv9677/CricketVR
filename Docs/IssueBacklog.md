@@ -1254,3 +1254,351 @@ back to the prefab euler values, which differ from the old scene override by und
    between rows.
 6. **Hit one over the red line.** The state should go to `InGame_BallPastBoundary` as the ball
    crosses it, and the fielders should chase without throwing.
+
+
+## 2026-09-25 — Restore settings-menu pointer after OpenXR migration
+
+The menu helper's `OVRInputModule` was destroyed during initialization and
+`HandedInputSelector` disabled itself. The remaining laser had no tracking or UI
+input source. Re-enabling the old module is insufficient: the project uses only
+the new Input System, while the legacy module reads `UnityEngine.Input` and
+`OVRInput`.
+
+`DebugUIBuilder` now initializes `OpenXRMenuInputModule`, which configures Unity's
+`InputSystemUIInputModule` and a `TrackedDeviceRaycaster` on the menu canvases.
+Controller aim (`pointerPosition` / `pointerRotation`) is transformed through the
+camera's tracking-space parent. Trigger presses select controls; holding the
+trigger while pointing drags sliders. Both hands are supported. The existing
+laser follows the same raycast result as the UI, and mouse input remains available
+in the Editor. The menu releases its input state when closed or unfocused.
+Legacy input modules and menu raycasters are disabled at runtime; no scene or
+prefab reparenting is required.
+
+Verification in Editor play mode with simulated Oculus Touch devices:
+
+- Right and left trigger clicks reached a temporary menu button.
+- Laser endpoint matched the UI hit (right: 0 m error; left: approximately 0.00000024 m).
+- An existing settings slider dragged from normalized 0.142857 to 0.857143;
+  callbacks were disconnected during this check and its value was restored.
+- Closing disabled the input module; reopening restored it and the mouse actions.
+- No compile errors or runtime exceptions in the final verification domain.
+
+Temporary test objects/controllers were discarded and play mode was stopped.
+Physical Quest controller tracking, aim comfort, and selection still need a device
+build check. Open Settings as usual, point at an option, and use the index trigger.
+
+## 12. TestDisplay removed; BatOffsetTuner rewired to the in-world debug board (2026-09-25)
+
+`TestDisplay` was deleted (script, `.meta`, and its MonoBehaviour block in `Nets.unity`), which
+took the `BatOffsetTuner` live readout with it. The tuner's whole point is reading six numbers off
+a board with the headset on, so the readout was restored against the existing debug overlay —
+`Controllers/DebugOverlay` (world-space canvas at `(18, 2, 0)`, 5.38 x 3.02 m, facing the batsman),
+whose `DebugLabel` is `Main.debugText`.
+
+The tuner cannot write to that Text directly: `Main.Update()` rebuilds `debugText.text` from
+scratch every frame, so anything written there is gone on the next frame. The text is handed over
+instead:
+
+* `Main.debugExtra` — `[System.NonSerialized] public string`, appended to `debugText.text` after
+  the game state and bowling config when non-empty.
+* `BatOffsetTuner.ShowOverlay()` writes the four tuner lines into it each Update.
+* `OnDisable()` and the `TuningEnabled` setter clear it, so the readout does not linger.
+
+### How it was verified
+Live, in play mode, with the tuner enabled:
+
+* `Main.debugExtra` exists on the recompiled type (`String`, public); clean compile, only the
+  pre-existing `_MinY` / `_MaxY` / `FindObjectOfType` warnings.
+* `DebugLabel.text` showed all six lines — Main's two, then the tuner's four:
+  `BAT OFFSET TUNER [RIGHT hand] / axis pair: XY / pos (-0.2500, 0.0900, 0.2000) /
+  euler (270.00, 180.00, 0.00)`.
+* Setting `TuningEnabled = false` and disabling the component both left `debugExtra` cleared.
+
+### Note
+`enableTuner` is currently `1` on `Main/Bat` in `CricketVR.unity` (uncommitted). It steals both
+thumbsticks while on, so set it back to `0` before a normal-play build.
+
+## 13. Hands and menu pointer restored on OpenXR (2026-09-25)
+
+Resuming the half-finished hand/laser work. `XRControllerTracker` loaded `Prefabs/XRLeftHand` /
+`XRRightHand` from Resources and logged `Missing OpenXR hand visual prefab` on every play, because
+those prefabs had never been built. `OpenXRMenuInputModule` likewise loaded
+`Materials/XRPointer` for the beam, and that material did not exist either - the beam was being
+handed a null material.
+
+### Where the models came from
+The in-progress builder was pointed at `Assets/Oculus/VR/Meshes/HandTracking/OculusHand_*.fbx`,
+the *optical hand-tracking* meshes. Those expect a 24-bone skeleton streamed per frame by the
+tracking service, which this project does not run, so `XRHandVisual` was trying to fake a grip by
+rotating every `b_*` bone around its local Z by a guessed angle - which cannot reproduce a real
+grip, because each joint has a different axis.
+
+The right models were in this repository's history. Commit `ed66be8` ("Upgrades and further
+cleanup", 2026-09-21) deleted `Assets/Oculus/SampleFramework/Core/CustomHands`, which held the
+Touch-controller hands (`l/r_hand_skeletal_lowres.fbx`), 26 authored pose clips, and the two
+animator controllers that blend them. Restored byte-identical with their original `.meta` files -
+so every GUID reference inside the controllers still resolves - into a project-owned
+`Assets/Hands/` rather than back under `Assets/Oculus`, so a future SDK removal cannot take them
+again. Skipped: `Hand.cs` / `HandPose.cs` (OVRInput and OVRGrabber dependencies), the sample
+prefabs (same), and the built-in-pipeline hand shaders and materials (this project is URP).
+
+### How the pose is driven now
+`XRHandVisual` sets animator parameters instead of touching bones:
+
+| animator | source | notes |
+|---|---|---|
+| `Flex` 0..1 | `CommonUsages.grip` x `maxFlex` | X axis of a 2D freeform tree: flat -> mid fist -> 3/4 fist -> fist |
+| `Pinch` 0..1 | `CommonUsages.trigger` | Y axis of the same tree, the index curl |
+| `Pose` int | 1 (Generic Hold) while the bat is in that hand, else 0 | `HandPoseId` from the sample |
+| `Point Layer` weight | index near-touch released | blended at 20/s, as the sample did |
+| `Thumb Layer` weight | thumb near-touch released | as above |
+
+The near-touch sensors are read by feature *name* (`"IndexTouch"` / `"ThumbTouch"`) for both bool
+and float, because Unity's `CommonUsages` declares them float while the Oculus provider declares
+them bool, `TryGetFeatureValue` matches on name *and* type, and `CommonUsages.indexTouch` is now
+deprecated in favour of a package this project only still has transitively. A failed read must not
+be treated as "finger lifted" or the hand sticks in a permanent point.
+
+### Placement
+Taken from the sample's own `CustomHandLeft/Right.prefab`, not guessed: root rolled +/-90 degrees
+about Z with a child at `z = -0.0298`. OpenXR's `devicePosition`/`deviceRotation` is the same grip
+pose `OVRInput` reported, so the numbers carry over unchanged.
+
+### The "Missing Prefab" children under the hand anchors are now LeftHandGrip / RightHandGrip
+`LeftHandAnchor` and `RightHandAnchor` each carried a child that Unity showed as
+`Missing Prefab with guid: ...` - the deleted `CustomHandLeft.prefab` and `CustomHandRight.prefab`.
+They looked like dead cruft and were not: they are `Bat.leftHandParent` and `Bat.rightHandParent`,
+the transforms the bat attaches to. Deleting them detaches the bat.
+
+They could not simply be renamed. A missing-prefab placeholder's name is synthesised by Unity
+because the serialised GameObject entry is `stripped` and carries no `m_Name` at all, so the only
+way to give them a name was to stop them being broken prefab instances.
+
+Both are now plain GameObjects named `LeftHandGrip` and `RightHandGrip`, edited in
+`Assets/Oculus/VR/Prefabs/OVRPlayerController.prefab` (a vendored file - 54 insertions,
+134 deletions). The two `PrefabInstance` blocks and their stripped GameObject/Transform entries
+were replaced by ordinary blocks that **reuse the original fileIDs** (`838672899` / `838445581`
+right, `1681231098` left, plus a new `1681231099` for the left GameObject, which had no serialised
+GameObject entry because nothing referenced it). Reusing the ids matters: the scene references
+these transforms through `m_CorrespondingSourceObject`, so `Bat.leftHandParent` and
+`Bat.rightHandParent` kept resolving and `CricketVR.unity` did not need to be touched at all. The
+anchors' `m_Children` lists already named those fileIDs, so they needed no edit either.
+
+The dead `rightHand: {fileID: 838672899}` field on the prefab belongs to `OVRPlayerController`,
+whose script no longer exists in the project, and is one of the known unresolvable `m_Script`
+GUIDs; it still points at the same id.
+
+Verified after the edit: both objects at position 0, euler 0, scale 1, sibling index 1 - identical
+to the placeholders they replaced; world position `(10.2, 0, 0)` unchanged; `bat.attachParent`
+reads `RightHandGrip` in play mode; and the grip-bone-to-attach-point distances came out at
+**0.0464 m right and 0.0488 m left, matching the pre-change measurements to four decimals**, so
+nothing moved. No new dangling fileID references, and the edit resolved 7 pre-existing broken
+ones that lived inside the two removed blocks.
+
+### How it was verified
+Edit mode, on the built prefabs:
+
+* Clip curve paths match the model's bone paths exactly (`hands:l_hand_world/hands:b_l_hand/...`),
+  so the generic clips bind.
+* Flex sweep, palm to index fingertip: 0.1774 m at Flex 0, 0.1490, 0.1118, 0.0797 m at 0.75 -
+  the hand closes. Both hands identical.
+* `Pose` selects the right clip: 0 -> `l_hand_fist`, 1 -> `l_hand_hold_generic`,
+  2 -> ping pong ball, 3 -> the controller-hold clip.
+* Point layer weight 0 -> 1 extends the index (fingertip 0.0838 -> 0.1864 m); thumb layer
+  0 -> 1 raises the thumb (0.0975 -> 0.1375 m).
+* Zero null motions left in either controller.
+
+Play mode:
+
+* `XRLeftHand(Clone)` / `XRRightHand(Clone)` instantiate under the correct anchors, animators
+  initialised with the correct controllers.
+* The right hand read `Flex=1, Pose=1` unprompted - the bat is in the right hand, so the grip pose
+  engaged on its own.
+* Beam material resolved to `XRPointer / Universal Render Pipeline/Unlit`, width 0.004, world
+  space, cursor sphere on the same material; `TrackedDeviceRaycaster` on `CanvasWithDebug` at
+  maxDistance 10; `InputSystemUIInputModule` bound with `xrTrackingOrigin = TrackingSpace`.
+* No errors. The per-launch `Missing OpenXR hand visual prefab` is gone.
+
+Two fixes found by verifying rather than assuming: URP's material validation drops a bare
+`EnableKeyword("_EMISSION")` when the asset is saved, so the GI flag has to be set too; and the
+two animator controllers spell the Pose=Controller state differently ("Controller Hold" vs
+"Hold Controller") and name their first layer differently ("Flex Layer" vs "Base Layer"), so the
+right hand kept a null motion until the match allowed either spelling. `Point Layer` and
+`Thumb Layer` are named identically in both, so the gesture lookups were unaffected.
+
+### Still to check on device
+Renderers are hidden whenever the controller is not tracked, so the hands cannot be seen in the
+Editor without a headset - grip comfort, wrist angle and finger read all need a build. The hand's
+grip bone sits about 4.7 cm from the bat attach point, so the bat's grab offset still wants
+tuning; with the hands now visible the BatOffsetTuner has a visual target - close the fist and
+nudge until the handle sits in it.
+
+## 14. An on-device bat tune was lost to the logcat ring buffer (2026-09-25)
+
+A full on-device tuning session was completed and its values asked for afterwards. They were not
+recoverable, and the tuner has been changed so it cannot happen again.
+
+### Why nothing could be read back
+* The app was installed at 15:54:33 and its process died at 16:04:50 - about 47 minutes before the
+  log was read.
+* Quest's `main` logcat ring buffer is **256 KiB** by default (`adb logcat -g`), and app output
+  (`Debug.Log` -> `I/Unity`) goes to `main`. Measured on this headset at 17:09, `main` reached back
+  only to **17:07:05 - about two and a half minutes of history**. Reading `adb logcat -d` is
+  misleading here because it merges buffers: `system` went back to 14:52 and `events` to June, so
+  the dump *looks* like it spans hours while the app-log buffer holds almost nothing. Check
+  coverage per buffer with `adb logcat -d -b main`. The buffer still reached back to June for the kernel log, but
+  **not one `Unity`-tagged line survived**, so the `[BatOffsetTuner]` dump - if the dump button was
+  ever pressed - was long gone.
+* Nothing else held the values: the Editor console had no matching lines, and the app's data
+  directory held only an `il2cpp` folder. `BatOffsetTuner` mutated the `Bat` fields in memory and
+  emitted them solely through `Debug.LogWarning`, so process death lost them.
+
+Worth noting separately: `adb devices` first came back empty and the headset looked unplugged. It
+was connected - the adb daemon was stale, and `adb kill-server && adb start-server` brought the
+Quest 3S straight back. Do not conclude the device is absent from one empty listing.
+
+### What changed
+`BatOffsetTuner` now persists, but only while `enableTuner` is on, so a normal build never writes:
+
+* **PlayerPrefs** - the next launch resumes the previous session's offsets. `Start` still captures
+  the scene values first, so the Y button resets to what is checked in, not to a half-finished tune.
+* **`bat_offsets.txt`** in `Application.persistentDataPath`, which on Android is
+  `/sdcard/Android/data/<package>/files/` and is readable over adb without root.
+
+Written on the dump button, on `OnApplicationPause(true)` and on `OnApplicationQuit` - taking the
+headset off or backing out to the system menu pauses the app and the process is often killed from
+there without ever reaching `OnApplicationQuit`, so all three are covered.
+
+### Verified
+In play mode, `SaveOffsets` was invoked with the right-hand offset temporarily nudged to
+`(-0.1234, 0.0567, 0.1111) / (271.50, 179.25, 1.75)`. The file appeared at the Editor's
+persistentDataPath containing exactly those values in the documented format, and
+`PlayerPrefs["BatOffsetTuner.rightPos.x"]` read back `-0.1234`. The offsets were then restored to
+the scene values `(-0.25, 0.09, 0.20) / (270, 180, 0)` and re-saved, and the Editor-side test file
+and prefs keys were deleted so an Editor play session does not start with a stale "resumed"
+message.
+
+### Next tuning session
+`enableTuner` is deliberately still `1` - the tune has to be redone. Afterwards:
+
+```bash
+adb pull /sdcard/Android/data/com.RaoVadapalli.CricketVR/files/bat_offsets.txt
+```
+
+then paste the four lines into `Bat` and set `enableTuner` back to `0`. Growing the log buffer with
+`adb logcat -G 64M` before the run is still worth doing for anything else, but the values no longer
+depend on it.
+
+## 15. Bat grab offsets can now be tuned in the Editor (2026-09-25)
+
+`Assets/Scenes/BatOffsetDebug.unity`, built by `Tools/CricketVR/Build Bat Offset Debug Scene`.
+The offsets are pure geometry - the bat is placed from the hand pose and four vectors, with no
+input and no physics - so they do not need a device build at all. The scene holds only a light, a
+camera, the two hand prefabs and a bat for each, and mirrors the real hierarchy exactly:
+
+```
+LeftRig/LeftHandAnchor/LeftHandGrip     <- stands in for Bat.leftHandParent
+LeftRig/LeftHandAnchor/XRLeftHand       <- hand visual, sibling of the grip, both at identity
+LeftRig/Bat (Left)                      <- placed by BatGripPreview
+```
+
+`BatGripPreview` is `[ExecuteAlways]` and places each bat with the same arithmetic as
+`Bat.LateUpdate` (`grip.position + grip.rotation * offset`, `grip.rotation * Euler(euler)`), so a
+value that looks right in the scene is the value the game uses. It also drives the hand animators
+into the bat-grip pose, because Animators do not tick in edit mode.
+
+### The bat's geometry, measured rather than assumed
+Slicing the mesh along local Z:
+
+| local z | X width | what it is |
+|---|---|---|
+| -0.89 .. +0.30 | 0.2265 | the blade |
+| +0.30 .. +0.45 | 0.069 | the shoulder |
+| +0.45 .. +0.74 | (no verts) | thin handle |
+| +0.74 .. +0.89 | 0.0858 | the grip section |
+
+So **the blade is -Z and the handle is +Z**. The `Tracker` child at local z **-0.83 is near the
+blade tip, not the grip** - `Bat` uses `trackerPos` as the swing-speed reference, which belongs at
+the impact end. Aligning the hand to `Tracker`, which is the obvious first guess, puts the bat
+blade-up through the fist. The grip point is the opposite end, and `gripPointLocalZ` (default 0.83)
+selects it.
+
+### What the scene showed straight away
+With the offsets that were in the Bat prefab, the bat's grip point sat **0.29 m from the left
+palm and 0.34 m from the right** - the bat hovered a third of a metre away from the hand. That is
+consistent with these values having been tuned by swing feel back when the hands were invisible;
+nothing would have looked wrong until the hands were added today.
+
+The Solve button inverts the placement to drop the grip point exactly onto the hand's `b_*_grip`
+bone, keeping the euler. For the left hand that gives `(-0.0251, -0.6497, -0.0273)` with euler
+`(270, 180, 0)` - grip point on the bone to 5 decimals, handle top just above the hand and blade
+tip 1.29 m below it, which is the right posture. It is a starting point, not an answer: how high
+up the handle the hand sits and the wrist angle are still judged by eye.
+
+### When applying the values
+"Write offsets to Bat prefab" writes `Assets/Resources/Prefabs/Bat.prefab`. **That is not enough on
+its own** - the `Bat` instance in `CricketVR.unity` carries prefab overrides on
+`rightGrabOffsetPosition.y/.z` and on both eulers, which is why the prefab reads
+`(-0.25, 0.15, 0.18)` while the game uses `(-0.25, 0.09, 0.20)`. The overrides win, so they have to
+be reverted or given the same values. The scene also still carries a stale
+`rightGrabOffsetRotation` override left over from the old quaternion fields that `Bat.cs` no longer
+has.
+
+### Values applied (2026-09-25)
+Tuned in the debug scene and applied:
+
+| hand | position | euler |
+|---|---|---|
+| left | `(-0.025, 0.28, 0.16)` | `(120, 0, -60)` |
+| right | `(0.025, 0.28, 0.16)` | `(120, 0, 60)` |
+
+Checked against the hand prefabs independently of the debug scene, in the hand anchor's frame: the
+perpendicular distance from each hand's `b_*_grip` bone to the bat's long axis is **0.0114 m left
+and 0.0098 m right**, with the closest approach at bat-local **z = +0.479** - on the handle, below
+the top grip section. The bat runs through the palm on both sides and the two hands are symmetric.
+
+A caution for next time: the first check used the distance from the bone to the *grip point* at
+`gripPointLocalZ = 0.83`, which reported 0.26 m and looked like a failure. It was not - the hand
+simply grips lower down the handle than that marker. The meaningful measure is the perpendicular
+distance to the bat's axis, not to an assumed point on it. A second bogus check compared "is the
+blade below the hand" in anchor space, which means nothing, because the anchor rotates with the
+controller and is not world-upright.
+
+Applied by making the prefab the single source of truth: `Assets/Resources/Prefabs/Bat.prefab` now
+holds the values, and the three prefab overrides on the `CricketVR.unity` Bat instance
+(`leftGrabOffsetEuler`, `rightGrabOffsetPosition`, `rightGrabOffsetEuler`) were reverted, so the
+scene file now contains **no** `GrabOffset` overrides at all. The stale `rightGrabOffsetRotation`
+override from the removed quaternion fields is gone too. `enableTuner` is now `0`.
+
+## 16. On-device bat tuner removed (2026-09-25)
+
+With the offsets tuned and applied, and `BatOffsetDebug.unity` covering the job in the Editor, the
+in-headset tuner and everything that existed only to support it are gone:
+
+* `Assets/Scripts/BatOffsetTuner.cs` deleted, and its component removed from `Main/Bat` in
+  `CricketVR.unity` - it was an added-component override on the Bat prefab instance, so it was
+  removed through `DestroyImmediate` on the live typed component rather than by editing YAML, which
+  lets Unity unwind the override properly.
+* `Main`: the `batTuner` field, `IsBatTuning`, and the Settings menu's "Enable Bat Tuner" toggle
+  (which also created the component on demand). The two `if (!IsBatTuning && GetButton(...))`
+  guards on X and A are now plain button checks.
+* `Main.debugExtra` and the two lines in `Update` that appended it to the in-world board. The tuner
+  was its only writer, so it was dead once the tuner went.
+* `SimplePlayerController`: the thumbstick suppression. Both sticks always drive movement and yaw
+  again.
+
+### How it was verified
+* No occurrence of `enableTuner`, `TuningEnabled`, `IsBatTuning`, `batTuner`, `debugExtra` or
+  `BatOffsetTuner` remains in any script, scene or prefab outside `Assets/Oculus`, and the tuner's
+  script GUID `3bf5455a...` appears nowhere in `Assets`.
+* Script-GUID scan of `CricketVR.unity` against every meta in `Assets`, `Packages` and
+  `Library/PackageCache`: **0 unresolvable**, down from 1 at HEAD. Nothing new was orphaned, and
+  the count of referenced scripts went 22 -> 20 (TestDisplay earlier, the tuner now).
+* Play mode: `Main/Bat` carries exactly one MonoBehaviour, `Bat` - no missing-script placeholder.
+  The Settings menu still builds, with six toggles (Left/Right Handed, Easy/Medium/Hard, Show
+  Overlay) and no "Enable Bat Tuner". The debug board shows its usual two lines. Both hand visuals
+  still instantiate. No errors.
+
+Note the removal also took the PlayerPrefs/`bat_offsets.txt` persistence added earlier the same
+day. That existed to get values off a headset, which is no longer how they are found; any
+headset-side prefs keys left over are inert.

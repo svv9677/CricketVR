@@ -64,15 +64,6 @@ public class Main : MonoBehaviour
     [SerializeField]
     protected Text consoleText;
 
-    /// <summary>
-    /// Extra lines for the in-world debug overlay (Controllers/DebugOverlay), set by other
-    /// systems each frame. Main owns <see cref="debugText"/> and rewrites it every Update, so
-    /// anything else wanting to show something there hands the text over here rather than writing
-    /// to the Text component - otherwise it would be overwritten on the next frame.
-    /// Set it to null or empty to show nothing.
-    /// </summary>
-    [System.NonSerialized]
-    public string debugExtra;
     [SerializeField]
     protected GameObject dbgOverlayParent;
     [SerializeField]
@@ -93,8 +84,6 @@ public class Main : MonoBehaviour
 
     [SerializeField]
     protected eStadiumMode stadiumMode;
-    private Toggle _nightToggle;
-    private Toggle _dayToggle;
 
     [SerializeField]
     [Range(3f, 10f)]
@@ -355,13 +344,6 @@ public class Main : MonoBehaviour
         _mediumToggle = radio4.GetComponentInChildren<Toggle>();
         var radio5 = DebugUIBuilder.instance.AddRadio("Hard", "difficulty", onRadioHard);
         _hardToggle = radio5.GetComponentInChildren<Toggle>();
-
-        DebugUIBuilder.instance.AddDivider();
-        DebugUIBuilder.instance.AddLabel("Stadium");
-        var radio6 = DebugUIBuilder.instance.AddRadio("Night", "stadium", onNightMode);
-        _nightToggle = radio6.GetComponentInChildren<Toggle>();
-        var radio7 = DebugUIBuilder.instance.AddRadio("Day", "stadium", onDayMode);
-        _dayToggle = radio7.GetComponentInChildren<Toggle>();
 
         DebugUIBuilder.instance.AddDivider();
         // offsetZ
@@ -632,36 +614,9 @@ public class Main : MonoBehaviour
         if (!updateUI)
             return;
 
-        // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
-        if (stadiumMode == eStadiumMode.Night && !_nightToggle.isOn)
-            _nightToggle.isOn = true;
-        else if (stadiumMode == eStadiumMode.Day && !_dayToggle.isOn)
-            _dayToggle.isOn = true;
-
         if(changed)
             PlayerPrefs.Save();
     }
-    public void onNightMode(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (stadiumMode != eStadiumMode.Night)
-        {
-            stadiumMode = eStadiumMode.Night;
-            updateStadiumMode();
-        }
-    }
-    public void onDayMode(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (stadiumMode != eStadiumMode.Day)
-        {
-            stadiumMode = eStadiumMode.Day;
-            updateStadiumMode();
-        }
-    }
-
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Z Offset
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -930,8 +885,6 @@ public class Main : MonoBehaviour
             debugText.text = "GameState: " + gameState.ToString();
             if (currentBowlingConfig != null)
                 debugText.text += "\n" + currentBowlingConfig.ToString();
-            if (!string.IsNullOrEmpty(debugExtra))
-                debugText.text += "\n" + debugExtra;
         }
 
         if(SignalMaterial != null)

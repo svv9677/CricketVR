@@ -101,19 +101,14 @@ public class DebugUIBuilder : MonoBehaviour
       insertedElements[i] = new List<RectTransform>();
     }
 
-    if (uiHelpersToInstantiate)
-    {
-      var helpers = GameObject.Instantiate(uiHelpersToInstantiate);
-      foreach (var ovrInput in helpers.GetComponentsInChildren<UnityEngine.EventSystems.OVRInputModule>(true))
-        Destroy(ovrInput);
-    }
-
-    lp = FindObjectOfType<LaserPointer>();
+    GameObject helpers = uiHelpersToInstantiate ? GameObject.Instantiate(uiHelpersToInstantiate) : null;
+    lp = helpers != null ? helpers.GetComponentInChildren<LaserPointer>(true) : FindObjectOfType<LaserPointer>();
     if (!lp)
     {
       Debug.LogError("Debug UI requires use of a LaserPointer and will not function without it. Add one to your scene, or assign the UIHelpers prefab to the DebugUIBuilder in the inspector.");
       return;
     }
+    OpenXRMenuInputModule.Configure(gameObject, helpers, lp);
     lp.laserBeamBehavior = laserBeamBehavior;
 
     if (!toEnable.Contains(lp.gameObject))

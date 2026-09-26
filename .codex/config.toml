@@ -1,0 +1,12 @@
+[mcp_servers.UnityMCP]
+command = "/usr/local/bin/uvx"
+args = [
+    "--offline",
+    "--from",
+    "mcpforunityserver==10.2.0",
+    "mcp-for-unity",
+]
+
+[mcp_servers.blender]
+command = "/usr/local/bin/uvx"
+args = ["mcp-for-blender"]

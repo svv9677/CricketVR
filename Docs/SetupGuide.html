@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root { color-scheme: light; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+<title>CricketVR Workspace Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --paper:       #F3F5F1;
+    --surface:     #FFFFFF;
+    --surface-alt: #EAEEE6;
+    --ink:         #17211B;
+    --muted:       #5E6C63;
+    --line:        #D9E0D4;
+    --accent:      #9E3223;
+    --accent-ink:  #9E3223;
+    --accent-soft: #F7E8E4;
+    --pitch:       #61723F;
+    --pitch-soft:  #E9EEDC;
+    --warn:        #8A5A12;
+    --warn-soft:   #FBF1DC;
+    --code-bg:     #1B221C;
+    --code-ink:    #DCE4D6;
+    --code-dim:    #8FA089;
+
+    --f-display: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --f-body:    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --f-mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper:       #101510;
+      --surface:     #171E17;
+      --surface-alt: #1D251D;
+      --ink:         #E4EAE0;
+      --muted:       #97A492;
+      --line:        #2A332A;
+      --accent:      #E58270;
+      --accent-ink:  #EE9583;
+      --accent-soft: #2C1C18;
+      --pitch:       #A9BC79;
+      --pitch-soft:  #202718;
+      --warn:        #DCA847;
+      --warn-soft:   #292112;
+      --code-bg:     #0B0F0B;
+      --code-ink:    #D5DED0;
+      --code-dim:    #7A8B75;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper:       #101510;
+    --surface:     #171E17;
+    --surface-alt: #1D251D;
+    --ink:         #E4EAE0;
+    --muted:       #97A492;
+    --line:        #2A332A;
+    --accent:      #E58270;
+    --accent-ink:  #EE9583;
+    --accent-soft: #2C1C18;
+    --pitch:       #A9BC79;
+    --pitch-soft:  #202718;
+    --warn:        #DCA847;
+    --warn-soft:   #292112;
+    --code-bg:     #0B0F0B;
+    --code-ink:    #D5DED0;
+    --code-dim:    #7A8B75;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 780px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 0 72px;
+  }
+
+  /* ---------- header ---------- */
+  .topbar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 780px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .mark {
+    font-family: var(--f-display);
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+  .mark .dot { color: var(--accent-ink); }
+  .topnav {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    font-family: var(--f-mono);
+  }
+  .topnav a { color: var(--muted); text-decoration: none; }
+  .topnav a:hover { color: var(--accent-ink); }
+
+  /* ---------- hero ---------- */
+  .hero { padding-block: 44px 8px; }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--pitch);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 800;
+    font-size: clamp(2.1rem, 7vw, 3.1rem);
+    line-height: 1.04;
+    letter-spacing: -0.028em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.1rem;
+    color: var(--muted);
+    margin: 0;
+    max-width: 60ch;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    margin-block: 32px 8px;
+    overflow: hidden;
+  }
+  .fact { background: var(--surface); padding: 12px 14px; }
+  .fact dt {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 4px;
+  }
+  .fact dd {
+    margin: 0;
+    font-family: var(--f-mono);
+    font-size: 13.5px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+  }
+  @media (max-width: 520px) {
+    .facts { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ---------- sections ---------- */
+  section { padding-block: 34px 0; scroll-margin-top: 72px; }
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h3 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 1.28rem;
+    letter-spacing: -0.012em;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+  h4 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 26px 0 8px;
+  }
+  p { margin: 0 0 14px; max-width: 66ch; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; max-width: 66ch; }
+  li { margin-bottom: 7px; }
+  a { color: var(--accent-ink); text-underline-offset: 2px; }
+  strong { font-weight: 600; }
+
+  /* ---------- step blocks ---------- */
+  .step {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 18px;
+    padding-block: 26px;
+    border-top: 1px solid var(--line);
+  }
+  .step:first-of-type { border-top: none; padding-top: 6px; }
+  .step-n {
+    font-family: var(--f-display);
+    font-weight: 800;
+    font-size: 1.5rem;
+    line-height: 1.1;
+    color: var(--accent-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .step-body > :last-child { margin-bottom: 0; }
+  @media (max-width: 560px) {
+    .step { grid-template-columns: 1fr; gap: 6px; }
+    .step-n { font-size: 1.1rem; }
+  }
+
+  /* ---------- code ---------- */
+  .codewrap { position: relative; margin: 0 0 16px; }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin: 0;
+    overflow-x: auto;
+    font-family: var(--f-mono);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  pre code { font: inherit; color: inherit; }
+  pre .c { color: var(--code-dim); }
+  code {
+    font-family: var(--f-mono);
+    font-size: 0.875em;
+    background: var(--surface-alt);
+    padding: 1px 5px;
+    border-radius: 3px;
+    word-break: break-word;
+  }
+  .copy {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--code-dim);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--code-dim) 40%, transparent);
+    border-radius: 3px;
+    padding: 3px 8px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .codewrap:hover .copy, .copy:focus-visible { opacity: 1; }
+  .copy:hover { color: var(--code-ink); border-color: var(--code-ink); }
+  @media (hover: none) { .copy { opacity: 1; } }
+
+  /* ---------- callouts ---------- */
+  .note {
+    border-left: 3px solid var(--pitch);
+    background: var(--pitch-soft);
+    padding: 13px 16px;
+    margin: 0 0 16px;
+    border-radius: 0 3px 3px 0;
+  }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note.stop { border-left-color: var(--accent); background: var(--accent-soft); }
+  .note > :last-child { margin-bottom: 0; }
+  .note-label {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--pitch);
+    display: block;
+    margin-bottom: 5px;
+  }
+  .note.warn .note-label { color: var(--warn); }
+  .note.stop .note-label { color: var(--accent-ink); }
+
+  /* ---------- link card ---------- */
+  .linkcard {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+    padding: 18px 20px;
+    text-decoration: none;
+    color: inherit;
+    margin-bottom: 12px;
+  }
+  .linkcard:hover { border-color: var(--accent); border-left-color: var(--accent); }
+  .linkcard .lc-label {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .linkcard .lc-url {
+    font-family: var(--f-mono);
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--accent-ink);
+    word-break: break-all;
+  }
+  .linkcard .lc-desc {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 8px 0 0;
+  }
+
+  /* ---------- tables ---------- */
+  .tablewrap { overflow-x: auto; margin: 0 0 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td {
+    text-align: left;
+    padding: 9px 12px 9px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  td code { white-space: nowrap; }
+
+  /* ---------- checklist ---------- */
+  .checks { list-style: none; padding: 0; max-width: 66ch; }
+  .checks li {
+    padding-left: 26px;
+    position: relative;
+    margin-bottom: 9px;
+  }
+  .checks li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.45em;
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid var(--pitch);
+    border-radius: 2px;
+  }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  footer p { max-width: 66ch; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-in">
+    <span class="mark">CricketVR<span class="dot">.</span></span>
+    <nav class="topnav">
+      <a href="#need">Need first</a>
+      <a href="#steps">Setup</a>
+      <a href="#verify">Verify</a>
+      <a href="#build">Build</a>
+      <a href="#gotchas">Gotchas</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Workspace setup &middot; for Tarun</p>
+    <h1>Getting CricketVR running on your machine</h1>
+    <p class="standfirst">The project moved to Unity 6.3, OpenXR and URP while you were away, and it now
+      drives the Unity Editor through an MCP server. Work through this once and you will have the same
+      setup Dad is building on.</p>
+  </header>
+
+  <dl class="facts">
+    <div class="fact"><dt>Unity Editor</dt><dd>6000.3.24f1</dd></div>
+    <div class="fact"><dt>Render pipeline</dt><dd>URP 17.3.0</dd></div>
+    <div class="fact"><dt>XR runtime</dt><dd>OpenXR</dd></div>
+    <div class="fact"><dt>Target</dt><dd>Quest 2 / 3 / 3S / Pro</dd></div>
+    <div class="fact"><dt>Main scene</dt><dd>CricketVR.unity</dd></div>
+    <div class="fact"><dt>Version</dt><dd>0.20.4.1</dd></div>
+  </dl>
+
+  <section id="mcp">
+    <h2>Start here &mdash; MCP for Unity</h2>
+    <p>This is the bridge that lets Claude Code drive the Unity Editor directly: create GameObjects,
+      edit scripts, read the console, run play mode. Most of the recent debugging was done through it,
+      so it is worth setting up properly rather than treating it as optional.</p>
+
+    <a class="linkcard" href="https://github.com/CoplayDev/unity-mcp">
+      <span class="lc-label">Repository</span>
+      <span class="lc-url">github.com/CoplayDev/unity-mcp</span>
+      <p class="lc-desc">MCP for Unity by Coplay. We are pinned to <strong>v10.2.0</strong>.</p>
+    </a>
+
+    <a class="linkcard" href="https://coplaydev.github.io/unity-mcp/">
+      <span class="lc-label">Documentation</span>
+      <span class="lc-url">coplaydev.github.io/unity-mcp</span>
+      <p class="lc-desc">Read this if a step below does not match what you see.</p>
+    </a>
+
+    <div class="note">
+      <span class="note-label">Good news</span>
+      <p>The Unity half is already vendored into our repo at
+        <code>Packages/com.coplaydev.unity-mcp/</code> &mdash; 708 files, committed. You do
+        <strong>not</strong> install it from the Package Manager. When you open the project it is
+        simply there. You only have to set up the server half, in step 5.</p>
+    </div>
+  </section>
+
+  <section id="need">
+    <h2>What you need before you start</h2>
+
+    <ul class="checks">
+      <li><strong>Disk space: about 12&nbsp;GB free.</strong> The clone is roughly 800&nbsp;MB, and
+        Unity then generates a <code>Library/</code> folder that reaches 8&ndash;9&nbsp;GB.</li>
+      <li><strong>A Unity account</strong> with a free Personal licence.</li>
+      <li><strong>A GitHub account.</strong> The repo is public so you can clone without one, but you
+        need Dad to add you as a collaborator before you can push.</li>
+      <li><strong>Git.</strong> Already on macOS via Xcode command line tools; on Windows install Git
+        for Windows.</li>
+      <li><strong>Claude Code</strong>, signed in.</li>
+      <li><strong>A Quest headset</strong> with developer mode enabled, and a USB-C cable that carries
+        data (not a charge-only one).</li>
+    </ul>
+
+    <div class="note warn">
+      <span class="note-label">Not needed</span>
+      <p>We do <strong>not</strong> use Git LFS. The <code>.gitattributes</code> file has LFS rules in
+        it but they are all commented out on purpose. Do not run <code>git lfs install</code> in this
+        repo &mdash; it would rewrite how the binary assets are stored and break the clone for
+        everyone else.</p>
+    </div>
+  </section>
+
+  <section id="steps">
+    <h2>Setup</h2>
+
+    <div class="step">
+      <div class="step-n">1</div>
+      <div class="step-body">
+        <h3>Install Unity Hub and the exact Editor version</h3>
+        <p>Get Unity Hub from <a href="https://unity.com/download">unity.com/download</a>, sign in, and
+          activate a free Personal licence.</p>
+        <p>Then install <strong>Unity 6000.3.24f1</strong> &mdash; that exact build. A different patch
+          version will upgrade the project files on open, and the diff lands on everyone else.</p>
+        <p>When the Hub asks which modules to add, tick:</p>
+        <ul>
+          <li><strong>Android Build Support</strong></li>
+          <li><strong>OpenJDK</strong> (nested under Android Build Support)</li>
+          <li><strong>Android SDK &amp; NDK Tools</strong> (also nested)</li>
+        </ul>
+        <p>Both nested boxes matter. Without them the Android platform shows up greyed out and you
+          cannot build to the headset.</p>
+        <p>If the Hub does not offer 6000.3.24f1 in its list, use the direct archive link:</p>
+        <div class="codewrap">
+<pre><code>unityhub://6000.3.24f1/4e7b9b5b6244</code></pre>
+          <button class="copy" type="button">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-n">2</div>
+      <div class="step-body">
+        <h3>Clone the repo</h3>
+        <p>Pick a folder without spaces or iCloud sync in the path. Unity and the MCP server both
+          behave better that way.</p>
+        <div class="codewrap">
+<pre><code>git clone https://github.com/svv9677/CricketVR.git
+cd CricketVR</code></pre>
+          <button class="copy" type="button">Copy</button>
+        </div>
+        <p>This pulls about 760&nbsp;MB of packed history, so give it a few minutes. Everything you
+          need is in that one clone &mdash; no submodules, no LFS fetch, no separate asset download.</p>
+        <p>Check you landed on the right commit:</p>
+        <div class="codewrap">
+<pre><code>git log --oneline -3
+git status</code></pre>
+          <button class="copy" type="button">Copy</button>
+        </div>
+        <p><code>git status</code> should say the working tree is clean. If it lists modified files
+          straight after a fresh clone, stop and ask Dad before opening Unity.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-n">3</div>
+      <div class="step-body">
+        <h3>Open the project in Unity</h3>
+        <p>In Unity Hub choose <strong>Add &rarr; Add project from disk</strong> and pick the
+          <code>CricketVR</code> folder. Confirm the Hub shows <strong>6000.3.24f1</strong> next to it,
+          then open it.</p>
+        <div class="note warn">
+          <span class="note-label">This takes a while</span>
+          <p>The first import compiles every shader and reimports every texture from scratch. Expect
+            <strong>20&ndash;40 minutes</strong> depending on your machine, and a progress bar that
+            looks stuck more than once. Let it finish. Quitting partway through leaves a corrupt
+            <code>Library/</code> and you have to delete it and start over.</p>
+        </div>
+        <p>When it settles, open <code>Assets/Scenes/CricketVR.unity</code>. That is the only scene
+          enabled in the build &mdash; <code>Nets</code>, <code>Splash</code> and
+          <code>BatOffsetDebug</code> are side scenes for testing.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-n">4</div>
+      <div class="step-body">
+        <h3>Install uv, which runs the MCP server</h3>
+        <p>The MCP server is a Python program, launched through <code>uvx</code>. You do not install
+          the server yourself &mdash; <code>uvx</code> fetches and caches the pinned version on first
+          run.</p>
+        <h4>macOS</h4>
+        <div class="codewrap">
+<pre><code>brew install uv
+uvx --version</code></pre>
+          <button class="copy" type="button">Copy</button>
+        </div>
+        <h4>Windows (PowerShell)</h4>
+        <div class="codewrap">
+<pre><code>powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+uvx --version</code></pre>
+          <button class="copy" type="button">Copy</button>
+        </div>
+        <p>If <code>uvx --version</code> prints a version number you are done with this step.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-n">5</div>
+      <div class="step-body">
+        <h3>Connect Claude Code to the Unity Editor</h3>
+        <p>With the project open in Unity, go to
+          <strong>Window &rarr; MCP for Unity &rarr; Toggle MCP Window</strong>
+          (<code>Cmd+Shift+M</code> on Mac, <code>Ctrl+Shift+M</code> on Windows).</p>
+        <p>Find Claude Code in the client list and press <strong>Configure</strong>. That registers the
+          server for you by running <code>claude mcp add</code> behind the scenes. This is the path to
+          prefer &mdash; it fills in the right paths for your machine.</p>
+        <p>If the button fails, register it by hand from inside the project folder:</p>
+        <div class="codewrap">
+<pre><code>claude mcp add UnityMCP -- uvx --from mcpforunityserver==10.2.0 mcp-for-unity</code></pre>
+          <button class="copy" type="button">Copy</button>
+        </div>
+        <p>Then restart Claude Code and confirm the connection:</p>
+        <div class="codewrap">
+<pre><code>claude mcp list</code></pre>
+          <button class="copy" type="button">Copy</button>
+        </div>
+        <div class="note">
+          <span class="note-label">How it works</span>
+          <p>Unity has to be <strong>open</strong> for any of the MCP tools to respond &mdash; the
+            server talks to the running Editor, not to the files on disk. If Claude says it cannot
+            reach Unity, the usual cause is that the Editor is closed, mid-compile, or showing a modal
+            dialog.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-n">6</div>
+      <div class="step-body">
+        <h3>Set up adb for the headset</h3>
+        <p>You need <code>adb</code> to install builds and to read logs. Unity already installed it with
+          the Android SDK module, so you just have to put it on your PATH.</p>
+        <div class="codewrap">
+<pre><code><span class="c"># macOS, if you also have Android Studio installed</span>
+export PATH="$PATH:$HOME/Library/Android/sdk/platform-tools"
+adb devices</code></pre>
+          <button class="copy" type="button">Copy</button>
+        </div>
+        <p>Otherwise the copy bundled with Unity lives under the Editor install, at
+          <code>PlaybackEngines/AndroidPlayer/SDK/platform-tools/</code>.</p>
+        <p>Put the headset on and accept the <em>Allow USB debugging</em> prompt &mdash; it appears
+          inside the headset, not on your screen, and it is easy to miss. Then
+          <code>adb devices</code> should list one device as <code>device</code> rather than
+          <code>unauthorized</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="verify">
+    <h2>Check you got it right</h2>
+    <p>Run through these before you change anything. If one fails, fix it now rather than after you
+      have edited a scene.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Check</th><th>Where</th><th>Expected</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Console is clean</td>
+            <td>Unity console after import</td>
+            <td>No red errors. Yellow warnings are normal.</td>
+          </tr>
+          <tr>
+            <td>Render pipeline</td>
+            <td>Project Settings &rarr; Graphics</td>
+            <td>A URP asset is assigned, not <em>None</em>.</td>
+          </tr>
+          <tr>
+            <td>XR loader, Android</td>
+            <td>Project Settings &rarr; XR Plug-in Management &rarr; Android</td>
+            <td><strong>OpenXR</strong> ticked.</td>
+          </tr>
+          <tr>
+            <td>XR loader, Desktop</td>
+            <td>Same screen, Desktop tab</td>
+            <td><strong>OpenXR</strong> ticked, so play mode runs in VR.</td>
+          </tr>
+          <tr>
+            <td>Platform</td>
+            <td>Build Profiles</td>
+            <td>Android is the active platform.</td>
+          </tr>
+          <tr>
+            <td>MCP bridge</td>
+            <td>Ask Claude to read the Unity console</td>
+            <td>It answers with real console output.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note warn">
+      <span class="note-label">Switching to Android</span>
+      <p>If Android is not already the active platform, switching costs another long reimport &mdash;
+        every texture gets recompressed to ASTC. Start it and go do something else.</p>
+    </div>
+  </section>
+
+  <section id="build">
+    <h2>Building to the Quest</h2>
+
+    <p>Enable developer mode on the headset first, through the Meta Horizon phone app: open the app,
+      select your headset, then <strong>Headset settings &rarr; Developer mode</strong>. You need a
+      Meta developer account, which is free but does require a verified organisation.</p>
+
+    <p>Then in Unity: <strong>File &rarr; Build Profiles</strong>, platform Android, and
+      <strong>Build And Run</strong> with the headset plugged in.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Package name</td><td><code>com.RaoVadapalli.CricketVR</code></td></tr>
+          <tr><td>Minimum API level</td><td>32</td></tr>
+          <tr><td>Target API level</td><td>34</td></tr>
+          <tr><td>Scripting backend</td><td>IL2CPP</td></tr>
+          <tr><td>Target architecture</td><td>ARM64 only</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>These are already committed in <code>ProjectSettings/</code>, so they should be correct on a
+      fresh clone. They are listed here so you can tell when something has drifted.</p>
+
+    <div class="note stop">
+      <span class="note-label">Do not commit</span>
+      <p><code>ProjectSettings/ProjectSettings.asset</code> has a <code>preloadedAssets</code> list that
+        Unity fills in and empties around every build. It is <strong>supposed to be empty at rest</strong>.
+        If a build leaves entries in it, revert that file rather than committing it.</p>
+    </div>
+  </section>
+
+  <section id="debug">
+    <h2>Reading logs from the headset</h2>
+
+    <p>The game mirrors every <code>Debug.Log</code> onto a board inside the world, which is handy while
+      playing but unreadable in a video capture. For anything real, use logcat.</p>
+
+    <p>Start the capture <strong>before</strong> you run the build. The Quest's log buffer is small and
+      only holds a couple of minutes by default, so asking for values after the fact gets you nothing.</p>
+
+    <div class="codewrap">
+<pre><code>export PATH="$PATH:$HOME/Library/Android/sdk/platform-tools"
+adb logcat -G 64M &amp;&amp; adb logcat -c
+adb logcat -v time -s Unity:I &gt; dev.txt</code></pre>
+      <button class="copy" type="button">Copy</button>
+    </div>
+
+    <p><code>-s Unity:I</code> filters out the constant Meta tracking and camera chatter, leaving just
+      our own logging. <code>-G 64M</code> grows the buffer, and it has to be set before the run.</p>
+
+    <p>If <code>adb devices</code> comes back empty even though the cable is in, the daemon is usually
+      stale:</p>
+
+    <div class="codewrap">
+<pre><code>adb kill-server &amp;&amp; adb start-server &amp;&amp; adb devices</code></pre>
+      <button class="copy" type="button">Copy</button>
+    </div>
+  </section>
+
+  <section id="gotchas">
+    <h2>Known oddities &mdash; not your fault</h2>
+
+    <p>These are all expected. Knowing about them saves you chasing ghosts.</p>
+
+    <h4>Four missing script references</h4>
+    <p>A project-wide scan turns up four unresolvable script GUIDs: two in
+      <code>Steyn.controller</code>, one across five leftover Oculus sample scenes, and one across nine
+      DebugUI prefabs. All four pre-date the revival work. Four is the expected count &mdash; worry only
+      if it goes up after something you did.</p>
+
+    <h4>Boundary detection does not exist yet</h4>
+    <p>There is no boundary object in the scene, so fours and sixes are never detected and the fielder
+      intercept code throws on every hit. It is issue 6 in the backlog and is waiting on a decision
+      about the boundary radius.</p>
+
+    <h4>Scoring is time-based</h4>
+    <p>Runs are worked out from how many seconds pass between the bat hitting the ball and a fielder
+      reaching it, not from where the ball actually goes. Under two seconds is a dot ball, over eleven
+      is four runs. It is a placeholder from the original build, not a bug.</p>
+
+    <h4>The vendored Oculus SDK is ancient and that is fine</h4>
+    <p><code>Assets/Oculus</code> is a 2021-era copy of the old Oculus Integration package. It compiles
+      cleanly under Unity 6.3 and we deliberately kept it rather than migrating to the Meta XR SDK.
+      Do not "helpfully" update it.</p>
+  </section>
+
+  <section id="docs">
+    <h2>What to read next</h2>
+
+    <p>Everything lives in <code>Docs/</code> in the repo.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>File</th><th>What it is</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>GameDesignDocument.html</code></td>
+            <td>The rules as the code actually implements them &mdash; 5 overs, 11 batsmen, how runs and
+              wickets are decided. Open it in a browser.</td>
+          </tr>
+          <tr>
+            <td><code>TechnicalDesignDocument.md</code></td>
+            <td>The architecture. Read the part about <code>Main.cs</code> before you touch it; it is a
+              single large class that most things route through.</td>
+          </tr>
+          <tr>
+            <td><code>IssueBacklog.md</code></td>
+            <td>Current bugs and what has already been fixed. Check here first when something looks
+              broken.</td>
+          </tr>
+          <tr>
+            <td><code>RevivalPlan.md</code></td>
+            <td>What changed during the Unity 6 migration and why.</td>
+          </tr>
+          <tr>
+            <td><code>NOTES</code> (repo root)</td>
+            <td>The original hand-written to-do list from when you and Dad were building this. Ticks are
+              done, dashes are not.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="rules">
+    <h2>Working in the repo</h2>
+
+    <ul>
+      <li><strong>Pull before you start, every time.</strong> Unity scene and prefab files do not merge
+        &mdash; <code>.gitattributes</code> marks them <code>-merge</code> on purpose. If you and Dad
+        both edit <code>CricketVR.unity</code>, one of you loses the work. Say what you are opening.</li>
+      <li><strong>Never commit <code>Library/</code>, <code>Temp/</code>, <code>Builds/</code> or
+        <code>Logs/</code>.</strong> They are gitignored already; do not force-add them.</li>
+      <li><strong>Always commit the <code>.meta</code> file</strong> next to any asset you add. Unity
+        tracks every asset by the GUID inside its <code>.meta</code>, and a missing one breaks the
+        reference for everyone else.</li>
+      <li><strong>Rename and move assets from inside Unity</strong>, not in Finder or Explorer, so the
+        <code>.meta</code> travels with the file.</li>
+      <li>Ask Dad before pushing to <code>master</code>. There is a <code>pre-revival</code> tag marking
+        the pre-Unity-6 state if you ever need to look back.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Written for the CricketVR project &mdash; Unity 6000.3.24f1, MCP for Unity v10.2.0. If a step
+      here does not match what you see on screen, the repo docs win, and the setup has probably moved
+      on since this was written.</p>
+  </footer>
+
+</div>
+
+<script>
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var pre = btn.parentElement.querySelector('pre');
+      if (!pre) return;
+      var text = pre.innerText;
+      var done = function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 1600);
+      };
+      try {
+        navigator.clipboard.writeText(text).then(done, function () { select(pre, btn); });
+      } catch (e) {
+        select(pre, btn);
+      }
+    });
+  });
+
+  function select(pre, btn) {
+    try {
+      var range = document.createRange();
+      range.selectNodeContents(pre);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      btn.textContent = 'Selected';
+      setTimeout(function () { btn.textContent = 'Copy'; }, 1600);
+    } catch (e) {
+      btn.textContent = 'Select it';
+      setTimeout(function () { btn.textContent = 'Copy'; }, 1600);
+    }
+  }
+</script>
+
+</body>
+</html>

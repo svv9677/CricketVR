@@ -123,7 +123,7 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 0
   m_IsKinematic: 1
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_Constraints: 0
   m_CollisionDetection: 3
 --- !u!114 &942000609
@@ -141,10 +141,10 @@ MonoBehaviour:
   controllerParent: {fileID: 0}
   leftHandParent: {fileID: 0}
   rightHandParent: {fileID: 0}
-  leftGrabOffsetPosition: {x: 0.18, y: 0.1, z: 0.18}
-  leftGrabOffsetEuler: {x: 270, y: 180, z: 0}
-  rightGrabOffsetPosition: {x: -0.25, y: 0.15, z: 0.18}
-  rightGrabOffsetEuler: {x: 270, y: 180, z: 0}
+  leftGrabOffsetPosition: {x: -0.025, y: 0.28, z: 0.16}
+  leftGrabOffsetEuler: {x: 120, y: 0, z: -60}
+  rightGrabOffsetPosition: {x: 0.025, y: 0.28, z: 0.16}
+  rightGrabOffsetEuler: {x: 120, y: 0, z: 60}
   trackerObject: {fileID: 3831318129957227716}
   audioShot1: {fileID: 8300000, guid: 7497715cb2e0b4a24872345d117ce5a1, type: 3}
   audioShot2: {fileID: 8300000, guid: 3393a69671fe345eb9f5709b44266067, type: 3}
@@ -174,12 +174,12 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.22656403, y: 0.19458787, z: 1.2121747}
-  m_Center: {x: -0.000000029802322, y: 0.0011693974, z: -0.2934232}
+  m_Size: {x: 0.25, y: 0.25, z: 1.2}
+  m_Center: {x: 0, y: 0, z: -0.34}
 --- !u!1 &3831318129957227716
 GameObject:
   m_ObjectHideFlags: 0
@@ -189,7 +189,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7806812127181258295}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Tracker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
