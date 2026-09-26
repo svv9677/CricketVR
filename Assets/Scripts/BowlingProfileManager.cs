@@ -144,6 +144,34 @@ public class BowlingParams
                 swing.ToString() + ", " + pitchTurn.ToString() + ", (" +
                 applySwing.ToString() + "/" + applyPitchTurn.ToString() + ")";
     }
+
+    /// <summary>
+    /// Swing and turn for this delivery, in world terms. offSign is +1 when the off side is +Z
+    /// (right-hander) and -1 for a left-hander.
+    ///   in-swing   curves toward the batter's pads (leg side); out-swing away (off side).
+    ///   leg-spin   drifts in, then turns away to the off side; off-spin drifts away, turns in.
+    ///   seamers    a small random seam movement either way (pitchTurn is signed for them).
+    /// </summary>
+    public BallFlight.DeliveryEffects Effects(float offSign)
+    {
+        // Toward the off side is +offSign in Z. BallFlight's swing pushes toward -Z for a positive
+        // sign (travel is +X), and its turn is a rotation about +Y, which also moves +X toward -Z.
+        float swingToward = 0f, turnToward = 0f;
+        switch (swingType)
+        {
+            case eSwingType.InSwing: swingToward = -offSign; turnToward = offSign; break;
+            case eSwingType.OutSwing: swingToward = offSign; turnToward = offSign; break;
+            case eSwingType.LegSpin: swingToward = -offSign; turnToward = offSign; break;
+            case eSwingType.OffSpin: swingToward = offSign; turnToward = -offSign; break;
+            default: turnToward = offSign; break;
+        }
+        return new BallFlight.DeliveryEffects
+        {
+            swingAccelPerV2 = applySwing ? BallFlight.SwingAccelPerV2(swing) : 0f,
+            swingSign = -swingToward,
+            turnDegrees = applyPitchTurn ? -turnToward * pitchTurn * BallFlight.MaxTurnDegrees : 0f,
+        };
+    }
 }
 
 public class BowlingProfile
@@ -185,39 +213,34 @@ public class BowlingProfile
         maxPitchTurn = _maxPitchTurn;
     }
 
+    /// Chance a delivery strays off its line: down the off side (a few of these clear the wide
+    /// guideline) or down the leg side (these are leg-side wides). Together they give roughly the
+    /// 2-4% wide rate of international limited-overs cricket.
+    public const float WaywardOffChance = 0.05f;
+    public const float WaywardLegChance = 0.02f;
+    public static readonly Vector2 WaywardOffLine = new Vector2(0.55f, 1.05f);
+    public static readonly Vector2 WaywardLegLine = new Vector2(-0.45f, -0.22f);
+
     public BowlingParams GetRandomDelivery()
     {
         BowlingParams param = new BowlingParams();
-        float director = (swingType == eSwingType.InSwing || swingType == eSwingType.OutSwing) ? -1f : 11f;
 
         param.swingType = swingType;
-        param.torqueX = director * 50f;
+        param.torqueX = 0f;
         param.speedX = Random.Range(minX, maxX);
         param.length = Random.Range(minLen, maxLen);
-        param.speedZ = Random.Range(minZ, maxZ);
+        // speedZ is the LINE at the batsman's stumps, off side positive (see Constants).
+        float roll = Random.value;
+        if (roll < WaywardOffChance)
+            param.speedZ = Random.Range(WaywardOffLine.x, WaywardOffLine.y);
+        else if (roll < WaywardOffChance + WaywardLegChance)
+            param.speedZ = Random.Range(WaywardLegLine.x, WaywardLegLine.y);
+        else
+            param.speedZ = Random.Range(minZ, maxZ);
         param.swing = Random.Range(minSwing, maxSwing);
         param.pitchTurn = Random.Range(minPitchTurn, maxPitchTurn);
-        param.applySwing = Random.Range(0f, 1f) > 0.05f || swingType == eSwingType.InSwing || swingType == eSwingType.OutSwing;
-        param.applyPitchTurn = Random.Range(0f, 1f) > 0.15f || swingType == eSwingType.LegSpin || swingType == eSwingType.OffSpin;
-
-        // For spin bowling, if we are looping (Y is greater than half of maxY), then limit the x-speed to not throw a no-ball
-        //if (swingType == eSwingType.LegSpin || swingType == eSwingType.OffSpin)
-        //{
-        //    if (param.speedY > ((minY + maxY) / 2f))
-        //        param.speedX = Mathf.Clamp(param.speedX, minX, (minX + maxX) / 2f);
-        //}
-        // For in-swing, if swing amount is large, make sure we start from way off-side
-        if (swingType == eSwingType.InSwing)
-        {
-            if (param.swing > ((minSwing + maxSwing) / 2f))
-                param.speedZ = Mathf.Clamp(param.speedZ, (minZ + maxZ) / 2f, maxZ);
-        }
-        // Same applies for out swing
-        if (swingType == eSwingType.OutSwing)
-        {
-            if (param.swing > ((minSwing + maxSwing) / 2f))
-                param.speedZ = Mathf.Clamp(param.speedZ, minZ, (minZ + maxZ) / 2f);
-        }
+        param.applySwing = true;
+        param.applyPitchTurn = true;
         return param;
     }
 }

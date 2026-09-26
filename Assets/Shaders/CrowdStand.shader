@@ -70,6 +70,9 @@ Shader "CricketVR/CrowdStand"
             Cull Back
             ZWrite On
             ZTest LEqual
+            // Alpha-to-coverage: with 4x MSAA the cut-out edges get anti-aliased instead of
+            // snapping on and off each frame, which is what made the distant crowd shimmer.
+            AlphaToMask On
 
             HLSLPROGRAM
             #pragma vertex   CrowdVertex
@@ -202,9 +205,13 @@ Shader "CricketVR/CrowdStand"
                 // with a short soft edge to take the jaggies off the silhouettes.
                 float keyDist = distance(raw.rgb, _KeyColor.rgb);
                 float coverage = smoothstep(_KeyTolerance, _KeyTolerance + _KeySoftness, keyDist);
-                clip(coverage - 0.5);
+                // Sharpen the coverage to about one pixel wide (fwidth), so alpha-to-coverage
+                // gives a crisp, anti-aliased silhouette rather than a hard or a mushy one.
+                float edge = saturate((coverage - 0.5) / max(fwidth(coverage), 1e-4) + 0.5);
+                clip(edge - 0.01);
 
                 half4 albedo = raw * _BaseColor;
+                albedo.a = edge;
 
                 // Occasional camera flashes, one person at a time. A cheer (_CrowdFlash) fires many
                 // more at once and a little brighter. Free when both strengths are 0 (e.g. daytime).

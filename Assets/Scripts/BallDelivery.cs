@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -61,6 +62,7 @@ public static class BallDelivery
         public Vector3 releaseVelocity;
         public float flightTime;
         public float pitchX;
+        public float lineZ;
         public float speedMps;
         /// True only when the release POSITION had to be moved. The caller should reposition the
         /// ball only in that case - repositioning on a normal delivery is a visible snap.
@@ -72,7 +74,7 @@ public static class BallDelivery
         public float SpeedKph => speedMps * 3.6f;
         public override string ToString() =>
             $"release={releasePosition.ToString("F2")} vel={releaseVelocity.ToString("F2")} " +
-            $"({SpeedKph:F0} km/h) pitchAt x={pitchX:F2} flight={flightTime:F3}s" +
+            $"({SpeedKph:F0} km/h) pitchAt x={pitchX:F2} line z={lineZ:F2} flight={flightTime:F3}s" +
             (string.IsNullOrEmpty(warnings) ? "" : $"  [corrected: {warnings}]");
     }
 
@@ -81,9 +83,12 @@ public static class BallDelivery
     /// </summary>
     /// <param name="handPosition">Where the ball actually is (the bowler's hand) at release.</param>
     /// <param name="targetPitchX">World X the ball should bounce at (the config's `length`).</param>
-    /// <param name="speedMps">Horizontal speed down the pitch, metres per second.</param>
-    /// <param name="lateralMps">Sideways drift, metres per second.</param>
-    public static Solution Solve(Vector3 handPosition, float targetPitchX, float speedMps, float lateralMps)
+    /// <param name="speedMps">Horizontal speed down the pitch at release, metres per second.</param>
+    /// <param name="targetLineZ">World Z the ball should be at when it reaches the batsman's
+    /// stumps, after swing, the bounce and any turn. This is what the bowler controls, and what
+    /// decides whether it is a wide.</param>
+    public static Solution Solve(Vector3 handPosition, float targetPitchX, float speedMps, float targetLineZ,
+                                 BallFlight.DeliveryEffects effects)
     {
         string warn = "";
 
@@ -144,32 +149,98 @@ public static class BallDelivery
             dx = minDx;
         }
 
-        // --- 4. exact projectile solve, in metres ------------------------------------------------
-        //     x(t) = x0 + vx*t                       -> t = dx / vx
-        //     y(t) = y0 + vy*t - 0.5*g*t^2 = bounce  -> vy = (bounce - y0 + 0.5*g*t^2) / t
+        if (!IsFinite(targetLineZ)) targetLineZ = 0f;
+
+        // --- 4. aim: shoot with the real flight model (drag, swing, bounce, turn) ----------------
+        // Start from the drag-free ballistic answer, then correct vy (length) and vz (line) in
+        // turn with capped Newton steps. The two barely interact - vy sets where it lands, vz the
+        // line - so alternating converges in a few rounds, and the caps keep a bad derivative
+        // from ever throwing the ball into the sky. Each shot is ~150 physics steps.
         float g = Mathf.Abs(Physics.gravity.y);
         float t = dx / speedMps;
         float vy = (BounceHeight - release.y + 0.5f * g * t * t) / t;
+        float vz = (targetLineZ - release.z) * speedMps / (BatsmanStumpsX - release.x);
+        if (!IsFinite(vy)) vy = 0f;
+        if (!IsFinite(vz)) vz = 0f;
 
-        if (!IsFinite(vy))
+        const float h = 0.05f, maxStepVy = 2f, maxStepVz = 1f;
+        Shot shot = Fire(release, new Vector3(speedMps, vy, vz), effects);
+        for (int round = 0; round < 8; round++)
         {
-            warn += "vy not finite; used 0. ";
-            vy = 0f;
+            float errLen = shot.pitchX - pitchX;
+            if (Mathf.Abs(errLen) > 0.02f)
+            {
+                Shot probe = Fire(release, new Vector3(speedMps, vy + h, vz), effects);
+                float slope = (probe.pitchX - shot.pitchX) / h;   // metres of length per m/s of vy
+                if (slope > 1e-3f)
+                    vy -= Mathf.Clamp(errLen / slope, -maxStepVy, maxStepVy);
+                shot = Fire(release, new Vector3(speedMps, vy, vz), effects);
+            }
+            float errLine = shot.lineZ - targetLineZ;
+            if (Mathf.Abs(errLine) > 0.01f)
+            {
+                Shot probe = Fire(release, new Vector3(speedMps, vy, vz + h), effects);
+                float slope = (probe.lineZ - shot.lineZ) / h;
+                if (Mathf.Abs(slope) > 1e-3f)
+                    vz -= Mathf.Clamp(errLine / slope, -maxStepVz, maxStepVz);
+                shot = Fire(release, new Vector3(speedMps, vy, vz), effects);
+            }
+            if (Mathf.Abs(shot.pitchX - pitchX) < 0.02f && Mathf.Abs(shot.lineZ - targetLineZ) < 0.01f)
+                break;
         }
-
-        if (!IsFinite(lateralMps)) lateralMps = 0f;
+        if (Mathf.Abs(shot.pitchX - pitchX) > 0.1f || Mathf.Abs(shot.lineZ - targetLineZ) > 0.05f)
+            warn += $"aim missed by length {shot.pitchX - pitchX:F2} m, line {shot.lineZ - targetLineZ:F2} m. ";
 
         var sol = new Solution
         {
             releasePosition = release,
-            releaseVelocity = new Vector3(speedMps, vy, lateralMps),
-            flightTime = t,
-            pitchX = pitchX,
+            releaseVelocity = new Vector3(speedMps, vy, vz),
+            flightTime = shot.flightTime,
+            pitchX = shot.pitchX,
+            lineZ = shot.lineZ,
             speedMps = speedMps,
             releasePositionCorrected = positionCorrected,
             warnings = warn.Trim()
         };
         return sol;
+    }
+
+    /// Where one candidate release pitches, and where it is when it reaches the stumps.
+    public struct Shot
+    {
+        public float pitchX;
+        public float lineZ;
+        public float flightTime;
+    }
+
+    private static readonly List<BallFlight.Sample> samples = new List<BallFlight.Sample>(512);
+
+    public static Shot Fire(Vector3 release, Vector3 velocity, BallFlight.DeliveryEffects effects)
+    {
+        // Run until it has both pitched and passed the stumps, so a trial that would be a full toss
+        // still reports where it would land - the length always has a slope to follow.
+        BallFlight.Simulate(release, velocity, effects, 4f, samples,
+            s => (s.bounced && s.position.x >= BatsmanStumpsX) || s.position.x > BatsmanStumpsX + 30f || s.position.y < -1f);
+        var shot = new Shot { pitchX = BatsmanStumpsX + 30f, lineZ = release.z, flightTime = 0f };
+        bool pitched = false, crossed = false;
+        for (int i = 0; i < samples.Count; i++)
+        {
+            if (!pitched && samples[i].bounced)
+            {
+                pitched = true;
+                shot.pitchX = samples[i].position.x;
+                shot.flightTime = samples[i].time;
+            }
+            if (!crossed && samples[i].position.x >= BatsmanStumpsX)
+            {
+                crossed = true;
+                var prev = i > 0 ? samples[i - 1] : samples[i];
+                float span = samples[i].position.x - prev.position.x;
+                float f = span > 1e-5f ? Mathf.Clamp01((BatsmanStumpsX - prev.position.x) / span) : 1f;
+                shot.lineZ = Mathf.Lerp(prev.position.z, samples[i].position.z, f);
+            }
+        }
+        return shot;
     }
 
     /// <summary>

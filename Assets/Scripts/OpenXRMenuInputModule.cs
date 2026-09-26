@@ -16,6 +16,47 @@ public class OpenXRMenuInputModule : MonoBehaviour
     private LineRenderer beam;
     private Transform aim;
     private XRController activeHand;
+    // Other world-space panels (e.g. the between-balls menu) that the same pointer drives.
+    private readonly System.Collections.Generic.List<GameObject> extraMenus = new System.Collections.Generic.List<GameObject>();
+
+    public static OpenXRMenuInputModule Instance { get; private set; }
+
+    /// Let the laser pointer drive another world-space panel as well as the settings menu.
+    public static void RegisterPanel(GameObject panelRoot)
+    {
+        if (Instance == null || panelRoot == null || Instance.extraMenus.Contains(panelRoot))
+            return;
+        Instance.extraMenus.Add(panelRoot);
+        Instance.SetUpCanvases(panelRoot);
+    }
+
+    private bool ExtraMenuVisible()
+    {
+        foreach (GameObject m in extraMenus)
+            if (m != null && m.activeInHierarchy)
+                return true;
+        return false;
+    }
+
+    private void SetUpCanvases(GameObject root)
+    {
+        foreach (var canvas in root.GetComponentsInChildren<Canvas>(true))
+        {
+            canvas.worldCamera = Camera.main;
+            foreach (var old in canvas.GetComponents<OVRRaycaster>()) old.enabled = false;
+            GraphicRaycaster mouse = null;
+            foreach (var candidate in canvas.GetComponents<GraphicRaycaster>())
+                if (candidate.GetType() == typeof(GraphicRaycaster)) { mouse = candidate; break; }
+            if (mouse == null) mouse = canvas.gameObject.AddComponent<GraphicRaycaster>();
+            mouse.enabled = true;
+            var tracked = canvas.GetComponent<TrackedDeviceRaycaster>();
+            if (tracked == null) tracked = canvas.gameObject.AddComponent<TrackedDeviceRaycaster>();
+            tracked.maxDistance = laser != null ? laser.maxLength : 10f;
+            // Menus should remain usable in front of the bat/body colliders.
+            tracked.checkFor3DOcclusion = false;
+            tracked.checkFor2DOcclusion = false;
+        }
+    }
 
     public static void Configure(GameObject menuRoot, GameObject helpers, LaserPointer pointer)
     {
@@ -60,22 +101,8 @@ public class OpenXRMenuInputModule : MonoBehaviour
         SetAimBinding(driver.inputModule.trackedDeviceOrientation.action, "<XRController>/pointerRotation");
         driver.inputModule.xrTrackingOrigin = Camera.main != null ? Camera.main.transform.parent : null;
 
-        foreach (var canvas in menuRoot.GetComponentsInChildren<Canvas>(true))
-        {
-            canvas.worldCamera = Camera.main;
-            foreach (var old in canvas.GetComponents<OVRRaycaster>()) old.enabled = false;
-            GraphicRaycaster mouse = null;
-            foreach (var candidate in canvas.GetComponents<GraphicRaycaster>())
-                if (candidate.GetType() == typeof(GraphicRaycaster)) { mouse = candidate; break; }
-            if (mouse == null) mouse = canvas.gameObject.AddComponent<GraphicRaycaster>();
-            mouse.enabled = true;
-            var tracked = canvas.GetComponent<TrackedDeviceRaycaster>();
-            if (tracked == null) tracked = canvas.gameObject.AddComponent<TrackedDeviceRaycaster>();
-            tracked.maxDistance = pointer.maxLength;
-            // Settings should remain usable in front of the bat/body colliders.
-            tracked.checkFor3DOcclusion = false;
-            tracked.checkFor2DOcclusion = false;
-        }
+        driver.SetUpCanvases(menuRoot);
+        Instance = driver;
         // This driver updates the visual after EventSystem processes this frame's raycasts.
         pointer.enabled = false;
     }
@@ -95,10 +122,15 @@ public class OpenXRMenuInputModule : MonoBehaviour
         if (inputModule == null) return;
         if (inputModule.xrTrackingOrigin == null && Camera.main != null)
             inputModule.xrTrackingOrigin = Camera.main.transform.parent;
-        bool visible = menu != null && menu.activeInHierarchy && Application.isFocused;
+        bool settings = menu != null && menu.activeInHierarchy;
+        bool extra = ExtraMenuVisible();
+        bool visible = (settings || extra) && Application.isFocused;
         // Disable flushes pressed/drag/hover state when the menu closes or focus is lost.
         // Keep the module enabled without an HMD for mouse interaction in the Editor.
         inputModule.enabled = visible;
+        // The laser object is switched with the settings menu; a between-balls panel needs it too.
+        if (laser != null && !settings)
+            laser.gameObject.SetActive(extra);
     }
 
     private void LateUpdate()

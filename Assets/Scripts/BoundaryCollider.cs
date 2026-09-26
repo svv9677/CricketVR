@@ -20,6 +20,8 @@ public class BoundaryCollider : MonoBehaviour
         if (state == eGameState.InGame_BallHitLoop)
         {
             // A shot that cleared the rope: four or six.
+            if (!Main.Instance.theBallScript.bounced && other.attachedRigidbody != null)
+                ShotDistance.Instance.OnSix(other.attachedRigidbody.position, other.attachedRigidbody.linearVelocity);
             Main.Instance.resetDelay = 4f;
             Main.Instance.gameState = eGameState.InGame_BallPastBoundary;
             return;

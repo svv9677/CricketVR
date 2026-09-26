@@ -186,6 +186,8 @@ public class Main : MonoBehaviour
 
 
     public eBattingStyle BattingStyle => battingStyle;
+    /// The most recent delivery's aim, for checking it against where the ball really went.
+    [HideInInspector] public BallDelivery.Solution lastDelivery;
 
     // Internal variables
     private bool initialized;
@@ -250,6 +252,7 @@ public class Main : MonoBehaviour
 
         if (theBat != null)
             gripCalibration = theBat.AddComponent<BatGripCalibration>();
+        gameObject.AddComponent<NextBallMenu>();
 
         // Initialize menus
         menuToggle = false;
@@ -341,7 +344,8 @@ public class Main : MonoBehaviour
         _lBatToggle = radio1.GetComponentInChildren<Toggle>();
         var radio2 = DebugUIBuilder.instance.AddRadio("Right Handed", "batting", onRadioRightHanded);
         _rBatToggle = radio2.GetComponentInChildren<Toggle>();
-        DebugUIBuilder.instance.AddButton("Calibrate Bat Grip", onCalibrateGrip);
+        DebugUIBuilder.instance.AddButton("Calibrate Grip - Upright", onCalibrateGrip);
+        DebugUIBuilder.instance.AddButton("Calibrate Grip - Flat", onCalibrateGripFlat);
         DebugUIBuilder.instance.AddButton("Reset Bat Grip", onResetGrip);
 
         DebugUIBuilder.instance.AddDivider();
@@ -803,14 +807,42 @@ public class Main : MonoBehaviour
             PlayerPrefs.Save();
     }
     public void onVoid(float val) { }
-    public void onCalibrateGrip()
+    /// Bowl the next ball (the A button, or "Next Ball" on the between-balls panel).
+    public void StartNextBall()
+    {
+        if (gameState != eGameState.InGame_Ready)
+            return;
+        currentFielderName = "";
+
+        // Reset stumps - both ends
+        foreach (Stumps stumps in FindObjectsByType<Stumps>(FindObjectsSortMode.None))
+            stumps.Reset();
+
+        StopTheBall();
+
+        // Switch to the process of selecting delivery type, stride & other params before delivery loop
+        gameState = eGameState.InGame_SelectDelivery;
+    }
+
+    public void OpenSettings()
+    {
+        if (!menuToggle)
+            ToggleUI(true);
+    }
+
+    public bool SettingsOpen => menuToggle;
+    public bool CalibratingGrip => gripCalibration != null && gripCalibration.IsActive;
+
+    public void onCalibrateGrip() { StartGripCalibration(false); }
+    public void onCalibrateGripFlat() { StartGripCalibration(true); }
+    private void StartGripCalibration(bool flat)
     {
         if (gripCalibration == null)
             return;
         // Close the menu first: showing it hides the bat.
         if (menuToggle)
             ToggleUI(false);
-        gripCalibration.Begin();
+        gripCalibration.Begin(flat);
     }
     public void onResetGrip()
     {
@@ -950,17 +982,7 @@ public class Main : MonoBehaviour
                 case eGameState.InGame_Ready:
                     {
                         if (GetButton(XRButton.A))
-                        {
-                            currentFielderName = "";
-
-                            // Reset stumps
-                            theStumpsScript.Reset();
-
-                            StopTheBall();
-
-                            // Switch to the process of selecting delivery type, stride & other params before delivery loop
-                            gameState = eGameState.InGame_SelectDelivery;
-                        }
+                            StartNextBall();
                     }
                     break;
                 case eGameState.InGame_SelectDelivery:
@@ -971,7 +993,7 @@ public class Main : MonoBehaviour
                         CameraReplay.Instance.startDisplaying = null;
                         CameraReplay.Instance.StopDisplaying();
                         CameraReplay.Instance.setViewSetting(0);
-                        ShotDistance.Instance.setText("0.0 m");
+                        ShotDistance.Instance.setText("");
                         BallSpeed.Instance.setText("");
                         // TODO: Move bowling machine
 
@@ -1007,12 +1029,16 @@ public class Main : MonoBehaviour
                             releaseFrom = bowler.ReleasePosition;
 
                         // Work out the whole release from one validated solve (see BallDelivery).
-                        // The config's speedX / speedZ are impulse magnitudes, so divide by mass to
-                        // get the real speeds; `length` is the world X the ball should pitch at.
-                        float speedMps = currentBowlingConfig.speedX / theBallRigidBody.mass;
-                        float lateralMps = currentBowlingConfig.speedZ / theBallRigidBody.mass;
+                        // speedX is an impulse against the configs' 0.2 kg ball; `length` is the
+                        // world X the ball pitches at; speedZ is the line at the batsman's stumps,
+                        // off side positive, so mirror it for a left-hander.
+                        float offSign = battingStyle == eBattingStyle.LeftHanded ? -1f : 1f;
+                        float speedMps = currentBowlingConfig.speedX / Constants.ConfigImpulseMass;
+                        float targetLine = offSign * currentBowlingConfig.speedZ;
+                        BallFlight.DeliveryEffects effects = currentBowlingConfig.Effects(offSign);
+                        theBallScript.deliveryEffects = effects;
                         BallDelivery.Solution delivery = BallDelivery.Solve(
-                            releaseFrom, currentBowlingConfig.length, speedMps, lateralMps);
+                            releaseFrom, currentBowlingConfig.length, speedMps, targetLine, effects);
                         if (!string.IsNullOrEmpty(delivery.warnings))
                             Debug.LogWarning($"[Delivery] {delivery}");
                         else if (verboseStateLogging)
@@ -1037,6 +1063,10 @@ public class Main : MonoBehaviour
                         // it by nothing, so there is no snap. When carrying the ball has gone
                         // wrong it is the correction that keeps the delivery sane.
                         theBall.transform.position = delivery.releasePosition;
+                        // And the body itself: autoSyncTransforms is off, so the transform write
+                        // alone left PhysX starting the ball from where the hand was on the last
+                        // physics step - measured up to 0.24 m behind, pitching that much short.
+                        theBallRigidBody.position = delivery.releasePosition;
 
                         // ASSIGN both velocities rather than AddForce onto whatever the body was
                         // carrying. While parented to the bowler's hand the ball is kinematic, and
@@ -1056,6 +1086,9 @@ public class Main : MonoBehaviour
                         //theBallScript.lastVelocity = speed;   (commented out because the lastVelocity for the bat collision equations should be updated after the ball hits the pitch.
                         // mark as fresh delivery!
                         theBallScript.fresh = true;
+                        theBallScript.lastPitchPoint = new Vector3(float.NaN, 0f, 0f);
+                        theBallScript.lastLineAtStumps = float.NaN;
+                        lastDelivery = delivery;
                         theBallScript.bounced = false;
                         theBallScript.wide = false;
                         theBatScript.hasHitBall = false;
@@ -1177,7 +1210,6 @@ public class Main : MonoBehaviour
             ToggleUI(!menuToggle);
         }
 
-        theHUD.txtVersion.text = ((float)(1f / Time.deltaTime)).ToString();
     }
 
     /*private float GetYVel(float length, float z)

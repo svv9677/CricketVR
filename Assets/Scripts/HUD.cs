@@ -277,6 +277,13 @@ public class HUD : MonoBehaviour
         CurrentRunner = tmp;
     }
 
+    /// Bring the next bowler on now (the between-balls "Change Bowler" option).
+    public void ChangeBowler()
+    {
+        SelectNextBowler();
+        UpdateUI();
+    }
+
     void SelectNextBowler()
     {
         NextBowlerIndex++;

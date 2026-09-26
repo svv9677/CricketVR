@@ -3,8 +3,10 @@ using UnityEngine;
 /// <summary>
 /// Lets the player set the bat grip to their own hand instead of the offsets baked into the scene.
 ///
-/// Flow: "Calibrate Bat Grip" in the B menu stands the bat upright in front of the player, face
-/// toward the bowler, toe just off the floor - a batting stance. The player puts the batting-hand
+/// Flow: "Calibrate Grip - Upright" in the B menu stands the bat in front of the player, face
+/// toward the bowler, toe just off the floor - a batting stance; "Calibrate Grip - Flat" lays it
+/// level at waist height, handle toward the player. The bat is drawn see-through meanwhile so the
+/// controller shows inside the handle. The player puts the batting-hand
 /// controller on the handle the way they hold a real bat and presses A. The hand-to-bat pose at
 /// that moment becomes the grab offset for that hand, and is saved to PlayerPrefs so it survives
 /// restarts. B cancels and puts the previous grip back.
@@ -18,6 +20,12 @@ public class BatGripCalibration : MonoBehaviour
     private const float StandDistance = 0.35f;
     /// Gap between the toe of the bat and the floor while it stands.
     private const float ToeClearance = 0.02f;
+    /// Lying flat: how far in front of the headset the grip end sits, and how high off the floor.
+    private const float FlatDistance = 0.25f;
+    private const float FlatHeight = 1.0f;
+
+    private Material ghostMaterial;
+    private Material[] solidMaterials;
 
     private Bat bat;
     private bool leftHand;
@@ -42,7 +50,12 @@ public class BatGripCalibration : MonoBehaviour
         LoadSaved(false);
     }
 
-    public void Begin()
+    /// <param name="flat">
+    /// False: the bat stands upright, toe on the floor, as in a batting stance.
+    /// True: it floats level at waist height, handle toward the player, which is easier to line
+    /// the controller up along.
+    /// </param>
+    public void Begin(bool flat)
     {
         if (IsActive || bat.attachParent == null)
             return;
@@ -56,22 +69,81 @@ public class BatGripCalibration : MonoBehaviour
         if (flatForward.sqrMagnitude < 1e-4f)
             flatForward = Vector3.left;
         flatForward.Normalize();
-
-        // Handle (local +Z) straight up, face (local +Y, the normal Bat uses for the hit) toward
-        // the bowler, who is down -X.
-        Quaternion standRotation = Quaternion.LookRotation(Vector3.up, Vector3.left);
-        Vector3 standPosition = head.position + flatForward * StandDistance;
-        bat.transform.SetPositionAndRotation(standPosition, standRotation);
-
-        // Drop it so the toe sits just above the floor. The tracking space origin is the floor.
         float floorY = head.parent != null ? head.parent.position.y : 0f;
         Renderer batRenderer = bat.GetComponentInChildren<Renderer>();
-        if (batRenderer != null)
-            standPosition.y += floorY + ToeClearance - batRenderer.bounds.min.y;
+
+        Quaternion standRotation;
+        Vector3 standPosition;
+        if (flat)
+        {
+            // Handle (local +Z) toward the player, face (local +Y) toward the batter's front
+            // foot side - left for a right-hander - which is how the face sits with the arms out.
+            Vector3 flatRight = Vector3.Cross(Vector3.up, flatForward);
+            standRotation = Quaternion.LookRotation(-flatForward, leftHand ? flatRight : -flatRight);
+            standPosition = head.position + flatForward * FlatDistance;
+            standPosition.y = floorY + FlatHeight;
+            bat.transform.SetPositionAndRotation(standPosition, standRotation);
+            // Put the grip end, not the middle of the bat, at FlatDistance in front of the player.
+            if (batRenderer != null)
+                standPosition += flatForward * (FlatDistance - HandleReach(batRenderer, head.position, flatForward));
+        }
+        else
+        {
+            // Handle (local +Z) straight up, face (local +Y, the normal Bat uses for the hit)
+            // toward the bowler, who is down -X.
+            standRotation = Quaternion.LookRotation(Vector3.up, Vector3.left);
+            standPosition = head.position + flatForward * StandDistance;
+            bat.transform.SetPositionAndRotation(standPosition, standRotation);
+            // Drop it so the toe sits just above the floor. The tracking space origin is the floor.
+            if (batRenderer != null)
+                standPosition.y += floorY + ToeClearance - batRenderer.bounds.min.y;
+        }
 
         bat.HoldStill(standPosition, standRotation);
-        ShowPrompt(standPosition + Vector3.up * 0.65f, flatForward);
+        ShowGhost(true);
+        ShowPrompt(new Vector3(standPosition.x, floorY + 1.45f, standPosition.z) + flatForward * 0.25f, flatForward);
         IsActive = true;
+    }
+
+    /// Distance along the player's forward from the head to the nearest point of the bat.
+    private static float HandleReach(Renderer batRenderer, Vector3 headPosition, Vector3 flatForward)
+    {
+        Bounds b = batRenderer.bounds;
+        float nearest = float.MaxValue;
+        for (int i = 0; i < 8; i++)
+        {
+            Vector3 corner = new Vector3(
+                (i & 1) == 0 ? b.min.x : b.max.x,
+                (i & 2) == 0 ? b.min.y : b.max.y,
+                (i & 4) == 0 ? b.min.z : b.max.z);
+            nearest = Mathf.Min(nearest, Vector3.Dot(corner - headPosition, flatForward));
+        }
+        return nearest;
+    }
+
+    /// While calibrating the bat is drawn see-through so the controller shows inside the handle.
+    private void ShowGhost(bool ghost)
+    {
+        Renderer batRenderer = bat.GetComponentInChildren<Renderer>();
+        if (batRenderer == null)
+            return;
+        if (ghost)
+        {
+            if (ghostMaterial == null)
+                ghostMaterial = Resources.Load<Material>("Materials/BatGhost");
+            if (ghostMaterial == null)
+                return;
+            solidMaterials = batRenderer.sharedMaterials;
+            var ghosts = new Material[solidMaterials.Length];
+            for (int i = 0; i < ghosts.Length; i++)
+                ghosts[i] = ghostMaterial;
+            batRenderer.sharedMaterials = ghosts;
+        }
+        else if (solidMaterials != null)
+        {
+            batRenderer.sharedMaterials = solidMaterials;
+            solidMaterials = null;
+        }
     }
 
     /// Called by Main every frame while active, with this frame's button presses.
@@ -115,6 +187,7 @@ public class BatGripCalibration : MonoBehaviour
     private void End()
     {
         bat.ReleaseHold();
+        ShowGhost(false);
         if (prompt != null)
             prompt.gameObject.SetActive(false);
         IsActive = false;
