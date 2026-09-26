@@ -185,9 +185,12 @@ public class Main : MonoBehaviour
     private Slider _BatAmplifierSlider;
 
 
+    public eBattingStyle BattingStyle => battingStyle;
+
     // Internal variables
     private bool initialized;
     private bool menuToggle;
+    private BatGripCalibration gripCalibration;
     private Material SignalMaterial;
 
     // Console log parameters
@@ -244,6 +247,9 @@ public class Main : MonoBehaviour
     {
         if (Main.Instance == null)
             Main.Instance = this;
+
+        if (theBat != null)
+            gripCalibration = theBat.AddComponent<BatGripCalibration>();
 
         // Initialize menus
         menuToggle = false;
@@ -335,6 +341,8 @@ public class Main : MonoBehaviour
         _lBatToggle = radio1.GetComponentInChildren<Toggle>();
         var radio2 = DebugUIBuilder.instance.AddRadio("Right Handed", "batting", onRadioRightHanded);
         _rBatToggle = radio2.GetComponentInChildren<Toggle>();
+        DebugUIBuilder.instance.AddButton("Calibrate Bat Grip", onCalibrateGrip);
+        DebugUIBuilder.instance.AddButton("Reset Bat Grip", onResetGrip);
 
         DebugUIBuilder.instance.AddDivider();
         DebugUIBuilder.instance.AddLabel("Difficulty");
@@ -795,6 +803,20 @@ public class Main : MonoBehaviour
             PlayerPrefs.Save();
     }
     public void onVoid(float val) { }
+    public void onCalibrateGrip()
+    {
+        if (gripCalibration == null)
+            return;
+        // Close the menu first: showing it hides the bat.
+        if (menuToggle)
+            ToggleUI(false);
+        gripCalibration.Begin();
+    }
+    public void onResetGrip()
+    {
+        if (gripCalibration != null)
+            gripCalibration.ResetToDefault();
+    }
     public void reloadTweakables()
     {
         _swingTypeText.text = "Bowling Type - " + swingType.ToString();
@@ -893,6 +915,14 @@ public class Main : MonoBehaviour
                 SignalMaterial.color = Color.green;
             else
                 SignalMaterial.color = Color.red;
+        }
+
+        // Grip calibration owns A and B while it runs, so the A that locks the grip cannot also
+        // start a delivery and B cancels it rather than opening the menu.
+        if (gripCalibration != null && gripCalibration.IsActive)
+        {
+            gripCalibration.Tick(GetButton(XRButton.A), GetButton(XRButton.B));
+            return;
         }
 
         // Temporary stuff

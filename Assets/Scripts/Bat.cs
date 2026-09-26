@@ -290,8 +290,47 @@ public class Bat : MonoBehaviour
         trackerPreviousPos = trackerPos;
     }
 
+    // While grip calibration runs the bat stands still in the world instead of following the hand,
+    // so the player can move the controller onto the handle (see BatGripCalibration).
+    private bool holdingStill;
+    private Vector3 stillPosition;
+    private Quaternion stillRotation;
+
+    public void HoldStill(Vector3 position, Quaternion rotation)
+    {
+        holdingStill = true;
+        stillPosition = position;
+        stillRotation = rotation;
+    }
+
+    public void ReleaseHold()
+    {
+        holdingStill = false;
+    }
+
+    public void SetGrabOffset(bool leftHand, Vector3 position, Vector3 euler)
+    {
+        if (leftHand)
+        {
+            leftGrabOffsetPosition = position;
+            leftGrabOffsetEuler = euler;
+        }
+        else
+        {
+            rightGrabOffsetPosition = position;
+            rightGrabOffsetEuler = euler;
+        }
+    }
+
     void LateUpdate()
     {
+        if (holdingStill)
+        {
+            myRigidBody.transform.position = stillPosition;
+            myRigidBody.transform.rotation = stillRotation;
+            return;
+        }
+
         // Check if we need to start the attach/detach step
         CheckAndGrab();
 

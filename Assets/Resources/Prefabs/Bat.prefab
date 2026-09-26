@@ -31,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.65, y: 0.65, z: 0.65}
+  m_LocalScale: {x: 0.48, y: 0.48, z: 0.48}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7806812127181258295}
@@ -141,9 +141,9 @@ MonoBehaviour:
   controllerParent: {fileID: 0}
   leftHandParent: {fileID: 0}
   rightHandParent: {fileID: 0}
-  leftGrabOffsetPosition: {x: -0.05, y: 0.2, z: 0.3}
+  leftGrabOffsetPosition: {x: -0.03992634, y: 0.11906837, z: 0.1848575}
   leftGrabOffsetEuler: {x: 145, y: -5, z: -60}
-  rightGrabOffsetPosition: {x: 0.05, y: 0.2, z: 0.3}
+  rightGrabOffsetPosition: {x: 0.03992634, y: 0.11906837, z: 0.1848575}
   rightGrabOffsetEuler: {x: 145, y: 5, z: 60}
   trackerObject: {fileID: 3831318129957227716}
   audioShot1: {fileID: 8300000, guid: 7497715cb2e0b4a24872345d117ce5a1, type: 3}

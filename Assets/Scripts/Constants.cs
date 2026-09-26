@@ -14,6 +14,10 @@ public static class Constants
     public const string PP_FielderSpeed = "fielder_speed";
     public const string PP_AmpMin = "amp_min";
     public const string PP_AmpMax = "amp_max";
+    public const string PP_GripLeftPosition = "grip_left_pos";
+    public const string PP_GripLeftEuler = "grip_left_euler";
+    public const string PP_GripRightPosition = "grip_right_pos";
+    public const string PP_GripRightEuler = "grip_right_euler";
 
     public const string CT_MinX = "minX";
     public const string CT_MaxX = "maxX";

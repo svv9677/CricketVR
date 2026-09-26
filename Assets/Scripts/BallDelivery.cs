@@ -52,8 +52,8 @@ public static class BallDelivery
     public const float MaxPitchX = 9.5f;
     /// Shortest credible flight time from release to pitching, in seconds.
     public const float MinFlightTime = 0.18f;
-    /// Height of the ball's centre when it pitches (its radius).
-    public const float BounceHeight = 0.05f;
+    /// Height of the ball's centre when it pitches (its radius). Regulation ball, 72 mm across.
+    public const float BounceHeight = 0.036f;
 
     public struct Solution
     {
