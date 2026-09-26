@@ -18,6 +18,7 @@ public static class Constants
     public const string PP_GripLeftEuler = "grip_left_euler";
     public const string PP_GripRightPosition = "grip_right_pos";
     public const string PP_GripRightEuler = "grip_right_euler";
+    public const string PP_BatPower = "bat_power";
 
     public const string CT_MinX = "minX";
     public const string CT_MaxX = "maxX";
@@ -83,6 +84,11 @@ public static class Constants
     /// The configs' speed "impulses" were tuned against a 0.2 kg ball. The ball is now a real
     /// 0.16 kg, so speeds are converted with this, not with the Rigidbody mass.
     public const float ConfigImpulseMass = 0.2f;
+    /// km/h per config speed unit (the settings panel shows bowling speed in km/h).
+    public const float KmhPerSpeedUnit = 3.6f / ConfigImpulseMass;
+
+    /// Main.BatAmplifier at which the bat behaves like a real one (the settings panel's "Realistic").
+    public const float BatPowerRealistic = 75f;
 
 
     //For testing(same ball every time)

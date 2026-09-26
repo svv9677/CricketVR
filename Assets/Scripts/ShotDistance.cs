@@ -6,6 +6,7 @@ using UnityEngine;
 /// Six distance. Blank for every other outcome. When a hit clears the rope on the full, the flight
 /// is carried on from where it crossed - same speed, same drag (BallFlight) - to where it would
 /// have come down, and the display shows how far that is from where the ball was struck.
+/// The shot card (ShotCard) also gets every hit's projected carry, and the six distance.
 /// </summary>
 public class ShotDistance : MonoBehaviour
 {
@@ -24,11 +25,17 @@ public class ShotDistance : MonoBehaviour
         setText("");
     }
 
-    /// The bat met the ball here.
+    /// The bat met the ball here (called once the ball has its new velocity). The shot card gets
+    /// the projected carry straight away: where the ball will first land, ignoring fielders.
     public void RecordHit(Vector3 position)
     {
         hitPoint = position;
         setText("");
+        Rigidbody ball = Main.Instance != null ? Main.Instance.theBallRigidBody : null;
+        if (ShotCard.Instance == null || ball == null)
+            return;
+        BallFlight.Simulate(position, ball.linearVelocity, BallFlight.DeliveryEffects.None, 8f, samples, s => s.bounced);
+        ShotCard.Instance.SetDistance(HorizontalFromHit(LastSample(position)), false);
     }
 
     /// The ball has just cleared the rope without bouncing.
@@ -37,10 +44,15 @@ public class ShotDistance : MonoBehaviour
         float ground = BallFlight.OutfieldY + BallFlight.Radius;
         BallFlight.Simulate(position, velocity, BallFlight.DeliveryEffects.None, 10f, samples,
             s => s.position.y <= ground && s.velocity.y <= 0f || s.bounced);
-        Vector3 landing = samples.Count > 0 ? samples[samples.Count - 1].position : position;
-        float distance = new Vector2(landing.x - hitPoint.x, landing.z - hitPoint.z).magnitude;
+        float distance = HorizontalFromHit(LastSample(position));
         setText($"{distance:F0} m");
+        if (ShotCard.Instance != null)
+            ShotCard.Instance.SetDistance(distance, true);
     }
+
+    private Vector3 LastSample(Vector3 fallback) => samples.Count > 0 ? samples[samples.Count - 1].position : fallback;
+
+    private float HorizontalFromHit(Vector3 point) => new Vector2(point.x - hitPoint.x, point.z - hitPoint.z).magnitude;
 
     public void setText(string text)
     {
