@@ -91,6 +91,7 @@ public class HUD : MonoBehaviour
             HUD.Instance = this;
 
         Main.Instance.onGameStateChanged += HandleGameState;
+        Bat.ShotStruck += ShowShot;
 
         Reset();
     }
@@ -138,7 +139,9 @@ public class HUD : MonoBehaviour
 
     public void OnDestroy()
     {
-        Main.Instance.onGameStateChanged -= HandleGameState;
+        Bat.ShotStruck -= ShowShot;
+        if (Main.Instance != null)
+            Main.Instance.onGameStateChanged -= HandleGameState;
     }
 
     // Update is called once per frame

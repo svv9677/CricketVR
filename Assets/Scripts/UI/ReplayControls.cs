@@ -9,7 +9,7 @@ using UnityEngine.UI;
 ///
 /// Every call into the replay system is in this file, against this API only:
 ///   ShotReplay.Instance, .Play(), .Stop(), .TogglePause(), .StepSpeed(int), .Speed, .HasShot,
-///   event .StateChanged (no arguments);
+///   .IsPlaying, .IsPaused, event .StateChanged (no arguments);
 ///   CameraReplay.Instance, .SetScreenInFront(bool), .ScreenInFront.
 /// Both instances may be missing in a scene (Nets), so every use is null-checked.
 /// Built into the NextBallMenu prefab by Tools > CricketVR > Build Player UI.
@@ -56,9 +56,13 @@ public class ReplayControls : MonoBehaviour
     {
         ShotReplay replay = ShotReplay.Instance;
         bool hasShot = replay != null && replay.HasShot;
+        bool playing = hasShot && replay.IsPlaying;
         SetInteractable(replayButton, hasShot);
-        SetInteractable(pauseButton, hasShot);
-        SetInteractable(stopButton, hasShot);
+        SetInteractable(pauseButton, playing);
+        SetInteractable(stopButton, playing);
+        TMP_Text pauseLabel = pauseButton != null ? pauseButton.GetComponentInChildren<TMP_Text>(true) : null;
+        if (pauseLabel != null)
+            pauseLabel.text = playing && replay.IsPaused ? "Resume" : "Pause";
         SetInteractable(slowerButton, hasShot);
         SetInteractable(fasterButton, hasShot);
         if (speedLabel != null)

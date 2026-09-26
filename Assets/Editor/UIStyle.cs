@@ -15,7 +15,8 @@ using UnityEngine.UI;
 public static class UIStyle
 {
     // ---- Palette -------------------------------------------------------------------------------
-    public static readonly Color Card = Hex(0x0F1217, 0.9f);
+    // Near-opaque: at 0.9 the pitch and stands showed through behind the text in the headset view.
+    public static readonly Color Card = Hex(0x0F1217, 0.97f);
     public static readonly Color Well = Hex(0x07090C, 0.6f);          // behind segmented options
     public static readonly Color Surface = Hex(0x252B35);
     public static readonly Color SurfaceHover = Hex(0x323A47);

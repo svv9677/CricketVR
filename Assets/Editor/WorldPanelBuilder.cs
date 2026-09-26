@@ -11,10 +11,6 @@ using UnityEngine.UI;
 /// sliders, range sliders) are in UIControls; the panels themselves in UIPrefabBuilder
 /// (Tools > CricketVR > Build Player UI). Every control is wired with a persistent (saved)
 /// listener, so the prefabs work with nothing created or hooked up at runtime.
-///
-/// The "Legacy" section keeps the old API that CricketVRSceneBuilder (Tools > CricketVR > Build UI
-/// Prefabs) still calls, drawn in the new style; it can go once that builder calls
-/// UIPrefabBuilder.BuildPanels instead.
 /// </summary>
 public static class WorldPanelBuilder
 {
@@ -192,91 +188,5 @@ public static class WorldPanelBuilder
     public static void NoNavigation(Selectable selectable)
     {
         selectable.navigation = new Navigation { mode = Navigation.Mode.None };
-    }
-
-    // ---- Legacy (CricketVRSceneBuilder) ----------------------------------------------------------
-
-    public static Color Card => UIStyle.Card;
-    public static Color Primary => UIStyle.Accent;
-    public static Color Accent => UIStyle.Accent;
-    public static Color Neutral => UIStyle.Surface;
-    public static Color Danger => UIStyle.Surface;
-    public static Color Muted => UIStyle.TextMuted;
-
-    /// LEGACY. A card canvas ("Panel") of `root`, 1 px = 1 mm, with an optional title and help.
-    public static GameObject Panel(GameObject root, float width, string title, string help = null)
-    {
-        var panel = Canvas(root, width, 0.001f, true);
-        MakeCard(panel);
-        FitContent(panel, false);
-        if (!string.IsNullOrEmpty(title))
-            Text(panel.transform, title, UIStyle.TitleSize, FontStyles.Bold, UIStyle.Text, 52f, TextAlignmentOptions.Left);
-        if (!string.IsNullOrEmpty(help))
-            Text(panel.transform, help, UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 0f, TextAlignmentOptions.Left);
-        return panel;
-    }
-
-    /// LEGACY. A button whose Image carries `color` (tinted brighter on hover).
-    public static TextMeshProUGUI Button(Transform parent, string label, UnityAction onClick, Color color, float height = UIStyle.Control)
-    {
-        return Button(parent, label, onClick, color, height, out _);
-    }
-
-    public static TextMeshProUGUI Button(Transform parent, string label, UnityAction onClick, Color color, float height, out Image background)
-    {
-        var go = new GameObject(label, typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button), typeof(LayoutElement));
-        go.transform.SetParent(parent, false);
-        go.GetComponent<LayoutElement>().preferredHeight = height;
-        background = go.GetComponent<Image>();
-        UIStyle.RoundedImage(background, color, UIStyle.ControlCorners);
-        var button = go.GetComponent<UnityEngine.UI.Button>();
-        button.colors = Tint(button.colors);
-        NoNavigation(button);
-        UnityEventTools.AddVoidPersistentListener(button.onClick, onClick);
-        return FillLabel(go.transform, label, UIStyle.ButtonSize, UIStyle.Text);
-    }
-
-    /// LEGACY. A radio/toggle button: lit in the accent colour while on. Grouped when `group` is set.
-    public static Toggle Choice(Transform parent, string label, UnityAction<bool> onChanged, ToggleGroup group, float height = UIStyle.Control)
-    {
-        var go = new GameObject(label, typeof(RectTransform), typeof(Image), typeof(Toggle), typeof(LayoutElement));
-        go.transform.SetParent(parent, false);
-        go.GetComponent<LayoutElement>().preferredHeight = height;
-        var background = go.GetComponent<Image>();
-        UIStyle.RoundedImage(background, Color.white, UIStyle.ControlCorners);
-        var on = Overlay(go.transform, "On");
-        UIStyle.RoundedImage(on, UIStyle.Accent, UIStyle.ControlCorners);
-        var toggle = go.GetComponent<Toggle>();
-        toggle.targetGraphic = background;
-        toggle.graphic = on;
-        toggle.group = group;
-        toggle.colors = UIStyle.Colors(false);
-        toggle.isOn = false;
-        NoNavigation(toggle);
-        UnityEventTools.AddPersistentListener(toggle.onValueChanged, onChanged);
-        FillLabel(go.transform, label, UIStyle.ButtonSize, UIStyle.Text);
-        return toggle;
-    }
-
-    /// LEGACY. Label, slider, value readout on one line.
-    public static SettingsPanel.SliderRow Slider(Transform parent, string label, float min, float max, UnityAction<float> onChanged)
-    {
-        Transform row = Column(parent, false, UIStyle.Gap);
-        row.GetComponent<LayoutElement>().preferredHeight = UIStyle.SliderRow;
-        NoForceExpand(row);
-        Line(row, label, UIStyle.HintSize, FontStyles.Normal, UIStyle.Text, UIStyle.SliderRow, TextAlignmentOptions.Left, 190f);
-        UnityEngine.UI.Slider slider = UIControls.BareSlider(row, min, max, false, onChanged, float.NaN);
-        slider.GetComponent<LayoutElement>().flexibleWidth = 1f;
-        var value = Line(row, "0", UIStyle.HintSize, FontStyles.Bold, UIStyle.AccentText, UIStyle.SliderRow, TextAlignmentOptions.Right, 80f);
-        return new SettingsPanel.SliderRow { slider = slider, value = value };
-    }
-
-    private static ColorBlock Tint(ColorBlock colors)
-    {
-        colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1.3f, 1.3f, 1.3f);
-        colors.pressedColor = new Color(0.75f, 0.75f, 0.75f);
-        colors.selectedColor = Color.white;
-        return colors;
     }
 }

@@ -33,9 +33,9 @@ public static class CricketVRSceneBuilder
         Directory.CreateDirectory(UiFolder);
         Transform uiRoot = FindOrCreateRoot("UI");
 
-        SettingsPanel settings = BuildSettingsPanel(uiRoot);
-        BuildNextBallMenu(uiRoot);
-        BuildGripCalibrationPanel(uiRoot);
+        // The player UI (settings, between-balls menu with the replay card, grip calibration, shot
+        // card) - see UIPrefabBuilder.
+        SettingsPanel settings = UIPrefabBuilder.BuildPanels(uiRoot);
 
         var main = Object.FindFirstObjectByType<Main>();
         var mainSo = new SerializedObject(main);
@@ -52,110 +52,6 @@ public static class CricketVRSceneBuilder
         EditorSceneManager.SaveScene(main.gameObject.scene);
         AssetDatabase.SaveAssets();
         Debug.Log("[CricketVRSceneBuilder] UI prefabs, pointer, player, bat and replay set up. Nothing is created at runtime.");
-    }
-
-    // ---- Panels ------------------------------------------------------------------------------
-
-    private static SettingsPanel BuildSettingsPanel(Transform uiRoot)
-    {
-        var root = new GameObject("SettingsPanel");
-        var c = root.AddComponent<SettingsPanel>();
-        var panel = WorldPanelBuilder.Panel(root, 1000f, null);
-
-        Transform header = WorldPanelBuilder.Column(panel.transform, false);
-        header.GetComponent<LayoutElement>().preferredHeight = 60f;
-        var title = WorldPanelBuilder.Text(header, "Settings", 40f, TMPro.FontStyles.Bold, Color.white, 60f, TMPro.TextAlignmentOptions.Left);
-        title.GetComponent<LayoutElement>().flexibleWidth = 1f;
-        var close = WorldPanelBuilder.Button(header, "Close  <size=70%>(B)</size>", c.OnClose, WorldPanelBuilder.Neutral, 56f);
-        close.transform.parent.GetComponent<LayoutElement>().preferredWidth = 220f;
-        close.transform.parent.GetComponent<LayoutElement>().flexibleWidth = 0f;
-
-        Transform body = WorldPanelBuilder.Column(panel.transform, false, 28f);
-        Transform left = WorldPanelBuilder.Column(body, true);
-        Transform right = WorldPanelBuilder.Column(body, true);
-
-        WorldPanelBuilder.Section(left, "Batting");
-        Transform hands = WorldPanelBuilder.Column(left, false);
-        var handGroup = hands.gameObject.AddComponent<ToggleGroup>();
-        c.leftHanded = WorldPanelBuilder.Choice(hands, "Left-handed", c.OnLeftHanded, handGroup);
-        c.rightHanded = WorldPanelBuilder.Choice(hands, "Right-handed", c.OnRightHanded, handGroup);
-        WorldPanelBuilder.Button(left, "Calibrate Bat Grip", c.OnCalibrateGrip, WorldPanelBuilder.Primary);
-        WorldPanelBuilder.Button(left, "Reset Bat Grip", c.OnResetGrip, WorldPanelBuilder.Neutral, 52f);
-        WorldPanelBuilder.Section(left, "Difficulty");
-        Transform levels = WorldPanelBuilder.Column(left, false);
-        var levelGroup = levels.gameObject.AddComponent<ToggleGroup>();
-        c.easy = WorldPanelBuilder.Choice(levels, "Easy", c.OnEasy, levelGroup);
-        c.medium = WorldPanelBuilder.Choice(levels, "Medium", c.OnMedium, levelGroup);
-        c.hard = WorldPanelBuilder.Choice(levels, "Hard", c.OnHard, levelGroup);
-        WorldPanelBuilder.Section(left, "Display");
-        c.overlay = WorldPanelBuilder.Choice(left, "Show Debug Overlay", c.OnOverlay, null);
-
-        WorldPanelBuilder.Section(right, "Game");
-        c.resetDelay = WorldPanelBuilder.Slider(right, "Reset delay", 0f, 5f, c.OnResetDelay);
-        c.fielderSpeed = WorldPanelBuilder.Slider(right, "Fielder speed", 0.5f, 2.5f, c.OnFielderSpeed);
-        c.batPower = WorldPanelBuilder.Slider(right, "Bat power", 50f, 200f, c.OnBatPower);
-        c.ampMin = WorldPanelBuilder.Slider(right, "Min amplifier", 0f, 15f, c.OnAmpMin);
-        c.ampMax = WorldPanelBuilder.Slider(right, "Max amplifier", 0f, 25f, c.OnAmpMax);
-        c.bowlingType = WorldPanelBuilder.Section(right, "Bowling");
-        c.minSpeed = WorldPanelBuilder.Slider(right, "Min speed", 0f, 10f, c.OnMinSpeed);
-        c.maxSpeed = WorldPanelBuilder.Slider(right, "Max speed", 0f, 10f, c.OnMaxSpeed);
-        c.minLine = WorldPanelBuilder.Slider(right, "Min line", -0.75f, 0.75f, c.OnMinLine);
-        c.maxLine = WorldPanelBuilder.Slider(right, "Max line", -0.75f, 0.75f, c.OnMaxLine);
-        c.minSwing = WorldPanelBuilder.Slider(right, "Min swing", 0f, 1f, c.OnMinSwing);
-        c.maxSwing = WorldPanelBuilder.Slider(right, "Max swing", 0f, 1f, c.OnMaxSwing);
-        c.minTurn = WorldPanelBuilder.Slider(right, "Min turn", -0.1f, 1f, c.OnMinTurn);
-        c.maxTurn = WorldPanelBuilder.Slider(right, "Max turn", -0.1f, 1f, c.OnMaxTurn);
-
-        SetField(c, "panel", panel);
-        Save(root, uiRoot);
-        return c;   // the scene instance (SaveAsPrefabAssetAndConnect returns the asset, not this)
-    }
-
-    private static void BuildNextBallMenu(Transform uiRoot)
-    {
-        var root = new GameObject("NextBallMenu");
-        var c = root.AddComponent<NextBallMenu>();
-        var panel = WorldPanelBuilder.Panel(root, 460f, null);
-        WorldPanelBuilder.Button(panel.transform, "Next Ball  <size=70%>(A)</size>", c.OnNextBall, WorldPanelBuilder.Primary, 70f);
-        var bowler = WorldPanelBuilder.Button(panel.transform, "Change Bowler", c.OnChangeBowler, WorldPanelBuilder.Accent);
-        WorldPanelBuilder.Button(panel.transform, "Settings", c.OnSettings, WorldPanelBuilder.Neutral);
-        WorldPanelBuilder.Button(panel.transform, "Calibrate Grip", c.OnCalibrateGrip, WorldPanelBuilder.Neutral);
-        SetField(c, "panel", panel);
-        SetField(c, "bowlerLabel", bowler);
-        Save(root, uiRoot);
-    }
-
-    private static void BuildGripCalibrationPanel(Transform uiRoot)
-    {
-        var root = new GameObject("GripCalibrationPanel");
-        var c = root.AddComponent<GripCalibrationPanel>();
-        var panel = WorldPanelBuilder.Panel(root, 440f, "Calibrate Grip",
-            "Hold the see-through handle the way you bat, then lock it. Stand the bat upright or lay it flat - whichever is easier to line up.");
-        Transform pair = WorldPanelBuilder.Column(panel.transform, false);
-        pair.GetComponent<LayoutElement>().preferredHeight = 62f;
-        WorldPanelBuilder.Button(pair, "Upright", c.OnUpright, WorldPanelBuilder.Accent, 62f, out Image upright);
-        WorldPanelBuilder.Button(pair, "Flat", c.OnFlat, WorldPanelBuilder.Neutral, 62f, out Image flat);
-        WorldPanelBuilder.Button(panel.transform, "Lock Grip  <size=70%>(A)</size>", c.OnLock, WorldPanelBuilder.Primary, 68f);
-        WorldPanelBuilder.Button(panel.transform, "Cancel  <size=70%>(B)</size>", c.OnCancel, WorldPanelBuilder.Danger);
-        WorldPanelBuilder.Text(panel.transform, "X / Y also switches upright / flat", 20f, TMPro.FontStyles.Italic, WorldPanelBuilder.Muted, 30f);
-        SetField(c, "panel", panel);
-        SetField(c, "uprightButton", upright);
-        SetField(c, "flatButton", flat);
-        SetField(c, "selected", WorldPanelBuilder.Accent);
-        SetField(c, "unselected", WorldPanelBuilder.Neutral);
-        Save(root, uiRoot);
-    }
-
-    /// Save as a prefab under Resources/Prefabs/UI and leave `root` in the scene as a connected
-    /// instance, replacing any previous instance. Returns the prefab asset.
-    private static GameObject Save(GameObject root, Transform uiRoot)
-    {
-        Transform old = uiRoot.Find(root.name);
-        if (old != null)
-            Object.DestroyImmediate(old.gameObject);
-        root.transform.SetParent(uiRoot, false);
-        string path = $"{UiFolder}/{root.name}.prefab";
-        return PrefabUtility.SaveAsPrefabAssetAndConnect(root, path, InteractionMode.AutomatedAction);
     }
 
     // ---- Pointer / input ---------------------------------------------------------------------

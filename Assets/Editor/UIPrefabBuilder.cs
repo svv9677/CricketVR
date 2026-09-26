@@ -116,7 +116,9 @@ public static class UIPrefabBuilder
         c.difficultyHint = UIControls.LabelLine(difficulty, "Difficulty", "", out _);
         c.difficultyLevel = UIControls.Segmented(difficulty, new[] { "Easy", "Medium", "Hard" }, c.OnDifficulty);
 
-        c.batPowerSlider = UIControls.ValueSlider(column, "Bat power", 25f, 200f, true, c.OnBatPower, Constants.BatPowerRealistic);
+        // 50%-150% of a real swing: BatContact.SwingScale clamps to exactly this, so every position
+        // of the slider does something and none promises pace the physics will not give.
+        c.batPowerSlider = UIControls.ValueSlider(column, "Bat power", 38f, 112f, true, c.OnBatPower, Constants.BatPowerRealistic);
 
         Transform grip = InlineField(column, "Grip");
         UIControls.ActionButton(grip, "Calibrate", c.OnCalibrateGrip, false);
@@ -197,7 +199,7 @@ public static class UIPrefabBuilder
         UIControls.ActionButton(card, "Bowl" + A, c.OnNextBall, true, 88f);
         Transform more = WorldPanelBuilder.Column(card, false, UIStyle.Gap);
         UIControls.ActionButton(more, "Settings" + B, c.OnSettings, false);
-        UIControls.ActionButton(more, "Calibrate grip", c.OnCalibrateGrip, false);
+        UIControls.ActionButton(more, "Bat grip", c.OnCalibrateGrip, false);   // "Calibrate grip" clipped
         return label;
     }
 

@@ -106,7 +106,6 @@ public partial class SettingsPanel : MonoBehaviour
         SetSlider(fielderSpeedSlider, m.fielderSpeed, $"{m.fielderSpeed:0.0}×");
         if (overlayToggle != null)
             overlayToggle.SetIsOnWithoutNotify(m.overlayVisible);
-        RefreshLegacy(m);
     }
 
     private void RefreshBowling(Main m)
