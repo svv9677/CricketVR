@@ -1,115 +1,63 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.InputSystem.XR;
-using UnityEngine.UI;
 
-/// <summary>Wires the settings menu to Unity's OpenXR-compatible UI input stack.</summary>
+/// <summary>
+/// Drives the world-space menus (settings, between-balls, grip calibration) with the controller
+/// laser, through Unity's OpenXR-compatible UI input stack.
+///
+/// Lives on the scene's EventSystem, with everything it needs placed and assigned in the editor by
+/// Tools > CricketVR > Build UI Prefabs - the input module, the aim transform, the laser, and a
+/// saved input-actions asset whose pointer bindings already point at the XR controllers. Nothing
+/// is created at runtime. (It used to be set up by the Oculus DebugUIBuilder, which spawned an
+/// EventSystem, cloned the default actions and added raycasters when the game started.)
+///
+/// Panels register themselves when first shown; the pointer and the UI input run only while one
+/// of them is open.
+/// </summary>
 public class OpenXRMenuInputModule : MonoBehaviour
 {
-    private InputSystemUIInputModule inputModule;
-    private InputActionAsset menuActions;
-    private GameObject menu;
-    private LaserPointer laser;
-    private LineRenderer beam;
-    private Transform aim;
+    [SerializeField] private InputSystemUIInputModule inputModule;
+    [SerializeField] private InputActionAsset menuActions;
+    [SerializeField] private LaserPointer laser;
+    [SerializeField] private LineRenderer beam;
+    [SerializeField] private Transform aim;
+
     private XRController activeHand;
-    // Other world-space panels (e.g. the between-balls menu) that the same pointer drives.
-    private readonly System.Collections.Generic.List<GameObject> extraMenus = new System.Collections.Generic.List<GameObject>();
+    private readonly List<GameObject> panels = new List<GameObject>();
 
     public static OpenXRMenuInputModule Instance { get; private set; }
 
-    /// Let the laser pointer drive another world-space panel as well as the settings menu.
-    public static void RegisterPanel(GameObject panelRoot)
+    private void Awake()
     {
-        if (Instance == null || panelRoot == null || Instance.extraMenus.Contains(panelRoot))
-            return;
-        Instance.extraMenus.Add(panelRoot);
-        Instance.SetUpCanvases(panelRoot);
+        Instance = this;
+        inputModule.actionsAsset = menuActions;
+        inputModule.enabled = false;
+        // This driver draws the beam itself, after the EventSystem has raycast this frame.
+        laser.enabled = false;
+        laser.gameObject.SetActive(false);
     }
 
-    private bool ExtraMenuVisible()
+    /// Let the laser drive this panel. Its canvas already carries the raycasters (prefab).
+    public static void RegisterPanel(GameObject panel)
     {
-        foreach (GameObject m in extraMenus)
-            if (m != null && m.activeInHierarchy)
+        if (Instance == null || panel == null || Instance.panels.Contains(panel))
+            return;
+        Instance.panels.Add(panel);
+        foreach (var canvas in panel.GetComponentsInChildren<Canvas>(true))
+            canvas.worldCamera = Camera.main;
+    }
+
+    private bool AnyPanelOpen()
+    {
+        foreach (GameObject p in panels)
+            if (p != null && p.activeInHierarchy)
                 return true;
         return false;
-    }
-
-    private void SetUpCanvases(GameObject root)
-    {
-        foreach (var canvas in root.GetComponentsInChildren<Canvas>(true))
-        {
-            canvas.worldCamera = Camera.main;
-            foreach (var old in canvas.GetComponents<OVRRaycaster>()) old.enabled = false;
-            GraphicRaycaster mouse = null;
-            foreach (var candidate in canvas.GetComponents<GraphicRaycaster>())
-                if (candidate.GetType() == typeof(GraphicRaycaster)) { mouse = candidate; break; }
-            if (mouse == null) mouse = canvas.gameObject.AddComponent<GraphicRaycaster>();
-            mouse.enabled = true;
-            var tracked = canvas.GetComponent<TrackedDeviceRaycaster>();
-            if (tracked == null) tracked = canvas.gameObject.AddComponent<TrackedDeviceRaycaster>();
-            tracked.maxDistance = laser != null ? laser.maxLength : 10f;
-            // Menus should remain usable in front of the bat/body colliders.
-            tracked.checkFor3DOcclusion = false;
-            tracked.checkFor2DOcclusion = false;
-        }
-    }
-
-    public static void Configure(GameObject menuRoot, GameObject helpers, LaserPointer pointer)
-    {
-        var helperSystem = helpers != null ? helpers.GetComponentInChildren<EventSystem>(true) : null;
-        EventSystem system = null;
-        foreach (var candidate in FindObjectsByType<EventSystem>(FindObjectsSortMode.None))
-            if (candidate != helperSystem && candidate.isActiveAndEnabled) { system = candidate; break; }
-        if (system == null) system = helperSystem;
-        if (system == null)
-            system = new GameObject("Menu EventSystem", typeof(EventSystem)).GetComponent<EventSystem>();
-        if (helperSystem != null && helperSystem != system) helperSystem.enabled = false;
-        if (helpers != null)
-            foreach (var old in helpers.GetComponentsInChildren<BaseInputModule>(true)) old.enabled = false;
-        foreach (var old in system.GetComponents<BaseInputModule>()) old.enabled = false;
-
-        var driver = system.GetComponent<OpenXRMenuInputModule>();
-        if (driver == null) driver = system.gameObject.AddComponent<OpenXRMenuInputModule>();
-        driver.menu = menuRoot;
-        driver.laser = pointer;
-        driver.beam = pointer.GetComponent<LineRenderer>();
-        driver.beam.sharedMaterial = Resources.Load<Material>("Materials/XRPointer");
-        driver.beam.useWorldSpace = true;
-        driver.beam.widthMultiplier = 0.004f;
-        driver.beam.numCapVertices = 4;
-        driver.beam.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        driver.beam.receiveShadows = false;
-        if (pointer.cursorVisual != null)
-        {
-            var renderer = pointer.cursorVisual.GetComponent<Renderer>();
-            if (renderer != null) renderer.sharedMaterial = driver.beam.sharedMaterial;
-        }
-        driver.aim = new GameObject("OpenXR Menu Aim").transform;
-        driver.aim.SetParent(system.transform, false);
-        driver.inputModule = system.GetComponent<InputSystemUIInputModule>();
-        if (driver.inputModule == null) driver.inputModule = system.gameObject.AddComponent<InputSystemUIInputModule>();
-        driver.inputModule.enabled = false;
-        driver.inputModule.AssignDefaultActions();
-        // Clone the defaults so the aim bindings never modify another UI module's actions.
-        driver.menuActions = Instantiate(driver.inputModule.actionsAsset);
-        driver.inputModule.actionsAsset = driver.menuActions;
-        SetAimBinding(driver.inputModule.trackedDevicePosition.action, "<XRController>/pointerPosition");
-        SetAimBinding(driver.inputModule.trackedDeviceOrientation.action, "<XRController>/pointerRotation");
-        driver.inputModule.xrTrackingOrigin = Camera.main != null ? Camera.main.transform.parent : null;
-
-        driver.SetUpCanvases(menuRoot);
-        Instance = driver;
-        // This driver updates the visual after EventSystem processes this frame's raycasts.
-        pointer.enabled = false;
-    }
-
-    private static void SetAimBinding(InputAction action, string path)
-    {
-        for (int i = 0; i < action.bindings.Count; i++) action.ApplyBindingOverride(i, path);
     }
 
     private static bool IsTracked(XRController hand)
@@ -119,23 +67,17 @@ public class OpenXRMenuInputModule : MonoBehaviour
 
     private void Update()
     {
-        if (inputModule == null) return;
         if (inputModule.xrTrackingOrigin == null && Camera.main != null)
             inputModule.xrTrackingOrigin = Camera.main.transform.parent;
-        bool settings = menu != null && menu.activeInHierarchy;
-        bool extra = ExtraMenuVisible();
-        bool visible = (settings || extra) && Application.isFocused;
-        // Disable flushes pressed/drag/hover state when the menu closes or focus is lost.
-        // Keep the module enabled without an HMD for mouse interaction in the Editor.
-        inputModule.enabled = visible;
-        // The laser object is switched with the settings menu; a between-balls panel needs it too.
-        if (laser != null && !settings)
-            laser.gameObject.SetActive(extra);
+        bool open = AnyPanelOpen() && Application.isFocused;
+        // Disabling flushes pressed/drag/hover state when the menus close or focus is lost.
+        inputModule.enabled = open;
+        if (laser.gameObject.activeSelf != open)
+            laser.gameObject.SetActive(open);
     }
 
     private void LateUpdate()
     {
-        if (laser == null || inputModule == null) return;
         var right = XRController.rightHand;
         var left = XRController.leftHand;
         if (!IsTracked(activeHand)) activeHand = IsTracked(right) ? right : left;
@@ -156,7 +98,7 @@ public class OpenXRMenuInputModule : MonoBehaviour
         var hit = inputModule.GetLastRaycastResult(activeHand.deviceId);
         bool hasHit = hit.gameObject != null;
         Vector3 end = hasHit ? hit.worldPosition : aim.position + aim.forward * laser.maxLength;
-        // An aiming ray must be visible even before it intersects the menu.
+        // An aiming ray must be visible even before it intersects a menu.
         beam.enabled = true;
         beam.SetPosition(0, aim.position);
         beam.SetPosition(1, end);
@@ -167,10 +109,8 @@ public class OpenXRMenuInputModule : MonoBehaviour
         }
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
         if (inputModule != null) inputModule.enabled = false;
-        if (menuActions != null) Destroy(menuActions);
-        if (aim != null) Destroy(aim.gameObject);
     }
 }

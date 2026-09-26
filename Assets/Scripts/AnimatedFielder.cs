@@ -113,13 +113,100 @@ public class AnimatedFielder : MonoBehaviour
         hasTarget = false;
     }
 
-    /// The ball is in reach: take it and hold it.
+    /// The ball is in reach: take it and hold it. Stop dead - the controller has no transition from
+    /// the run to the pick-up, so asking for it left the fielder running on with the ball.
     public void TakeBall()
     {
         holdingBall = true;
         hasTarget = false;
         speed = 0f;
-        SetAnimation(4);
+        SetAnimation(0);
+        if (myAnimator != null)
+            myAnimator.CrossFadeInFixedTime("0 Idle", 0.12f);
+    }
+
+    // ---- Hands to the ball (humanoid IK; the controller's base layer has IK Pass on) -----------
+    /// The hands start reaching at this distance from the chest and are fully on the ball here.
+    private const float ReachStart = 3f, ReachFull = 1.2f;
+    /// Keep the hands this far in front of the chest, and let them cross the body's midline by at
+    /// most this much, so the arms never pass through the torso.
+    private const float MinInFront = 0.2f, MaxAcrossMidline = 0.12f;
+    /// Fraction of the arm's length a hand may reach, so the elbow never locks straight.
+    private const float MaxExtension = 0.95f;
+    private float ikWeight;
+    private Transform leftUpperArm, rightUpperArm, chest;
+    private float leftArmLength, rightArmLength;
+
+    private void CacheBones()
+    {
+        if (myAnimator == null || !myAnimator.isHuman || chest != null)
+            return;
+        leftUpperArm = myAnimator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
+        rightUpperArm = myAnimator.GetBoneTransform(HumanBodyBones.RightUpperArm);
+        chest = myAnimator.GetBoneTransform(HumanBodyBones.Chest) ?? myAnimator.GetBoneTransform(HumanBodyBones.Spine);
+        leftArmLength = ArmLength(HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand);
+        rightArmLength = ArmLength(HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm, HumanBodyBones.RightHand);
+    }
+
+    private float ArmLength(HumanBodyBones upper, HumanBodyBones lower, HumanBodyBones hand)
+    {
+        Transform u = myAnimator.GetBoneTransform(upper), l = myAnimator.GetBoneTransform(lower), h = myAnimator.GetBoneTransform(hand);
+        return u != null && l != null && h != null ? Vector3.Distance(u.position, l.position) + Vector3.Distance(l.position, h.position) : 0.6f;
+    }
+
+    private void OnAnimatorIK(int layerIndex)
+    {
+        CacheBones();
+        if (chest == null)
+            return;
+        Main inst = Main.Instance;
+        Vector3 focus;
+        float want;
+        if (holdingBall)
+        {
+            // Both hands on the ball in front of the chest.
+            focus = chest.position + transform.forward * 0.32f - transform.up * 0.1f;
+            want = 1f;
+        }
+        else
+        {
+            focus = inst.theBall.transform.position;
+            bool live = !inst.theBallRigidBody.isKinematic &&
+                        (inst.gameState == eGameState.InGame_BallHit || inst.gameState == eGameState.InGame_BallHitLoop);
+            want = live ? Mathf.InverseLerp(ReachStart, ReachFull, Vector3.Distance(focus, chest.position)) : 0f;
+        }
+        ikWeight = Mathf.MoveTowards(ikWeight, want, Time.deltaTime * 5f);
+
+        myAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, ikWeight);
+        myAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, ikWeight);
+        myAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, ikWeight);
+        myAnimator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, ikWeight);
+        myAnimator.SetLookAtWeight(ikWeight * 0.8f, 0.15f, 0.8f, 0.4f, 0.5f);
+        if (ikWeight <= 0.001f)
+            return;
+
+        // Cupped hands either side of the ball.
+        Vector3 apart = transform.right * 0.07f;
+        myAnimator.SetIKPosition(AvatarIKGoal.LeftHand, Reachable(focus - apart, true));
+        myAnimator.SetIKPosition(AvatarIKGoal.RightHand, Reachable(focus + apart, false));
+        // Elbows out and down, never folded in against the ribs.
+        myAnimator.SetIKHintPosition(AvatarIKHint.LeftElbow, leftUpperArm.position + (-transform.right * 0.35f - transform.up * 0.35f - transform.forward * 0.05f));
+        myAnimator.SetIKHintPosition(AvatarIKHint.RightElbow, rightUpperArm.position + (transform.right * 0.35f - transform.up * 0.35f - transform.forward * 0.05f));
+        myAnimator.SetLookAtPosition(focus);
+    }
+
+    /// Clamp a hand target to where that arm can really go.
+    private Vector3 Reachable(Vector3 target, bool left)
+    {
+        Vector3 local = transform.InverseTransformPoint(target);
+        Vector3 chestLocal = transform.InverseTransformPoint(chest.position);
+        local.z = Mathf.Max(local.z, chestLocal.z + MinInFront);
+        local.x = left ? Mathf.Max(local.x, chestLocal.x - MaxAcrossMidline) : Mathf.Min(local.x, chestLocal.x + MaxAcrossMidline);
+        Vector3 world = transform.TransformPoint(local);
+        Transform shoulder = left ? leftUpperArm : rightUpperArm;
+        float reach = (left ? leftArmLength : rightArmLength) * MaxExtension;
+        Vector3 fromShoulder = world - shoulder.position;
+        return fromShoulder.magnitude > reach ? shoulder.position + fromShoulder.normalized * reach : world;
     }
 
     private void Update()

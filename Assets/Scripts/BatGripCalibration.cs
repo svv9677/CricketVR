@@ -3,10 +3,11 @@ using UnityEngine;
 /// <summary>
 /// Lets the player set the bat grip to their own hand instead of the offsets baked into the scene.
 ///
-/// Flow: "Calibrate Grip - Upright" in the B menu stands the bat in front of the player, face
-/// toward the bowler, toe just off the floor - a batting stance; "Calibrate Grip - Flat" lays it
-/// level at waist height, handle toward the player. The bat is drawn see-through meanwhile so the
-/// controller shows inside the handle. The player puts the batting-hand
+/// Flow: "Calibrate Bat Grip" (B menu or the between-balls panel) stands the bat in front of the
+/// player, face toward the bowler, toe just off the floor - a batting stance. A panel beside it
+/// switches to Flat (level at waist height, handle toward the player) and back, and has Lock and
+/// Cancel; X or Y also switch. The bat is drawn see-through meanwhile so the controller shows
+/// inside the handle. The player puts the batting-hand
 /// controller on the handle the way they hold a real bat and presses A. The hand-to-bat pose at
 /// that moment becomes the grab offset for that hand, and is saved to PlayerPrefs so it survives
 /// restarts. B cancels and puts the previous grip back.
@@ -32,7 +33,6 @@ public class BatGripCalibration : MonoBehaviour
     private Vector3 previousPosition;
     private Vector3 previousEuler;
     private Vector3 defaultLeftPosition, defaultLeftEuler, defaultRightPosition, defaultRightEuler;
-    private TMPro.TextMeshPro prompt;
 
     public bool IsActive { get; private set; }
 
@@ -63,7 +63,23 @@ public class BatGripCalibration : MonoBehaviour
         leftHand = bat.attachParent == bat.leftHandParent;
         previousPosition = leftHand ? bat.leftGrabOffsetPosition : bat.rightGrabOffsetPosition;
         previousEuler = leftHand ? bat.leftGrabOffsetEuler : bat.rightGrabOffsetEuler;
+        IsActive = true;
+        ShowGhost(true);
+        Place(flat);
+    }
 
+    public bool Flat { get; private set; }
+
+    /// Switch between upright and flat without leaving calibration.
+    public void SetFlat(bool flat)
+    {
+        if (IsActive && flat != Flat)
+            Place(flat);
+    }
+
+    private void Place(bool flat)
+    {
+        Flat = flat;
         Transform head = Camera.main.transform;
         Vector3 flatForward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
         if (flatForward.sqrMagnitude < 1e-4f)
@@ -100,9 +116,9 @@ public class BatGripCalibration : MonoBehaviour
         }
 
         bat.HoldStill(standPosition, standRotation);
-        ShowGhost(true);
-        ShowPrompt(new Vector3(standPosition.x, floorY + 1.45f, standPosition.z) + flatForward * 0.25f, flatForward);
-        IsActive = true;
+        // The panel sits off to the side of the free hand, so it never hides the handle.
+        Vector3 side = Vector3.Cross(Vector3.up, flatForward) * (leftHand ? 0.45f : -0.45f);
+        ShowPanel(head.position + flatForward * 0.7f + side + Vector3.down * 0.2f, flatForward);
     }
 
     /// Distance along the player's forward from the head to the nearest point of the bat.
@@ -147,17 +163,31 @@ public class BatGripCalibration : MonoBehaviour
     }
 
     /// Called by Main every frame while active, with this frame's button presses.
-    public void Tick(bool lockPressed, bool cancelPressed)
+    public void Tick(bool lockPressed, bool cancelPressed, bool switchPressed)
     {
         if (cancelPressed)
         {
-            bat.SetGrabOffset(leftHand, previousPosition, previousEuler);
-            End();
+            Cancel();
             return;
         }
-        if (!lockPressed)
-            return;
+        if (switchPressed)
+            SetFlat(!Flat);
+        if (lockPressed)
+            Lock();
+    }
 
+    public void Cancel()
+    {
+        if (!IsActive)
+            return;
+        bat.SetGrabOffset(leftHand, previousPosition, previousEuler);
+        End();
+    }
+
+    public void Lock()
+    {
+        if (!IsActive)
+            return;
         // Same arithmetic as Bat.LateUpdate, solved the other way round:
         //   batPos = hand.position + hand.rotation * offsetPosition
         //   batRot = hand.rotation * Quaternion.Euler(offsetEuler)
@@ -188,25 +218,16 @@ public class BatGripCalibration : MonoBehaviour
     {
         bat.ReleaseHold();
         ShowGhost(false);
-        if (prompt != null)
-            prompt.gameObject.SetActive(false);
+        if (GripCalibrationPanel.Instance != null)
+            GripCalibrationPanel.Instance.Hide();
         IsActive = false;
     }
 
-    private void ShowPrompt(Vector3 position, Vector3 flatForward)
+    /// The panel is a prefab in the scene (GripCalibrationPanel); this only shows and places it.
+    private void ShowPanel(Vector3 position, Vector3 flatForward)
     {
-        if (prompt == null)
-        {
-            var go = new GameObject("GripCalibrationPrompt");
-            prompt = go.AddComponent<TMPro.TextMeshPro>();
-            prompt.text = "Hold the handle the way you bat\nthen press <b>A</b> to lock the grip\n<size=70%>B cancels</size>";
-            prompt.fontSize = 1f;
-            prompt.alignment = TMPro.TextAlignmentOptions.Center;
-            prompt.rectTransform.sizeDelta = new Vector2(1.2f, 0.3f);
-        }
-        prompt.gameObject.SetActive(true);
-        // TextMeshPro reads toward its -Z, so point +Z away from the player.
-        prompt.transform.SetPositionAndRotation(position, Quaternion.LookRotation(flatForward, Vector3.up));
+        if (GripCalibrationPanel.Instance != null)
+            GripCalibrationPanel.Instance.Show(position, flatForward, Flat);
     }
 
     private void LoadSaved(bool left)

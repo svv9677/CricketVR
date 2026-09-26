@@ -108,7 +108,8 @@ public class DebugUIBuilder : MonoBehaviour
       Debug.LogError("Debug UI requires use of a LaserPointer and will not function without it. Add one to your scene, or assign the UIHelpers prefab to the DebugUIBuilder in the inspector.");
       return;
     }
-    OpenXRMenuInputModule.Configure(gameObject, helpers, lp);
+    // CricketVR no longer uses this runtime-built menu: the settings are the SettingsPanel prefab
+    // and the pointer is set up in the scene (OpenXRMenuInputModule).
     lp.laserBeamBehavior = laserBeamBehavior;
 
     if (!toEnable.Contains(lp.gameObject))

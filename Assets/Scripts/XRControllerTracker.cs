@@ -8,14 +8,9 @@ public class XRControllerTracker : MonoBehaviour
 
     private readonly List<InputDevice> _devices = new List<InputDevice>();
 
-    private XRHandVisual visual;
-
-    void Start()
-    {
-        var prefab = Resources.Load<GameObject>(isLeftHand ? "Prefabs/XRLeftHand" : "Prefabs/XRRightHand");
-        if (prefab != null) visual = Instantiate(prefab, transform, false).GetComponent<XRHandVisual>();
-        else Debug.LogError("Missing OpenXR hand visual prefab", this);
-    }
+    [Tooltip("The hand model under this controller - a prefab instance placed in the scene " +
+             "(Tools > CricketVR > Build UI Prefabs), not spawned at runtime.")]
+    [SerializeField] private XRHandVisual visual;
 
     void Update()
     {

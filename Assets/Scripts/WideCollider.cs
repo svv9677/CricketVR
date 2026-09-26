@@ -54,11 +54,15 @@ public class WideCollider : MonoBehaviour
         transform.position = new Vector3(transform.position.x, transform.position.y, centreZ);
     }
 
+    private static SphereCollider ballSphere;
+
     private static float BallDiameter()
     {
         if (Main.Instance == null || Main.Instance.theBall == null)
             return DefaultBallDiameter;
-        var sphere = Main.Instance.theBall.GetComponent<SphereCollider>();
+        if (ballSphere == null)
+            ballSphere = Main.Instance.theBall.GetComponent<SphereCollider>();
+        var sphere = ballSphere;
         if (sphere == null)
             return DefaultBallDiameter;
         Vector3 s = sphere.transform.lossyScale;

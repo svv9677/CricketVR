@@ -14,6 +14,8 @@ GameObject:
   - component: {fileID: 199507635142268870}
   - component: {fileID: 942000609}
   - component: {fileID: 3504492058990763363}
+  - component: {fileID: 2468536972802485838}
+  - component: {fileID: 8261757766710125975}
   m_Layer: 0
   m_Name: Bat
   m_TagString: Untagged
@@ -31,10 +33,11 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.48, y: 0.48, z: 0.48}
+  m_LocalScale: {x: 0.51, y: 0.51, z: 0.51}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7806812127181258295}
+  - {fileID: 2267938003630290214}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &199507635142268838
@@ -141,9 +144,9 @@ MonoBehaviour:
   controllerParent: {fileID: 0}
   leftHandParent: {fileID: 0}
   rightHandParent: {fileID: 0}
-  leftGrabOffsetPosition: {x: -0.03992634, y: 0.11906837, z: 0.1848575}
+  leftGrabOffsetPosition: {x: -0.041704044, y: 0.13335042, z: 0.20517677}
   leftGrabOffsetEuler: {x: 145, y: -5, z: -60}
-  rightGrabOffsetPosition: {x: 0.03992634, y: 0.11906837, z: 0.1848575}
+  rightGrabOffsetPosition: {x: 0.041704044, y: 0.13335042, z: 0.20517677}
   rightGrabOffsetEuler: {x: 145, y: 5, z: 60}
   trackerObject: {fileID: 3831318129957227716}
   audioShot1: {fileID: 8300000, guid: 7497715cb2e0b4a24872345d117ce5a1, type: 3}
@@ -180,6 +183,101 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.25, y: 0.25, z: 1.2}
   m_Center: {x: 0, y: 0, z: -0.34}
+--- !u!114 &2468536972802485838
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 199507635142268923}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e304f668f431a4a079ad7918998d947b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BatGeometry
+  toe: {fileID: 7849656681631975767}
+  sweetSpot: {fileID: 7718608694133622067}
+  shoulder: {fileID: 5041014329593133123}
+  halfWidth: 0.11326646
+  faceY: 0.052413777
+  backY: -0.07019594
+--- !u!114 &8261757766710125975
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 199507635142268923}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81ef86cfe853948e7bd8533ae8f0834d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BatGripCalibration
+--- !u!1 &1086151735689333264
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7849656681631975767}
+  m_Layer: 0
+  m_Name: Toe
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7849656681631975767
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1086151735689333264}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -0.8903859}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2267938003630290214}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &3797588609041922324
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2267938003630290214}
+  m_Layer: 0
+  m_Name: BatMarkers
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2267938003630290214
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3797588609041922324}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 7849656681631975767}
+  - {fileID: 7718608694133622067}
+  - {fileID: 5041014329593133123}
+  m_Father: {fileID: 199507635142268811}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3831318129957227716
 GameObject:
   m_ObjectHideFlags: 0
@@ -210,4 +308,66 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 199507635142268811}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &4337098345966769451
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7718608694133622067}
+  m_Layer: 0
+  m_Name: SweetSpot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7718608694133622067
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4337098345966769451}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -0.50084203}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2267938003630290214}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &7035694407151906331
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5041014329593133123}
+  m_Layer: 0
+  m_Name: Shoulder
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5041014329593133123
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7035694407151906331}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0.16694742}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2267938003630290214}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

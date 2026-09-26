@@ -54,8 +54,7 @@ public class CrowdController : MonoBehaviour
 
     private void Awake()
     {
-        _audio = GetComponent<AudioSource>();
-        if (_audio == null) _audio = gameObject.AddComponent<AudioSource>();
+        _audio = GetComponent<AudioSource>();   // on the Crowd object in the scene
         _audio.playOnAwake = false;
         _audio.spatialBlend = 0f;     // crowd surrounds the player; keep it 2D
         _audio.clip = cheerClip;

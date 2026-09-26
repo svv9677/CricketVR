@@ -60,25 +60,4 @@ public static class BatSweep
         return true;
     }
 
-    /// <summary>
-    /// Ball velocity after the impact.
-    ///   u = v_ball - v_bat (at the contact point), split into normal and tangential parts.
-    ///   The bat is a body of effective mass M at the contact point, so the ball's change is
-    ///   M/(m+M) of what an immovable bat would give: -(1+e)*u_n on the normal, and a friction
-    ///   loss on the tangential part.
-    /// Head on at the sweet spot (e 0.5, M 0.7 kg) this is the textbook
-    ///   v_out = q*v_in + (1+q)*v_bat,  q = (e - m/M) / (1 + m/M) ~ 0.22,
-    /// so a 35 m/s ball met by a 30 m/s bat leaves at ~44 m/s, and a dead bat drops it at ~8 m/s.
-    /// </summary>
-    public static Vector3 Rebound(Vector3 ballVelocity, Vector3 batPointVelocity, Vector3 normal,
-                                  float restitution, float effectiveBatMass, float ballMass,
-                                  float tangentialLoss = 0.3f)
-    {
-        Vector3 u = ballVelocity - batPointVelocity;
-        float un = Vector3.Dot(u, normal);
-        Vector3 ut = u - un * normal;
-        float share = effectiveBatMass / (ballMass + effectiveBatMass);
-        Vector3 change = share * (-(1f + restitution) * un * normal - tangentialLoss * ut);
-        return ballVelocity + change;
-    }
 }

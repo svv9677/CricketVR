@@ -104,99 +104,118 @@ public class Bat : MonoBehaviour
         }
     }
 
-    // ---- Contact (see BatSweep) -----------------------------------------------------------------
-    // The blade in the bat's local frame (mesh units; the bat is uniformly scaled). The blade is
-    // -Z, the face is +Y (transform.up), width is X. The handle, +Z beyond BladeTopZ, is not hit.
-    private const float BladeHalfWidth = 0.1133f;
-    private const float BladeHalfThickness = 0.0702f;
-    private const float BladeToeZ = -0.89f;
-    private const float BladeTopZ = 0.30f;
-    /// Sweet spot, about 0.18 m up from the toe of a real bat.
-    private const float SweetSpotFromToe = 0.18f;
-    private const float EffectiveMassSweet = 0.7f, EffectiveMassFar = 0.35f;
-    private const float RestitutionSweet = 0.5f, RestitutionFar = 0.3f, RestitutionEdge = 0.3f;
-    /// World distance from the sweet spot at which the far values apply.
-    private const float SweetSpotFalloff = 0.3f;
-
+    // ---- Contact (see BatContact / BatGeometry) -------------------------------------------------
+    private BatGeometry geometry;
     private bool havePreviousPose;
-    private Matrix4x4 previousPose;
+    private Vector3 previousPosition;
     private Quaternion previousRotation;
     private Vector3 previousBallPosition;
+    private readonly System.Collections.Generic.List<UnityEngine.XR.InputDevice> handDevices =
+        new System.Collections.Generic.List<UnityEngine.XR.InputDevice>();
 
     private void CheckForContact()
     {
         Main inst = Main.Instance;
         Rigidbody ball = inst != null ? inst.theBallRigidBody : null;
-        Matrix4x4 pose = transform.localToWorldMatrix;
         Vector3 ballNow = ball != null ? ball.position : Vector3.zero;
 
         bool live = ball != null && !ball.isKinematic && !hasHitBall && !holdingStill &&
                     inst.gameState == eGameState.InGame_DeliverBallLoop;
         if (live && havePreviousPose && (ballNow - previousBallPosition).sqrMagnitude < 9f)
-            TrySweep(inst, ball, pose, ballNow);
+            TrySweep(inst, ball, ballNow);
 
-        previousPose = pose;
+        previousPosition = transform.position;
         previousRotation = transform.rotation;
         previousBallPosition = ballNow;
         havePreviousPose = true;
     }
 
-    private void TrySweep(Main inst, Rigidbody ball, Matrix4x4 pose, Vector3 ballNow)
+    private void TrySweep(Main inst, Rigidbody ball, Vector3 ballNow)
     {
+        if (geometry == null)
+            geometry = GetComponent<BatGeometry>();   // on the Bat prefab, markers fitted in the editor
+        if (geometry == null || !geometry.IsFitted)
+        {
+            Debug.LogError("Bat has no fitted BatGeometry - run Tools > CricketVR > Build UI Prefabs (or Fit on the component).", this);
+            return;
+        }
         float scale = transform.lossyScale.x;
-        float radius = BallFlight.Radius / scale;
         float widthMultiplier = originalSize.x > 0f ? batCollider.size.x / originalSize.x : 1f;
-        Vector3 min = new Vector3(-BladeHalfWidth * widthMultiplier - radius, -BladeHalfThickness - radius, BladeToeZ - radius);
-        Vector3 max = new Vector3(BladeHalfWidth * widthMultiplier + radius, BladeHalfThickness + radius, BladeTopZ);
+        BatContact.Blade blade = geometry.Blade;
 
-        Vector3 l0 = previousPose.inverse.MultiplyPoint3x4(previousBallPosition);
-        Vector3 l1 = pose.inverse.MultiplyPoint3x4(ballNow);
-        if (!BatSweep.SegmentBox(l0, l1, min, max, out float t, out int axis, out float sign))
+        // The bat turns about the hand holding it.
+        Vector3 pivotLocal = attachParent != null ? transform.InverseTransformPoint(attachParent.position) : Vector3.zero;
+        if (!BatContact.Sweep(previousPosition, previousRotation, transform.position, transform.rotation, scale,
+                              previousBallPosition, ballNow, blade, widthMultiplier, BallFlight.Radius, pivotLocal,
+                              out BatContact.Hit hit))
             return;
 
-        // Where, on the bat and in the world, the two met.
-        Vector3 localNormal = Vector3.zero;
-        localNormal[axis] = sign;
-        Vector3 localBallCentre = Vector3.Lerp(l0, l1, t);
-        Vector3 localBatPoint = localBallCentre - localNormal * radius;
-        Quaternion rotationAtHit = Quaternion.Slerp(previousRotation, transform.rotation, t);
-        Vector3 normal = rotationAtHit * localNormal;
-        Vector3 batPointBefore = previousPose.MultiplyPoint3x4(localBatPoint);
-        Vector3 batPointAfter = pose.MultiplyPoint3x4(localBatPoint);
-        Vector3 batPointVelocity = (batPointAfter - batPointBefore) / Mathf.Max(Time.deltaTime, 1e-4f);
-        Vector3 ballCentreAtHit = Vector3.Lerp(previousPose.MultiplyPoint3x4(localBallCentre),
-                                               pose.MultiplyPoint3x4(localBallCentre), t);
+        float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+        Vector3 contactWorld = hit.position + hit.rotation * (hit.localBat * scale);
+        Vector3 batPointVelocity = BatContact.PointVelocity(hit.localBat, scale, previousPosition, previousRotation,
+                                                            transform.position, transform.rotation, dt, pivotLocal, hit.t);
+        // The controller measures its own velocity and spin directly, which beats a frame-to-frame
+        // difference in a fast swing (no lag, no chord-across-an-arc error). Use it when the runtime
+        // provides it and it is sane; the finite difference is the fallback.
+        if (TryDevicePointVelocity(contactWorld, out Vector3 deviceVelocity) &&
+            (deviceVelocity - batPointVelocity).magnitude < Mathf.Max(8f, 0.6f * batPointVelocity.magnitude))
+            batPointVelocity = deviceVelocity;
 
         Vector3 incoming = ball.linearVelocity;
-        if (Vector3.Dot(incoming - batPointVelocity, normal) >= 0f)
-            return; // already separating
-
-        bool edge = axis == 0;
-        float fromSweet = Mathf.Abs(localBatPoint.z - (BladeToeZ + SweetSpotFromToe / scale)) * scale;
-        float falloff = Mathf.Clamp01(fromSweet / SweetSpotFalloff);
-        float restitution = edge ? RestitutionEdge : Mathf.Lerp(RestitutionSweet, RestitutionFar, falloff);
-        float batMass = edge ? EffectiveMassFar : Mathf.Lerp(EffectiveMassSweet, EffectiveMassFar, falloff);
+        BatContact.Result result = BatContact.Respond(hit, blade, scale, incoming, batPointVelocity, ball.mass);
+        if (result.velocity == incoming)
+            return; // grazed, already separating
         float power = inst.BatAmplifier / 75f;   // the B-menu "batAmplifier" slider, 75 = realistic
-        Vector3 outgoing = BatSweep.Rebound(incoming, batPointVelocity, normal, restitution, batMass, ball.mass) * power;
+        Vector3 outgoing = result.velocity * power;
 
         // Put the ball back where it touched the bat - the frame may have carried it through.
-        Vector3 contactCentre = ballCentreAtHit + normal * 0.002f;
+        Vector3 contactCentre = hit.position + hit.rotation * (hit.localBall * scale);
+        Vector3 normal = (contactCentre - contactWorld).normalized;
+        contactCentre += normal * 0.002f;
         ball.position = contactCentre;
         ball.transform.position = contactCentre;
         ball.linearVelocity = outgoing;
 
-        OnBallHit(inst, incoming, outgoing, Vector3.Dot(batPointVelocity, normal));
+        Debug.Log($"[BatHit] quality={result.quality:F2} edge={result.edge} e={result.restitution:F2} M={result.effectiveMass:F2} " +
+                  $"in={incoming.magnitude:F1} bat={batPointVelocity.magnitude:F1} out={outgoing.magnitude:F1} local={hit.localBat.ToString("F3")}");
+        OnBallHit(inst, incoming, outgoing, Vector3.Dot(batPointVelocity, normal), result);
     }
 
-    private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeedIntoBall)
+    private bool TryDevicePointVelocity(Vector3 point, out Vector3 velocity)
+    {
+        velocity = Vector3.zero;
+        if (attachParent == null || attachParent.parent == null)
+            return false;
+        var chars = (attachParent == leftHandParent ? UnityEngine.XR.InputDeviceCharacteristics.Left
+                                                    : UnityEngine.XR.InputDeviceCharacteristics.Right)
+                    | UnityEngine.XR.InputDeviceCharacteristics.Controller;
+        handDevices.Clear();
+        UnityEngine.XR.InputDevices.GetDevicesWithCharacteristics(chars, handDevices);
+        if (handDevices.Count == 0)
+            return false;
+        var device = handDevices[0];
+        if (!device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceVelocity, out Vector3 v) ||
+            !device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceAngularVelocity, out Vector3 w))
+            return false;
+        // Tracking-space values: turn them into world space with the rig.
+        Transform anchor = attachParent.parent;
+        Transform space = anchor.parent != null ? anchor.parent : anchor;
+        Vector3 linear = space.TransformVector(v);
+        Vector3 angular = space.TransformDirection(w);
+        if (angular.magnitude > 60f || linear.magnitude > 40f)
+            return false;
+        velocity = linear + Vector3.Cross(angular, point - anchor.position);
+        return true;
+    }
+
+    private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeedIntoBall, BatContact.Result result)
     {
         hasHitBall = true;
         inst.gameState = eGameState.InGame_BallHit;
         BallSpeed.Instance.updateBatAndFinalSpeed(Mathf.Abs(batSpeedIntoBall), outgoing.magnitude);
 
-        // Louder crack for a well-struck ball.
-        float exit = outgoing.magnitude;
-        AudioClip clip = exit < 20f ? audioShot1 : exit < 32f ? audioShot2 : audioShot3;
+        // The sound follows how well it was struck: an edge or the toe clicks, the middle cracks.
+        AudioClip clip = result.edge || result.quality < 0.35f ? audioShot1 : result.quality < 0.7f ? audioShot2 : audioShot3;
         if (clip != null)
             AudioSource.PlayClipAtPoint(clip, trackerPos);
 
