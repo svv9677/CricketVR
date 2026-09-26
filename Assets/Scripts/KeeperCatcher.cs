@@ -109,7 +109,7 @@ public class KeeperCatcher : MonoBehaviour
         shuffleX = shuffleVelocity = 0f;
         if (bodyRoot != null)
         {
-            bodyRoot.localPosition = Vector3.zero;
+            bodyRoot.localPosition = new Vector3(0f, BodyDrop, 0f);
             feet.Plant(Ground(bodyRoot.position), bodyRoot.right);
         }
         if (body != null)
@@ -117,9 +117,13 @@ public class KeeperCatcher : MonoBehaviour
         lastRoot = transform.position;
     }
 
-    /// A point on the ground under p: the keeper's own feet level (HUD stands him at y 0, like
-    /// the fielders, whose animated feet are on that level too).
-    private Vector3 Ground(Vector3 p) => new Vector3(p.x, transform.position.y, p.z);
+    /// A point on the ground under p: the real surface, as the ball sees it. HUD stands him at
+    /// y 0, but the outfield where he keeps is at -0.047 - measured in play, his toes hovered 5 cm
+    /// above the grass.
+    private static Vector3 Ground(Vector3 p) => new Vector3(p.x, BallFlight.GroundY(p), p.z);
+
+    /// The body sits on that surface, whatever height HUD gave the anchor.
+    private float BodyDrop => BallFlight.GroundY(transform.position) - transform.position.y;
 
     private bool Live(out eGameState state)
     {
@@ -192,7 +196,7 @@ public class KeeperCatcher : MonoBehaviour
         Vector3 localHit = hasIntercept ? transform.InverseTransformPoint(intercept) : Vector3.zero;
         float goal = holding ? shuffleX : hasIntercept && live ? Mathf.Clamp(localHit.x, -MaxShuffle, MaxShuffle) : shuffleX;
         shuffleX = ReachMath.Shuffle(shuffleX, ref shuffleVelocity, goal, ShuffleSpeed, ShuffleAccel, dt);
-        bodyRoot.localPosition = new Vector3(shuffleX, 0f, 0f);
+        bodyRoot.localPosition = new Vector3(shuffleX, BodyDrop, 0f);
         Vector3 velocity = dt > 0f ? (bodyRoot.position - lastBody) / dt : Vector3.zero;
         lastBody = bodyRoot.position;
         feet.Tick(Ground(bodyRoot.position), bodyRoot.right, velocity, dt);

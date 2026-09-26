@@ -89,6 +89,9 @@ public class AnimatedFielder : MonoBehaviour
         if (animatedFielderManagementScript == null)
             animatedFielderManagementScript = GetComponentInParent<AnimatedFielderManagement>();
         StartPosition = Constants.fieldingPositions[Convert.ToInt32(gameObject.name[gameObject.name.Length - 1].ToString()) - 1];
+        // Stand on the grass, not at y 0: the outfield is at -0.047, so the feet hovered 5 cm up
+        // and the foot IK pinned them there.
+        StartPosition.y = BallFlight.GroundY(StartPosition);
         if (myAnimator != null)
         {
             myAnimator.applyRootMotion = false;
