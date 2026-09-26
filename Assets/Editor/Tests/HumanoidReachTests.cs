@@ -152,8 +152,8 @@ public class HumanoidReachTests
         // 30 m/s at 72 Hz is 0.42 m a frame: both ends are far from the palm, the path is not.
         Vector3 palm = new Vector3(0f, 0.5f, 0.1f);
         Vector3 a = new Vector3(-0.21f, 0.5f, 0f), b = new Vector3(0.21f, 0.5f, 0f);
-        Assert.Greater(Vector3.Distance(a, palm), AnimatedFielder.GatherDistance);
-        Assert.Greater(Vector3.Distance(b, palm), AnimatedFielder.GatherDistance);
+        Assert.Greater(Vector3.Distance(a, palm), AnimatedFielder.CatchPocket);
+        Assert.Greater(Vector3.Distance(b, palm), AnimatedFielder.CatchPocket);
         Assert.AreEqual(0.1f, ReachMath.SegmentDistance(a, b, palm), 1e-5f);
         Assert.AreEqual(0.1f, ReachMath.SegmentDistance(palm + Vector3.back * 0.1f, palm + Vector3.back * 0.1f, palm), 1e-5f, "a stopped ball");
     }

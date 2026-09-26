@@ -3,13 +3,19 @@ using UnityEngine;
 
 /// <summary>
 /// Fielding. Once the ball is hit it predicts the ball's whole path - flight, bounces, roll - with
-/// the same model the ball itself uses (BallFlight), and sends the fielder who can get to it first,
-/// plus one backup, to where they can meet it. It re-plans every ReplanInterval so a prediction
-/// that drifts is corrected.
+/// the same model the ball itself uses (BallFlight), and sends one fielder - the keeper included -
+/// to where he can meet it. It re-plans every ReplanInterval so a prediction that drifts is
+/// corrected.
 ///
 /// "Can get to it" is: reaction time + distance / run speed, not later than the ball gets there,
 /// with the ball low enough to reach - CatchHeight in the air, which makes it a catch if it has
 /// not bounced, anything on the ground otherwise.
+///
+/// One man goes. The first to reach it calls it ("Mine!", "Keeper's!", FieldingCalls) and keeps it
+/// unless someone else could get there SwitchMargin sooner - re-picking the earliest every 0.1 s
+/// swapped the runner back and forth, and the old plan also sent the second-earliest to the very
+/// same point, so two or three converged on every catch. A backup now only goes to back up: to the
+/// path BackupBehind beyond the caller's point, where a fumble or a ball past him will run to.
 ///
 /// Nobody takes the ball by being near it any more (that was a 1.2 m snap). The fielder reaches
 /// for it with the whole body (HumanoidReach) at the point PredictPass gives, and the ball is his
@@ -33,18 +39,29 @@ public class AnimatedFielderManagement : MonoBehaviour
     private const float PredictStep = 0.02f;
     private const float PredictTime = 12f;
 
-    private readonly List<AnimatedFielder> fielders = new List<AnimatedFielder>();
+    /// Someone else takes over the call only if he gets there this much sooner.
+    private const float SwitchMargin = 0.35f;
+    /// The backup goes this far down the path beyond the caller, and not at all if that is closer
+    /// than BackupMinGap to the caller's point (he would only be in the way).
+    private const float BackupBehind = 8f, BackupMinGap = 6f;
+
+    private readonly List<IFielder> team = new List<IFielder>();
     private readonly List<BallFlight.Sample> path = new List<BallFlight.Sample>(1024);
     private float nextPlan;
     private bool tracking;
     private float boundaryRadius = 56f;
     /// When the current path was simulated: path sample times count from here.
     private float planTime;
+    /// Whoever has called this ball.
+    private IFielder caller;
 
     void Start()
     {
         foreach (AnimatedFielder f in GetComponentsInChildren<AnimatedFielder>())
-            fielders.Add(f);
+            team.Add(f);
+        KeeperCatcher keeper = Main.Instance.theKeeper != null ? Main.Instance.theKeeper.GetComponentInChildren<KeeperCatcher>() : null;
+        if (keeper != null)
+            team.Add(keeper);
         Main.Instance.onGameStateChanged += HandleGameState;
         if (Main.Instance.theBoundaryCollider != null)
         {
@@ -68,6 +85,7 @@ public class AnimatedFielderManagement : MonoBehaviour
             tracking = true;
             path.Clear();
             nextPlan = 0f;
+            caller = null;
         }
         else if (state != eGameState.InGame_BallHitLoop)
         {
@@ -102,44 +120,76 @@ public class AnimatedFielderManagement : MonoBehaviour
         if (path.Count == 0)
             return;
 
-        AnimatedFielder first = null, second = null;
-        float firstTime = float.MaxValue, secondTime = float.MaxValue;
-        Vector3 firstPoint = Vector3.zero, secondPoint = Vector3.zero;
-        foreach (AnimatedFielder f in fielders)
+        // Who gets there first - and does the man who has called it still get there in time?
+        IFielder first = null;
+        float firstTime = float.MaxValue;
+        int firstIndex = -1;
+        foreach (IFielder f in team)
         {
-            if (!f.isActiveAndEnabled)
-                continue;
-            if (EarliestMeet(f, out float t, out Vector3 point))
+            if (f.Available && EarliestMeet(f, out float t, out int i) && t < firstTime)
             {
-                if (t < firstTime)
-                {
-                    second = first; secondTime = firstTime; secondPoint = firstPoint;
-                    first = f; firstTime = t; firstPoint = point;
-                }
-                else if (t < secondTime)
-                {
-                    second = f; secondTime = t; secondPoint = point;
-                }
+                first = f; firstTime = t; firstIndex = i;
             }
         }
-
-        if (first == null)
+        if (caller != null && caller != first && caller.Available &&
+            EarliestMeet(caller, out float callerTime, out int callerIndex) && callerTime <= firstTime + SwitchMargin)
         {
-            // Nobody gets there before the rope: send whoever is least late to cut it off.
-            first = LeastLate(out firstPoint);
+            first = caller; firstIndex = callerIndex;
         }
 
-        foreach (AnimatedFielder f in fielders)
+        Vector3 firstPoint;
+        if (first != null)
+            firstPoint = path[firstIndex].position;
+        else
+            first = LeastLate(out firstPoint, out firstIndex);   // nobody beats the rope: cut it off
+        if (first == null)
+            return;
+        if (first != caller)
+        {
+            caller = first;
+            FieldingCalls.Call(first);
+        }
+
+        IFielder backup = Backup(first, firstIndex, out Vector3 backupPoint);
+        foreach (IFielder f in team)
         {
             if (f == first) f.SetTarget(ShortOf(f, firstPoint));
-            else if (f == second) f.SetTarget(ShortOf(f, secondPoint));
+            else if (f == backup) f.SetTarget(ShortOf(f, backupPoint));
             else f.Stop();
         }
     }
 
-    private bool EarliestMeet(AnimatedFielder f, out float time, out Vector3 point)
+    /// Someone to back up the caller: whoever gets soonest to the path BackupBehind beyond the
+    /// caller's point, if that is far enough from him to be worth it. Never to the same ball.
+    private IFielder Backup(IFielder caller, int callerIndex, out Vector3 point)
     {
-        Vector3 at = f.transform.position;
+        point = Vector3.zero;
+        int i = Mathf.Clamp(callerIndex, 0, path.Count - 1);
+        Vector3 from = path[i].position;
+        while (i < path.Count - 1 && Flat(path[i].position - from) < BackupBehind)
+            i++;
+        if (Flat(path[i].position - from) < BackupMinGap)
+            return null;
+        point = path[i].position;
+        IFielder best = null;
+        float bestTime = float.MaxValue;
+        foreach (IFielder f in team)
+        {
+            if (f == caller || !f.Available)
+                continue;
+            float t = Flat(point - f.Position) / f.RunSpeed;
+            if (t < bestTime) { best = f; bestTime = t; }
+        }
+        return best;
+    }
+
+    private static float Flat(Vector3 v) => new Vector2(v.x, v.z).magnitude;
+
+    /// The first point of the predicted path this fielder can be at in time: its index in `path`,
+    /// and the time (from the plan) it gets there.
+    private bool EarliestMeet(IFielder f, out float time, out int index)
+    {
+        Vector3 at = f.Position;
         float speed = f.RunSpeed;
         float head = f.HasTarget ? 0f : ReactionTime;
         for (int i = 0; i < path.Count; i++)
@@ -149,29 +199,54 @@ public class AnimatedFielderManagement : MonoBehaviour
                 continue;
             if (new Vector2(s.position.x, s.position.z).magnitude > boundaryRadius)
                 break;
-            float run = Mathf.Max(0f, new Vector2(s.position.x - at.x, s.position.z - at.z).magnitude - CatchRadius * 0.5f);
+            float run = Mathf.Max(0f, Flat(s.position - at) - CatchRadius * 0.5f);
             if (head + run / speed <= s.time)
             {
-                time = s.time;
-                point = s.position;
+                index = ComfortableCatch(i, at, speed, head);
+                time = path[index].time;
                 return true;
             }
         }
         time = 0f;
-        point = Vector3.zero;
+        index = -1;
         return false;
     }
 
-    private AnimatedFielder LeastLate(out Vector3 point)
+    /// Catching height a fielder settles for when he has the time: about the chest.
+    private const float ComfortHeight = 1.4f;
+
+    /// A ball still in the air at the first point he can reach (anywhere under CatchHeight - a full
+    /// stretch overhead): if he can also be where it has come down to ComfortHeight, take it there.
+    /// Measured before this: a skier's first reachable point was 2.2 m up, he stopped there, and it
+    /// dropped on over his head (1.98 m up, 9 cm behind his feet) out of his hands.
+    private int ComfortableCatch(int first, Vector3 at, float speed, float head)
     {
-        AnimatedFielder best = null;
+        if (path[first].bounced || path[first].position.y <= ComfortHeight)
+            return first;
+        for (int i = first + 1; i < path.Count; i++)
+        {
+            BallFlight.Sample s = path[i];
+            if (s.bounced)
+                break;
+            if (s.position.y > ComfortHeight)
+                continue;
+            float run = Mathf.Max(0f, Flat(s.position - at) - CatchRadius * 0.5f);
+            return head + run / speed <= s.time ? i : first;
+        }
+        return first;
+    }
+
+    private IFielder LeastLate(out Vector3 point, out int index)
+    {
+        IFielder best = null;
         float bestLate = float.MaxValue;
         point = Vector3.zero;
-        foreach (AnimatedFielder f in fielders)
+        index = -1;
+        foreach (IFielder f in team)
         {
-            if (!f.isActiveAndEnabled)
+            if (!f.Available)
                 continue;
-            Vector3 at = f.transform.position;
+            Vector3 at = f.Position;
             for (int i = 0; i < path.Count; i++)
             {
                 BallFlight.Sample s = path[i];
@@ -183,6 +258,7 @@ public class AnimatedFielderManagement : MonoBehaviour
                     bestLate = late;
                     best = f;
                     point = s.position;
+                    index = i;
                 }
             }
         }
@@ -205,9 +281,9 @@ public class AnimatedFielderManagement : MonoBehaviour
 
     /// Where to stand for a meeting point: StopShort before it on the way in, so the ball arrives
     /// in front of the body. Already that close: stay put and let the hands do it.
-    private static Vector3 ShortOf(AnimatedFielder f, Vector3 point)
+    private static Vector3 ShortOf(IFielder f, Vector3 point)
     {
-        Vector3 at = f.transform.position;
+        Vector3 at = f.Position;
         Vector3 to = new Vector3(point.x - at.x, 0f, point.z - at.z);
         float d = to.magnitude;
         if (d <= StopShort)

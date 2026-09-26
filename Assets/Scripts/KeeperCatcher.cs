@@ -24,7 +24,7 @@ using UnityEngine;
 ///     delivery as missed. One that beats him goes on through (byes); KeeperCollider behind him
 ///     calls it missed. Wides are decided at the stumps (WideCollider) before he can take it.
 /// </summary>
-public class KeeperCatcher : MonoBehaviour
+public partial class KeeperCatcher : MonoBehaviour, IFielder
 {
     /// Kept for anything reading the old keeper's envelope: lateral reach and height, metres.
     public const float Reach = 1.2f;
@@ -98,6 +98,13 @@ public class KeeperCatcher : MonoBehaviour
             holding = false;
             ResetStance();
         }
+        // Someone else has it, or it has gone for four: stop where he is.
+        if (state == eGameState.InGame_BallFielded || state == eGameState.InGame_BallPastBoundary)
+            fetching = false;
+        // Off the stumps it is not coming to his gloves any more, whatever he read before; nothing
+        // re-reads it in this state (Live), so clear it or he would wait for it instead of fetching.
+        if (state == eGameState.InGame_Bowled)
+            hasIntercept = false;
         // A hit changes everything about where the ball is going: read it again now.
         nextPredict = 0f;
         lastBall = inst.theBallRigidBody.position;
@@ -107,8 +114,10 @@ public class KeeperCatcher : MonoBehaviour
     {
         hasIntercept = false;
         shuffleX = shuffleVelocity = 0f;
+        ClearFetch();
         if (bodyRoot != null)
         {
+            bodyRoot.localRotation = Quaternion.identity;
             bodyRoot.localPosition = new Vector3(0f, BodyDrop, 0f);
             feet.Plant(Ground(bodyRoot.position), bodyRoot.right);
         }
@@ -193,6 +202,9 @@ public class KeeperCatcher : MonoBehaviour
         lastRoot = transform.position;
 
         bool live = Live(out eGameState state);
+        // Gone after a loose ball (KeeperCatcher.Fetch): on his feet, running, not in his stance.
+        if (UpdateFetch(state, dt))
+            return;
         Vector3 localHit = hasIntercept ? transform.InverseTransformPoint(intercept) : Vector3.zero;
         float goal = holding ? shuffleX : hasIntercept && live ? Mathf.Clamp(localHit.x, -MaxShuffle, MaxShuffle) : shuffleX;
         shuffleX = ReachMath.Shuffle(shuffleX, ref shuffleVelocity, goal, ShuffleSpeed, ShuffleAccel, dt);
@@ -273,11 +285,11 @@ public class KeeperCatcher : MonoBehaviour
             if (body != null && body.Ready)
                 ball.position = body.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
         }
-        else if (body != null && body.Ready && Live(out eGameState state) && body.SmoothedWeight > 0.3f &&
+        else if (body != null && body.Ready && (Live(out eGameState state) || CanPickUp(state)) && body.SmoothedWeight > 0.3f &&
                  // A delivery must clear the wide boxes at the stumps (x 9.8-10.8) first, or a keeper
                  // standing up to the spinners would take it inside them and no wide could be called.
                  !(state == eGameState.InGame_DeliverBallLoop && now.x < WideBoxesEndX) &&
-                 body.ClosestPalm(lastBall, now) <= GatherDistance)
+                 body.ClosestPalm(lastBall, now) <= (away ? PickUpDistance : GatherDistance))
         {
             TakeIt(state, now);
         }

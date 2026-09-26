@@ -10,12 +10,12 @@ using UnityEngine;
 ///
 /// Taking the ball: there is no snap. HumanoidReach squats, hinges and reaches the hands to where
 /// the ball's predicted path comes closest (AnimatedFielderManagement.PredictPass), tracking it as
-/// it comes; the ball is his only when it passes within GatherDistance of a palm after IK, tested
+/// it comes; the ball is his only when it comes into the pocket between his palms after IK, tested
 /// over the ball's whole path that frame so a fast one cannot slip between frames. Then it is held
 /// between the palms, the last few centimetres faded out over HoldSettle, and he stands up with it
 /// (the reach springs settle in ~0.4 s) and turns to the stumps.
 /// </summary>
-public class AnimatedFielder : MonoBehaviour
+public class AnimatedFielder : MonoBehaviour, IFielder
 {
     // Serialized names kept so the scene's nine fielders stay wired up.
     [SerializeField]
@@ -43,16 +43,24 @@ public class AnimatedFielder : MonoBehaviour
     /// Forward speed baked into the run animation, used to keep the feet from sliding.
     private const float AnimatedRunSpeed = 4f;
 
-    /// The ball is in the hands when it passes this close to a palm centre.
-    public const float GatherDistance = 0.15f;
-    /// A slow ball (a roller, one that has stopped) is scooped up from a little further.
+    /// A moving ball is caught when it comes into the pocket between the palms - this close to the
+    /// middle of the two hands - not merely near one of them.
+    public const float CatchPocket = 0.13f;
+    /// A slow ball (a roller, one that has stopped) is scooped up by either hand from a little further.
     private const float SlowGatherDistance = 0.2f, SlowBall = 2f;
+    /// Hands must be this far into the reach to take it: out and set, not still on the way.
+    private const float TakeWeight = 0.6f;
     /// Time for the gap between ball and palms at the take to close.
     private const float HoldSettle = 0.1f;
     /// Hands work this far in front of the feet; the path is searched this far around that spot.
-    private const float HandsAhead = 0.45f, ReachRadius = 1.1f;
-    /// The reach starts this long before the ball arrives and is full by the second value.
+    private const float HandsAhead = 0.45f, HandsHeight = 1.1f, ReachRadius = 1.1f;
+    /// The reach starts this long before the ball arrives and is full by the second value. For a
+    /// catch the hands go up sooner and further, out toward the ball: a fielder sets his hands
+    /// early and meets it with his arms extended rather than grabbing at it as it arrives.
     private const float ReachStartTime = 1.1f, ReachFullTime = 0.35f;
+    private const float CatchStartTime = 1.6f, CatchFullTime = 0.5f, CatchOut = 0.25f;
+    /// Soft hands: on the take the hands ride back along the ball's line this far, this fast.
+    private const float GiveDistance = 0.2f, GiveTime = 0.15f;
     /// Holding: ball in front of the chest (above the feet, in front of them), and the pause
     /// before turning to throw it in.
     private const float HoldHeight = 1.15f, HoldAhead = 0.32f, TurnAfter = 0.5f;
@@ -66,12 +74,19 @@ public class AnimatedFielder : MonoBehaviour
     private float heldSince;
     private Vector3 holdOffset;
     private Vector3 lastBall;
+    private Vector3 takenAt, takenAlong;
 
     public float RunSpeed => BaseRunSpeed * Mathf.Max(0.5f, Main.Instance != null ? Main.Instance.fielderSpeed : 1.5f);
     public bool HoldingBall => holdingBall;
     public float CurrentSpeed => speed;
     public Vector3 Target => target;
     public bool HasTarget => hasTarget;
+
+    // ---- IFielder ------------------------------------------------------------------------------
+    public Vector3 Position => transform.position;
+    public bool Available => isActiveAndEnabled && !holdingBall;
+    public bool IsKeeper => false;
+    public string Name => name;
 
     void Start()
     {
@@ -160,6 +175,9 @@ public class AnimatedFielder : MonoBehaviour
         speed = 0f;
         Vector3 ball = Main.Instance.theBall.transform.position;
         holdOffset = reach != null && reach.Ready ? ball - reach.HoldPoint : Vector3.zero;
+        takenAt = reach != null && reach.Ready ? reach.HoldPoint : ball;
+        Vector3 v = ball - lastBall;
+        takenAlong = v.sqrMagnitude > 1e-6f ? v.normalized : -transform.forward;
         SetAnimation(0);
         if (myAnimator != null)
             myAnimator.CrossFadeInFixedTime("0 Idle", 0.12f);
@@ -216,8 +234,14 @@ public class AnimatedFielder : MonoBehaviour
         Vector3 ball = inst.theBall.transform.position;
         if (holdingBall)
         {
-            // Ball to the chest: the reach target comes up, so the springs stand him up (~0.4 s).
-            reach.handTarget = transform.position + transform.up * HoldHeight + transform.forward * HoldAhead;
+            // Soft hands: ride back along the ball's line, then bring it to the chest - the reach
+            // target comes up, so the springs stand him up (~0.4 s).
+            float t = Time.time - heldSince;
+            float give = Mathf.Clamp01(t / GiveTime);
+            Vector3 back = takenAt + takenAlong * (GiveDistance * (1f - (1f - give) * (1f - give)));
+            Vector3 chest = transform.position + transform.up * HoldHeight + transform.forward * HoldAhead;
+            float up = Mathf.Clamp01((t - GiveTime) / 0.3f);
+            reach.handTarget = Vector3.Lerp(back, chest, up * up * (3f - 2f * up));
             reach.weight = 1f;
             reach.handGap = 0.09f;
             reach.look = false;
@@ -228,14 +252,22 @@ public class AnimatedFielder : MonoBehaviour
         reach.look = live && (ball - transform.position).sqrMagnitude < 60f * 60f;
         reach.lookTarget = ball;
         reach.handGap = 0.1f;
-        Vector3 spot = transform.position + transform.forward * HandsAhead;
+        // Where the hands naturally work: in front of the chest. Searching the path for the point
+        // nearest a spot on the ground picked the lowest pass - for a catch, a point already
+        // behind him once the ball had dropped past his hands.
+        Vector3 spot = transform.position + transform.forward * HandsAhead + transform.up * HandsHeight;
         if (live && animatedFielderManagementScript != null &&
             animatedFielderManagementScript.PredictPass(spot, ReachRadius, out Vector3 point, out float eta))
         {
-            // Close in, the live ball is the better target than a prediction up to 0.1 s old.
-            float close = Mathf.InverseLerp(1.5f, 0.4f, Vector3.Distance(ball, spot));
-            reach.handTarget = Vector3.Lerp(point, ball, close * 0.5f);
-            reach.weight = Mathf.InverseLerp(ReachStartTime, ReachFullTime, eta);
+            // The hands go to where the ball will be and wait for it - never chase the live ball,
+            // which at 30 m/s dragged them round in the last tenth of a second.
+            bool catching = !inst.theBallScript.bounced && point.y > 0.5f;
+            Vector3 incoming = inst.theBallRigidBody.linearVelocity;
+            if (catching && incoming.sqrMagnitude > 0.01f)
+                point -= incoming.normalized * CatchOut;   // arms out to meet it
+            reach.handTarget = point;
+            reach.weight = catching ? Mathf.InverseLerp(CatchStartTime, CatchFullTime, eta)
+                                    : Mathf.InverseLerp(ReachStartTime, ReachFullTime, eta);
         }
         else
         {
@@ -283,11 +315,15 @@ public class AnimatedFielder : MonoBehaviour
             else
                 ball.position = holdBallOffset != null ? holdBallOffset.position : transform.position + Vector3.up;
         }
-        else if (reach != null && reach.Ready && reach.SmoothedWeight > 0.3f && !inst.theBallRigidBody.isKinematic &&
+        else if (reach != null && reach.Ready && reach.SmoothedWeight > TakeWeight && !inst.theBallRigidBody.isKinematic &&
                  inst.gameState == eGameState.InGame_BallHitLoop && animatedFielderManagementScript != null)
         {
+            // Caught means in the hands: a moving ball has to come into the pocket between the
+            // palms (tested over its whole path this frame). A slow roller can be scooped by either.
             bool slow = inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall;
-            if (reach.ClosestPalm(lastBall, now) <= (slow ? SlowGatherDistance : GatherDistance))
+            bool inHands = slow ? reach.ClosestPalm(lastBall, now) <= SlowGatherDistance
+                                : ReachMath.SegmentDistance(lastBall, now, reach.HoldPoint) <= CatchPocket;
+            if (inHands)
                 animatedFielderManagementScript.Gather(this);   // -> Take -> TakeBall
         }
         lastBall = holdingBall ? ball.position : now;
