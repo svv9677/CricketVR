@@ -80,6 +80,10 @@ public partial class SettingsPanel : MonoBehaviour
         forward.Normalize();
         panel.transform.SetPositionAndRotation(head.position + forward * Distance + Vector3.down * 0.1f,
                                                Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(8f, 0f, 0f));
+        // Moved by hand before (grip): open where it was left instead.
+        GrabbablePanel grab = GetComponent<GrabbablePanel>();
+        if (grab != null)
+            grab.Restore();
         if (M != null)
             M.ApplyTweaks();   // the bowler may have changed at the end of an over
         Refresh();
@@ -221,4 +225,13 @@ public partial class SettingsPanel : MonoBehaviour
     public void OnCalibrateGrip() => M.onCalibrateGrip();
     public void OnResetGrip() => M.onResetGrip();
     public void OnClose() => M.CloseSettings();
+
+    /// Advanced > Testing: reload the whole scene from scratch. For testing, when a play has got
+    /// into a state that the next ball does not clear.
+    public void OnJustRestart()
+    {
+        Time.timeScale = 1f;
+        var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        UnityEngine.SceneManagement.SceneManager.LoadScene(scene.buildIndex >= 0 ? scene.buildIndex : 0);
+    }
 }

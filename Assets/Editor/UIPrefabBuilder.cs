@@ -11,7 +11,8 @@ using UnityEngine.UI;
 /// Assets/Resources/Prefabs/UI, all in the UIStyle look, and places them in the open scene under
 /// "UI" (replacing what the last run - or Build UI Prefabs - put there):
 ///   * SettingsPanel - batting (hand, difficulty, bat power, grip), fielding, bowling (type, speed,
-///     swing/drift, turn/seam, reset) and a collapsed Advanced section (line, debug overlay);
+///     swing/drift, turn/seam, reset) and a collapsed Advanced section (line, debug overlay,
+///     Just Restart);
 ///   * NextBallMenu - the between-balls dock (bowler + Change, Bowl, Settings, Calibrate grip)
 ///     with the replay card (ReplayControls) beside it;
 ///   * GripCalibrationPanel - Upright | Flat, Lock, Cancel;
@@ -74,7 +75,7 @@ public static class UIPrefabBuilder
         WorldPanelBuilder.MakeCard(panel, UIStyle.Pad, UIStyle.SectionGap);
         WorldPanelBuilder.FitContent(panel, false);
 
-        Header(panel.transform, "Settings", "Changes apply from the next ball", "Done" + B, c.OnClose);
+        Header(panel.transform, "Settings", "Changes apply from the next ball  ·  Hold grip to move", "Done" + B, c.OnClose);
         TwoColumns(panel.transform, out Transform left, out Transform right);
         BattingSection(left, c);
         FieldingSection(left, c);
@@ -83,6 +84,7 @@ public static class UIPrefabBuilder
         AdvancedSection(panel.transform, c);
 
         SetField(c, "panel", panel);
+        Grabbable(root, panel, "settings");
         Save(root, uiRoot);
         return c;   // the scene instance (SaveAsPrefabAssetAndConnect returns the asset, not this)
     }
@@ -158,6 +160,8 @@ public static class UIPrefabBuilder
         Transform body = TwoColumns(parent, out Transform left, out Transform right);
         WorldPanelBuilder.Section(left, "Display");
         c.overlayToggle = UIControls.ToggleButton(left, "Debug overlay", c.OnOverlay);
+        WorldPanelBuilder.Section(left, "Testing");
+        UIControls.ActionButton(left, "Just Restart", c.OnJustRestart, false);
         WorldPanelBuilder.Section(right, "Bowling line");
         c.lineRange = UIControls.Range(right, "At the stumps", -0.75f, 0.75f, 0.01f, c.OnLineRange);
         c.advanced = body.gameObject;
@@ -183,7 +187,16 @@ public static class UIPrefabBuilder
 
         SetField(c, "panel", panel);
         SetField(c, "bowlerLabel", bowler);
+        Grabbable(root, panel, "next_ball");
         Save(root, uiRoot);
+    }
+
+    /// Grip while pointing at it moves the panel, and it opens where it was left (GrabbablePanel).
+    private static void Grabbable(GameObject root, GameObject panel, string key)
+    {
+        var grab = root.AddComponent<GrabbablePanel>();
+        SetField(grab, "target", panel.transform);
+        SetField(grab, "saveKey", key);
     }
 
     private static TextMeshProUGUI PlayCard(Transform parent, NextBallMenu c)
@@ -388,6 +401,7 @@ public static class UIPrefabBuilder
         {
             case Object o: p.objectReferenceValue = o; break;
             case Color col: p.colorValue = col; break;
+            case string s: p.stringValue = s; break;
         }
         so.ApplyModifiedProperties();
     }

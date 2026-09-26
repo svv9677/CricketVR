@@ -32,6 +32,24 @@ public class OpenXRMenuInputModule : MonoBehaviour
 
     public static OpenXRMenuInputModule Instance { get; private set; }
 
+    // ---- For GrabbablePanel: grip while pointing at a panel moves it ------------------------------
+    /// The laser's origin and direction, posed in LateUpdate.
+    public Transform Aim => aim;
+    public bool GripHeld => GripOf(activeHand)?.isPressed == true;
+    public bool GripPressedThisFrame => GripOf(activeHand)?.wasPressedThisFrame == true;
+
+    /// Is the laser on this panel (or anything in it) right now?
+    public bool PointingAt(Transform panel)
+    {
+        if (!inputModule.enabled || activeHand == null || panel == null)
+            return false;
+        GameObject hit = inputModule.GetLastRaycastResult(activeHand.deviceId).gameObject;
+        return hit != null && hit.transform.IsChildOf(panel);
+    }
+
+    private static ButtonControl GripOf(XRController hand) =>
+        hand == null ? null : hand.TryGetChildControl<ButtonControl>("gripPressed") ?? hand.TryGetChildControl<ButtonControl>("gripButton");
+
     private void Awake()
     {
         Instance = this;
@@ -83,6 +101,9 @@ public class OpenXRMenuInputModule : MonoBehaviour
         if (!IsTracked(activeHand)) activeHand = IsTracked(right) ? right : left;
         if (IsTracked(right) && right.TryGetChildControl<ButtonControl>("triggerPressed")?.wasPressedThisFrame == true) activeHand = right;
         if (IsTracked(left) && left.TryGetChildControl<ButtonControl>("triggerPressed")?.wasPressedThisFrame == true) activeHand = left;
+        // Squeezing grip on a hand makes it the pointing hand too, so either hand can move a panel.
+        if (IsTracked(right) && GripOf(right)?.wasPressedThisFrame == true) activeHand = right;
+        if (IsTracked(left) && GripOf(left)?.wasPressedThisFrame == true) activeHand = left;
         bool visible = inputModule.enabled && laser.gameObject.activeInHierarchy
             && inputModule.xrTrackingOrigin != null && IsTracked(activeHand);
         if (!visible)

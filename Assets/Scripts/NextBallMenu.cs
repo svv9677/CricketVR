@@ -68,6 +68,10 @@ public class NextBallMenu : MonoBehaviour
         // Canvas text faces -Z, so point +Z away from the player; tilt it up toward the eyes.
         panel.transform.SetPositionAndRotation(head.position + forward * Distance + Vector3.down * BelowEyes,
                                                Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(20f, 0f, 0f));
+        // Moved by hand before (grip): open where it was left instead.
+        GrabbablePanel grab = GetComponent<GrabbablePanel>();
+        if (grab != null)
+            grab.Restore();
         shownBowler = null;
         panel.SetActive(true);
         shown = true;
