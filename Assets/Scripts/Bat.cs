@@ -164,11 +164,13 @@ public class Bat : MonoBehaviour
         // of disagreement at 30 m/s), but the runtime filters it, it lags the pose at the peak of a
         // swing, and its angular velocity is combined with a lever arm in a frame we never checked -
         // all errors that grow with swing speed, which is where shots went the wrong way.
-        Vector3 batPointVelocity = BatContact.PointVelocity(hit.localBat, scale, previousPosition, previousRotation,
-                                                            transform.position, transform.rotation, dt, pivotLocal, hit.t);
-        // The settings "Bat power" (75 = realistic) scales the swing, not the result: a harder swing
-        // hits further, and the ball's own pace still rebounds by the real amount.
-        batPointVelocity *= inst.BatAmplifier / 75f;
+        Vector3 swingVelocity = BatContact.PointVelocity(hit.localBat, scale, previousPosition, previousRotation,
+                                                         transform.position, transform.rotation, dt, pivotLocal, hit.t);
+        // The settings "Bat power" (75 = realistic) scales the swing, not the result, and only a
+        // little: a harder swing hits further, while the ball's own pace still rebounds by the real
+        // amount. It used to multiply the outgoing velocity, which also multiplied the ball's pace -
+        // a ramp off a 17 km/h bat left at 172 km/h from a 143 km/h delivery.
+        Vector3 batPointVelocity = swingVelocity * BatContact.SwingScale(inst.BatAmplifier);
 
         Vector3 incoming = ball.linearVelocity;
         BatContact.Result result = BatContact.Respond(hit, blade, scale, incoming, batPointVelocity, ball.mass);
@@ -187,7 +189,8 @@ public class Bat : MonoBehaviour
         Debug.Log($"[BatHit] {result.kind} quality={result.quality:F2} e={result.restitution:F2} M={result.effectiveMass:F2} " +
                   $"in={incoming.magnitude:F1} bat={batPointVelocity.magnitude:F1} impact={result.impactSpeed:F1} out={outgoing.magnitude:F1} " +
                   $"local={hit.localBat.ToString("F3")} normal={normal.ToString("F2")} t={hit.t:F2}");
-        OnBallHit(inst, incoming, outgoing, batPointVelocity.magnitude, result);
+        // Report the swing the player actually made, not the power-scaled one.
+        OnBallHit(inst, incoming, outgoing, swingVelocity.magnitude, result);
     }
 
     private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeed, BatContact.Result result)

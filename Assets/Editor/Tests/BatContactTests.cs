@@ -356,6 +356,44 @@ public class BatContactTests
     }
 
     [Test]
+    public void ARampOffASlowBatNeverLeavesFasterThanItCame()
+    {
+        // Reported: a 143 km/h delivery ramped with a 17 km/h bat left at 172 km/h. A glancing
+        // contact keeps most of the ball's pace and adds only what the bat's own motion along the
+        // face gives it - it cannot come off faster than it arrived plus twice the bat's normal speed,
+        // and against a nearly still bat it must come off slower.
+        Vector3 ball = Vector3.right * (143f / 3.6f);
+        float batSpeed = 17f / 3.6f;
+        int contacts = 0;
+        foreach (float glance in new[] { 15f, 30f, 45f })
+        foreach (float lateral in new[] { 0f, 0.9f, 1f })
+        {
+            // Face tilted `glance` degrees to the ball's path, normal back against it and upward.
+            Vector3 normal = new Vector3(-Mathf.Sin(glance * Mathf.Deg2Rad), Mathf.Cos(glance * Mathf.Deg2Rad), 0f);
+            var hit = new BatContact.Hit
+            {
+                localBat = new Vector3(lateral * blade.halfWidth, blade.faceY, blade.sweetZ),
+                localNormal = Vector3.up,
+                rotation = Quaternion.FromToRotation(Vector3.up, normal),
+            };
+            foreach (float amp in new[] { 75f, 150f })
+            {
+                Vector3 bat = normal * batSpeed * BatContact.SwingScale(amp);
+                BatContact.Result r = BatContact.Respond(hit, blade, scale, ball, bat, BallMass);
+                if (r.velocity == ball)
+                    continue;   // already leaving that (bevelled) surface: no contact, Bat ignores it
+                contacts++;
+                Assert.That(r.velocity.magnitude, Is.LessThan(ball.magnitude),
+                    $"glance {glance} lateral {lateral} power {amp}: {r.velocity.magnitude * 3.6f:F0} km/h from {ball.magnitude * 3.6f:F0}");
+            }
+        }
+        Debug.Log($"[BatContactTests] ramp: {contacts}/18 glances made contact, none left faster than it came");
+        Assert.That(contacts, Is.GreaterThanOrEqualTo(9), "most of these glances should really touch the bat");
+        Assert.That(BatContact.SwingScale(300f), Is.EqualTo(1.5f));
+        Assert.That(BatContact.SwingScale(0f), Is.EqualTo(0.5f));
+    }
+
+    [Test]
     public void AThinEdgeCarriesOnBehind()
     {
         // Ball clipping the side of the blade: it keeps going toward the keeper, only deflected.
