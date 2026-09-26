@@ -163,6 +163,15 @@ public class Ball : MonoBehaviour
     public void OnCollisionEnter(Collision collisionInfo)
     {
         Main inst = Main.Instance;
+        // The pitch grips: take the pace off the bounce PhysX has just resolved (BallFlight.Bounce
+        // models the same, so the fielders' prediction agrees). Before the turn below, which only
+        // rotates it.
+        if (collisionInfo.gameObject.CompareTag("Ground") && collisionInfo.contactCount > 0 &&
+            BallFlight.OnPitch(collisionInfo.GetContact(0).point))
+        {
+            Vector3 v = myRigidBody.linearVelocity;
+            myRigidBody.linearVelocity = new Vector3(v.x * BallFlight.PitchGrip, v.y, v.z * BallFlight.PitchGrip);
+        }
         if(inst.gameState == eGameState.InGame_DeliverBall ||
             inst.gameState == eGameState.InGame_DeliverBallLoop)
         {

@@ -37,9 +37,13 @@ public static class BallFlight
     public static float AeroK => 0.5f * AirDensity * Area / Mass;
 
     // ---- Surfaces ------------------------------------------------------------------------------
-    // Must match the physics materials: ball (0.5 bounce, 0.3 friction), pitch (0.55, 0.45),
+    // Must match the physics materials: ball (0.5 bounce, 0.3 friction), pitch (0.7, 0.45),
     // outfield (0.3, 0.5), all combined by Average.
-    public const float PitchRestitution = 0.525f;
+    // The pitch was 0.55 (e 0.525) with no grip, and measured in play every length arrived low:
+    // back of a length 0.55-0.65 m at the stumps, where a real one is thigh-to-waist high, so
+    // short balls skidded through and read as full. A hard, true strip at e 0.6 plus the grip
+    // below puts back of a length ~0.75 m and a short ball ~1.3-1.5 m at the batter.
+    public const float PitchRestitution = 0.6f;
     public const float OutfieldRestitution = 0.4f;
     /// The prepared strip. Everything else is outfield.
     public static readonly Vector2 PitchHalfExtent = new Vector2(12f, 3f);
@@ -79,14 +83,18 @@ public static class BallFlight
     /// almost nothing off a quick bounce (pitch, 35.54 -> 35.48 m/s; outfield, unchanged) even with
     /// friction set, so Coulomb friction here would put the fielders and the aim in the wrong place.
     public const float BounceTangentialRetention = 0.998f;
+    /// Pace kept off the pitch. A real ball grips the strip and comes off it 10-15% slower (the
+    /// "pace off the pitch" Hawk-Eye shows); PhysX takes nothing, so Ball applies this itself at
+    /// each pitch bounce and this model matches it.
+    public const float PitchGrip = 0.88f;
 
-    /// Velocity just after a bounce, the way PhysX resolves it (e measured 0.53 on the pitch, 0.41
-    /// on the outfield, matching the averaged materials).
+    /// Velocity just after a bounce: what PhysX resolves (e measured 0.53 on the old pitch, 0.41 on
+    /// the outfield, matching the averaged materials), then the pitch's grip.
     public static Vector3 Bounce(Vector3 velocity, bool onPitch)
     {
         float e = onPitch ? PitchRestitution : OutfieldRestitution;
         float vn = velocity.y;
-        Vector3 vt = new Vector3(velocity.x, 0f, velocity.z) * BounceTangentialRetention;
+        Vector3 vt = new Vector3(velocity.x, 0f, velocity.z) * (BounceTangentialRetention * (onPitch ? PitchGrip : 1f));
         float newVn = -vn < BounceThreshold ? 0f : -e * vn;
         return new Vector3(vt.x, newVn, vt.z);
     }
