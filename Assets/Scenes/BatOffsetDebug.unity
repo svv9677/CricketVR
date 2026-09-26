@@ -134,37 +134,37 @@ PrefabInstance:
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.024999976
+      value: -0.050000012
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.28
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.16
+      value: 0.3
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.43301266
+      value: 0.28097132
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.75
+      value: 0.83171535
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.43301272
+      value: 0.46504533
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.24999999
+      value: -0.11418269
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
@@ -264,10 +264,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e6c7f13e518f7463dafd23808ec9c1b4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BatGripPreview
-  leftGrabOffsetPosition: {x: -0.025, y: 0.28, z: 0.16}
-  leftGrabOffsetEuler: {x: 120, y: 0, z: -60}
-  rightGrabOffsetPosition: {x: 0.025, y: 0.28, z: 0.16}
-  rightGrabOffsetEuler: {x: 120, y: 0, z: 60}
+  leftGrabOffsetPosition: {x: -0.05, y: 0.2, z: 0.3}
+  leftGrabOffsetEuler: {x: 145, y: -5, z: -60}
+  rightGrabOffsetPosition: {x: 0.05, y: 0.2, z: 0.3}
+  rightGrabOffsetEuler: {x: 145, y: 5, z: 60}
   leftGrip: {fileID: 1384765351}
   rightGrip: {fileID: 719558247}
   leftBat: {fileID: 28776177}
@@ -372,37 +372,37 @@ PrefabInstance:
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.024999976
+      value: 0.050000012
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.28
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.16
+      value: 0.3
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.43301266
+      value: 0.28097132
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.75
+      value: 0.83171535
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.43301272
+      value: -0.46504533
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0.24999999
+      value: 0.11418269
       objectReference: {fileID: 0}
     - target: {fileID: 199507635142268811, guid: 4318f7f22038244f99f443d58b561153,
         type: 3}

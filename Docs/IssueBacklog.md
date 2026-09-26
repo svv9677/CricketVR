@@ -1545,17 +1545,21 @@ be reverted or given the same values. The scene also still carries a stale
 has.
 
 ### Values applied (2026-09-25)
-Tuned in the debug scene and applied:
+Tuned in the debug scene and applied. A second pass moved the grip higher up the handle:
 
-| hand | position | euler |
-|---|---|---|
-| left | `(-0.025, 0.28, 0.16)` | `(120, 0, -60)` |
-| right | `(0.025, 0.28, 0.16)` | `(120, 0, 60)` |
+| hand | position | euler | |
+|---|---|---|---|
+| left | `(-0.05, 0.2, 0.3)` | `(145, -5, -60)` | current |
+| right | `(0.05, 0.2, 0.3)` | `(145, 5, 60)` | current |
+| left | `(-0.025, 0.28, 0.16)` | `(120, 0, -60)` | first pass, superseded |
+| right | `(0.025, 0.28, 0.16)` | `(120, 0, 60)` | first pass, superseded |
 
 Checked against the hand prefabs independently of the debug scene, in the hand anchor's frame: the
-perpendicular distance from each hand's `b_*_grip` bone to the bat's long axis is **0.0114 m left
-and 0.0098 m right**, with the closest approach at bat-local **z = +0.479** - on the handle, below
-the top grip section. The bat runs through the palm on both sides and the two hands are symmetric.
+perpendicular distance from each hand's `b_*_grip` bone to the bat's long axis is **0.0093 m left
+and 0.0072 m right**, with the closest approach at bat-local **z = +0.614** - up the handle,
+just short of the top grip section. The bat runs through the palm on both sides and the two hands
+are symmetric. The first pass measured 0.0114 / 0.0098 m at z = +0.479, so the second pass is both
+tighter to the palm and higher up the handle.
 
 A caution for next time: the first check used the distance from the bone to the *grip point* at
 `gripPointLocalZ = 0.83`, which reported 0.26 m and looked like a failure. It was not - the hand
@@ -1564,10 +1568,11 @@ distance to the bat's axis, not to an assumed point on it. A second bogus check 
 blade below the hand" in anchor space, which means nothing, because the anchor rotates with the
 controller and is not world-upright.
 
-Applied by making the prefab the single source of truth: `Assets/Resources/Prefabs/Bat.prefab` now
-holds the values, and the three prefab overrides on the `CricketVR.unity` Bat instance
-(`leftGrabOffsetEuler`, `rightGrabOffsetPosition`, `rightGrabOffsetEuler`) were reverted, so the
-scene file now contains **no** `GrabOffset` overrides at all. The stale `rightGrabOffsetRotation`
+Applied by making the prefab the single source of truth: `Assets/Resources/Prefabs/Bat.prefab`
+holds the values, and the three prefab overrides that used to sit on the `CricketVR.unity` Bat
+instance (`leftGrabOffsetEuler`, `rightGrabOffsetPosition`, `rightGrabOffsetEuler`) were reverted,
+so the scene file contains **no** `GrabOffset` overrides at all. Re-checked on the second pass:
+still none, so a prefab edit is all that is needed from here. The stale `rightGrabOffsetRotation`
 override from the removed quaternion fields is gone too. `enableTuner` is now `0`.
 
 ## 16. On-device bat tuner removed (2026-09-25)
