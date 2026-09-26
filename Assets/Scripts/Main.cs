@@ -73,14 +73,11 @@ public class Main : MonoBehaviour
     [Header("Settings")]
     [SerializeField]
     protected eDifficulty difficulty;
-    private Toggle _easyToggle;
-    private Toggle _mediumToggle;
-    private Toggle _hardToggle;
+    private eDifficulty _difficulty = eDifficulty.None;
 
     [SerializeField]
     protected eBattingStyle battingStyle;
-    private Toggle _lBatToggle;
-    private Toggle _rBatToggle;
+    private eBattingStyle _shownBattingStyle = eBattingStyle.None;
 
     [SerializeField]
     protected eStadiumMode stadiumMode;
@@ -97,95 +94,66 @@ public class Main : MonoBehaviour
     [SerializeField]
     private bool verboseStateLogging = false;
 
-    public bool overlayVisible = true;
+    // The settings panel mirrors these (SettingsPanel.Refresh); each `_x` is the value last applied.
+    [Tooltip("The debug overlay (game state + log console). Off by default; Settings > Advanced.")]
+    public bool overlayVisible = false;
     private bool _overlayVisible = false;
-    private Toggle _overlayToggle;
 
     [Range(0f, 5f)]
     public float resetDelay = -100f;
     private float _resetDelay = 2f;
-    private TMPro.TMP_Text _resetDelayText;
-    private Slider _resetDelaySlider;
 
     [Range(0.5f, 2.5f)]
     public float fielderSpeed = -100f;
     private float _fielderSpeed = 1.5f;
-    private TMPro.TMP_Text _fielderSpeedText;
-    private Slider _fielderSpeedSlider;
 
     public eSwingType swingType;
     private eSwingType _swingType;
-    private TMPro.TMP_Text _swingTypeText;
 
+    // Not used by the bat any more (only logged by BallDiagnostics); kept for their saved values.
     [Range(0f, 15f)]
     public float ampMin = -100f;
     private float _ampMin = 10f;
-    private TMPro.TMP_Text _ampMinText;
-    private Slider _ampMinSlider;
 
     [Range(0f, 25f)]
     public float ampMax = -100f;
     private float _ampMax = 15f;
-    private TMPro.TMP_Text _ampMaxText;
-    private Slider _ampMaxSlider;
 
     public float MinX = Constants.paceCfg[0];
     private float _MinX = -100f;
-    private TMPro.TMP_Text _MinXText;
-    private Slider _MinXSlider;
 
     public float MaxX = Constants.paceCfg[1];
     private float _MaxX = -100f;
-    private TMPro.TMP_Text _MaxXText;
-    private Slider _MaxXSlider;
 
     public float MinY = Constants.paceCfg[2];
-    private float _MinY = -100f;
-    private TMPro.TMP_Text _MinYText;
-    private Slider _MinYSlider;
 
     public float MaxY = Constants.paceCfg[3];
-    private float _MaxY = -100f;
-    private TMPro.TMP_Text _MaxYText;
-    private Slider _MaxYSlider;
 
     public float MinZ = Constants.paceCfg[4];
     private float _MinZ = -100f;
-    private TMPro.TMP_Text _MinZText;
-    private Slider _MinZSlider;
 
     public float MaxZ = Constants.paceCfg[5];
     private float _MaxZ = -100f;
-    private TMPro.TMP_Text _MaxZText;
-    private Slider _MaxZSlider;
 
     public float MinSwing = Constants.paceCfg[6];
     private float _MinSwing = -100f;
-    private TMPro.TMP_Text _MinSwingText;
-    private Slider _MinSwingSlider;
 
     public float MaxSwing = Constants.paceCfg[7];
     private float _MaxSwing = -100f;
-    private TMPro.TMP_Text _MaxSwingText;
-    private Slider _MaxSwingSlider;
 
     public float MinPitchTurn = Constants.paceCfg[8];
     private float _MinPitchTurn = -100f;
-    private TMPro.TMP_Text _MinPitchTurnText;
-    private Slider _MinPitchTurnSlider;
 
     public float MaxPitchTurn = Constants.paceCfg[9];
     private float _MaxPitchTurn = -100f;
-    private TMPro.TMP_Text _MaxPitchTurnText;
-    private Slider _MaxPitchTurnSlider;
 
-    public float BatAmplifier = 75f;
+    [Tooltip("Bat power: scales the bat's swing-speed contribution. 75 = a real bat (\"Realistic\").")]
+    public float BatAmplifier = Constants.BatPowerRealistic;
     private float _BatAmplifier = -100f;
-    private TMPro.TMP_Text _BatAmplifierText;
-    private Slider _BatAmplifierSlider;
 
 
     public eBattingStyle BattingStyle => battingStyle;
+    public eDifficulty Difficulty => difficulty;
     public BatGripCalibration GripCalibration => gripCalibration;
     [Tooltip("The B-menu settings panel in the scene (prefab SettingsPanel).")]
     [SerializeField] private SettingsPanel settingsPanel;
@@ -272,7 +240,9 @@ public class Main : MonoBehaviour
         // Read Tweakables
         // Set default using private vars, and set private var to -1000 so that we
         // let auto-update update this along with the UI
-        overlayVisible = PlayerPrefs.GetInt(Constants.PP_Overlay, 1) == 1;
+        overlayVisible = PlayerPrefs.GetInt(Constants.PP_Overlay, 0) == 1;
+        _overlayVisible = !overlayVisible;   // so the first update shows or hides the overlay
+        BatAmplifier = PlayerPrefs.GetFloat(Constants.PP_BatPower, Constants.BatPowerRealistic);
         resetDelay = PlayerPrefs.GetFloat(Constants.PP_ResetDelay, _resetDelay);
         _resetDelay = -1000;
         fielderSpeed = PlayerPrefs.GetFloat(Constants.PP_FielderSpeed, _fielderSpeed);
@@ -319,36 +289,39 @@ public class Main : MonoBehaviour
     }
 
     /// <summary>
-    /// The settings panel is a prefab (SettingsPanel) with its controls wired in the editor; here
-    /// Main just takes hold of the controls it keeps in step with the settings.
+    /// The settings panel is a prefab (SettingsPanel) with its controls wired in the editor. Main
+    /// does not touch its controls: it calls SettingsPanel.Refresh when a setting changes.
     /// </summary>
     public void SetupMenus()
     {
-        SettingsPanel s = settingsPanel;
-        _lBatToggle = s.leftHanded;
-        _rBatToggle = s.rightHanded;
-        _easyToggle = s.easy;
-        _mediumToggle = s.medium;
-        _hardToggle = s.hard;
-        _overlayToggle = s.overlay;
-        (_resetDelaySlider, _resetDelayText) = (s.resetDelay.slider, s.resetDelay.value);
-        (_fielderSpeedSlider, _fielderSpeedText) = (s.fielderSpeed.slider, s.fielderSpeed.value);
-        (_ampMinSlider, _ampMinText) = (s.ampMin.slider, s.ampMin.value);
-        (_ampMaxSlider, _ampMaxText) = (s.ampMax.slider, s.ampMax.value);
-        (_BatAmplifierSlider, _BatAmplifierText) = (s.batPower.slider, s.batPower.value);
-        _swingTypeText = s.bowlingType;
-        (_MinXSlider, _MinXText) = (s.minSpeed.slider, s.minSpeed.value);
-        (_MaxXSlider, _MaxXText) = (s.maxSpeed.slider, s.maxSpeed.value);
-        (_MinZSlider, _MinZText) = (s.minLine.slider, s.minLine.value);
-        (_MaxZSlider, _MaxZText) = (s.maxLine.slider, s.maxLine.value);
-        (_MinSwingSlider, _MinSwingText) = (s.minSwing.slider, s.minSwing.value);
-        (_MaxSwingSlider, _MaxSwingText) = (s.maxSwing.slider, s.maxSwing.value);
-        (_MinPitchTurnSlider, _MinPitchTurnText) = (s.minTurn.slider, s.minTurn.value);
-        (_MaxPitchTurnSlider, _MaxPitchTurnText) = (s.maxTurn.slider, s.maxTurn.value);
+        if (settingsPanel == null)
+            Debug.LogError("Main has no SettingsPanel - run Tools > CricketVR > Build Player UI.", this);
+    }
+
+    private void RefreshSettingsPanel()
+    {
+        if (settingsPanel != null)
+            settingsPanel.Refresh();
     }
 
     /// Apply tuning changes made on the settings panel.
     public void ApplyTweaks() => updateTweakables();
+
+    public void SetBattingStyle(eBattingStyle style)
+    {
+        if (battingStyle == style)
+            return;
+        battingStyle = style;
+        updateBattingStyle();
+    }
+
+    public void SetDifficulty(eDifficulty level)
+    {
+        if (difficulty == level)
+            return;
+        difficulty = level;
+        updateDifficulty();
+    }
 
     public void CloseSettings()
     {
@@ -361,69 +334,21 @@ public class Main : MonoBehaviour
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private void updateDifficulty(bool updateUI = false)
     {
-        bool changed = false;
-        // TODO: Take action for appropriate difficulty, and set 'changed'
-
+        if (difficulty == _difficulty)
+            return;
+        _difficulty = difficulty;
+        // Applied on every change. (It used to be applied only when the old radio toggles were out
+        // of step, which never happened after a click - so picking a level in the menu saved it
+        // but left the bat width alone until the next launch.)
+        updateBatColliderSize();
         PlayerPrefs.SetInt(Constants.PP_Difficulty, (int)difficulty);
-
-        // If we are not being called from Update(), just return, as player prefs are saved on UI Hide()
-        if (!updateUI)
-            return;
-
-        // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
-        if (difficulty == eDifficulty.Easy && !_easyToggle.isOn)
-        {
-            _easyToggle.isOn = true;
-            updateBatColliderSize();
-        }
-        else if (difficulty == eDifficulty.Medium && !_mediumToggle.isOn)
-        {
-            _mediumToggle.isOn = true;
-            updateBatColliderSize();
-        }
-        else if (difficulty == eDifficulty.Hard && !_hardToggle.isOn)
-        {
-            _hardToggle.isOn = true;
-            updateBatColliderSize();
-        }
-
-        if (changed)
-        {
+        if (updateUI)
             PlayerPrefs.Save();
-        }
-
-            
+        RefreshSettingsPanel();
     }
-    public void onRadioEasy(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (difficulty != eDifficulty.Easy)
-        {
-            difficulty = eDifficulty.Easy;
-            updateDifficulty();
-        }
-    }
-    public void onRadioMedium(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (difficulty != eDifficulty.Medium)
-        {
-            difficulty = eDifficulty.Medium;
-            updateDifficulty();
-        }
-    }
-    public void onRadioHard(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (difficulty != eDifficulty.Hard)
-        {
-            difficulty = eDifficulty.Hard;
-            updateDifficulty();
-        }
-    }
+    public void onRadioEasy(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Easy); }
+    public void onRadioMedium(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Medium); }
+    public void onRadioHard(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Hard); }
 
     void updateBatColliderSize()
     {
@@ -479,34 +404,17 @@ public class Main : MonoBehaviour
             return;
 
         // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
-        if (battingStyle == eBattingStyle.RightHanded && !_rBatToggle.isOn)
-            _rBatToggle.isOn = true;
-        else if (battingStyle == eBattingStyle.LeftHanded && !_lBatToggle.isOn)
-            _lBatToggle.isOn = true;
+        if (battingStyle != _shownBattingStyle)
+        {
+            _shownBattingStyle = battingStyle;
+            RefreshSettingsPanel();
+        }
 
         if (changed)
             PlayerPrefs.Save();
     }
-    public void onRadioRightHanded(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (battingStyle != eBattingStyle.RightHanded)
-        {
-            battingStyle = eBattingStyle.RightHanded;
-            updateBattingStyle();
-        }
-    }
-    public void onRadioLeftHanded(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (battingStyle != eBattingStyle.LeftHanded)
-        {
-            battingStyle = eBattingStyle.LeftHanded;
-            updateBattingStyle();
-        }
-    }
+    public void onRadioRightHanded(Toggle t) { if (t.isOn) SetBattingStyle(eBattingStyle.RightHanded); }
+    public void onRadioLeftHanded(Toggle t) { if (t.isOn) SetBattingStyle(eBattingStyle.LeftHanded); }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Stadium settings
@@ -564,152 +472,76 @@ public class Main : MonoBehaviour
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private void updateTweakables(bool savePrefs = false)
     {
-        bool changed = false;
+        bool changed = false, refresh = false;
         if (ampMin != _ampMin)
         {
             changed = true;
             _ampMin = ampMin;
             PlayerPrefs.SetFloat(Constants.PP_AmpMin, ampMin);
-
-            if (_ampMinText != null)
-                _ampMinText.text = ampMin.ToString();
-            if (_ampMinSlider != null)
-                _ampMinSlider.value = ampMin;
         }
         if (ampMax != _ampMax)
         {
             changed = true;
             _ampMax = ampMax;
             PlayerPrefs.SetFloat(Constants.PP_AmpMax, ampMax);
-
-            if (_ampMaxText != null)
-                _ampMaxText.text = ampMax.ToString();
-            if (_ampMaxSlider != null)
-                _ampMaxSlider.value = ampMax;
         }
         if (resetDelay != _resetDelay)
         {
             changed = true;
             _resetDelay = resetDelay;
             PlayerPrefs.SetFloat(Constants.PP_ResetDelay, resetDelay);
-
-            if (_resetDelayText != null)
-                _resetDelayText.text = resetDelay.ToString();
-            if (_resetDelaySlider != null)
-                _resetDelaySlider.value = resetDelay;
         }
         if (fielderSpeed != _fielderSpeed)
         {
-            changed = true;
+            changed = refresh = true;
             _fielderSpeed = fielderSpeed;
             PlayerPrefs.SetFloat(Constants.PP_FielderSpeed, fielderSpeed);
-
-            if (_fielderSpeedText != null)
-                _fielderSpeedText.text = fielderSpeed.ToString();
-            if (_fielderSpeedSlider != null)
-                _fielderSpeedSlider.value = fielderSpeed;
         }
         if (overlayVisible != _overlayVisible)
         {
-            changed = true;
+            changed = refresh = true;
             _overlayVisible = overlayVisible;
-
-            dbgOverlayParent.SetActive(overlayVisible);
-            if (_overlayToggle != null)
-                _overlayToggle.isOn = overlayVisible;
-
+            if (dbgOverlayParent != null)
+                dbgOverlayParent.SetActive(overlayVisible);
             PlayerPrefs.SetInt(Constants.PP_Overlay, overlayVisible ? 1 : 0);
         }
         if(swingType != _swingType)
         {
             _swingType = swingType;
             reloadTweakables();
+            refresh = true;
         }
-
         if (_BatAmplifier != BatAmplifier)
         {
+            changed = refresh = true;
             _BatAmplifier = BatAmplifier;
-            _BatAmplifierText.text = _BatAmplifier.ToString();
-            _BatAmplifierSlider.value = _BatAmplifier;
+            PlayerPrefs.SetFloat(Constants.PP_BatPower, BatAmplifier);
         }
+        if (applyBowlingTweaks())
+            refresh = true;
 
-        if (bowlingProfileManager != null)
-        {
-            BowlingProfile profile = bowlingProfileManager.GetProfile(swingType);
-            if (_MinX != MinX)
-            {
-                _MinX = MinX;
-                _MinXText.text = _MinX.ToString();
-                _MinXSlider.value = _MinX;
-                profile.minX = MinX;
-            }
-            if (_MaxX != MaxX)
-            {
-                _MaxX = MaxX;
-                _MaxXText.text = _MaxX.ToString();
-                _MaxXSlider.value = _MaxX;
-                profile.maxX = MaxX;
-            }
-            //if (_MinY != MinY)
-            //{
-            //    _MinY = MinY;
-            //    _MinYText.text = _MinY.ToString();
-            //    _MinYSlider.value = _MinY;
-            //    profile.minY = MinY;
-            //}
-            //if (_MaxY != MaxY)
-            //{
-            //    _MaxY = MaxY;
-            //    _MaxYText.text = _MaxY.ToString();
-            //    _MaxYSlider.value = _MaxY;
-            //    profile.maxY = MaxY;
-            //}
-            if (_MinZ != MinZ)
-            {
-                _MinZ = MinZ;
-                _MinZText.text = _MinZ.ToString();
-                _MinZSlider.value = _MinZ;
-                profile.minZ = MinZ;
-            }
-            if (_MaxZ != MaxZ)
-            {
-                _MaxZ = MaxZ;
-                _MaxZText.text = _MaxZ.ToString();
-                _MaxZSlider.value = _MaxZ;
-                profile.maxZ = MaxZ;
-            }
-            if (_MinSwing != MinSwing)
-            {
-                _MinSwing = MinSwing;
-                _MinSwingText.text = _MinSwing.ToString();
-                _MinSwingSlider.value = _MinSwing;
-                profile.minSwing = MinSwing;
-            }
-            if (_MaxSwing != MaxSwing)
-            {
-                _MaxSwing = MaxSwing;
-                _MaxSwingText.text = _MaxSwing.ToString();
-                _MaxSwingSlider.value = _MaxSwing;
-                profile.maxSwing = MaxSwing;
-            }
-            if (_MinPitchTurn != MinPitchTurn)
-            {
-                _MinPitchTurn = MinPitchTurn;
-                _MinPitchTurnText.text = _MinPitchTurn.ToString();
-                _MinPitchTurnSlider.value = _MinPitchTurn;
-                profile.minPitchTurn = MinPitchTurn;
-            }
-            if (_MaxPitchTurn != MaxPitchTurn)
-            {
-                _MaxPitchTurn = MaxPitchTurn;
-                _MaxPitchTurnText.text = _MaxPitchTurn.ToString();
-                _MaxPitchTurnSlider.value = _MaxPitchTurn;
-                profile.maxPitchTurn = MaxPitchTurn;
-            }
-        }
-
+        if (refresh)
+            RefreshSettingsPanel();
         if (savePrefs && changed)
             PlayerPrefs.Save();
+    }
+
+    /// Copy the bowling ranges into the current bowler type's profile. True if any changed.
+    private bool applyBowlingTweaks()
+    {
+        if (bowlingProfileManager == null)
+            return false;
+        BowlingProfile profile = bowlingProfileManager.GetProfile(swingType);
+        bool changed = false;
+        if (_MinX != MinX) { _MinX = MinX; profile.minX = MinX; changed = true; }
+        if (_MaxX != MaxX) { _MaxX = MaxX; profile.maxX = MaxX; changed = true; }
+        if (_MinZ != MinZ) { _MinZ = MinZ; profile.minZ = MinZ; changed = true; }
+        if (_MaxZ != MaxZ) { _MaxZ = MaxZ; profile.maxZ = MaxZ; changed = true; }
+        if (_MinSwing != MinSwing) { _MinSwing = MinSwing; profile.minSwing = MinSwing; changed = true; }
+        if (_MaxSwing != MaxSwing) { _MaxSwing = MaxSwing; profile.maxSwing = MaxSwing; changed = true; }
+        if (_MinPitchTurn != MinPitchTurn) { _MinPitchTurn = MinPitchTurn; profile.minPitchTurn = MinPitchTurn; changed = true; }
+        if (_MaxPitchTurn != MaxPitchTurn) { _MaxPitchTurn = MaxPitchTurn; profile.maxPitchTurn = MaxPitchTurn; changed = true; }
+        return changed;
     }
     public void onVoid(float val) { }
     /// Bowl the next ball (the A button, or "Next Ball" on the between-balls panel).
@@ -756,7 +588,6 @@ public class Main : MonoBehaviour
     }
     public void reloadTweakables()
     {
-        _swingTypeText.text = "Bowling Type - " + swingType.ToString();
         float[] config;
         switch(swingType)
         {

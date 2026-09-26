@@ -24,24 +24,16 @@ public class BallSpeed : MonoBehaviour
         yield return new WaitForFixedUpdate();
         yield return new WaitForFixedUpdate();
 
-        float km = Main.Instance.theBallRigidBody.linearVelocity.magnitude * 60f * 60f / 1000f;
-        float miles = km * 0.62f;
-
-        km = Mathf.Round(km * 10f) / 10f;
-        miles = Mathf.Round(miles * 10f) / 10f;
-
-        //setText(km + " kph\n" + miles + " mph");
-        setText(km + " kph");
+        setText(Kmh(Main.Instance.theBallRigidBody.linearVelocity.magnitude) + " km/h");
     }
 
+    /// The stadium display: delivery speed, then bat and exit speed once the ball is hit.
     public void updateBatAndFinalSpeed(float batSpeed, float finalSpeed)
     {
-        float km = batSpeed * 60f * 60f / 1000f;
-        km = Mathf.Round(km * 10f) / 10f;
-        float km2 = finalSpeed * 60f * 60f / 1000f;
-        km2 = Mathf.Round(km2 * 10f) / 10f;
-        setText(myText.text + "\nBat: " + km.ToString() + " kph\nBounce: " + km2 + " kph");
+        setText(myText.text + "\nBat " + Kmh(batSpeed) + " km/h\nExit " + Kmh(finalSpeed) + " km/h");
     }
+
+    private static string Kmh(float metresPerSecond) => Mathf.RoundToInt(metresPerSecond * UIFormat.KmhPerMps).ToString();
 
     public void setText(string text)
     {

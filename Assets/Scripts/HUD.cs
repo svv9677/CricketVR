@@ -284,17 +284,39 @@ public class HUD : MonoBehaviour
         UpdateUI();
     }
 
+    /// Bring on the first bowler of this type (the settings panel's bowler selector). The usual
+    /// rotation carries on from them at the end of the over.
+    public void SelectBowlerOfType(eSwingType type)
+    {
+        int index = Bowlers.FindIndex(b => b.Type == type);
+        if (index < 0 || Bowlers[index] == CurrentBowler)
+            return;
+        NextBowlerIndex = index;
+        SetBowler(index);
+        UpdateUI();
+    }
+
+    /// A struck ball, for the last-shot card. Subscribe to Bat.ShotStruck with this.
+    public void ShowShot(ShotInfo info)
+    {
+        if (ShotCard.Instance != null)
+            ShotCard.Instance.ShowShot(info);
+    }
+
     void SelectNextBowler()
     {
         NextBowlerIndex++;
         if (NextBowlerIndex >= Bowlers.Count)
             NextBowlerIndex = 0;
+        SetBowler(NextBowlerIndex);
+    }
 
-        CurrentBowler = Bowlers[NextBowlerIndex];
-        //CurrentBowler = Bowlers[2];                    // QWERTYUIOP
+    void SetBowler(int index)
+    {
+        CurrentBowler = Bowlers[index];
         Main.Instance.swingType = CurrentBowler.Type;
         UpdateKeeperPosition();
-        AnimatedBowler.Instance.UpdateInfo(Bowlers.IndexOf(CurrentBowler));
+        AnimatedBowler.Instance.UpdateInfo(index);
     }
 
     void UpdateKeeperPosition()
@@ -424,5 +446,8 @@ public class HUD : MonoBehaviour
         txtOvers.text = Overs.ToString() + "." + Balls.ToString() + " (" + TotalOvers.ToString() + ")";
         txtBowler.text = CurrentBowler.Name;
         txtBowlerStyle.text = Constants.CT_SwingPrefixes[(int)CurrentBowler.Type];
+
+        if (ShotCard.Instance != null)
+            ShotCard.Instance.SetScore(Runs, Wickets, Overs, Balls, BowledBalls);
     }
 }
