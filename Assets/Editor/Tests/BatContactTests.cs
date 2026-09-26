@@ -305,6 +305,57 @@ public class BatContactTests
     }
 
     [Test]
+    public void ABallAlreadyInTheBladeLeavesByTheFaceItCameIn()
+    {
+        // The ball begins the frame more than half-way through the blade - nearer the back - moving
+        // from the face side (+Y, toward the bowler) into it, while the bat swings at it. The old
+        // rule pushed it out of the nearest face (the back): the normal pointed away from the
+        // bowler, so the contact read as separating and the ball went on through the bat.
+        float depth = blade.faceY - blade.backY;
+        Vector3 inside = new Vector3(0f, blade.backY + 0.3f * depth, blade.sweetZ) * scale;
+        Vector3 ballA = inside, ballB = inside + Vector3.down * 0.3f;
+        Vector3 grip = new Vector3(0f, 0f, GripZ);
+        Vector3 batStep = Vector3.up * 0.2f;   // bat moving toward the bowler
+        Assert.That(BatContact.Sweep(Vector3.zero, Quaternion.identity, batStep, Quaternion.identity, scale,
+                                     ballA, ballB + batStep, blade, 1f, BallFlight.Radius, grip, out BatContact.Hit hit));
+        Assert.That(hit.localNormal.y, Is.EqualTo(1f), $"normal {hit.localNormal}");
+        BatContact.Result res = BatContact.Respond(hit, blade, scale, Vector3.down * 35f, Vector3.up * 20f, BallMass);
+        Assert.That(res.velocity.y, Is.GreaterThan(20f), "should be driven back toward the bowler");
+    }
+
+    [Test]
+    public void ContactKindsNameWhereItWasStruck()
+    {
+        var sc = new Scenario { swing = Swing.Drive, toeSpeed = 25f, ballSpeed = 38f, fps = 72f, phase = 0.5f };
+        sc.contact = SweetSpot;
+        Assert.That(Run(sc).result.kind, Is.EqualTo(BatContact.ContactKind.Middled));
+        sc.contact = Toe;
+        Assert.That(Run(sc).result.kind, Is.EqualTo(BatContact.ContactKind.Toe));
+        sc.contact = Shoulder;
+        Assert.That(Run(sc).result.kind, Is.EqualTo(BatContact.ContactKind.Shoulder));
+        sc.contact = new Vector2(0.95f * blade.halfWidth, blade.sweetZ);
+        Assert.That(Run(sc).result.kind, Is.EqualTo(BatContact.ContactKind.ThickEdge));
+        sc.contact = new Vector2(blade.halfWidth, blade.sweetZ);
+        Outcome thin = Run(sc, lateralMiss: BallFlight.Radius * 0.7f);
+        Assert.That(thin.result.kind, Is.EqualTo(BatContact.ContactKind.ThinEdge));
+        Assert.That(thin.result.impactSpeed, Is.LessThan(Run(new Scenario { swing = Swing.Drive, toeSpeed = 25f, ballSpeed = 38f,
+                                                                             fps = 72f, phase = 0.5f, contact = SweetSpot }).result.impactSpeed));
+    }
+
+    [Test]
+    public void SwingSpeedDecidesHowFarItGoes()
+    {
+        // Against the same 35 m/s ball, doubling the swing should add far more exit speed than
+        // anything the ball's own pace contributes: q ~ 0.24 of the ball, (1+q) of the bat.
+        float Exit(float toe, float ball) => Run(new Scenario { swing = Swing.Drive, toeSpeed = toe, ballSpeed = ball,
+                                                                fps = 72f, phase = 0.4f, contact = SweetSpot }).exitSpeed;
+        float fromSwing = Exit(40f, 35f) - Exit(20f, 35f);
+        float fromPace = Exit(30f, 45f) - Exit(30f, 25f);
+        Debug.Log($"[BatContactTests] +20 m/s toe speed adds {fromSwing:F1} m/s; +20 m/s ball speed adds {fromPace:F1} m/s");
+        Assert.That(fromSwing, Is.GreaterThan(3f * fromPace));
+    }
+
+    [Test]
     public void AThinEdgeCarriesOnBehind()
     {
         // Ball clipping the side of the blade: it keeps going toward the keeper, only deflected.

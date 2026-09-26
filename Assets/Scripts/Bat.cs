@@ -25,8 +25,6 @@ public class Bat : MonoBehaviour
     [SerializeField]
     protected GameObject trackerObject;
     [SerializeField]
-    protected AudioClip audioShot1, audioShot2, audioShot3;
-    [SerializeField]
     protected GameObject fieldersParent;
 
     public bool grabbable = true;
@@ -106,18 +104,26 @@ public class Bat : MonoBehaviour
 
     // ---- Contact (see BatContact / BatGeometry) -------------------------------------------------
     private BatGeometry geometry;
+    private BatSounds sounds;
     private bool havePreviousPose;
     private Vector3 previousPosition;
     private Quaternion previousRotation;
     private Vector3 previousBallPosition;
-    private readonly System.Collections.Generic.List<UnityEngine.XR.InputDevice> handDevices =
-        new System.Collections.Generic.List<UnityEngine.XR.InputDevice>();
+
+    /// Every bat-ball contact, for the scoreboard and anything else that wants to know.
+    public static event System.Action<ShotInfo> ShotStruck;
 
     private void CheckForContact()
     {
         Main inst = Main.Instance;
         Rigidbody ball = inst != null ? inst.theBallRigidBody : null;
-        Vector3 ballNow = ball != null ? ball.position : Vector3.zero;
+        // The ball as drawn, not as simulated. With interpolation on (set at release) the transform
+        // is where the player sees the ball this frame; ball.position is the last physics step,
+        // which runs up to one step (10 ms, 35 cm at 35 m/s) ahead and jitters by a different amount
+        // every frame as 100 Hz physics beats against the display rate. The bat is posed at display
+        // time, so sweeping it against the physics ball met a ball the player never saw, early, with
+        // the bat turned up to 20-40 degrees short of where it looked in a hard swing.
+        Vector3 ballNow = ball != null ? ball.transform.position : Vector3.zero;
 
         bool live = ball != null && !ball.isKinematic && !hasHitBall && !holdingStill &&
                     inst.gameState == eGameState.InGame_DeliverBallLoop;
@@ -152,21 +158,23 @@ public class Bat : MonoBehaviour
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
         Vector3 contactWorld = hit.position + hit.rotation * (hit.localBat * scale);
+        // The bat's velocity comes from the poses the player saw, the same two the sweep used, so
+        // the direction of the hit agrees with the swing on screen. The controller's own reported
+        // velocity used to override this when "close enough" (within 60% of the swing speed - 18 m/s
+        // of disagreement at 30 m/s), but the runtime filters it, it lags the pose at the peak of a
+        // swing, and its angular velocity is combined with a lever arm in a frame we never checked -
+        // all errors that grow with swing speed, which is where shots went the wrong way.
         Vector3 batPointVelocity = BatContact.PointVelocity(hit.localBat, scale, previousPosition, previousRotation,
                                                             transform.position, transform.rotation, dt, pivotLocal, hit.t);
-        // The controller measures its own velocity and spin directly, which beats a frame-to-frame
-        // difference in a fast swing (no lag, no chord-across-an-arc error). Use it when the runtime
-        // provides it and it is sane; the finite difference is the fallback.
-        if (TryDevicePointVelocity(contactWorld, out Vector3 deviceVelocity) &&
-            (deviceVelocity - batPointVelocity).magnitude < Mathf.Max(8f, 0.6f * batPointVelocity.magnitude))
-            batPointVelocity = deviceVelocity;
+        // The settings "Bat power" (75 = realistic) scales the swing, not the result: a harder swing
+        // hits further, and the ball's own pace still rebounds by the real amount.
+        batPointVelocity *= inst.BatAmplifier / 75f;
 
         Vector3 incoming = ball.linearVelocity;
         BatContact.Result result = BatContact.Respond(hit, blade, scale, incoming, batPointVelocity, ball.mass);
         if (result.velocity == incoming)
             return; // grazed, already separating
-        float power = inst.BatAmplifier / 75f;   // the B-menu "batAmplifier" slider, 75 = realistic
-        Vector3 outgoing = result.velocity * power;
+        Vector3 outgoing = result.velocity;
 
         // Put the ball back where it touched the bat - the frame may have carried it through.
         Vector3 contactCentre = hit.position + hit.rotation * (hit.localBall * scale);
@@ -176,50 +184,38 @@ public class Bat : MonoBehaviour
         ball.transform.position = contactCentre;
         ball.linearVelocity = outgoing;
 
-        Debug.Log($"[BatHit] quality={result.quality:F2} edge={result.edge} e={result.restitution:F2} M={result.effectiveMass:F2} " +
-                  $"in={incoming.magnitude:F1} bat={batPointVelocity.magnitude:F1} out={outgoing.magnitude:F1} local={hit.localBat.ToString("F3")}");
-        OnBallHit(inst, incoming, outgoing, Vector3.Dot(batPointVelocity, normal), result);
+        Debug.Log($"[BatHit] {result.kind} quality={result.quality:F2} e={result.restitution:F2} M={result.effectiveMass:F2} " +
+                  $"in={incoming.magnitude:F1} bat={batPointVelocity.magnitude:F1} impact={result.impactSpeed:F1} out={outgoing.magnitude:F1} " +
+                  $"local={hit.localBat.ToString("F3")} normal={normal.ToString("F2")} t={hit.t:F2}");
+        OnBallHit(inst, incoming, outgoing, batPointVelocity.magnitude, result);
     }
 
-    private bool TryDevicePointVelocity(Vector3 point, out Vector3 velocity)
-    {
-        velocity = Vector3.zero;
-        if (attachParent == null || attachParent.parent == null)
-            return false;
-        var chars = (attachParent == leftHandParent ? UnityEngine.XR.InputDeviceCharacteristics.Left
-                                                    : UnityEngine.XR.InputDeviceCharacteristics.Right)
-                    | UnityEngine.XR.InputDeviceCharacteristics.Controller;
-        handDevices.Clear();
-        UnityEngine.XR.InputDevices.GetDevicesWithCharacteristics(chars, handDevices);
-        if (handDevices.Count == 0)
-            return false;
-        var device = handDevices[0];
-        if (!device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceVelocity, out Vector3 v) ||
-            !device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceAngularVelocity, out Vector3 w))
-            return false;
-        // Tracking-space values: turn them into world space with the rig.
-        Transform anchor = attachParent.parent;
-        Transform space = anchor.parent != null ? anchor.parent : anchor;
-        Vector3 linear = space.TransformVector(v);
-        Vector3 angular = space.TransformDirection(w);
-        if (angular.magnitude > 60f || linear.magnitude > 40f)
-            return false;
-        velocity = linear + Vector3.Cross(angular, point - anchor.position);
-        return true;
-    }
-
-    private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeedIntoBall, BatContact.Result result)
+    private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeed, BatContact.Result result)
     {
         hasHitBall = true;
         inst.gameState = eGameState.InGame_BallHit;
-        BallSpeed.Instance.updateBatAndFinalSpeed(Mathf.Abs(batSpeedIntoBall), outgoing.magnitude);
+        BallSpeed.Instance.updateBatAndFinalSpeed(batSpeed, outgoing.magnitude);
 
-        // The sound follows how well it was struck: an edge or the toe clicks, the middle cracks.
-        AudioClip clip = result.edge || result.quality < 0.35f ? audioShot1 : result.quality < 0.7f ? audioShot2 : audioShot3;
-        if (clip != null)
-            AudioSource.PlayClipAtPoint(clip, trackerPos);
+        if (sounds == null)
+            sounds = GetComponent<BatSounds>();
+        if (sounds != null)
+            sounds.Play(result.kind, result.impactSpeed);
 
-        StartCoroutine(ProvideVibration());
+        ShotStruck?.Invoke(new ShotInfo
+        {
+            ballSpeedIn = incoming.magnitude,
+            batSpeed = batSpeed,
+            exitSpeed = outgoing.magnitude,
+            quality = result.quality,
+            contactLabel = BatContact.Label(result.kind),
+            edge = result.edge,
+        });
+
+        // Haptics follow the contact too: a middle is a firm short thump, an edge or the toe a
+        // longer, weaker buzz - the sting a mistimed shot sends up the handle.
+        bool clean = result.kind == BatContact.ContactKind.Middled || result.kind == BatContact.ContactKind.Good;
+        float strength = Mathf.Clamp01(0.35f + result.impactSpeed / 40f);
+        XRInput.SendHaptics(attachParent == leftHandParent, clean ? strength : strength * 0.6f, clean ? 0.06f : 0.16f);
         ShotDistance.Instance.RecordHit(inst.theBall.transform.position);
         CameraReplay.Instance.setViewSetting(1, 1f);
         if (SceneManager.GetActiveScene().name == "Nets")
@@ -230,12 +226,6 @@ public class Bat : MonoBehaviour
     {
         yield return new WaitForSeconds(delay);
         Main.Instance.gameState = eGameState.InGame_BallMissed;
-    }
-
-    public IEnumerator ProvideVibration()
-    {
-        XRInput.SendHaptics(attachParent == leftHandParent, 1f, 0.1f);
-        yield return new WaitForSeconds(0.1f);
     }
 
     // The bat-swing term below was originally tuned against a per-frame position delta

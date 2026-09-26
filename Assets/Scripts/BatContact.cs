@@ -57,6 +57,9 @@ public static class BatContact
         public Quaternion rotation;
     }
 
+    /// Where on the bat it was struck, as a batter would describe it.
+    public enum ContactKind { Middled, Good, Toe, Shoulder, Handle, ThickEdge, ThinEdge, Back }
+
     public struct Result
     {
         public Vector3 velocity;
@@ -64,7 +67,23 @@ public static class BatContact
         public float quality;
         public bool edge;
         public float restitution, effectiveMass;
+        public ContactKind kind;
+        /// Closing speed along the contact normal, m/s: how hard the ball and bat actually met.
+        public float impactSpeed;
     }
+
+    /// A word for the contact, for the scoreboard.
+    public static string Label(ContactKind kind) => kind switch
+    {
+        ContactKind.Middled => "Middled",
+        ContactKind.Good => "Good contact",
+        ContactKind.Toe => "Toe end",
+        ContactKind.Shoulder => "Off the shoulder",
+        ContactKind.Handle => "Off the handle",
+        ContactKind.ThickEdge => "Thick edge",
+        ContactKind.ThinEdge => "Thin edge",
+        _ => "Back of the bat",
+    };
 
     /// <summary>
     /// Sweep one frame. The bat moves from pose A to pose B (uniform scale), the ball from ballA to
@@ -102,7 +121,7 @@ public static class BatContact
             // distance to the blade, marching on to the first real touch.
             Vector3 bladeMin = new Vector3(-blade.halfWidth * widthMultiplier, blade.backY, blade.toeZ);
             Vector3 bladeMax = new Vector3(blade.halfWidth * widthMultiplier, blade.faceY, blade.shoulderZ);
-            if (!FirstTouch(la, lb, s, bladeMin, bladeMax, r, out float touch, out Vector3 closest))
+            if (!FirstTouch(la, lb, s, bladeMin, bladeMax, r, out float touch, out Vector3 closest, out bool overlapping))
                 continue;
 
             float t = Mathf.Lerp(ta, tb, touch);
@@ -111,13 +130,22 @@ public static class BatContact
             Vector3 posAtHit = Vector3.Lerp(pivotA, pivotB, t) - rotAtHit * pivot;
             Vector3 offset = localBall - closest;
             Vector3 normal;
-            if (offset.sqrMagnitude > 1e-10f)
+            if (overlapping)
+            {
+                // Already touching when the step began, so there is no clean first touch to read the
+                // surface from. The nearest face is the wrong answer here: a ball more than half-way
+                // through a 12 cm blade is nearer the back, and pushing it out there sends a
+                // middled drive straight back past the keeper. The ball came in through the face its
+                // motion relative to the bat points away from, so it leaves by that face.
+                normal = EntryNormal(localBall, lb - la, bladeMin, bladeMax);
+            }
+            else if (offset.sqrMagnitude > 1e-10f)
             {
                 normal = offset.normalized;
             }
             else
             {
-                normal = Vector3.zero;   // started inside: leave by the nearest face
+                normal = Vector3.zero;
                 normal[axis] = sign;
             }
             hit = new Hit
@@ -139,10 +167,11 @@ public static class BatContact
     /// From fraction s along a->b (where the grown box was entered), the first point at which the
     /// ball is really within r of the blade box [min, max]. Also returns the touched point.
     private static bool FirstTouch(Vector3 a, Vector3 b, float s, Vector3 min, Vector3 max, float r,
-                                   out float touch, out Vector3 closest)
+                                   out float touch, out Vector3 closest, out bool overlapping)
     {
         const int steps = 24;
         float r2 = r * r * 1.0001f;
+        overlapping = false;
         for (int i = 0; i <= steps; i++)
         {
             float f = Mathf.Lerp(s, 1f, (float)i / steps);
@@ -150,6 +179,8 @@ public static class BatContact
             Vector3 c = Vector3.Max(min, Vector3.Min(max, p));
             if ((p - c).sqrMagnitude > r2)
                 continue;
+            // Touching at the very start of the segment: nothing clear before it to refine from.
+            overlapping = i == 0 && s <= 0f;
             // Refine between the previous (clear) sample and this one.
             float lo = i == 0 ? s : Mathf.Lerp(s, 1f, (float)(i - 1) / steps), hi = f;
             for (int k = 0; k < 12 && i > 0; k++)
@@ -167,6 +198,36 @@ public static class BatContact
         touch = 0f;
         closest = Vector3.zero;
         return false;
+    }
+
+    /// <summary>
+    /// The outward normal of the blade face a ball entered through, from where it is now and how it
+    /// is moving relative to the bat: trace back along -motion and take the face that is reached
+    /// first. Falls back to the hitting face when the ball is not moving relative to the bat.
+    /// </summary>
+    public static Vector3 EntryNormal(Vector3 localBall, Vector3 relativeMotion, Vector3 min, Vector3 max)
+    {
+        int best = 1;
+        float bestT = float.MaxValue, bestSign = 1f;
+        for (int i = 0; i < 3; i++)
+        {
+            float d = relativeMotion[i];
+            if (Mathf.Abs(d) < 1e-7f)
+                continue;
+            // Moving toward -i means it came in through the +i face, and the reverse.
+            float sign = d < 0f ? 1f : -1f;
+            float face = sign > 0f ? max[i] : min[i];
+            float back = (face - localBall[i]) * sign / Mathf.Abs(d);
+            if (back < bestT)
+            {
+                bestT = back;
+                best = i;
+                bestSign = sign;
+            }
+        }
+        Vector3 n = Vector3.zero;
+        n[best] = bestT == float.MaxValue ? 1f : bestSign;
+        return n;
     }
 
     /// <summary>
@@ -214,7 +275,7 @@ public static class BatContact
         // the corners of the blade; on the face itself the outer 20% is bevelled as a real bat's
         // edges are, which is what makes a thick edge fly off square.
         Vector3 localNormal = hit.localNormal;
-        bool edge = false;
+        bool edge = false, thin = false, back = false, toeEnd = false;
         if (localNormal.y > 0.95f)
         {
             float bevel = Mathf.Clamp01((lateral - 0.8f) / 0.2f);
@@ -226,15 +287,17 @@ public static class BatContact
             // Over the edge or on the side of the blade: a thin edge.
             e = Mathf.Min(e, 0.3f);
             mass = Mathf.Min(mass, 0.35f);
-            edge = true;
+            edge = thin = true;
         }
         else if (localNormal.y < -0.5f)
         {
             e *= 0.7f;   // the back of the bat
+            back = true;
         }
         else if (Mathf.Abs(localNormal.z) > 0.5f)
         {
             e = 0.2f;    // the toe
+            toeEnd = true;
         }
 
         Vector3 normal = hit.rotation * localNormal;
@@ -243,15 +306,29 @@ public static class BatContact
         Vector3 ut = u - un * normal;
         float share = mass / (ballMass + mass);
         Vector3 change = un < 0f ? share * (-(1f + e) * un * normal - 0.3f * ut) : Vector3.zero;
+        float quality = (1f - off) * (1f - lateral * lateral) * (handle ? 0.2f : 1f);
 
         return new Result
         {
             velocity = ballVelocity + change,
-            quality = (1f - off) * (1f - lateral * lateral) * (handle ? 0.2f : 1f),
+            quality = quality,
             edge = edge,
             restitution = e,
             effectiveMass = mass,
+            kind = Classify(quality, handle, thin, edge, back, toeEnd || (p.z < blade.sweetZ && off > 0.55f), off > 0.55f),
+            impactSpeed = Mathf.Max(0f, -un),
         };
+    }
+
+    private static ContactKind Classify(float quality, bool handle, bool thin, bool edge, bool back, bool toe, bool offSweet)
+    {
+        if (handle) return ContactKind.Handle;
+        if (thin) return ContactKind.ThinEdge;
+        if (back) return ContactKind.Back;
+        if (edge) return ContactKind.ThickEdge;
+        if (toe) return ContactKind.Toe;
+        if (offSweet) return ContactKind.Shoulder;
+        return quality >= 0.8f ? ContactKind.Middled : ContactKind.Good;
     }
 
     private static int Substeps(Vector3 posA, Quaternion rotA, Vector3 posB, Quaternion rotB, float scale, Blade blade)
