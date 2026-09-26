@@ -38,7 +38,8 @@ public static class ReplayBuilder
             return;
         }
 
-        Material body = HologramMaterial("Hologram", shader, 0.18f, 0.35f, false);
+        // 0.18 all but vanished over the sunlit pitch in the editor check; 0.5 reads clearly.
+        Material body = HologramMaterial("Hologram", shader, 0.5f, 0.35f, false);
         Material ball = HologramMaterial("HologramBall", shader, 0.55f, 0.25f, false);
         Material line = HologramMaterial("HologramTrail", shader, 0.9f, 0.15f, true);
 
@@ -138,7 +139,13 @@ public static class ReplayBuilder
             Vector3 rootScale = src.lossyScale, scale = filter.transform.lossyScale;
             part.transform.localScale = new Vector3(scale.x / rootScale.x, scale.y / rootScale.y, scale.z / rootScale.z);
             part.GetComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
-            Quiet(part.GetComponent<MeshRenderer>(), material);
+            var partRenderer = part.GetComponent<MeshRenderer>();
+            Quiet(partRenderer, material);
+            // One slot per submesh: the bat mesh has six (blade, handle, grip...), and with a
+            // single material only the first drew - a sliver of handle, no blade.
+            var slots = new Material[filter.sharedMesh.subMeshCount];
+            for (int i = 0; i < slots.Length; i++) slots[i] = material;
+            partRenderer.sharedMaterials = slots;
         }
         return ghost.transform;
     }
