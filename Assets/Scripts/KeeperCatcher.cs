@@ -226,11 +226,20 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
             Keep(live && hasIntercept, state);
     }
 
-    /// Before the take: crouch, and gloves low in front until the ball is coming, then on it.
+    /// Between balls: a half-crouch with the back up and the gloves resting just above the knees,
+    /// head up the pitch. The full crouch with gloves at the shins, held all the time, made the
+    /// reach fold him at the hips and spine to get the hands that low - hunched over.
+    private const float RestCrouch = 0.26f, RestHandsAhead = 0.3f, RestHandsUp = 0.62f, RestWeight = 0.6f;
+
+    /// Before the take: set in the rest stance, down into the crouch as the bowler runs in, gloves
+    /// low in front until the ball is coming, then on it.
     private void Keep(bool coming, eGameState state)
     {
         Vector3 fwd = bodyRoot.forward, up = bodyRoot.up;
-        Vector3 rest = bodyRoot.position + fwd * 0.45f + up * 0.42f;
+        bool between = !coming && state != eGameState.InGame_SelectDeliveryLoop &&
+                       state != eGameState.InGame_DeliverBall && state != eGameState.InGame_DeliverBallLoop;
+        Vector3 rest = between ? bodyRoot.position + fwd * RestHandsAhead + up * RestHandsUp
+                               : bodyRoot.position + fwd * 0.45f + up * 0.42f;
         float eta = interceptAt - Time.time;
         // Down in the crouch until the delivery pitches (keepers rise with the bounce); an edge
         // or a ball already bounced is read straight away.
@@ -238,9 +247,11 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         float onIt = readable ? Mathf.InverseLerp(ReachLead, ReachFull, eta) : 0f;
         float arriveY = transform.InverseTransformPoint(intercept).y;
         float rise = readable ? Mathf.Clamp01((arriveY - 0.45f) / 0.9f) : 0f;
-        body.minCrouch = Crouch * (1f - rise);
+        body.minCrouch = between ? RestCrouch : Crouch * (1f - rise);
         body.handTarget = Vector3.Lerp(rest, intercept, onIt);
-        body.weight = Mathf.Max(0.85f, onIt);
+        body.weight = between ? RestWeight : Mathf.Max(0.85f, onIt);
+        if (between && AnimatedBowler.Instance != null)
+            body.lookTarget = AnimatedBowler.Instance.transform.position + Vector3.up * 1.6f;   // head up the pitch
         body.leftHandShare = 1f;   // both gloves to take it
         // Gloves face the ball coming in, or straight up the pitch while waiting.
         Vector3 face = Vector3.Slerp(fwd, -incoming, onIt);

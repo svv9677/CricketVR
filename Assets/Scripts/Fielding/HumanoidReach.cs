@@ -28,8 +28,10 @@ public class HumanoidReach : MonoBehaviour
     [SerializeField] private float hipStiffness = 1.0f;
     [SerializeField] private float spineStiffness = 2.0f;
     [Header("Range")]
-    [SerializeField] private float maxPelvisDrop = 0.45f;
-    [SerializeField] private float maxHipHinge = 60f;
+    // A ball on the grass needs a deep squat and a real hip bend: at 0.45 m and 60 degrees it was
+    // only just reachable, and only straight in front - one beside a fielder stayed on the ground.
+    [SerializeField] private float maxPelvisDrop = 0.55f;
+    [SerializeField] private float maxHipHinge = 75f;
     [SerializeField] private float maxSpineFlex = 25f;
     [Header("Smoothing: critically damped, settles in about 4 / omega seconds")]
     [SerializeField] private float poseOmega = 10f;

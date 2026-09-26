@@ -269,6 +269,16 @@ public class AnimatedFielder : MonoBehaviour, IFielder
             reach.weight = catching ? Mathf.InverseLerp(CatchStartTime, CatchFullTime, eta)
                                     : Mathf.InverseLerp(ReachStartTime, ReachFullTime, eta);
         }
+        else if (live && inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall &&
+                 FlatDistance(ball, transform.position) < ReachRadius + HandsAhead)
+        {
+            // A ball that has stopped (or all but) beside him: the prediction for it is a single
+            // point already in the past by the time it is read, so PredictPass finds nothing and
+            // he stood over it with his hands at his sides. Go down to the ball itself - a slow
+            // one cannot drag the hands round the way a fast one did.
+            reach.handTarget = ball;
+            reach.weight = Mathf.InverseLerp(ReachRadius + HandsAhead, HandsAhead, FlatDistance(ball, transform.position));
+        }
         else
         {
             reach.weight = 0f;
@@ -284,6 +294,8 @@ public class AnimatedFielder : MonoBehaviour, IFielder
         if (myAnimator.cullingMode != mode)
             myAnimator.cullingMode = mode;
     }
+
+    private static float FlatDistance(Vector3 a, Vector3 b) => new Vector2(a.x - b.x, a.z - b.z).magnitude;
 
     private void FaceTowards(Vector3 point, float rateScale)
     {

@@ -89,6 +89,7 @@ public class CameraReplay : MonoBehaviour
         if (CameraReplay.Instance == null)
             CameraReplay.Instance = this;
         InitScreen();
+        UseRuntimeMaterial();
 
         viewSetting = 0;
         startPos = transform.position;
@@ -243,6 +244,26 @@ public class CameraReplay : MonoBehaviour
     {
         if (mainForScreen != null)
             mainForScreen.onGameStateChanged -= UpdateScreenPlacement;
+        if (runtimeMaterial != null)
+            Destroy(runtimeMaterial);
+    }
+
+    private Material runtimeMaterial;
+
+    /// Play on a copy of the screen material. Writing _Slice / _Frames into targetMat itself
+    /// wrote into the ReplayDisplay.mat asset, so every play session left it changed in git.
+    private void UseRuntimeMaterial()
+    {
+        if (targetMat == null)
+            return;
+        Material asset = targetMat;
+        runtimeMaterial = new Material(asset) { name = asset.name + " (runtime)" };
+        foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+        {
+            if (r.sharedMaterial == asset)
+                r.sharedMaterial = runtimeMaterial;
+        }
+        targetMat = runtimeMaterial;
     }
 
     /// While a ball is live - being bowled, or struck and still in play - a screen 3.5 m in front

@@ -280,14 +280,16 @@ public class AnimatedFielderManagement : MonoBehaviour
     }
 
     /// Where to stand for a meeting point: StopShort before it on the way in, so the ball arrives
-    /// in front of the body. Already that close: stay put and let the hands do it.
+    /// in front of the body, where the hands work. Closer than that - the ball at his feet or
+    /// beside him - he steps back off it to the same distance: standing on it, the body could not
+    /// bend down far enough to get the hands under it.
     private static Vector3 ShortOf(IFielder f, Vector3 point)
     {
         Vector3 at = f.Position;
         Vector3 to = new Vector3(point.x - at.x, 0f, point.z - at.z);
         float d = to.magnitude;
-        if (d <= StopShort)
-            return at;
+        if (d < 1e-3f)
+            return at;   // exactly on it: no direction to step back along; the reach copes
         return point - to / d * StopShort;
     }
 
