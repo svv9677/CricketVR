@@ -229,23 +229,36 @@ public class KeeperCatcher : MonoBehaviour
         body.minCrouch = Crouch * (1f - rise);
         body.handTarget = Vector3.Lerp(rest, intercept, onIt);
         body.weight = Mathf.Max(0.85f, onIt);
+        body.leftHandShare = 1f;   // both gloves to take it
         // Gloves face the ball coming in, or straight up the pitch while waiting.
         Vector3 face = Vector3.Slerp(fwd, -incoming, onIt);
         body.palmFacing = face.sqrMagnitude > 1e-4f ? face : fwd;
     }
 
-    /// After the take: give with the ball, then stand up with it at the chest.
+    /// After the take: give with both gloves, then stand up holding it in the right glove, the left
+    /// arm dropping away, and look up the pitch at the batter - not down at his hands.
     private void Hold()
     {
         float t = Time.time - heldSince;
         float give = Mathf.Clamp01(t / GiveTime);
         Vector3 back = contact + incoming * (GiveDistance * (1f - (1f - give) * (1f - give)));
-        Vector3 chest = bodyRoot.position + bodyRoot.up * 1.05f + bodyRoot.forward * 0.3f;
         float stand = Mathf.Clamp01((t - StandUpAfter) / 0.4f);
-        body.handTarget = Vector3.Lerp(back, chest, stand * stand * (3f - 2f * stand));
+        float s = stand * stand * (3f - 2f * stand);
+        // Ball in the right glove, a little out to the side at the waist.
+        Vector3 held = bodyRoot.position + bodyRoot.up * 1.0f + bodyRoot.right * 0.28f + bodyRoot.forward * 0.3f;
+        body.handTarget = Vector3.Lerp(back, held, s);
         body.weight = 1f;
+        body.leftHandShare = 1f - s;
         body.minCrouch = Crouch * (1f - stand);
-        body.palmFacing = Vector3.Slerp(-incoming, bodyRoot.up, stand);
+        body.palmFacing = Vector3.Slerp(-incoming, bodyRoot.up, s);
+        body.lookTarget = Vector3.Lerp(Main.Instance.theBall.transform.position, BatterHead(), s);
+    }
+
+    /// Where the batter's eyes are: the player's head, or a standing batter at the crease.
+    private static Vector3 BatterHead()
+    {
+        Camera eye = Camera.main;
+        return eye != null ? eye.transform.position : new Vector3(BallDelivery.BatsmanStumpsX - 1f, 1.6f, 0f);
     }
 
     // ---- The take ------------------------------------------------------------------------------------

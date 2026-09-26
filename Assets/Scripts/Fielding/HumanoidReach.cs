@@ -45,6 +45,9 @@ public class HumanoidReach : MonoBehaviour
     [System.NonSerialized] public float minCrouch;
     /// Distance between the palms (a ball is 0.072 m across).
     [System.NonSerialized] public float handGap = 0.1f;
+    /// How much the left hand takes part, 1 = both hands on the target, 0 = the right hand alone
+    /// (the left arm goes back to the animation). A keeper holds a taken ball in one glove.
+    [System.NonSerialized] public float leftHandShare = 1f;
     /// Zero: palms face each other across the target (gathering). Otherwise the palms face this
     /// world direction (a keeper's gloves toward the incoming ball) with fingers up, or down for a
     /// target below the hips.
@@ -87,6 +90,11 @@ public class HumanoidReach : MonoBehaviour
         animator = GetComponent<Animator>();
         if (animator == null || !animator.isHuman || animator.avatar == null)
             return;
+        // Pose once per rendered frame. On the physics clock (Fixed, 100 Hz) a rendered frame can
+        // get no animator step at all - measured: 94 of 150 frames in the editor - and then the
+        // hand keeps last frame's wrist turn and LateUpdate's AlignHand stacks another on it, which
+        // the next step snaps back: gloves flicking 20-60 degrees with no animation behind it.
+        animator.updateMode = AnimatorUpdateMode.Normal;
         CacheBones();
         if (hips == null || leftHand == null || rightHand == null || leftUpperArm == null || rightUpperArm == null)
             return;
@@ -259,18 +267,19 @@ public class HumanoidReach : MonoBehaviour
 
     private void ApplyHands()
     {
-        float w = smoothedWeight;
-        animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, w);
+        float w = smoothedWeight, share = Mathf.Clamp01(leftHandShare);
+        animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, w * share);
         animator.SetIKPositionWeight(AvatarIKGoal.RightHand, w);
-        animator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, w);
+        animator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, w * share);
         animator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, w);
         if (w < 0.001f)
             return;
         Frame(out Vector3 finger, out Vector3 side);
         // IK moves the wrist; put it so the palm centre, not the wrist, lands on the target.
         float reachBack = (0.6f * palmLength + palmExtra);
-        Vector3 facing = palmFacing.sqrMagnitude > 1e-6f ? palmFacing.normalized : Vector3.zero;
-        Vector3 lPalm = handPos - side * (handGap * 0.5f), rPalm = handPos + side * (handGap * 0.5f);
+        Vector3 facing = smoothFacing;
+        // Two hands sit either side of the target; one hand alone goes right onto it.
+        Vector3 lPalm = handPos - side * (handGap * 0.5f), rPalm = handPos + side * (handGap * 0.5f * share);
         animator.SetIKPosition(AvatarIKGoal.LeftHand, lPalm - finger * reachBack - facing * 0.02f);
         animator.SetIKPosition(AvatarIKGoal.RightHand, rPalm - finger * reachBack - facing * 0.02f);
         Vector3 up = transform.up, right = transform.right, fwd = transform.forward;
@@ -278,8 +287,45 @@ public class HumanoidReach : MonoBehaviour
         animator.SetIKHintPosition(AvatarIKHint.RightElbow, rightUpperArm.position + (right * 0.35f - up * 0.3f - fwd * 0.1f) * scale);
     }
 
-    /// Finger direction and the across-the-hands direction for the current target.
+    /// Fastest the hands' frame (finger, side and palm directions) turns, degrees per second.
+    private const float FrameTurnSpeed = 360f;
+    private int frameStamp = -1;
+    private bool frameSet;
+    private Vector3 smoothFinger, smoothSide, smoothFacing;
+
+    /// Finger direction and the across-the-hands direction for the current target, worked out once
+    /// a frame and turned toward the raw answer at FrameTurnSpeed. The raw answer can jump: the
+    /// palms face back along the ball's velocity, which turns sharply at the bounce, and the finger
+    /// rule has an either-or fallback. Fed straight to the arm IK, a jump in these moved the wrist
+    /// target and the solver swung the elbow to a new side - measured at the keeper, forearm turns
+    /// of 22-70 degrees and the elbow moving up to 10 cm in one frame, the gloves flicking with them.
     private void Frame(out Vector3 finger, out Vector3 side)
+    {
+        if (frameStamp != Time.frameCount)
+        {
+            frameStamp = Time.frameCount;
+            RawFrame(out Vector3 f, out Vector3 s);
+            Vector3 face = palmFacing.sqrMagnitude > 1e-6f ? palmFacing.normalized : Vector3.zero;
+            if (!frameSet)
+            {
+                smoothFinger = f; smoothSide = s; smoothFacing = face;
+                frameSet = true;
+            }
+            else
+            {
+                float step = FrameTurnSpeed * Mathf.Deg2Rad * Time.deltaTime;
+                smoothFinger = Vector3.RotateTowards(smoothFinger, f, step, 0f).normalized;
+                smoothSide = Vector3.RotateTowards(smoothSide, s, step, 0f).normalized;
+                smoothFacing = face == Vector3.zero ? Vector3.zero
+                             : smoothFacing == Vector3.zero ? face
+                             : Vector3.RotateTowards(smoothFacing, face, step, 0f).normalized;
+            }
+        }
+        finger = smoothFinger;
+        side = smoothSide;
+    }
+
+    private void RawFrame(out Vector3 finger, out Vector3 side)
     {
         Vector3 shoulders = 0.5f * (leftUpperArm.position + rightUpperArm.position);
         Vector3 reach = handPos - shoulders;
@@ -307,32 +353,58 @@ public class HumanoidReach : MonoBehaviour
     private void LateUpdate()
     {
         if (!ready || smoothedWeight < 0.01f)
+        {
+            leftWrist = rightWrist = Quaternion.identity;
+            frameSet = false;   // start the next reach from its own frame, not a stale one
             return;
+        }
         Frame(out Vector3 finger, out Vector3 side);
-        bool facing = palmFacing.sqrMagnitude > 1e-6f;
-        Vector3 lPalm = facing ? palmFacing.normalized : side, rPalm = facing ? palmFacing.normalized : -side;
-        AlignHand(leftHand, leftMiddle, leftIndex, leftLittle, true, finger, lPalm, smoothedWeight);
-        AlignHand(rightHand, rightMiddle, rightIndex, rightLittle, false, finger, rPalm, smoothedWeight);
+        bool facing = smoothFacing != Vector3.zero;
+        Vector3 lPalm = facing ? smoothFacing : side, rPalm = facing ? smoothFacing : -side;
+        float dt = Time.deltaTime;
+        leftWrist = AlignHand(leftHand, leftMiddle, leftIndex, leftLittle, true, finger, lPalm,
+                              smoothedWeight * Mathf.Clamp01(leftHandShare), leftWrist, dt);
+        rightWrist = AlignHand(rightHand, rightMiddle, rightIndex, rightLittle, false, finger, rPalm, smoothedWeight, rightWrist, dt);
     }
 
-    /// Turn a hand so its fingers point along `finger` and its palm faces `palm`, limited to what a
-    /// wrist can do (60 degrees of bend, 90 of turn).
-    private static void AlignHand(Transform hand, Transform middle, Transform index, Transform little, bool left,
-                                  Vector3 finger, Vector3 palm, float w)
+    /// Most a wrist turns from the animated hand, and how fast it gets there.
+    private const float MaxWristTurn = 100f, WristSpeed = 720f;
+    /// Each wrist's turn on top of the animated hand, carried frame to frame.
+    private Quaternion leftWrist = Quaternion.identity, rightWrist = Quaternion.identity;
+
+    /// Turn a hand toward fingers along `finger` and palm facing `palm`, as one rotation from the
+    /// animated hand, capped at what a wrist can do and moving at a wrist's speed. Returns the turn
+    /// applied, for the next frame to continue from.
+    ///
+    /// It used to bend the fingers over, then twist by a signed angle clamped to +-90. Where the
+    /// twist wanted was near half a turn, that angle crossed +-180 and flipped sign, and the clamp
+    /// threw the glove from +90 to -90 in one frame - measured 109 and 180 degree single-frame jumps
+    /// at the keeper's gloves. Now the target is a whole orientation and the glove can only travel
+    /// WristSpeed toward it, so there is nothing to flip.
+    private static Quaternion AlignHand(Transform hand, Transform middle, Transform index, Transform little, bool left,
+                                        Vector3 finger, Vector3 palm, float w, Quaternion current, float dt)
     {
         if (hand == null || middle == null)
-            return;
+            return Quaternion.identity;
         Vector3 have = (middle.position - hand.position).normalized;
-        float bend = Vector3.Angle(have, finger);
-        Quaternion toFinger = Quaternion.FromToRotation(have, finger);
-        float t = w * (bend > 60f ? 60f / bend : 1f);
-        hand.rotation = Quaternion.Slerp(Quaternion.identity, toFinger, t) * hand.rotation;
-        if (index == null || little == null)
-            return;
-        Vector3 along = (middle.position - hand.position).normalized;
-        Vector3 normal = PalmNormal(along, index.position - little.position, left);
-        float turn = Vector3.SignedAngle(Vector3.ProjectOnPlane(normal, along), Vector3.ProjectOnPlane(palm, along), along);
-        hand.rotation = Quaternion.AngleAxis(Mathf.Clamp(turn, -90f, 90f) * w, along) * hand.rotation;
+        Quaternion wanted;
+        if (index != null && little != null)
+        {
+            Vector3 haveNormal = PalmNormal(have, index.position - little.position, left);
+            Vector3 wantNormal = Vector3.ProjectOnPlane(palm, finger);
+            if (wantNormal.sqrMagnitude < 1e-4f)
+                wantNormal = Vector3.ProjectOnPlane(haveNormal, finger);
+            wanted = Quaternion.LookRotation(finger, wantNormal) * Quaternion.Inverse(Quaternion.LookRotation(have, haveNormal));
+        }
+        else
+        {
+            wanted = Quaternion.FromToRotation(have, finger);
+        }
+        wanted = Quaternion.RotateTowards(Quaternion.identity, wanted, MaxWristTurn);
+        wanted = Quaternion.Slerp(Quaternion.identity, wanted, w);
+        Quaternion turn = Quaternion.RotateTowards(current, wanted, WristSpeed * dt);
+        hand.rotation = turn * hand.rotation;
+        return turn;
     }
 
     /// Palm normal from the finger direction and the little-to-index direction across the
@@ -357,7 +429,7 @@ public class HumanoidReach : MonoBehaviour
     }
 
     /// Between the two palms: where a two-handed take holds the ball.
-    public Vector3 HoldPoint => 0.5f * (PalmCentre(true) + PalmCentre(false));
+    public Vector3 HoldPoint => Vector3.Lerp(PalmCentre(false), 0.5f * (PalmCentre(true) + PalmCentre(false)), Mathf.Clamp01(leftHandShare));
 
     /// Closest palm to a ball that moved from a to b this frame, and how close it came.
     public float ClosestPalm(Vector3 a, Vector3 b) =>
@@ -371,5 +443,7 @@ public class HumanoidReach : MonoBehaviour
         poseVelocity = default;
         handVelocity = Vector3.zero;
         spineFrozen = false;
+        leftWrist = rightWrist = Quaternion.identity;
+        frameSet = false;
     }
 }
