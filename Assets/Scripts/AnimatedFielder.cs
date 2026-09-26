@@ -2,14 +2,18 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// One fielder. FieldingController decides where each fielder goes and when the ball is taken;
-/// this moves the body there and holds the ball.
+/// One fielder. AnimatedFielderManagement decides where each fielder goes; this moves the body
+/// there, reaches for the ball with the whole body and holds it once it is in the hands.
 ///
-/// The old version waited on animation states before moving (Idle -> Start Running -> Run),
-/// moved by root motion at ~4 m/s while planning with ~10-12 m/s, and only stopped the ball after
-/// a stop-then-pick-up animation had played - so fielders arrived late and the ball rolled on
-/// through them. Now the body is moved in code, straight away, at the speed the plan assumed, and
-/// the ball is held the instant it is in reach. Animation is only for looks.
+/// The body is moved in code, straight away, at the speed the plan assumed (animation is only for
+/// looks - root motion ran at ~4 m/s against a ~10 m/s plan and fielders arrived late).
+///
+/// Taking the ball: there is no snap. HumanoidReach squats, hinges and reaches the hands to where
+/// the ball's predicted path comes closest (AnimatedFielderManagement.PredictPass), tracking it as
+/// it comes; the ball is his only when it passes within GatherDistance of a palm after IK, tested
+/// over the ball's whole path that frame so a fast one cannot slip between frames. Then it is held
+/// between the palms, the last few centimetres faded out over HoldSettle, and he stands up with it
+/// (the reach springs settle in ~0.4 s) and turns to the stumps.
 /// </summary>
 public class AnimatedFielder : MonoBehaviour
 {
@@ -39,11 +43,29 @@ public class AnimatedFielder : MonoBehaviour
     /// Forward speed baked into the run animation, used to keep the feet from sliding.
     private const float AnimatedRunSpeed = 4f;
 
+    /// The ball is in the hands when it passes this close to a palm centre.
+    public const float GatherDistance = 0.15f;
+    /// A slow ball (a roller, one that has stopped) is scooped up from a little further.
+    private const float SlowGatherDistance = 0.2f, SlowBall = 2f;
+    /// Time for the gap between ball and palms at the take to close.
+    private const float HoldSettle = 0.1f;
+    /// Hands work this far in front of the feet; the path is searched this far around that spot.
+    private const float HandsAhead = 0.45f, ReachRadius = 1.1f;
+    /// The reach starts this long before the ball arrives and is full by the second value.
+    private const float ReachStartTime = 1.1f, ReachFullTime = 0.35f;
+    /// Holding: ball in front of the chest (above the feet, in front of them), and the pause
+    /// before turning to throw it in.
+    private const float HoldHeight = 1.15f, HoldAhead = 0.32f, TurnAfter = 0.5f;
+
     private Transform holdBallOffset;
+    private HumanoidReach reach;
     private bool hasTarget;
     private Vector3 target;
     private float speed;
     private bool holdingBall;
+    private float heldSince;
+    private Vector3 holdOffset;
+    private Vector3 lastBall;
 
     public float RunSpeed => BaseRunSpeed * Mathf.Max(0.5f, Main.Instance != null ? Main.Instance.fielderSpeed : 1.5f);
     public bool HoldingBall => holdingBall;
@@ -64,10 +86,17 @@ public class AnimatedFielder : MonoBehaviour
                 }
             }
         }
+        if (animatedFielderManagementScript == null)
+            animatedFielderManagementScript = GetComponentInParent<AnimatedFielderManagement>();
         StartPosition = Constants.fieldingPositions[Convert.ToInt32(gameObject.name[gameObject.name.Length - 1].ToString()) - 1];
-        ReturnToStart();
         if (myAnimator != null)
+        {
             myAnimator.applyRootMotion = false;
+            reach = myAnimator.GetComponent<HumanoidReach>();
+            if (reach == null)
+                reach = myAnimator.gameObject.AddComponent<HumanoidReach>();
+        }
+        ReturnToStart();
         if (fielderHand != null && fielderHand.transform.childCount > 5)
             holdBallOffset = fielderHand.transform.GetChild(5);
         Main.Instance.onGameStateChanged += HandleGameState;
@@ -98,6 +127,11 @@ public class AnimatedFielder : MonoBehaviour
         transform.position = StartPosition;
         transform.LookAt(new Vector3(0f, transform.position.y, 0f));
         SetAnimation(0);
+        if (reach != null && !holdingBall)
+        {
+            reach.weight = 0f;
+            reach.ResetPose();
+        }
     }
 
     /// Run to this point (on the ground).
@@ -113,109 +147,38 @@ public class AnimatedFielder : MonoBehaviour
         hasTarget = false;
     }
 
-    /// The ball is in reach: take it and hold it. Stop dead - the controller has no transition from
-    /// the run to the pick-up, so asking for it left the fielder running on with the ball.
+    /// The ball is in his hands (AnimatedFielderManagement.Take): hold it from where it was met.
+    /// Stop dead - the controller has no transition from the run to the pick-up.
     public void TakeBall()
     {
         holdingBall = true;
+        heldSince = Time.time;
         hasTarget = false;
         speed = 0f;
+        Vector3 ball = Main.Instance.theBall.transform.position;
+        holdOffset = reach != null && reach.Ready ? ball - reach.HoldPoint : Vector3.zero;
         SetAnimation(0);
         if (myAnimator != null)
             myAnimator.CrossFadeInFixedTime("0 Idle", 0.12f);
     }
 
-    // ---- Hands to the ball (humanoid IK; the controller's base layer has IK Pass on) -----------
-    /// The hands start reaching at this distance from the chest and are fully on the ball here.
-    private const float ReachStart = 3f, ReachFull = 1.2f;
-    /// Keep the hands this far in front of the chest, and let them cross the body's midline by at
-    /// most this much, so the arms never pass through the torso.
-    private const float MinInFront = 0.2f, MaxAcrossMidline = 0.12f;
-    /// Fraction of the arm's length a hand may reach, so the elbow never locks straight.
-    private const float MaxExtension = 0.95f;
-    private float ikWeight;
-    private Transform leftUpperArm, rightUpperArm, chest;
-    private float leftArmLength, rightArmLength;
-
-    private void CacheBones()
-    {
-        if (myAnimator == null || !myAnimator.isHuman || chest != null)
-            return;
-        leftUpperArm = myAnimator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
-        rightUpperArm = myAnimator.GetBoneTransform(HumanBodyBones.RightUpperArm);
-        chest = myAnimator.GetBoneTransform(HumanBodyBones.Chest) ?? myAnimator.GetBoneTransform(HumanBodyBones.Spine);
-        leftArmLength = ArmLength(HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand);
-        rightArmLength = ArmLength(HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm, HumanBodyBones.RightHand);
-    }
-
-    private float ArmLength(HumanBodyBones upper, HumanBodyBones lower, HumanBodyBones hand)
-    {
-        Transform u = myAnimator.GetBoneTransform(upper), l = myAnimator.GetBoneTransform(lower), h = myAnimator.GetBoneTransform(hand);
-        return u != null && l != null && h != null ? Vector3.Distance(u.position, l.position) + Vector3.Distance(l.position, h.position) : 0.6f;
-    }
-
-    private void OnAnimatorIK(int layerIndex)
-    {
-        CacheBones();
-        if (chest == null)
-            return;
-        Main inst = Main.Instance;
-        Vector3 focus;
-        float want;
-        if (holdingBall)
-        {
-            // Both hands on the ball in front of the chest.
-            focus = chest.position + transform.forward * 0.32f - transform.up * 0.1f;
-            want = 1f;
-        }
-        else
-        {
-            focus = inst.theBall.transform.position;
-            bool live = !inst.theBallRigidBody.isKinematic &&
-                        (inst.gameState == eGameState.InGame_BallHit || inst.gameState == eGameState.InGame_BallHitLoop);
-            want = live ? Mathf.InverseLerp(ReachStart, ReachFull, Vector3.Distance(focus, chest.position)) : 0f;
-        }
-        ikWeight = Mathf.MoveTowards(ikWeight, want, Time.deltaTime * 5f);
-
-        myAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, ikWeight);
-        myAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, ikWeight);
-        myAnimator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, ikWeight);
-        myAnimator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, ikWeight);
-        myAnimator.SetLookAtWeight(ikWeight * 0.8f, 0.15f, 0.8f, 0.4f, 0.5f);
-        if (ikWeight <= 0.001f)
-            return;
-
-        // Cupped hands either side of the ball.
-        Vector3 apart = transform.right * 0.07f;
-        myAnimator.SetIKPosition(AvatarIKGoal.LeftHand, Reachable(focus - apart, true));
-        myAnimator.SetIKPosition(AvatarIKGoal.RightHand, Reachable(focus + apart, false));
-        // Elbows out and down, never folded in against the ribs.
-        myAnimator.SetIKHintPosition(AvatarIKHint.LeftElbow, leftUpperArm.position + (-transform.right * 0.35f - transform.up * 0.35f - transform.forward * 0.05f));
-        myAnimator.SetIKHintPosition(AvatarIKHint.RightElbow, rightUpperArm.position + (transform.right * 0.35f - transform.up * 0.35f - transform.forward * 0.05f));
-        myAnimator.SetLookAtPosition(focus);
-    }
-
-    /// Clamp a hand target to where that arm can really go.
-    private Vector3 Reachable(Vector3 target, bool left)
-    {
-        Vector3 local = transform.InverseTransformPoint(target);
-        Vector3 chestLocal = transform.InverseTransformPoint(chest.position);
-        local.z = Mathf.Max(local.z, chestLocal.z + MinInFront);
-        local.x = left ? Mathf.Max(local.x, chestLocal.x - MaxAcrossMidline) : Mathf.Min(local.x, chestLocal.x + MaxAcrossMidline);
-        Vector3 world = transform.TransformPoint(local);
-        Transform shoulder = left ? leftUpperArm : rightUpperArm;
-        float reach = (left ? leftArmLength : rightArmLength) * MaxExtension;
-        Vector3 fromShoulder = world - shoulder.position;
-        return fromShoulder.magnitude > reach ? shoulder.position + fromShoulder.normalized * reach : world;
-    }
-
     private void Update()
+    {
+        Move();
+        UpdateReach();
+    }
+
+    private void Move()
     {
         if (!hasTarget)
         {
             speed = 0f;
             if (!holdingBall)
                 SetAnimation(0);
+            if (holdingBall && Time.time - heldSince > TurnAfter)
+                FaceTowards(Main.Instance.theStumps != null ? Main.Instance.theStumps.transform.position : Vector3.zero, 0.35f);
+            else
+                FaceTowards(Main.Instance.theBall.transform.position, 1f);
             return;
         }
 
@@ -226,7 +189,7 @@ public class AnimatedFielder : MonoBehaviour
         {
             speed = 0f;
             SetAnimation(0);
-            FaceBall();
+            FaceTowards(Main.Instance.theBall.transform.position, 1f);
             return;
         }
 
@@ -241,12 +204,58 @@ public class AnimatedFielder : MonoBehaviour
             myAnimator.speed = Mathf.Clamp(speed / AnimatedRunSpeed, 0.6f, 2f);
     }
 
-    private void FaceBall()
+    /// Tell the body where the hands should be this frame (HumanoidReach applies it in the IK pass).
+    private void UpdateReach()
     {
-        Vector3 ball = Main.Instance.theBall.transform.position - transform.position;
-        ball.y = 0f;
-        if (ball.sqrMagnitude > 0.01f)
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(ball), TurnRate * Time.deltaTime);
+        if (reach == null || !reach.Ready)
+            return;
+        Main inst = Main.Instance;
+        Vector3 ball = inst.theBall.transform.position;
+        if (holdingBall)
+        {
+            // Ball to the chest: the reach target comes up, so the springs stand him up (~0.4 s).
+            reach.handTarget = transform.position + transform.up * HoldHeight + transform.forward * HoldAhead;
+            reach.weight = 1f;
+            reach.handGap = 0.09f;
+            reach.look = false;
+            return;
+        }
+        bool live = !inst.theBallRigidBody.isKinematic &&
+                    (inst.gameState == eGameState.InGame_BallHit || inst.gameState == eGameState.InGame_BallHitLoop);
+        reach.look = live && (ball - transform.position).sqrMagnitude < 60f * 60f;
+        reach.lookTarget = ball;
+        reach.handGap = 0.1f;
+        Vector3 spot = transform.position + transform.forward * HandsAhead;
+        if (live && animatedFielderManagementScript != null &&
+            animatedFielderManagementScript.PredictPass(spot, ReachRadius, out Vector3 point, out float eta))
+        {
+            // Close in, the live ball is the better target than a prediction up to 0.1 s old.
+            float close = Mathf.InverseLerp(1.5f, 0.4f, Vector3.Distance(ball, spot));
+            reach.handTarget = Vector3.Lerp(point, ball, close * 0.5f);
+            reach.weight = Mathf.InverseLerp(ReachStartTime, ReachFullTime, eta);
+        }
+        else
+        {
+            reach.weight = 0f;
+        }
+        KeepAnimating(live && (hasTarget || reach.weight > 0f));
+    }
+
+    /// A fielder behind the camera is culled, and a culled animator does not move the hands, so
+    /// the ball could never reach them: keep him animating while he is in the play.
+    private void KeepAnimating(bool inPlay)
+    {
+        AnimatorCullingMode mode = inPlay || holdingBall ? AnimatorCullingMode.AlwaysAnimate : AnimatorCullingMode.CullUpdateTransforms;
+        if (myAnimator.cullingMode != mode)
+            myAnimator.cullingMode = mode;
+    }
+
+    private void FaceTowards(Vector3 point, float rateScale)
+    {
+        Vector3 to = point - transform.position;
+        to.y = 0f;
+        if (to.sqrMagnitude > 0.01f)
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(to), TurnRate * rateScale * Time.deltaTime);
     }
 
     private void SetAnimation(int action)
@@ -258,12 +267,26 @@ public class AnimatedFielder : MonoBehaviour
             myAnimator.speed = 1f;
     }
 
+    /// After the animator and the IK: take the ball if it has reached the hands, carry it if held.
     public void LateUpdate()
     {
+        Main inst = Main.Instance;
+        Transform ball = inst.theBall.transform;
+        Vector3 now = ball.position;
         if (holdingBall)
         {
-            Transform ball = Main.Instance.theBall.transform;
-            ball.position = holdBallOffset != null ? holdBallOffset.position : transform.position + Vector3.up;
+            if (reach != null && reach.Ready)
+                ball.position = reach.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
+            else
+                ball.position = holdBallOffset != null ? holdBallOffset.position : transform.position + Vector3.up;
         }
+        else if (reach != null && reach.Ready && reach.SmoothedWeight > 0.3f && !inst.theBallRigidBody.isKinematic &&
+                 inst.gameState == eGameState.InGame_BallHitLoop && animatedFielderManagementScript != null)
+        {
+            bool slow = inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall;
+            if (reach.ClosestPalm(lastBall, now) <= (slow ? SlowGatherDistance : GatherDistance))
+                animatedFielderManagementScript.Gather(this);   // -> Take -> TakeBall
+        }
+        lastBall = holdingBall ? ball.position : now;
     }
 }
