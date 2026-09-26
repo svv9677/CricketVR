@@ -253,11 +253,17 @@ public static class BatContact
         return pivotVelocity + Vector3.Cross(omega, rot * ((localPoint - pivotLocal) * scale));
     }
 
+    /// <param name="widthMultiplier">The difficulty's bat width, as passed to Sweep. Easy and Medium
+    /// widen the blade for finding a hit; the response must read that wider blade too. It used to
+    /// measure from the real blade, so every hit on the added width counted as the very edge -
+    /// bevelled off sideways at quality 0, and weak, the twist taken at up to 4x the real offset.</param>
     public static Result Respond(Hit hit, Blade blade, float scale, Vector3 ballVelocity,
-                                 Vector3 batPointVelocity, float ballMass)
+                                 Vector3 batPointVelocity, float ballMass, float widthMultiplier = 1f)
     {
         Vector3 p = hit.localBat;
-        float lateral = Mathf.Clamp01(Mathf.Abs(p.x) / Mathf.Max(blade.halfWidth, 1e-5f));
+        float widen = Mathf.Max(1f, widthMultiplier);
+        // Across the face as a share of the (widened) half-width, and the same share of the real blade.
+        float lateral = Mathf.Clamp01(Mathf.Abs(p.x) / Mathf.Max(blade.halfWidth * widen, 1e-5f));
         float fromSweet = Mathf.Abs(p.z - blade.sweetZ) * scale;
         bool handle = p.z > blade.shoulderZ;
         // How far from the sweet spot the dead end is: the toe itself on that side (a real bat's
@@ -271,7 +277,7 @@ public static class BatContact
         // Twist about the long axis for an off-centre hit.
         float w = 2f * blade.halfWidth * scale, th = (blade.faceY - blade.backY) * scale;
         float twistInertia = BatMass * (w * w + th * th) / 12f;
-        float x = p.x * scale;
+        float x = p.x / widen * scale;
         float mass = 1f / (1f / longitudinalMass + x * x / twistInertia);
         e *= 1f - 0.35f * lateral * lateral;
 

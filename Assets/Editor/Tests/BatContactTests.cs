@@ -394,6 +394,38 @@ public class BatContactTests
     }
 
     [Test]
+    public void EasyAndMediumWidenTheWholeBatNotJustTheEdges()
+    {
+        // Easy finds a hit on a blade 4x wide. A ball met two real blade-widths off the middle is
+        // inside that: it must play like a decent hit on the wider bat, not like the very edge of
+        // the real one (the response used to measure from the real width: every hit on the added
+        // width came off as a weak thick edge at quality 0).
+        var hit = new BatContact.Hit
+        {
+            localBat = new Vector3(2f * blade.halfWidth, blade.faceY, blade.sweetZ),
+            localNormal = Vector3.up,
+            rotation = Quaternion.FromToRotation(Vector3.up, Vector3.left),   // face to the bowler
+        };
+        var middle = hit;
+        middle.localBat = new Vector3(0f, blade.faceY, blade.sweetZ);
+        Vector3 ball = Vector3.right * 35f, bat = Vector3.left * 22f;
+        BatContact.Result centre = BatContact.Respond(middle, blade, scale, ball, bat, BallMass, Constants.BatColliderMultiplierEasy);
+        BatContact.Result wide = BatContact.Respond(hit, blade, scale, ball, bat, BallMass, Constants.BatColliderMultiplierEasy);
+        Debug.Log($"[BatContactTests] Easy, 2 blade-widths out: {wide.kind} q{wide.quality:F2} {wide.velocity.magnitude:F1} m/s vs middle {centre.velocity.magnitude:F1}");
+        // Halfway to the edge of the widened blade maps to ~3 cm off-centre on the real one, where a
+        // real bat gives up some 10-20% - a good hit, not a middle.
+        Assert.That(wide.edge, Is.False);
+        Assert.That(wide.quality, Is.GreaterThan(0.5f));
+        Assert.That(wide.velocity.magnitude, Is.GreaterThan(0.8f * centre.velocity.magnitude));
+        // Hard is the real bat: the same point is off the blade's edge there - and read that way
+        // was how Easy played it before (the bug): an edge, and weaker than the fixed response.
+        BatContact.Result hard = BatContact.Respond(hit, blade, scale, ball, bat, BallMass, Constants.BatColliderMultiplierHard);
+        Debug.Log($"[BatContactTests] same point read against the real blade (the old Easy): {hard.kind} q{hard.quality:F2} {hard.velocity.magnitude:F1} m/s");
+        Assert.That(hard.edge, Is.True);
+        Assert.That(wide.velocity.magnitude, Is.GreaterThan(hard.velocity.magnitude));
+    }
+
+    [Test]
     public void AThinEdgeCarriesOnBehind()
     {
         // Ball clipping the side of the blade: it keeps going toward the keeper, only deflected.

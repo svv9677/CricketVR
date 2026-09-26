@@ -23,20 +23,24 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 public class HumanoidReach : MonoBehaviour
 {
+    // A fielder picks the ball up by bending from the hips, knees only softly bent, back fairly
+    // straight - he can do it on the move. With the knees softest (and 0.55 m of drop) every
+    // reach down went into a squat, and a low ball had fielders folding onto the grass, crawling.
+    // Hips first now, knees second, spine last; the keeper's prefab keeps his own squat values.
     [Header("Stiffness: lower bends sooner (effort units)")]
-    [SerializeField] private float kneeStiffness = 0.6f;
-    [SerializeField] private float hipStiffness = 1.0f;
-    [SerializeField] private float spineStiffness = 2.0f;
+    [SerializeField] private float kneeStiffness = 1.0f;
+    [SerializeField] private float hipStiffness = 0.6f;
+    [SerializeField] private float spineStiffness = 1.6f;
     [Header("Range")]
-    // A ball on the grass needs a deep squat and a real hip bend: at 0.45 m and 60 degrees it was
-    // only just reachable, and only straight in front - one beside a fielder stayed on the ground.
-    [SerializeField] private float maxPelvisDrop = 0.55f;
-    [SerializeField] private float maxHipHinge = 75f;
-    [SerializeField] private float maxSpineFlex = 25f;
+    // With the hips at 80 degrees and 0.35 m of knee bend the shoulders are ~0.6 m up and ~0.38 m
+    // forward: a 0.62 m arm gets the hands to a ball on the grass half a metre in front.
+    [SerializeField] private float maxPelvisDrop = 0.35f;
+    [SerializeField] private float maxHipHinge = 80f;
+    [SerializeField] private float maxSpineFlex = 20f;
     [Header("Smoothing: critically damped, settles in about 4 / omega seconds")]
-    [SerializeField] private float poseOmega = 10f;
-    [SerializeField] private float handOmega = 16f;
-    [SerializeField] private float weightOmega = 9f;
+    [SerializeField] private float poseOmega = 8f;
+    [SerializeField] private float handOmega = 12f;
+    [SerializeField] private float weightOmega = 7f;
 
     // ---- Inputs, set every frame by the owner ---------------------------------------------------
     /// World point the palms close on.
@@ -68,7 +72,7 @@ public class HumanoidReach : MonoBehaviour
     private ReachMath.Body body;
     private ReachMath.Limits limits;
     private float scale = 1f;
-    private Transform hips, leftUpperArm, rightUpperArm, leftHand, rightHand;
+    private Transform hips, leftUpperArm, rightUpperArm, leftHand, rightHand, head, chest;
     private Transform leftMiddle, rightMiddle, leftIndex, rightIndex, leftLittle, rightLittle;
     private Transform[] spineBones;
     private readonly Quaternion[] spineBase = new Quaternion[3];
@@ -112,6 +116,8 @@ public class HumanoidReach : MonoBehaviour
     {
         Transform B(HumanBodyBones b) => animator.GetBoneTransform(b);
         hips = B(HumanBodyBones.Hips);
+        head = B(HumanBodyBones.Head);
+        chest = B(HumanBodyBones.Chest) ?? B(HumanBodyBones.Spine);
         leftUpperArm = B(HumanBodyBones.LeftUpperArm);
         rightUpperArm = B(HumanBodyBones.RightUpperArm);
         leftHand = B(HumanBodyBones.LeftHand);
@@ -282,11 +288,35 @@ public class HumanoidReach : MonoBehaviour
         Vector3 facing = smoothFacing;
         // Two hands sit either side of the target; one hand alone goes right onto it.
         Vector3 lPalm = handPos - side * (handGap * 0.5f), rPalm = handPos + side * (handGap * 0.5f * share);
-        animator.SetIKPosition(AvatarIKGoal.LeftHand, lPalm - finger * reachBack - facing * 0.02f);
-        animator.SetIKPosition(AvatarIKGoal.RightHand, rPalm - finger * reachBack - facing * 0.02f);
+        animator.SetIKPosition(AvatarIKGoal.LeftHand, ClearOfBody(lPalm - finger * reachBack - facing * 0.02f));
+        animator.SetIKPosition(AvatarIKGoal.RightHand, ClearOfBody(rPalm - finger * reachBack - facing * 0.02f));
         Vector3 up = transform.up, right = transform.right, fwd = transform.forward;
         animator.SetIKHintPosition(AvatarIKHint.LeftElbow, leftUpperArm.position + (-right * 0.35f - up * 0.3f - fwd * 0.1f) * scale);
         animator.SetIKHintPosition(AvatarIKHint.RightElbow, rightUpperArm.position + (right * 0.35f - up * 0.3f - fwd * 0.1f) * scale);
+    }
+
+    /// Hands never go into the head or behind the body: a wrist target is kept at least
+    /// MinAheadOfChest in front of the chest from the hips to above the head, and outside a sphere
+    /// of HeadClearance round the head. A ball arriving at or over the head used to send the hands
+    /// straight through the face. Metres; the body's current pose (hinged forward or not) counts.
+    private const float MinAheadOfChest = 0.22f, HeadClearance = 0.24f;
+
+    private Vector3 ClearOfBody(Vector3 wrist)
+    {
+        if (head == null || chest == null)
+            return wrist;
+        Vector3 local = transform.InverseTransformPoint(wrist);
+        // The head bone's pivot is at the top of the neck; the face is above and in front of it.
+        Vector3 headLocal = transform.InverseTransformPoint(head.position) + new Vector3(0f, 0.09f, 0.04f) / scale;
+        Vector3 chestLocal = transform.InverseTransformPoint(chest.position);
+        float hipY = transform.InverseTransformPoint(hips.position).y;
+        float ahead = MinAheadOfChest / scale, clear = HeadClearance / scale;
+        if (local.y > hipY - 0.1f / scale)
+            local.z = Mathf.Max(local.z, chestLocal.z + ahead);
+        Vector3 fromHead = local - headLocal;
+        if (fromHead.sqrMagnitude < clear * clear)
+            local = headLocal + (fromHead.sqrMagnitude > 1e-8f ? fromHead.normalized : Vector3.forward) * clear;
+        return transform.TransformPoint(local);
     }
 
     /// Fastest the hands' frame (finger, side and palm directions) turns, degrees per second.
@@ -327,17 +357,26 @@ public class HumanoidReach : MonoBehaviour
         side = smoothSide;
     }
 
+    /// As multiples of the standing hip height (~0.95 m): up above ~1.3 m, down below ~1.05 m.
+    private const float FingersUpAbove = 1.35f, FingersDownBelow = 1.1f;
+    private bool fingersUp;
+
     private void RawFrame(out Vector3 finger, out Vector3 side)
     {
         Vector3 shoulders = 0.5f * (leftUpperArm.position + rightUpperArm.position);
         Vector3 reach = handPos - shoulders;
         if (palmFacing.sqrMagnitude > 1e-6f)
         {
-            // Gloves up for a ball above the waist, down (fingers to the ground) below it.
+            // Fingers down, cupped, for a ball below the waist of a man standing; up only for one
+            // above the chest; in between whichever they were, so it cannot flicker on the line.
+            // It used to be "above the current hip" - in a keeper's crouch about 0.5 m - so nearly
+            // every take was overhand, fingers up. Heights from the feet, as a standing body has them.
             // Palms facing up (cradling the ball): fingers point forward instead.
             Vector3 facing = palmFacing.normalized;
-            bool low = transform.InverseTransformPoint(handPos).y < body.hipHeight - pose.drop;
-            finger = Vector3.ProjectOnPlane(low ? -transform.up : transform.up, facing);
+            float h = transform.InverseTransformPoint(handPos).y;
+            if (h > body.hipHeight * FingersUpAbove) fingersUp = true;
+            else if (h < body.hipHeight * FingersDownBelow) fingersUp = false;
+            finger = Vector3.ProjectOnPlane(fingersUp ? transform.up : -transform.up, facing);
             if (finger.sqrMagnitude < 0.04f)
                 finger = Vector3.ProjectOnPlane(transform.forward, facing);
             finger = finger.normalized;

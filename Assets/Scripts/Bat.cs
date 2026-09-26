@@ -146,7 +146,9 @@ public class Bat : MonoBehaviour
             return;
         }
         float scale = transform.lossyScale.x;
-        float widthMultiplier = originalSize.x > 0f ? batCollider.size.x / originalSize.x : 1f;
+        // Straight from the difficulty: reading it back off the trigger collider's size depended on
+        // this Start having recorded originalSize before Main resized it.
+        float widthMultiplier = inst.BatWidthMultiplier;
         BatContact.Blade blade = geometry.Blade;
 
         // The bat turns about the hand holding it.
@@ -173,7 +175,7 @@ public class Bat : MonoBehaviour
         Vector3 batPointVelocity = swingVelocity * BatContact.SwingScale(inst.BatAmplifier);
 
         Vector3 incoming = ball.linearVelocity;
-        BatContact.Result result = BatContact.Respond(hit, blade, scale, incoming, batPointVelocity, ball.mass);
+        BatContact.Result result = BatContact.Respond(hit, blade, scale, incoming, batPointVelocity, ball.mass, widthMultiplier);
         if (result.velocity == incoming)
             return; // grazed, already separating
         Vector3 outgoing = result.velocity;

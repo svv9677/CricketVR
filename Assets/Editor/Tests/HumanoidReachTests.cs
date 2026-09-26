@@ -121,6 +121,20 @@ public class HumanoidReachTests
     }
 
     [Test]
+    public void Solve_HighOrFarTargets_NeverFoldTheBody()
+    {
+        // A catch out in front at head height, too far yet, and one overhead: bending would only
+        // take the shoulders away. It used to return the fullest crouch-and-fold for anything out
+        // of reach, which had fielders doubled over reaching up past their heads.
+        foreach (var target in new[] { new Vector3(0f, 1.6f, 1.6f), new Vector3(0f, 2.3f, 0.3f), new Vector3(0f, 1.2f, 2.5f) })
+        {
+            ReachMath.Pose p = ReachMath.Solve(Body, Limits, target);
+            Assert.AreEqual(0f, p.drop, 1e-5f, $"no crouch for {target}");
+            Assert.AreEqual(0f, p.hinge, 1e-4f, $"no hinge for {target}");
+        }
+    }
+
+    [Test]
     public void Solve_OutOfReach_SaturatesCleanly()
     {
         ReachMath.Pose p = ReachMath.Solve(Body, Limits, new Vector3(0f, -1f, 3f));

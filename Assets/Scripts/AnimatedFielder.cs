@@ -219,11 +219,21 @@ public class AnimatedFielder : MonoBehaviour, IFielder
         speed = Mathf.Min(RunSpeed, speed + Acceleration * Time.deltaTime, stopping);
         Vector3 step = to / distance * Mathf.Min(distance, speed * Time.deltaTime);
         transform.position += step;
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(to), TurnRate * Time.deltaTime);
-        SetAnimation(1);
-        if (myAnimator != null)
+        // Run facing the way he runs; settling into his spot, turn to face the ball and side-step
+        // in. He used to keep facing his run until he was on the spot, so a catch dropping in from
+        // behind (measured: ball 3.9 m behind and 2.7 m up) had his hands reaching back past his head.
+        Vector3 face = distance < SettleDistance ? Flat(Main.Instance.theBall.transform.position - transform.position) : to;
+        if (face.sqrMagnitude > 0.01f)
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(face), TurnRate * Time.deltaTime);
+        // The run cycle only while he is actually running: settled under a catch he had a target a
+        // few centimetres away and ran on the spot (measured: run clip playing at speed 0).
+        bool running = speed > MinRunSpeed;
+        SetAnimation(running ? 1 : 0);
+        if (myAnimator != null && running)
             myAnimator.speed = Mathf.Clamp(speed / AnimatedRunSpeed, 0.6f, 2f);
     }
+
+    private const float MinRunSpeed = 0.6f;
 
     /// Tell the body where the hands should be this frame (HumanoidReach applies it in the IK pass).
     private void UpdateReach()
@@ -296,6 +306,9 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     }
 
     private static float FlatDistance(Vector3 a, Vector3 b) => new Vector2(a.x - b.x, a.z - b.z).magnitude;
+    private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
+    /// Within this of his spot he faces the ball rather than his run.
+    private const float SettleDistance = 2f;
 
     private void FaceTowards(Vector3 point, float rateScale)
     {

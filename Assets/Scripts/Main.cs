@@ -101,7 +101,11 @@ public class Main : MonoBehaviour
 
     [Range(0f, 5f)]
     public float resetDelay = -100f;
-    private float _resetDelay = 2f;
+    private float _resetDelay = NextBallDelay;
+    /// Between balls. The ball is dead (fielded, bowled, missed, over the rope) -> DeadBallPause ->
+    /// reset -> resetDelay -> ready for the next ball. It was 2 s + 2 s (4 s after a boundary):
+    /// four to six seconds of nothing before Bowl could even be pressed.
+    public const float DeadBallPause = 1f, NextBallDelay = 0.75f, BoundaryDelay = 1.5f;
 
     [Range(0.5f, 2.5f)]
     public float fielderSpeed = -100f;
@@ -243,7 +247,9 @@ public class Main : MonoBehaviour
         overlayVisible = PlayerPrefs.GetInt(Constants.PP_Overlay, 0) == 1;
         _overlayVisible = !overlayVisible;   // so the first update shows or hides the overlay
         BatAmplifier = PlayerPrefs.GetFloat(Constants.PP_BatPower, Constants.BatPowerRealistic);
-        resetDelay = PlayerPrefs.GetFloat(Constants.PP_ResetDelay, _resetDelay);
+        // Not from PlayerPrefs any more: the slider that saved it is gone, and an old saved 2 s
+        // would have kept the slow gap between balls alive.
+        resetDelay = NextBallDelay;
         _resetDelay = -1000;
         fielderSpeed = PlayerPrefs.GetFloat(Constants.PP_FielderSpeed, _fielderSpeed);
         _fielderSpeed = -1000;
@@ -346,6 +352,13 @@ public class Main : MonoBehaviour
             PlayerPrefs.Save();
         RefreshSettingsPanel();
     }
+    /// How much wider than the real blade a hit is found at this difficulty (BatContact).
+    public float BatWidthMultiplier => difficulty switch
+    {
+        eDifficulty.Easy => Constants.BatColliderMultiplierEasy,
+        eDifficulty.Medium => Constants.BatColliderMultiplierMedium,
+        _ => Constants.BatColliderMultiplierHard,
+    };
     public void onRadioEasy(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Easy); }
     public void onRadioMedium(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Medium); }
     public void onRadioHard(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Hard); }
@@ -723,6 +736,8 @@ public class Main : MonoBehaviour
                     {
                         // Get current bowler from Score keeper
                         currentBowlingConfig = bowlingProfileManager.GetProfile(theHUD.CurrentBowler.Type).GetRandomDelivery();
+                        // Each ball starts from the normal gap; a boundary or a keeper's miss sets its own.
+                        resetDelay = NextBallDelay;
                         CameraReplay.Instance.startCapturing = null;
                         CameraReplay.Instance.startDisplaying = null;
                         CameraReplay.Instance.StopDisplaying();
@@ -864,7 +879,7 @@ public class Main : MonoBehaviour
                         gameState = eGameState.InGame_BallFielded_Loop;
 
                         // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                        StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
                     }
                     break;
                 case eGameState.InGame_BallFielded_Loop:
@@ -880,7 +895,7 @@ public class Main : MonoBehaviour
                         gameState = eGameState.InGame_BowledLoop;
 
                         // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                        StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
                     }
                     break;
                 case eGameState.InGame_BowledLoop:
@@ -896,7 +911,7 @@ public class Main : MonoBehaviour
                         gameState = eGameState.InGame_BallMissedLoop;
 
                         // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                        StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
                     }
                     break;
                 case eGameState.InGame_BallMissedLoop:
@@ -911,7 +926,7 @@ public class Main : MonoBehaviour
                         gameState = eGameState.InGame_BallPastBoundaryLoop;
 
                         // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                        StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
                     }
                     break;
                 case eGameState.InGame_BallPastBoundaryLoop:

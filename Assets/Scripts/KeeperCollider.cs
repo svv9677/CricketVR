@@ -9,7 +9,7 @@ public class KeeperCollider : MonoBehaviour
         
         if (other.gameObject.name == "Ball" && Main.Instance.gameState == eGameState.InGame_DeliverBallLoop)
         {
-            Main.Instance.resetDelay = 2f;
+            Main.Instance.resetDelay = Main.NextBallDelay;
             if(Main.Instance.gameState == eGameState.InGame_DeliverBallLoop)
             {
                

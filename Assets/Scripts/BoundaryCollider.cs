@@ -22,7 +22,7 @@ public class BoundaryCollider : MonoBehaviour
             // A shot that cleared the rope: four or six.
             if (!Main.Instance.theBallScript.bounced && other.attachedRigidbody != null)
                 ShotDistance.Instance.OnSix(other.attachedRigidbody.position, other.attachedRigidbody.linearVelocity);
-            Main.Instance.resetDelay = 4f;
+            Main.Instance.resetDelay = Main.BoundaryDelay;
             Main.Instance.gameState = eGameState.InGame_BallPastBoundary;
             return;
         }
