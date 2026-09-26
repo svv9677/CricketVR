@@ -5,20 +5,30 @@ using UnityEngine;
 /// Fielding. Once the ball is hit it predicts the ball's whole path - flight, bounces, roll - with
 /// the same model the ball itself uses (BallFlight), and sends the fielder who can get to it first,
 /// plus one backup, to where they can meet it. It re-plans every ReplanInterval so a prediction
-/// that drifts is corrected, and any fielder the ball passes within reach takes it.
+/// that drifts is corrected.
 ///
 /// "Can get to it" is: reaction time + distance / run speed, not later than the ball gets there,
 /// with the ball low enough to reach - CatchHeight in the air, which makes it a catch if it has
 /// not bounced, anything on the ground otherwise.
+///
+/// Nobody takes the ball by being near it any more (that was a 1.2 m snap). The fielder reaches
+/// for it with the whole body (HumanoidReach) at the point PredictPass gives, and the ball is his
+/// only when it actually meets his hands (AnimatedFielder -> Gather). A ball that beats the hands
+/// carries on, and the next re-plan sends the backup after it.
 ///
 /// Class name kept from the old intercept-time sorter so the scene component stays wired.
 /// </summary>
 public class AnimatedFielderManagement : MonoBehaviour
 {
     public const float ReactionTime = 0.15f;
-    /// How far a fielder can reach (or dive) to take the ball, horizontally and in height.
+    /// How far from his feet a fielder can get his hands to the ball (a squat and a lean), used
+    /// for planning only - the take itself needs the hands on the ball.
     public const float CatchRadius = 1.2f;
-    public const float CatchHeight = 2.4f;
+    /// Highest the hands get: a 1.8 m fielder's reach straight up.
+    public const float CatchHeight = 2.2f;
+    /// A fielder stops this far short of the ball's line so it arrives in front of him, where
+    /// the hands work, not under his feet.
+    public const float StopShort = 0.45f;
     public const float ReplanInterval = 0.1f;
     private const float PredictStep = 0.02f;
     private const float PredictTime = 12f;
@@ -26,9 +36,10 @@ public class AnimatedFielderManagement : MonoBehaviour
     private readonly List<AnimatedFielder> fielders = new List<AnimatedFielder>();
     private readonly List<BallFlight.Sample> path = new List<BallFlight.Sample>(1024);
     private float nextPlan;
-    private Vector3 previousBall;
     private bool tracking;
     private float boundaryRadius = 56f;
+    /// When the current path was simulated: path sample times count from here.
+    private float planTime;
 
     void Start()
     {
@@ -55,12 +66,13 @@ public class AnimatedFielderManagement : MonoBehaviour
         if (state == eGameState.InGame_BallHit)
         {
             tracking = true;
-            previousBall = Main.Instance.theBallRigidBody.position;
+            path.Clear();
             nextPlan = 0f;
         }
         else if (state != eGameState.InGame_BallHitLoop)
         {
             tracking = false;
+            path.Clear();
         }
     }
 
@@ -73,22 +85,10 @@ public class AnimatedFielderManagement : MonoBehaviour
         if (ball.isKinematic)
             return;
 
-        // Swept reach test: the ball's path over this step against each fielder's reach.
-        Vector3 now = ball.position;
-        foreach (AnimatedFielder f in fielders)
-        {
-            if (f.isActiveAndEnabled && WithinReach(previousBall, now, f.transform.position, CatchRadius, CatchHeight))
-            {
-                Take(f, f.name);
-                return;
-            }
-        }
-        previousBall = now;
-
         if (Time.time >= nextPlan)
         {
             nextPlan = Time.time + ReplanInterval;
-            Plan(now, ball.linearVelocity);
+            Plan(ball.position, ball.linearVelocity);
         }
     }
 
@@ -98,6 +98,7 @@ public class AnimatedFielderManagement : MonoBehaviour
         float edge = boundaryRadius + 1f;
         BallFlight.Simulate(position, velocity, BallFlight.DeliveryEffects.None, PredictTime, path,
             s => new Vector2(s.position.x, s.position.z).magnitude > edge, PredictStep);
+        planTime = Time.time;
         if (path.Count == 0)
             return;
 
@@ -130,8 +131,8 @@ public class AnimatedFielderManagement : MonoBehaviour
 
         foreach (AnimatedFielder f in fielders)
         {
-            if (f == first) f.SetTarget(firstPoint);
-            else if (f == second) f.SetTarget(secondPoint);
+            if (f == first) f.SetTarget(ShortOf(f, firstPoint));
+            else if (f == second) f.SetTarget(ShortOf(f, secondPoint));
             else f.Stop();
         }
     }
@@ -202,7 +203,69 @@ public class AnimatedFielderManagement : MonoBehaviour
         return closest.sqrMagnitude <= radius * radius && y <= height && y >= -0.5f;
     }
 
-    /// Stop the ball dead and give it to this fielder.
+    /// Where to stand for a meeting point: StopShort before it on the way in, so the ball arrives
+    /// in front of the body. Already that close: stay put and let the hands do it.
+    private static Vector3 ShortOf(AnimatedFielder f, Vector3 point)
+    {
+        Vector3 at = f.transform.position;
+        Vector3 to = new Vector3(point.x - at.x, 0f, point.z - at.z);
+        float d = to.magnitude;
+        if (d <= StopShort)
+            return at;
+        return point - to / d * StopShort;
+    }
+
+    /// <summary>
+    /// Where the ball will come closest to a fielder's hands, from the latest prediction: the
+    /// first pass of the path within `radius` of `spot` (horizontally, at or below CatchHeight),
+    /// taking the sample nearest `spot` in 3D. `timeFromNow` is when it gets there.
+    /// </summary>
+    public bool PredictPass(Vector3 spot, float radius, out Vector3 point, out float timeFromNow)
+    {
+        point = Vector3.zero;
+        timeFromNow = 0f;
+        if (!tracking || path.Count == 0)
+            return false;
+        float elapsed = Time.time - planTime;
+        float best = float.MaxValue;
+        bool inside = false;
+        for (int i = 0; i < path.Count; i++)
+        {
+            BallFlight.Sample s = path[i];
+            if (s.time < elapsed)
+                continue;
+            float flat = new Vector2(s.position.x - spot.x, s.position.z - spot.z).magnitude;
+            bool near = flat <= radius && s.position.y <= CatchHeight;
+            if (!near)
+            {
+                if (inside) break;   // the ball has been through the reach and is leaving it
+                continue;
+            }
+            inside = true;
+            float d = (s.position - spot).sqrMagnitude;
+            if (d < best)
+            {
+                best = d;
+                point = s.position;
+                timeFromNow = s.time - elapsed;
+            }
+        }
+        return inside;
+    }
+
+    /// The ball has reached this fielder's hands. False if it is no longer his to take.
+    public bool Gather(AnimatedFielder fielder)
+    {
+        Main inst = Main.Instance;
+        if (!tracking || inst.theBallRigidBody.isKinematic || inst.gameState != eGameState.InGame_BallHitLoop)
+            return false;
+        tracking = false;
+        Take(fielder, fielder.name);
+        return true;
+    }
+
+    /// Stop the ball dead and give it to this fielder (or the keeper, fielder null). Only called
+    /// once the ball is actually in the hands - the holder carries it from where it was met.
     public static void Take(AnimatedFielder fielder, string name)
     {
         Main inst = Main.Instance;
