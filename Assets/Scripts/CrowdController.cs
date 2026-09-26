@@ -33,7 +33,12 @@ public class CrowdController : MonoBehaviour
     [Header("Audio")]
     public AudioClip cheerClip;       // e.g. Assets/Sounds/Crowd.mp3
     [Range(0f, 1f)] public float cheerVolume = 0.9f;
+    [Tooltip("Crowd level between cheers. The clip loops for as long as the game runs.")]
+    [Range(0f, 1f)] public float ambienceVolume = 0.45f;
 
+    // One looping crowd track whose level follows the excitement. It used to be a 53-second
+    // one-shot fired on each boundary or wicket over a near-silent loop, so after a spell with no
+    // four, six or wicket the "music" simply ran out.
     private AudioSource _audio;
     private float _excitement;        // current, smoothed
     private float _target;            // where we're heading (0 at idle)
@@ -49,10 +54,27 @@ public class CrowdController : MonoBehaviour
 
     private void Awake()
     {
-        _audio = GetComponent<AudioSource>();
-        if (_audio == null) _audio = gameObject.AddComponent<AudioSource>();
+        _audio = GetComponent<AudioSource>();   // on the Crowd object in the scene
         _audio.playOnAwake = false;
         _audio.spatialBlend = 0f;     // crowd surrounds the player; keep it 2D
+        _audio.clip = cheerClip;
+        _audio.loop = true;
+        _audio.volume = ambienceVolume;
+        if (cheerClip != null)
+            _audio.Play();
+        // A Quest audio-device change (headset sleep, headphones) stops every source.
+        AudioSettings.OnAudioConfigurationChanged += RestartAmbience;
+    }
+
+    private void OnDestroy()
+    {
+        AudioSettings.OnAudioConfigurationChanged -= RestartAmbience;
+    }
+
+    private void RestartAmbience(bool deviceWasChanged)
+    {
+        if (_audio != null && cheerClip != null && !_audio.isPlaying)
+            _audio.Play();
     }
 
     private void OnEnable()
@@ -123,9 +145,6 @@ public class CrowdController : MonoBehaviour
         _target = Mathf.Max(_target, level);
         _holdTimer = cheerHold;
 
-        if (cheerClip != null)
-            _audio.PlayOneShot(cheerClip, cheerVolume * level);
-
         if (wave)
         {
             if (_wave != null) StopCoroutine(_wave);
@@ -161,5 +180,10 @@ public class CrowdController : MonoBehaviour
 
         Shader.SetGlobalFloat(IdExcitement, _excitement);
         Shader.SetGlobalFloat(IdFlash, _excitement);   // harmless in daylight (_FlashStrength gates)
+
+        // The crowd swells with the excitement and settles back with it.
+        _audio.volume = Mathf.Lerp(ambienceVolume, cheerVolume, _excitement);
+        if (cheerClip != null && !_audio.isPlaying)
+            _audio.Play();
     }
 }

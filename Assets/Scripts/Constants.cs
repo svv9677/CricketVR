@@ -14,6 +14,11 @@ public static class Constants
     public const string PP_FielderSpeed = "fielder_speed";
     public const string PP_AmpMin = "amp_min";
     public const string PP_AmpMax = "amp_max";
+    public const string PP_GripLeftPosition = "grip_left_pos";
+    public const string PP_GripLeftEuler = "grip_left_euler";
+    public const string PP_GripRightPosition = "grip_right_pos";
+    public const string PP_GripRightEuler = "grip_right_euler";
+    public const string PP_BatPower = "bat_power";
 
     public const string CT_MinX = "minX";
     public const string CT_MaxX = "maxX";
@@ -60,12 +65,30 @@ public static class Constants
     //public static readonly float[] legSpinCfg = { 3.5f, 4.5f, 4f, 10f, -0.3f, -0.1f, 0.1f, 0.3f, 0.2f, 0.5f };
     //public static readonly float[] offSpinCfg = { 3.5f, 4.5f, 4f, 10f, -0.2f, 0f, 0.1f, 0.3f, 0.2f, 0.5f };
 
-    // Modified values for more realistic speeds...
-    public static readonly float[] paceCfg = { 7.8f, 8.6f, 0f, 9f, -0.4f, 0f, 0f, 0f, 0f, 0f };
-    public static readonly float[] inSwingCfg = { 6.9f, 7.8f, -2f, 9f, 0.35f, 0.55f, 0.2f, 0.8f, -0.02f, 0.02f };
-    public static readonly float[] outSwingCfg = { 6.9f, 7.8f, -2f, 9f, -0.65f, -0.6f, 0.2f, 0.8f, -0.02f, 0.02f };
-    public static readonly float[] legSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.4f, -0.2f, 0.1f, 0.3f, 0.2f, 0.5f };
-    public static readonly float[] offSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.2f, 0f, 0.1f, 0.3f, 0.2f, 0.5f };
+    // Current configs. Columns:
+    //   minX, maxX     release speed as an "impulse": speed m/s = value / ConfigImpulseMass
+    //   minLen, maxLen world X the ball pitches at (batsman's stumps are at x 10.30)
+    //   minZ, maxZ     LINE: where the ball passes the batsman's stumps, metres from middle
+    //                  stump, off side positive (mirrored for a left-hander). Stumps span
+    //                  +-0.114; the off-side wide guideline is 0.889. Occasional wayward balls
+    //                  outside this range come from BowlingProfile.WaywardChance.
+    //   minSwn, maxSwn swing (spinners: drift) 0..1 of BallFlight.SwingCoefficientMax
+    //   minTrn, maxTrn turn off the pitch, 0..1 of BallFlight.MaxTurnDegrees (6 deg);
+    //                  seamers use a small +- range for seam movement.
+    public static readonly float[] paceCfg = { 7.8f, 8.6f, 0f, 9f, -0.08f, 0.35f, 0f, 0f, -0.04f, 0.04f };
+    public static readonly float[] inSwingCfg = { 6.9f, 7.8f, -2f, 9f, -0.05f, 0.30f, 0.3f, 0.9f, -0.03f, 0.03f };
+    public static readonly float[] outSwingCfg = { 6.9f, 7.8f, -2f, 9f, 0.05f, 0.40f, 0.3f, 0.9f, -0.03f, 0.03f };
+    public static readonly float[] legSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.10f, 0.30f, 0.1f, 0.3f, 0.3f, 0.6f };
+    public static readonly float[] offSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.10f, 0.25f, 0.1f, 0.3f, 0.25f, 0.5f };
+
+    /// The configs' speed "impulses" were tuned against a 0.2 kg ball. The ball is now a real
+    /// 0.16 kg, so speeds are converted with this, not with the Rigidbody mass.
+    public const float ConfigImpulseMass = 0.2f;
+    /// km/h per config speed unit (the settings panel shows bowling speed in km/h).
+    public const float KmhPerSpeedUnit = 3.6f / ConfigImpulseMass;
+
+    /// Main.BatAmplifier at which the bat behaves like a real one (the settings panel's "Realistic").
+    public const float BatPowerRealistic = 75f;
 
 
     //For testing(same ball every time)

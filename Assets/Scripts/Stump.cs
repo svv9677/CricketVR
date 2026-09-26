@@ -9,11 +9,19 @@ public class Stump : MonoBehaviour
 
     private Vector3 prevPos;
     private Quaternion prevRot;
+    private Vector3 homePos;
+    private Quaternion homeRot;
+
+    /// True once the stump has been knocked off its mark (it goes back on Stumps.Reset).
+    public bool MovedSinceReset =>
+        Vector3.Distance(homePos, transform.position) > 0.01f || Quaternion.Angle(homeRot, transform.rotation) > 2f;
 
     public void Start()
     {
         prevPos = transform.position;
         prevRot = transform.rotation;
+        homePos = prevPos;
+        homeRot = prevRot;
     }
 
     private void Update()
@@ -31,7 +39,7 @@ public class Stump : MonoBehaviour
         prevRot = transform.rotation;
     }
 
-    private void Hit()
+    public void Hit()
     {
         Main inst = Main.Instance;
         if (inst.gameState == eGameState.InGame_DeliverBallLoop ||

@@ -21,7 +21,16 @@ public class Ball : MonoBehaviour
     [HideInInspector]
     public Vector3 lastVelocity;
 
-    private float firstImpact;
+    /// Swing and turn for the delivery in flight, set by Main at release.
+    [HideInInspector]
+    public BallFlight.DeliveryEffects deliveryEffects;
+    private bool touchingGround;
+
+    /// Where the current delivery actually pitched, and where it crossed the batsman's stumps
+    /// (NaN until it has). What the aim is checked against.
+    [HideInInspector] public Vector3 lastPitchPoint = new Vector3(float.NaN, 0f, 0f);
+    [HideInInspector] public float lastLineAtStumps = float.NaN;
+    private Vector3 prevPosition;
 
     // Start is called before the first frame update
     void Start()
@@ -78,51 +87,39 @@ public class Ball : MonoBehaviour
             myParticles.enabled = true;
         }
 
-        if (inst.gameState == eGameState.InGame_BallHitLoop ||
-            inst.gameState == eGameState.InGame_BallMissedLoop ||
-            inst.gameState == eGameState.InGame_BallPastBoundaryLoop ||
-            inst.gameState == eGameState.InGame_BowledLoop ||
-            inst.gameState == eGameState.InGame_DeliverBallLoop)
+        Vector3 here = myRigidBody.position;
+        if (inst.gameState == eGameState.InGame_DeliverBallLoop && float.IsNaN(lastLineAtStumps) &&
+            prevPosition.x < BallDelivery.BatsmanStumpsX && here.x >= BallDelivery.BatsmanStumpsX)
         {
-            // Air Resistance Formula
-            var p = 0.25f; // 1.225f;
-            var cd = 0.25f; // 0.47f;
-            var a = Mathf.PI * 0.0575f * 0.0575f;
-            var v = myRigidBody.linearVelocity.magnitude;
-            var direction = -myRigidBody.linearVelocity.normalized;
-            var forceAmount = (p * v * v * cd * a) / 2;
+            float f = (BallDelivery.BatsmanStumpsX - prevPosition.x) / Mathf.Max(1e-5f, here.x - prevPosition.x);
+            lastLineAtStumps = Mathf.Lerp(prevPosition.z, here.z, f);
+        }
+        prevPosition = here;
 
-            // Adds backward air resistance to the ball. By making this a comment, the air resistance is used only for calculating swing.
-            //if (forceAmount > 0f)
-            //    myRigidBody.AddForce(direction * forceAmount, ForceMode.Force);
+        // Air and ground forces, from the shared model in BallFlight so that delivery aiming and the
+        // fielders' prediction see exactly the flight the player sees.
+        if (!myRigidBody.isKinematic)
+        {
+            Vector3 velocity = myRigidBody.linearVelocity;
+            bool swinging = inst.gameState == eGameState.InGame_DeliverBallLoop && fresh;
+            Vector3 air = BallFlight.AirAcceleration(velocity,
+                swinging ? deliveryEffects.swingAccelPerV2 : 0f, deliveryEffects.swingSign);
+            myRigidBody.AddForce(air, ForceMode.Acceleration);
 
-            if(inst.gameState == eGameState.InGame_DeliverBallLoop)
+            // PhysX has no rolling resistance, so without this a ball on the ground rolls forever.
+            if (touchingGround && Mathf.Abs(velocity.y) < 0.5f)
             {
-                // Add swing as a percentage of its current force
-                if (inst.currentBowlingConfig != null && inst.currentBowlingConfig.applySwing)
+                Vector3 horizontal = new Vector3(velocity.x, 0f, velocity.z);
+                float speed = horizontal.magnitude;
+                if (speed > 1e-4f)
                 {
-                    Vector3 right = Vector3.zero;
-                    bool inSwing = Random.Range(0f, 1f) > 0.5f;
-                    if (inst.currentBowlingConfig.swingType == eSwingType.InSwing || inst.currentBowlingConfig.swingType == eSwingType.LegSpin ||
-                        (inst.currentBowlingConfig.swingType == eSwingType.Random && inSwing))
-                        right = Vector3.Cross(direction, Vector3.up).normalized; // direction is negative already
-                    if (inst.currentBowlingConfig.swingType == eSwingType.OutSwing || inst.currentBowlingConfig.swingType == eSwingType.OffSpin ||
-                        (inst.currentBowlingConfig.swingType == eSwingType.Random && !inSwing))
-                        right = Vector3.Cross(-direction, Vector3.up).normalized;
-
-                    if (right != Vector3.zero && forceAmount > 0f)
-                    {
-                        forceAmount *= 10f;
-                        right.x = 0f;
-                        right.y = 0f;
-                        myRigidBody.AddForce(right * forceAmount * inst.currentBowlingConfig.swing, ForceMode.Force);
-                        //Debug.Log("SWING: " + (right * forceAmount * inst.currentBowlingConfig.swing).ToString() +
-                            //", forceAmt: " + forceAmount.ToString() + ", right: " + right.ToString());
-                        
-                    }
+                    float slowed = Mathf.Max(0f, speed - BallFlight.RollingDecel * Time.fixedDeltaTime);
+                    myRigidBody.linearVelocity = new Vector3(velocity.x * slowed / speed, velocity.y, velocity.z * slowed / speed);
+                    myRigidBody.angularVelocity *= slowed / speed;
                 }
             }
         }
+        touchingGround = false;
 
         if (transform.position.y <= -10f)
         {
@@ -157,9 +154,24 @@ public class Ball : MonoBehaviour
     //    }
     //}
 
+    private void OnCollisionStay(Collision collisionInfo)
+    {
+        if (collisionInfo.gameObject.CompareTag("Ground"))
+            touchingGround = true;
+    }
+
     public void OnCollisionEnter(Collision collisionInfo)
     {
         Main inst = Main.Instance;
+        // The pitch grips: take the pace off the bounce PhysX has just resolved (BallFlight.Bounce
+        // models the same, so the fielders' prediction agrees). Before the turn below, which only
+        // rotates it.
+        if (collisionInfo.gameObject.CompareTag("Ground") && collisionInfo.contactCount > 0 &&
+            BallFlight.OnPitch(collisionInfo.GetContact(0).point))
+        {
+            Vector3 v = myRigidBody.linearVelocity;
+            myRigidBody.linearVelocity = new Vector3(v.x * BallFlight.PitchGrip, v.y, v.z * BallFlight.PitchGrip);
+        }
         if(inst.gameState == eGameState.InGame_DeliverBall ||
             inst.gameState == eGameState.InGame_DeliverBallLoop)
         {
@@ -169,31 +181,12 @@ public class Ball : MonoBehaviour
                 //print(transform.position.x);
                 //print(((firstImpact + transform.position.x) / 2) - Main.Instance.currentBowlingConfig.length);
                 fresh = false;
-                inst.currentBowlingConfig.applySwing = false;
+                lastPitchPoint = collisionInfo.GetContact(0).point;
 
-                // treat in-swing as leg-spin and out-swing as off-spin
-                // Add spin as a percentage of its current force
-                if (inst.currentBowlingConfig != null && inst.currentBowlingConfig.applyPitchTurn)
-                {
-                    
-                    var direction = -myRigidBody.linearVelocity.normalized;
-                    Vector3 right = Vector3.zero;
-                    bool inSwing = Random.Range(0f, 1f) > 0.5f;
-                    if (inst.currentBowlingConfig.swingType == eSwingType.InSwing || inst.currentBowlingConfig.swingType == eSwingType.LegSpin ||
-                        (inst.currentBowlingConfig.swingType == eSwingType.Random && inSwing))
-                        right = Vector3.Cross(-direction, Vector3.up).normalized; // direction is negative already
-                    if (inst.currentBowlingConfig.swingType == eSwingType.OutSwing || inst.currentBowlingConfig.swingType == eSwingType.OffSpin ||
-                        (inst.currentBowlingConfig.swingType == eSwingType.Random && !inSwing))
-                        right = Vector3.Cross(direction, Vector3.up).normalized;
-
-                    if (right.magnitude > 0f)
-                    {
-                        myRigidBody.AddForce(right * inst.currentBowlingConfig.pitchTurn * myRigidBody.linearVelocity.magnitude * 0.1f, ForceMode.Impulse);
-                        //Debug.Log("TURN: " + (right * inst.currentBowlingConfig.pitchTurn * myRigidBody.velocity.magnitude * 0.1f).ToString());
-                    }
-                }
-
-                
+                // Turn off the pitch: PhysX has already bounced the ball, so rotate the velocity it
+                // bounced with (BallFlight.Turn - the same rule BallDelivery aimed with).
+                if (deliveryEffects.turnDegrees != 0f)
+                    myRigidBody.linearVelocity = BallFlight.Turn(myRigidBody.linearVelocity, deliveryEffects.turnDegrees);
             }
         }
         if(inst.gameState == eGameState.InGame_BallHit ||
@@ -205,6 +198,9 @@ public class Ball : MonoBehaviour
             if (collisionInfo.gameObject.CompareTag("Ground"))
                 bounced = true;
         }
+
+        if (collisionInfo.gameObject.CompareTag("Ground"))
+            touchingGround = true;
 
         //if (collisionInfo.gameObject.name.Contains("Stump") && audioClip != null)
         //{

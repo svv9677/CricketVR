@@ -25,8 +25,6 @@ public class Bat : MonoBehaviour
     [SerializeField]
     protected GameObject trackerObject;
     [SerializeField]
-    protected AudioClip audioShot1, audioShot2, audioShot3;
-    [SerializeField]
     protected GameObject fieldersParent;
 
     public bool grabbable = true;
@@ -104,167 +102,133 @@ public class Bat : MonoBehaviour
         }
     }
 
-   
-    public void OnTriggerEnter(Collider collisionInfo)
+    // ---- Contact (see BatContact / BatGeometry) -------------------------------------------------
+    private BatGeometry geometry;
+    private BatSounds sounds;
+    private bool havePreviousPose;
+    private Vector3 previousPosition;
+    private Quaternion previousRotation;
+    private Vector3 previousBallPosition;
+
+    /// Every bat-ball contact, for the scoreboard and anything else that wants to know.
+    public static event System.Action<ShotInfo> ShotStruck;
+
+    private void CheckForContact()
     {
-        // If we hit the ball
-        if (collisionInfo.gameObject.name == "Ball" && !hasHitBall)
+        Main inst = Main.Instance;
+        Rigidbody ball = inst != null ? inst.theBallRigidBody : null;
+        // The ball as drawn, not as simulated. With interpolation on (set at release) the transform
+        // is where the player sees the ball this frame; ball.position is the last physics step,
+        // which runs up to one step (10 ms, 35 cm at 35 m/s) ahead and jitters by a different amount
+        // every frame as 100 Hz physics beats against the display rate. The bat is posed at display
+        // time, so sweeping it against the physics ball met a ball the player never saw, early, with
+        // the bat turned up to 20-40 degrees short of where it looked in a hard swing.
+        Vector3 ballNow = ball != null ? ball.transform.position : Vector3.zero;
+
+        bool live = ball != null && !ball.isKinematic && !hasHitBall && !holdingStill &&
+                    inst.gameState == eGameState.InGame_DeliverBallLoop;
+        if (live && havePreviousPose && (ballNow - previousBallPosition).sqrMagnitude < 9f)
+            TrySweep(inst, ball, ballNow);
+
+        previousPosition = transform.position;
+        previousRotation = transform.rotation;
+        previousBallPosition = ballNow;
+        havePreviousPose = true;
+    }
+
+    private void TrySweep(Main inst, Rigidbody ball, Vector3 ballNow)
+    {
+        if (geometry == null)
+            geometry = GetComponent<BatGeometry>();   // on the Bat prefab, markers fitted in the editor
+        if (geometry == null || !geometry.IsFitted)
         {
-            Main inst = Main.Instance;
-            if (inst.gameState == eGameState.InGame_DeliverBallLoop ||
-                inst.gameState == eGameState.InGame_BallHit ||
-                inst.gameState == eGameState.InGame_BallHitLoop)
-            {
-                inst.gameState = eGameState.InGame_BallHit;
-
-                // make a note of the ball's initial velocity
-                ballInitialVelocity = inst.theBallScript.lastVelocity;
-
-                float dp = 0f;
-                //if (trackerVelocity.magnitude > -0.1f)
-                //{
-                //    Vector3 force;
-                //    // Clamp magnitude to min & max
-                //    float magn = trackerVelocity.magnitude;
-                //    magn = Mathf.Clamp(magn, 0.25f, 1f);
-
-                //    // If it is spin bowling, add extra push from the bat
-                //    if (ballInitialVelocity.magnitude < 5f)
-                //        magn *= 2.5f;
-
-                //    // start with softer impact
-                //    float amplifier = inst.ampMin;
-                //    float ballAmplifier = 0f;
-                //    // check if the initial ball direction and bat's tracker direction is along same lines
-                //    dp = Vector3.Dot(ballInitialVelocity, trackerVelocity);
-                //    // if dot product is positive, the angle is between -90 & 90, so they are headed in same direction
-                //    if (dp < 0f)
-                //    {
-                //        // heading in opposite direction, so harder impact
-                //        amplifier = inst.ampMax;
-                //        ballAmplifier = 4f;
-                //    }
-
-                //    // Calculate the final force now with all the params
-                //    //force = (amplifier * magn * trackerVelocity.normalized) +
-                //    //        (ballAmplifier * magn * inst.theBallRigidBody.velocity);
-                //    //force = (amplifier * magn * trackerVelocity.normalized) +
-                //    //(ballAmplifier * inst.theBallRigidBody.velocity);
-
-                //    force = (amplifier * trackerVelocity);
-
-                //    //print(ballInitialVelocity);
-                //    //print(inst.theBallRigidBody.velocity);
-
-                //    //Debug.LogWarning("Adding force: " + force.ToString() +
-                //    //                 ", Tracker: " + trackerVelocity.ToString() +
-                //    //                 ", Ball: " + ballRigidBody.velocity.ToString() +
-                //    //                 ", initial: " + ballInitialVelocity.ToString() +
-                //    //                 ", dp: " + dp.ToString());
-
-                //    // TODO Calculate where it hit on the bat here and make the dampen factor accordingly.
-                //    float dampenFactor = 1f;
-
-                //    // Calculate the collision of ball and bat:
-                //    Vector3 direction = inst.theBallRigidBody.velocity.normalized + gameObject.transform.up.normalized;
-                //    float magnitude = (inst.theBallRigidBody.velocity.magnitude * dampenFactor) + (force.magnitude);
-                //    inst.theBallRigidBody.velocity = (direction*magnitude);
-
-
-                //    //inst.theBallRigidBody.velocity = Vector3.ClampMagnitude(inst.theBallRigidBody.velocity, 60f); TODO Uncomment this for clamping magnitude.
-                //}
-                //// if we are not moving the bat, check if we want to retain the ball's velocity,
-                ////  based on bat's direction
-                //else
-                //{
-                //    Vector3 batFacing = trackerPos - attachParent.transform.position;
-                //    dp = Vector3.Dot(inst.theBallRigidBody.velocity, batFacing);
-                //    // if the dp is positive, angle is between -90 & 90, so no need to dampen
-                //    if (dp < 0f)
-                //    {
-                //        // dampen the velocity on the ball
-                //        float magnit = inst.theBallRigidBody.velocity.magnitude;
-                //        inst.theBallRigidBody.velocity *= (Random.Range(2f, 5f) / magnit);
-                //    }
-                //}
-
-
-                // Using momentum
-                float contactRadius = 1f;  // TODO insert calculation for distance to contact
-                // (Removed ballMomentum/batMomentum: both were computed and never used, and the
-                //  bat rigidbody is teleported every LateUpdate so its velocities are always zero.)
-
-                Vector3 ballBounce;
-                float dampenFactor = 1f;
-                float angle = 180f - Vector3.Angle(gameObject.transform.up, ballInitialVelocity);
-                if (angle < 45f)
-                {
-                    ballBounce = ((-ballInitialVelocity).normalized + gameObject.transform.up.normalized).normalized * ballInitialVelocity.magnitude * dampenFactor;
-                }
-                else
-                {
-                    ballBounce = (ballInitialVelocity.normalized + gameObject.transform.up.normalized).normalized * ballInitialVelocity.magnitude * dampenFactor;
-                }
-
-                float avgBatSpeed = trackerMags.Average();
-                
-                // Calculate amount of bat movement in the direction of the bat face...
-                Vector3 batSwing = gameObject.transform.up * Mathf.Cos(Mathf.Deg2Rad * Vector3.Angle(gameObject.transform.up, trackerVelocity))
-                                   * avgBatSpeed * SwingTuningReferenceDeltaTime;
-                ballBounce = ballBounce / 75f;
-                Vector3 finalVel = ballBounce + batSwing;
-                finalVel *= Main.Instance.BatAmplifier * contactRadius;
-                inst.theBallRigidBody.linearVelocity = finalVel;
-                BallSpeed.Instance.updateBatAndFinalSpeed(batSwing.magnitude, finalVel.magnitude);
-
-                dp = Vector3.Dot(ballInitialVelocity, gameObject.transform.up);
-
-                // Play sound
-                Vector3 delta = ballInitialVelocity - (trackerVelocity.normalized * avgBatSpeed * SwingTuningReferenceDeltaTime);
-                float mag = delta.magnitude;
-                if (mag < 25f || dp <= 0f)
-                {
-                    //Debug.Log("Playing shot1");
-                    AudioSource.PlayClipAtPoint(audioShot1, trackerPos);
-                }
-                else if (mag >= 25f && mag < 30f)
-                {
-                    //Debug.Log("Playing shot2");
-                    AudioSource.PlayClipAtPoint(audioShot2, trackerPos);
-                }
-                else
-                {
-                    //Debug.Log("Playing shot3");
-                    AudioSource.PlayClipAtPoint(audioShot3, trackerPos);
-                }
-
-                // Haptics feedback
-                StartCoroutine(ProvideVibration());
-                ShotDistance.Instance.calculateDistance(inst.theBall.transform.position, finalVel); ;
-
-                hasHitBall = true;
-                CameraReplay.Instance.setViewSetting(1, 1f);
-                //fieldersParent.BroadcastMessage("StartRotateTowardsIntercept");
-                if (SceneManager.GetActiveScene().name == "Nets")
-                {
-                    StartCoroutine(AutomaticReset(2f));
-                }
-            }
-            else
-                Debug.Log("CAUTION: " + gameObject.name + " collided with ball, but game state was " + inst.gameState.ToString());
+            Debug.LogError("Bat has no fitted BatGeometry - run Tools > CricketVR > Build UI Prefabs (or Fit on the component).", this);
+            return;
         }
+        float scale = transform.lossyScale.x;
+        float widthMultiplier = originalSize.x > 0f ? batCollider.size.x / originalSize.x : 1f;
+        BatContact.Blade blade = geometry.Blade;
+
+        // The bat turns about the hand holding it.
+        Vector3 pivotLocal = attachParent != null ? transform.InverseTransformPoint(attachParent.position) : Vector3.zero;
+        if (!BatContact.Sweep(previousPosition, previousRotation, transform.position, transform.rotation, scale,
+                              previousBallPosition, ballNow, blade, widthMultiplier, BallFlight.Radius, pivotLocal,
+                              out BatContact.Hit hit))
+            return;
+
+        float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+        Vector3 contactWorld = hit.position + hit.rotation * (hit.localBat * scale);
+        // The bat's velocity comes from the poses the player saw, the same two the sweep used, so
+        // the direction of the hit agrees with the swing on screen. The controller's own reported
+        // velocity used to override this when "close enough" (within 60% of the swing speed - 18 m/s
+        // of disagreement at 30 m/s), but the runtime filters it, it lags the pose at the peak of a
+        // swing, and its angular velocity is combined with a lever arm in a frame we never checked -
+        // all errors that grow with swing speed, which is where shots went the wrong way.
+        Vector3 swingVelocity = BatContact.PointVelocity(hit.localBat, scale, previousPosition, previousRotation,
+                                                         transform.position, transform.rotation, dt, pivotLocal, hit.t);
+        // The settings "Bat power" (75 = realistic) scales the swing, not the result, and only a
+        // little: a harder swing hits further, while the ball's own pace still rebounds by the real
+        // amount. It used to multiply the outgoing velocity, which also multiplied the ball's pace -
+        // a ramp off a 17 km/h bat left at 172 km/h from a 143 km/h delivery.
+        Vector3 batPointVelocity = swingVelocity * BatContact.SwingScale(inst.BatAmplifier);
+
+        Vector3 incoming = ball.linearVelocity;
+        BatContact.Result result = BatContact.Respond(hit, blade, scale, incoming, batPointVelocity, ball.mass);
+        if (result.velocity == incoming)
+            return; // grazed, already separating
+        Vector3 outgoing = result.velocity;
+
+        // Put the ball back where it touched the bat - the frame may have carried it through.
+        Vector3 contactCentre = hit.position + hit.rotation * (hit.localBall * scale);
+        Vector3 normal = (contactCentre - contactWorld).normalized;
+        contactCentre += normal * 0.002f;
+        ball.position = contactCentre;
+        ball.transform.position = contactCentre;
+        ball.linearVelocity = outgoing;
+
+        Debug.Log($"[BatHit] {result.kind} quality={result.quality:F2} e={result.restitution:F2} M={result.effectiveMass:F2} " +
+                  $"in={incoming.magnitude:F1} bat={batPointVelocity.magnitude:F1} impact={result.impactSpeed:F1} out={outgoing.magnitude:F1} " +
+                  $"local={hit.localBat.ToString("F3")} normal={normal.ToString("F2")} t={hit.t:F2}");
+        // Report the swing the player actually made, not the power-scaled one.
+        OnBallHit(inst, incoming, outgoing, swingVelocity.magnitude, result);
+    }
+
+    private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeed, BatContact.Result result)
+    {
+        hasHitBall = true;
+        inst.gameState = eGameState.InGame_BallHit;
+        BallSpeed.Instance.updateBatAndFinalSpeed(batSpeed, outgoing.magnitude);
+
+        if (sounds == null)
+            sounds = GetComponent<BatSounds>();
+        if (sounds != null)
+            sounds.Play(result.kind, result.impactSpeed);
+
+        ShotStruck?.Invoke(new ShotInfo
+        {
+            ballSpeedIn = incoming.magnitude,
+            batSpeed = batSpeed,
+            exitSpeed = outgoing.magnitude,
+            quality = result.quality,
+            contactLabel = BatContact.Label(result.kind),
+            edge = result.edge,
+        });
+
+        // Haptics follow the contact too: a middle is a firm short thump, an edge or the toe a
+        // longer, weaker buzz - the sting a mistimed shot sends up the handle.
+        bool clean = result.kind == BatContact.ContactKind.Middled || result.kind == BatContact.ContactKind.Good;
+        float strength = Mathf.Clamp01(0.35f + result.impactSpeed / 40f);
+        XRInput.SendHaptics(attachParent == leftHandParent, clean ? strength : strength * 0.6f, clean ? 0.06f : 0.16f);
+        ShotDistance.Instance.RecordHit(inst.theBall.transform.position);
+        CameraReplay.Instance.setViewSetting(1, 1f);
+        if (SceneManager.GetActiveScene().name == "Nets")
+            StartCoroutine(AutomaticReset(2f));
     }
 
     private IEnumerator AutomaticReset(float delay)
     {
         yield return new WaitForSeconds(delay);
         Main.Instance.gameState = eGameState.InGame_BallMissed;
-    }
-
-    public IEnumerator ProvideVibration()
-    {
-        XRInput.SendHaptics(attachParent == leftHandParent, 1f, 0.1f);
-        yield return new WaitForSeconds(0.1f);
     }
 
     // The bat-swing term below was originally tuned against a per-frame position delta
@@ -290,8 +254,48 @@ public class Bat : MonoBehaviour
         trackerPreviousPos = trackerPos;
     }
 
+    // While grip calibration runs the bat stands still in the world instead of following the hand,
+    // so the player can move the controller onto the handle (see BatGripCalibration).
+    private bool holdingStill;
+    private Vector3 stillPosition;
+    private Quaternion stillRotation;
+
+    public void HoldStill(Vector3 position, Quaternion rotation)
+    {
+        holdingStill = true;
+        stillPosition = position;
+        stillRotation = rotation;
+    }
+
+    public void ReleaseHold()
+    {
+        holdingStill = false;
+    }
+
+    public void SetGrabOffset(bool leftHand, Vector3 position, Vector3 euler)
+    {
+        if (leftHand)
+        {
+            leftGrabOffsetPosition = position;
+            leftGrabOffsetEuler = euler;
+        }
+        else
+        {
+            rightGrabOffsetPosition = position;
+            rightGrabOffsetEuler = euler;
+        }
+    }
+
     void LateUpdate()
     {
+        if (holdingStill)
+        {
+            myRigidBody.transform.position = stillPosition;
+            myRigidBody.transform.rotation = stillRotation;
+            havePreviousPose = false;
+            return;
+        }
+
         // Check if we need to start the attach/detach step
         CheckAndGrab();
 
@@ -323,6 +327,8 @@ public class Bat : MonoBehaviour
             myRigidBody.transform.position = finalPos;
             myRigidBody.transform.rotation = finalRot;
         }
+
+        CheckForContact();
     }
 
 }

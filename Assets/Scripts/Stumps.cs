@@ -55,6 +55,8 @@ public class Stumps : MonoBehaviour
         ResetOne(LegStump, 0);
         ResetOne(MiddleStump, 1);
         ResetOne(OffStump, 2);
+        foreach (Bail bail in GetComponentsInChildren<Bail>())
+            bail.ResetBail();
     }
 
     /// <summary>

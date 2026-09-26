@@ -1,70 +1,62 @@
-using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
+/// <summary>
+/// Six distance. Blank for every other outcome. When a hit clears the rope on the full, the flight
+/// is carried on from where it crossed - same speed, same drag (BallFlight) - to where it would
+/// have come down, and the display shows how far that is from where the ball was struck.
+/// The shot card (ShotCard) also gets every hit's projected carry, and the six distance.
+/// </summary>
 public class ShotDistance : MonoBehaviour
 {
     public static ShotDistance Instance;
 
     private TMP_Text myText;
+    private Vector3 hitPoint;
+    private readonly List<BallFlight.Sample> samples = new List<BallFlight.Sample>(1024);
 
-    // Start is called before the first frame update
     void Start()
     {
         if (ShotDistance.Instance == null)
             ShotDistance.Instance = this;
 
         myText = GetComponent<TMP_Text>();
+        setText("");
     }
 
-    // Update is called once per frame
-    void FixedUpdate()
+    /// The bat met the ball here (called once the ball has its new velocity). The shot card gets
+    /// the projected carry straight away: where the ball will first land, ignoring fielders.
+    public void RecordHit(Vector3 position)
     {
-        Main inst = Main.Instance;
-        if (inst.gameState == eGameState.InGame_BallHitLoop ||
-            inst.gameState == eGameState.InGame_BallPastBoundaryLoop ||
-            inst.gameState == eGameState.InGame_ResetToReadyLoop ||
-            inst.gameState == eGameState.InGame_Ready)
-        {
-            Vector3 ballPos = inst.theBall.transform.position;
-            Vector3 batPos = inst.theBat.transform.position;
-            ballPos.y = 0f;
-            batPos.y = 0f;
-
-            string text = (Mathf.Round(Vector3.Distance(ballPos, batPos) * 10f) / 10f) + " m";
-            setText(text);
-        }
-        if (inst.gameState == eGameState.InGame_SelectDeliveryLoop)
-        {
-            setText("0.0 m");
-        }
+        hitPoint = position;
+        setText("");
+        Rigidbody ball = Main.Instance != null ? Main.Instance.theBallRigidBody : null;
+        if (ShotCard.Instance == null || ball == null)
+            return;
+        BallFlight.Simulate(position, ball.linearVelocity, BallFlight.DeliveryEffects.None, 8f, samples, s => s.bounced);
+        ShotCard.Instance.SetDistance(HorizontalFromHit(LastSample(position)), false);
     }
 
-    public void calculateDistance(Vector3 startPos, Vector3 vel)
+    /// The ball has just cleared the rope without bouncing.
+    public void OnSix(Vector3 position, Vector3 velocity)
     {
-        ////yield return new WaitForSeconds(1f);
-        ////float y = 0f - Main.Instance.theBall.transform.position.y; // the -1f is to make sure there is no error if this calculation is done right when the ball hits the ground.
-        ////float v = Main.Instance.theBallRigidBody.velocity.y;
-        //float y = 0f - startPos.y;
-        //float v = vel.y;
-        //float t1 = (-v + Mathf.Sqrt(Mathf.Pow(v, 2f) - (19.6f * y))) / -9.81f;
-        //float t2 = (-v - Mathf.Sqrt(Mathf.Pow(v, 2f) - (19.6f * y))) / -9.81f;
-        //float time = Mathf.Max(t1, t2); // this is the time it takes for the ball to hit the ground.
-        ////float posx = (Main.Instance.theBallRigidBody.velocity.x * time) + Main.Instance.theBall.transform.position.x;
-        ////float posz = (Main.Instance.theBallRigidBody.velocity.z * time) + Main.Instance.theBall.transform.position.z;
-        //float posx = (vel.x * time);
-        //float posz = (vel.z * time);
-        ////float distance = Vector2.Distance(new Vector2(posx, posz), new Vector2(startPos.x, startPos.z));
-        //float distance = new Vector2(posx, posz).magnitude;
-        ////distance += Vector2.Distance(new Vector2(Main.Instance.theBat.transform.position.x, Main.Instance.theBat.transform.position.z), new Vector2(Main.Instance.theBall.transform.position.x, Main.Instance.theBall.transform.position.z));
-        //string text = (Mathf.Round(distance * 10f) / 10f) + " m";
-        //if (text != "NaN m")
-        //    setText(text);
+        float ground = BallFlight.OutfieldY + BallFlight.Radius;
+        BallFlight.Simulate(position, velocity, BallFlight.DeliveryEffects.None, 10f, samples,
+            s => s.position.y <= ground && s.velocity.y <= 0f || s.bounced);
+        float distance = HorizontalFromHit(LastSample(position));
+        setText($"{distance:F0} m");
+        if (ShotCard.Instance != null)
+            ShotCard.Instance.SetDistance(distance, true);
     }
+
+    private Vector3 LastSample(Vector3 fallback) => samples.Count > 0 ? samples[samples.Count - 1].position : fallback;
+
+    private float HorizontalFromHit(Vector3 point) => new Vector2(point.x - hitPoint.x, point.z - hitPoint.z).magnitude;
 
     public void setText(string text)
     {
-        myText.text = text;
+        if (myText != null)
+            myText.text = text;
     }
 }

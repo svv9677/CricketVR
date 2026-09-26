@@ -73,14 +73,11 @@ public class Main : MonoBehaviour
     [Header("Settings")]
     [SerializeField]
     protected eDifficulty difficulty;
-    private Toggle _easyToggle;
-    private Toggle _mediumToggle;
-    private Toggle _hardToggle;
+    private eDifficulty _difficulty = eDifficulty.None;
 
     [SerializeField]
     protected eBattingStyle battingStyle;
-    private Toggle _lBatToggle;
-    private Toggle _rBatToggle;
+    private eBattingStyle _shownBattingStyle = eBattingStyle.None;
 
     [SerializeField]
     protected eStadiumMode stadiumMode;
@@ -89,7 +86,7 @@ public class Main : MonoBehaviour
     [Range(3f, 10f)]
     protected float zOffset;
     private float _zOffset;
-    private Text _zOffsetText;
+    private TMPro.TMP_Text _zOffsetText;
     private Slider _zOffsetSlider;
 
     [Header("Debug Tweaks")]
@@ -97,97 +94,78 @@ public class Main : MonoBehaviour
     [SerializeField]
     private bool verboseStateLogging = false;
 
-    public bool overlayVisible = true;
+    // The settings panel mirrors these (SettingsPanel.Refresh); each `_x` is the value last applied.
+    [Tooltip("The debug overlay (game state + log console). Off by default; Settings > Advanced.")]
+    public bool overlayVisible = false;
     private bool _overlayVisible = false;
-    private Toggle _overlayToggle;
 
     [Range(0f, 5f)]
     public float resetDelay = -100f;
     private float _resetDelay = 2f;
-    private Text _resetDelayText;
-    private Slider _resetDelaySlider;
 
     [Range(0.5f, 2.5f)]
     public float fielderSpeed = -100f;
     private float _fielderSpeed = 1.5f;
-    private Text _fielderSpeedText;
-    private Slider _fielderSpeedSlider;
 
     public eSwingType swingType;
     private eSwingType _swingType;
-    private Text _swingTypeText;
 
+    // Not used by the bat any more (only logged by BallDiagnostics); kept for their saved values.
     [Range(0f, 15f)]
     public float ampMin = -100f;
     private float _ampMin = 10f;
-    private Text _ampMinText;
-    private Slider _ampMinSlider;
 
     [Range(0f, 25f)]
     public float ampMax = -100f;
     private float _ampMax = 15f;
-    private Text _ampMaxText;
-    private Slider _ampMaxSlider;
 
     public float MinX = Constants.paceCfg[0];
     private float _MinX = -100f;
-    private Text _MinXText;
-    private Slider _MinXSlider;
 
     public float MaxX = Constants.paceCfg[1];
     private float _MaxX = -100f;
-    private Text _MaxXText;
-    private Slider _MaxXSlider;
 
     public float MinY = Constants.paceCfg[2];
-    private float _MinY = -100f;
-    private Text _MinYText;
-    private Slider _MinYSlider;
 
     public float MaxY = Constants.paceCfg[3];
-    private float _MaxY = -100f;
-    private Text _MaxYText;
-    private Slider _MaxYSlider;
 
     public float MinZ = Constants.paceCfg[4];
     private float _MinZ = -100f;
-    private Text _MinZText;
-    private Slider _MinZSlider;
 
     public float MaxZ = Constants.paceCfg[5];
     private float _MaxZ = -100f;
-    private Text _MaxZText;
-    private Slider _MaxZSlider;
 
     public float MinSwing = Constants.paceCfg[6];
     private float _MinSwing = -100f;
-    private Text _MinSwingText;
-    private Slider _MinSwingSlider;
 
     public float MaxSwing = Constants.paceCfg[7];
     private float _MaxSwing = -100f;
-    private Text _MaxSwingText;
-    private Slider _MaxSwingSlider;
 
     public float MinPitchTurn = Constants.paceCfg[8];
     private float _MinPitchTurn = -100f;
-    private Text _MinPitchTurnText;
-    private Slider _MinPitchTurnSlider;
 
     public float MaxPitchTurn = Constants.paceCfg[9];
     private float _MaxPitchTurn = -100f;
-    private Text _MaxPitchTurnText;
-    private Slider _MaxPitchTurnSlider;
 
-    public float BatAmplifier = 75f;
+    [Tooltip("Bat power: scales the bat's swing-speed contribution. 75 = a real bat (\"Realistic\").")]
+    public float BatAmplifier = Constants.BatPowerRealistic;
     private float _BatAmplifier = -100f;
-    private Text _BatAmplifierText;
-    private Slider _BatAmplifierSlider;
 
+
+    public eBattingStyle BattingStyle => battingStyle;
+    public eDifficulty Difficulty => difficulty;
+    public BatGripCalibration GripCalibration => gripCalibration;
+    [Tooltip("The B-menu settings panel in the scene (prefab SettingsPanel).")]
+    [SerializeField] private SettingsPanel settingsPanel;
+    /// The most recent delivery's aim, for checking it against where the ball really went.
+    [HideInInspector] public BallDelivery.Solution lastDelivery;
 
     // Internal variables
     private bool initialized;
     private bool menuToggle;
+    private BatGripCalibration gripCalibration;
+    private eGameState debugShownState = (eGameState)(-1);
+    private BowlingParams debugShownConfig;
     private Material SignalMaterial;
 
     // Console log parameters
@@ -245,6 +223,10 @@ public class Main : MonoBehaviour
         if (Main.Instance == null)
             Main.Instance = this;
 
+        // On the Bat prefab - nothing is added at runtime.
+        if (theBat != null)
+            gripCalibration = theBat.GetComponent<BatGripCalibration>();
+
         // Initialize menus
         menuToggle = false;
         SetupMenus();
@@ -258,7 +240,9 @@ public class Main : MonoBehaviour
         // Read Tweakables
         // Set default using private vars, and set private var to -1000 so that we
         // let auto-update update this along with the UI
-        overlayVisible = PlayerPrefs.GetInt(Constants.PP_Overlay, 1) == 1;
+        overlayVisible = PlayerPrefs.GetInt(Constants.PP_Overlay, 0) == 1;
+        _overlayVisible = !overlayVisible;   // so the first update shows or hides the overlay
+        BatAmplifier = PlayerPrefs.GetFloat(Constants.PP_BatPower, Constants.BatPowerRealistic);
         resetDelay = PlayerPrefs.GetFloat(Constants.PP_ResetDelay, _resetDelay);
         _resetDelay = -1000;
         fielderSpeed = PlayerPrefs.GetFloat(Constants.PP_FielderSpeed, _fielderSpeed);
@@ -295,144 +279,54 @@ public class Main : MonoBehaviour
                 mb.enabled = false;
         }
 
-        if (theBatScript != null && theBatScript.leftHandParent != null)
+        // The controller trackers, hand models and keyboard movement are placed in the scene by
+        // Tools > CricketVR > Build UI Prefabs; nothing is added here at runtime.
+        foreach (Transform hand in new[] { theBatScript?.leftHandParent, theBatScript?.rightHandParent })
         {
-            Transform anchor = theBatScript.leftHandParent.parent;
-            if (anchor != null && anchor.GetComponent<XRControllerTracker>() == null)
-            {
-                var tracker = anchor.gameObject.AddComponent<XRControllerTracker>();
-                tracker.isLeftHand = true;
-            }
-        }
-        if (theBatScript != null && theBatScript.rightHandParent != null)
-        {
-            Transform anchor = theBatScript.rightHandParent.parent;
-            if (anchor != null && anchor.GetComponent<XRControllerTracker>() == null)
-            {
-                var tracker = anchor.gameObject.AddComponent<XRControllerTracker>();
-                tracker.isLeftHand = false;
-            }
-        }
-
-        // Add keyboard movement controller to the player root
-        if (theBatScript != null && theBatScript.leftHandParent != null)
-        {
-            Transform playerRoot = theBatScript.leftHandParent.parent?.parent?.parent;
-            if (playerRoot != null && playerRoot.GetComponent<SimplePlayerController>() == null)
-                playerRoot.gameObject.AddComponent<SimplePlayerController>();
+            if (hand != null && hand.parent != null && hand.parent.GetComponent<XRControllerTracker>() == null)
+                Debug.LogError($"{hand.parent.name} has no XRControllerTracker - run Tools > CricketVR > Build UI Prefabs.", hand.parent);
         }
     }
 
+    /// <summary>
+    /// The settings panel is a prefab (SettingsPanel) with its controls wired in the editor. Main
+    /// does not touch its controls: it calls SettingsPanel.Refresh when a setting changes.
+    /// </summary>
     public void SetupMenus()
     {
-        DebugUIBuilder.instance.AddLabel("Settings");
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// Settings Menu
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        DebugUIBuilder.instance.AddDivider();
-        DebugUIBuilder.instance.AddLabel("Batting Style");
-        var radio1 = DebugUIBuilder.instance.AddRadio("Left Handed", "batting", onRadioLeftHanded);
-        _lBatToggle = radio1.GetComponentInChildren<Toggle>();
-        var radio2 = DebugUIBuilder.instance.AddRadio("Right Handed", "batting", onRadioRightHanded);
-        _rBatToggle = radio2.GetComponentInChildren<Toggle>();
+        if (settingsPanel == null)
+            Debug.LogError("Main has no SettingsPanel - run Tools > CricketVR > Build Player UI.", this);
+    }
 
-        DebugUIBuilder.instance.AddDivider();
-        DebugUIBuilder.instance.AddLabel("Difficulty");
-        var radio3 = DebugUIBuilder.instance.AddRadio("Easy", "difficulty", onRadioEasy);
-        _easyToggle = radio3.GetComponentInChildren<Toggle>();
-        var radio4 = DebugUIBuilder.instance.AddRadio("Medium", "difficulty", onRadioMedium);
-        _mediumToggle = radio4.GetComponentInChildren<Toggle>();
-        var radio5 = DebugUIBuilder.instance.AddRadio("Hard", "difficulty", onRadioHard);
-        _hardToggle = radio5.GetComponentInChildren<Toggle>();
+    private void RefreshSettingsPanel()
+    {
+        if (settingsPanel != null)
+            settingsPanel.Refresh();
+    }
 
-        DebugUIBuilder.instance.AddDivider();
-        // offsetZ
-        var pr = DebugUIBuilder.instance.AddSlider("Menu Position", 3.0f, 10.0f, onZChange, true);
-        _zOffsetText = pr.GetComponentsInChildren<Text>()[1];
-        _zOffsetSlider = pr.GetComponentInChildren<Slider>();
+    /// Apply tuning changes made on the settings panel.
+    public void ApplyTweaks() => updateTweakables();
 
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// Debug Tweakables
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        DebugUIBuilder.instance.AddLabel("Tweakable Parameters", 1);
-        DebugUIBuilder.instance.AddDivider(1);
-        // overlayToggle
-        var p = DebugUIBuilder.instance.AddToggle("Show Overlay", onOverlayToggle, true, 1);
-        _overlayToggle = p.GetComponentInChildren<Toggle>();
-        // resetDelay
-        var p1 = DebugUIBuilder.instance.AddSlider("Reset Delay", 0f, 5.0f, onResetDelay, false, 1);
-        _resetDelayText = p1.GetComponentsInChildren<Text>()[1];
-        _resetDelaySlider = p1.GetComponentInChildren<Slider>();
-        // fielderSpeed
-        var p2 = DebugUIBuilder.instance.AddSlider("Fielder Speed", 0.5f, 2.5f, onFielderSpeed, false, 1);
-        _fielderSpeedText = p2.GetComponentsInChildren<Text>()[1];
-        _fielderSpeedSlider = p2.GetComponentInChildren<Slider>();
-        // ampMin
-        var p3 = DebugUIBuilder.instance.AddSlider("Min Amplifier", 0.0f, 15.0f, onAmpMinChange, false, 1);
-        _ampMinText = p3.GetComponentsInChildren<Text>()[1];
-        _ampMinSlider = p3.GetComponentInChildren<Slider>();
-        // ampMax
-        var p4 = DebugUIBuilder.instance.AddSlider("Max Amplifier", 0.0f, 25.0f, onAmpMaxChange, false, 1);
-        _ampMaxText = p4.GetComponentsInChildren<Text>()[1];
-        _ampMaxSlider = p4.GetComponentInChildren<Slider>();
-        // BatAmplifier
-        var ba = DebugUIBuilder.instance.AddSlider(Constants.CT_BatAmplifier, 50f, 200f, delegate (float f) { BatAmplifier = f; updateTweakables(); }, false, 1);
-        _BatAmplifierText = ba.GetComponentsInChildren<Text>()[1];
-        _BatAmplifierSlider = ba.GetComponentInChildren<Slider>();
+    public void SetBattingStyle(eBattingStyle style)
+    {
+        if (battingStyle == style)
+            return;
+        battingStyle = style;
+        updateBattingStyle();
+    }
 
-        // Bowling type
-        var spw = DebugUIBuilder.instance.AddLabel("Bowling Type - ", 1);
-        _swingTypeText = spw.GetComponent<Text>();
-        // MinX
-        var pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MinX, 0f, 10f, onVoid, false, 1);
-        _MinXText = pr1.GetComponentsInChildren<Text>()[1];
-        _MinXSlider = pr1.GetComponentInChildren<Slider>();
-        _MinXSlider.onValueChanged.AddListener(delegate (float f) { MinX = f; updateTweakables(); });
-        // MaxX
-        pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MaxX, 0f, 10f, onVoid, false, 1);
-        _MaxXText = pr1.GetComponentsInChildren<Text>()[1];
-        _MaxXSlider = pr1.GetComponentInChildren<Slider>();
-        _MaxXSlider.onValueChanged.AddListener(delegate (float f) { MaxX = f; updateTweakables(); });
-        //// MinY
-        //pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MinY, -3f, 2f, onVoid, false, 1);
-        //_MinYText = pr1.GetComponentsInChildren<Text>()[1];
-        //_MinYSlider = pr1.GetComponentInChildren<Slider>();
-        //_MinYSlider.onValueChanged.AddListener(delegate (float f) { MinY = f; updateTweakables(); });
-        //// MaxY
-        //pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MaxY, -3f, 2f, onVoid, false, 1);
-        //_MaxYText = pr1.GetComponentsInChildren<Text>()[1];
-        //_MaxYSlider = pr1.GetComponentInChildren<Slider>();
-        //_MaxYSlider.onValueChanged.AddListener(delegate (float f) { MaxY = f; updateTweakables(); });
-        // MinZ
-        pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MinZ, -0.75f, 0.75f, onVoid, false, 1);
-        _MinZText = pr1.GetComponentsInChildren<Text>()[1];
-        _MinZSlider = pr1.GetComponentInChildren<Slider>();
-        _MinZSlider.onValueChanged.AddListener(delegate (float f) { MinZ = f; updateTweakables(); });
-        // MaxZ
-        pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MaxZ, -0.75f, 0.75f, onVoid, false, 1);
-        _MaxZText = pr1.GetComponentsInChildren<Text>()[1];
-        _MaxZSlider = pr1.GetComponentInChildren<Slider>();
-        _MaxZSlider.onValueChanged.AddListener(delegate (float f) { MaxZ = f; updateTweakables(); });
-        // MinSwing
-        pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MinSwing, 0f, 1f, onVoid, false, 1);
-        _MinSwingText = pr1.GetComponentsInChildren<Text>()[1];
-        _MinSwingSlider = pr1.GetComponentInChildren<Slider>();
-        _MinSwingSlider.onValueChanged.AddListener(delegate (float f) { MinSwing = f; updateTweakables(); });
-        // MaxSwing
-        pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MaxSwing, 0f, 1f, onVoid, false, 1);
-        _MaxSwingText = pr1.GetComponentsInChildren<Text>()[1];
-        _MaxSwingSlider = pr1.GetComponentInChildren<Slider>();
-        _MaxSwingSlider.onValueChanged.AddListener(delegate (float f) { MaxSwing = f; updateTweakables(); });
-        // MinPitchTurn
-        pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MinPitchTurn, 0f, 1f, onVoid, false, 1);
-        _MinPitchTurnText = pr1.GetComponentsInChildren<Text>()[1];
-        _MinPitchTurnSlider = pr1.GetComponentInChildren<Slider>();
-        _MinPitchTurnSlider.onValueChanged.AddListener(delegate (float f) { MinPitchTurn = f; updateTweakables(); });
-        // MaxPitchTurn
-        pr1 = DebugUIBuilder.instance.AddSlider(Constants.CT_MaxPitchTurn, 0f, 1f, onVoid, false, 1);
-        _MaxPitchTurnText = pr1.GetComponentsInChildren<Text>()[1];
-        _MaxPitchTurnSlider = pr1.GetComponentInChildren<Slider>();
-        _MaxPitchTurnSlider.onValueChanged.AddListener(delegate (float f) { MaxPitchTurn = f; updateTweakables(); });
+    public void SetDifficulty(eDifficulty level)
+    {
+        if (difficulty == level)
+            return;
+        difficulty = level;
+        updateDifficulty();
+    }
+
+    public void CloseSettings()
+    {
+        if (menuToggle)
+            ToggleUI(false);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -440,69 +334,21 @@ public class Main : MonoBehaviour
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private void updateDifficulty(bool updateUI = false)
     {
-        bool changed = false;
-        // TODO: Take action for appropriate difficulty, and set 'changed'
-
+        if (difficulty == _difficulty)
+            return;
+        _difficulty = difficulty;
+        // Applied on every change. (It used to be applied only when the old radio toggles were out
+        // of step, which never happened after a click - so picking a level in the menu saved it
+        // but left the bat width alone until the next launch.)
+        updateBatColliderSize();
         PlayerPrefs.SetInt(Constants.PP_Difficulty, (int)difficulty);
-
-        // If we are not being called from Update(), just return, as player prefs are saved on UI Hide()
-        if (!updateUI)
-            return;
-
-        // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
-        if (difficulty == eDifficulty.Easy && !_easyToggle.isOn)
-        {
-            _easyToggle.isOn = true;
-            updateBatColliderSize();
-        }
-        else if (difficulty == eDifficulty.Medium && !_mediumToggle.isOn)
-        {
-            _mediumToggle.isOn = true;
-            updateBatColliderSize();
-        }
-        else if (difficulty == eDifficulty.Hard && !_hardToggle.isOn)
-        {
-            _hardToggle.isOn = true;
-            updateBatColliderSize();
-        }
-
-        if (changed)
-        {
+        if (updateUI)
             PlayerPrefs.Save();
-        }
-
-            
+        RefreshSettingsPanel();
     }
-    public void onRadioEasy(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (difficulty != eDifficulty.Easy)
-        {
-            difficulty = eDifficulty.Easy;
-            updateDifficulty();
-        }
-    }
-    public void onRadioMedium(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (difficulty != eDifficulty.Medium)
-        {
-            difficulty = eDifficulty.Medium;
-            updateDifficulty();
-        }
-    }
-    public void onRadioHard(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (difficulty != eDifficulty.Hard)
-        {
-            difficulty = eDifficulty.Hard;
-            updateDifficulty();
-        }
-    }
+    public void onRadioEasy(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Easy); }
+    public void onRadioMedium(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Medium); }
+    public void onRadioHard(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Hard); }
 
     void updateBatColliderSize()
     {
@@ -558,34 +404,17 @@ public class Main : MonoBehaviour
             return;
 
         // If we are being called from Update(), we need to update UI & also call PlayerPrefs.Save()
-        if (battingStyle == eBattingStyle.RightHanded && !_rBatToggle.isOn)
-            _rBatToggle.isOn = true;
-        else if (battingStyle == eBattingStyle.LeftHanded && !_lBatToggle.isOn)
-            _lBatToggle.isOn = true;
+        if (battingStyle != _shownBattingStyle)
+        {
+            _shownBattingStyle = battingStyle;
+            RefreshSettingsPanel();
+        }
 
         if (changed)
             PlayerPrefs.Save();
     }
-    public void onRadioRightHanded(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (battingStyle != eBattingStyle.RightHanded)
-        {
-            battingStyle = eBattingStyle.RightHanded;
-            updateBattingStyle();
-        }
-    }
-    public void onRadioLeftHanded(Toggle t)
-    {
-        if (!t.isOn)
-            return;
-        if (battingStyle != eBattingStyle.LeftHanded)
-        {
-            battingStyle = eBattingStyle.LeftHanded;
-            updateBattingStyle();
-        }
-    }
+    public void onRadioRightHanded(Toggle t) { if (t.isOn) SetBattingStyle(eBattingStyle.RightHanded); }
+    public void onRadioLeftHanded(Toggle t) { if (t.isOn) SetBattingStyle(eBattingStyle.LeftHanded); }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Stadium settings
@@ -622,15 +451,11 @@ public class Main : MonoBehaviour
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private void updateZOffset(bool savePrefs = false)
     {
+        // The settings panel now opens in front of the player, wherever they face, so the old
+        // "Menu Position" slider is gone; the value is only kept in PlayerPrefs.
         if (_zOffset != zOffset)
         {
             _zOffset = zOffset;
-            _zOffsetText.text = zOffset.ToString();
-            _zOffsetSlider.value = zOffset;
-
-            DebugUIBuilder.instance.menuOffset.z = zOffset;
-            DebugUIBuilder.instance.UpdatePosition();
-
             PlayerPrefs.SetFloat(Constants.PP_ZOffset, zOffset);
             if (savePrefs)
                 PlayerPrefs.Save();
@@ -647,157 +472,122 @@ public class Main : MonoBehaviour
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     private void updateTweakables(bool savePrefs = false)
     {
-        bool changed = false;
+        bool changed = false, refresh = false;
         if (ampMin != _ampMin)
         {
             changed = true;
             _ampMin = ampMin;
             PlayerPrefs.SetFloat(Constants.PP_AmpMin, ampMin);
-
-            if (_ampMinText != null)
-                _ampMinText.text = ampMin.ToString();
-            if (_ampMinSlider != null)
-                _ampMinSlider.value = ampMin;
         }
         if (ampMax != _ampMax)
         {
             changed = true;
             _ampMax = ampMax;
             PlayerPrefs.SetFloat(Constants.PP_AmpMax, ampMax);
-
-            if (_ampMaxText != null)
-                _ampMaxText.text = ampMax.ToString();
-            if (_ampMaxSlider != null)
-                _ampMaxSlider.value = ampMax;
         }
         if (resetDelay != _resetDelay)
         {
             changed = true;
             _resetDelay = resetDelay;
             PlayerPrefs.SetFloat(Constants.PP_ResetDelay, resetDelay);
-
-            if (_resetDelayText != null)
-                _resetDelayText.text = resetDelay.ToString();
-            if (_resetDelaySlider != null)
-                _resetDelaySlider.value = resetDelay;
         }
         if (fielderSpeed != _fielderSpeed)
         {
-            changed = true;
+            changed = refresh = true;
             _fielderSpeed = fielderSpeed;
             PlayerPrefs.SetFloat(Constants.PP_FielderSpeed, fielderSpeed);
-
-            if (_fielderSpeedText != null)
-                _fielderSpeedText.text = fielderSpeed.ToString();
-            if (_fielderSpeedSlider != null)
-                _fielderSpeedSlider.value = fielderSpeed;
         }
         if (overlayVisible != _overlayVisible)
         {
-            changed = true;
+            changed = refresh = true;
             _overlayVisible = overlayVisible;
-
-            dbgOverlayParent.SetActive(overlayVisible);
-            if (_overlayToggle != null)
-                _overlayToggle.isOn = overlayVisible;
-
+            if (dbgOverlayParent != null)
+                dbgOverlayParent.SetActive(overlayVisible);
             PlayerPrefs.SetInt(Constants.PP_Overlay, overlayVisible ? 1 : 0);
         }
         if(swingType != _swingType)
         {
             _swingType = swingType;
             reloadTweakables();
+            refresh = true;
         }
-
         if (_BatAmplifier != BatAmplifier)
         {
+            changed = refresh = true;
             _BatAmplifier = BatAmplifier;
-            _BatAmplifierText.text = _BatAmplifier.ToString();
-            _BatAmplifierSlider.value = _BatAmplifier;
+            PlayerPrefs.SetFloat(Constants.PP_BatPower, BatAmplifier);
         }
+        if (applyBowlingTweaks())
+            refresh = true;
 
-        if (bowlingProfileManager != null)
-        {
-            BowlingProfile profile = bowlingProfileManager.GetProfile(swingType);
-            if (_MinX != MinX)
-            {
-                _MinX = MinX;
-                _MinXText.text = _MinX.ToString();
-                _MinXSlider.value = _MinX;
-                profile.minX = MinX;
-            }
-            if (_MaxX != MaxX)
-            {
-                _MaxX = MaxX;
-                _MaxXText.text = _MaxX.ToString();
-                _MaxXSlider.value = _MaxX;
-                profile.maxX = MaxX;
-            }
-            //if (_MinY != MinY)
-            //{
-            //    _MinY = MinY;
-            //    _MinYText.text = _MinY.ToString();
-            //    _MinYSlider.value = _MinY;
-            //    profile.minY = MinY;
-            //}
-            //if (_MaxY != MaxY)
-            //{
-            //    _MaxY = MaxY;
-            //    _MaxYText.text = _MaxY.ToString();
-            //    _MaxYSlider.value = _MaxY;
-            //    profile.maxY = MaxY;
-            //}
-            if (_MinZ != MinZ)
-            {
-                _MinZ = MinZ;
-                _MinZText.text = _MinZ.ToString();
-                _MinZSlider.value = _MinZ;
-                profile.minZ = MinZ;
-            }
-            if (_MaxZ != MaxZ)
-            {
-                _MaxZ = MaxZ;
-                _MaxZText.text = _MaxZ.ToString();
-                _MaxZSlider.value = _MaxZ;
-                profile.maxZ = MaxZ;
-            }
-            if (_MinSwing != MinSwing)
-            {
-                _MinSwing = MinSwing;
-                _MinSwingText.text = _MinSwing.ToString();
-                _MinSwingSlider.value = _MinSwing;
-                profile.minSwing = MinSwing;
-            }
-            if (_MaxSwing != MaxSwing)
-            {
-                _MaxSwing = MaxSwing;
-                _MaxSwingText.text = _MaxSwing.ToString();
-                _MaxSwingSlider.value = _MaxSwing;
-                profile.maxSwing = MaxSwing;
-            }
-            if (_MinPitchTurn != MinPitchTurn)
-            {
-                _MinPitchTurn = MinPitchTurn;
-                _MinPitchTurnText.text = _MinPitchTurn.ToString();
-                _MinPitchTurnSlider.value = _MinPitchTurn;
-                profile.minPitchTurn = MinPitchTurn;
-            }
-            if (_MaxPitchTurn != MaxPitchTurn)
-            {
-                _MaxPitchTurn = MaxPitchTurn;
-                _MaxPitchTurnText.text = _MaxPitchTurn.ToString();
-                _MaxPitchTurnSlider.value = _MaxPitchTurn;
-                profile.maxPitchTurn = MaxPitchTurn;
-            }
-        }
-
+        if (refresh)
+            RefreshSettingsPanel();
         if (savePrefs && changed)
             PlayerPrefs.Save();
     }
+
+    /// Copy the bowling ranges into the current bowler type's profile. True if any changed.
+    private bool applyBowlingTweaks()
+    {
+        if (bowlingProfileManager == null)
+            return false;
+        BowlingProfile profile = bowlingProfileManager.GetProfile(swingType);
+        bool changed = false;
+        if (_MinX != MinX) { _MinX = MinX; profile.minX = MinX; changed = true; }
+        if (_MaxX != MaxX) { _MaxX = MaxX; profile.maxX = MaxX; changed = true; }
+        if (_MinZ != MinZ) { _MinZ = MinZ; profile.minZ = MinZ; changed = true; }
+        if (_MaxZ != MaxZ) { _MaxZ = MaxZ; profile.maxZ = MaxZ; changed = true; }
+        if (_MinSwing != MinSwing) { _MinSwing = MinSwing; profile.minSwing = MinSwing; changed = true; }
+        if (_MaxSwing != MaxSwing) { _MaxSwing = MaxSwing; profile.maxSwing = MaxSwing; changed = true; }
+        if (_MinPitchTurn != MinPitchTurn) { _MinPitchTurn = MinPitchTurn; profile.minPitchTurn = MinPitchTurn; changed = true; }
+        if (_MaxPitchTurn != MaxPitchTurn) { _MaxPitchTurn = MaxPitchTurn; profile.maxPitchTurn = MaxPitchTurn; changed = true; }
+        return changed;
+    }
     public void onVoid(float val) { }
+    /// Bowl the next ball (the A button, or "Next Ball" on the between-balls panel).
+    public void StartNextBall()
+    {
+        if (gameState != eGameState.InGame_Ready)
+            return;
+        currentFielderName = "";
+
+        // Reset stumps - both ends
+        foreach (Stumps stumps in FindObjectsByType<Stumps>(FindObjectsSortMode.None))
+            stumps.Reset();
+
+        StopTheBall();
+
+        // Switch to the process of selecting delivery type, stride & other params before delivery loop
+        gameState = eGameState.InGame_SelectDelivery;
+    }
+
+    public void OpenSettings()
+    {
+        if (!menuToggle)
+            ToggleUI(true);
+    }
+
+    public bool SettingsOpen => menuToggle;
+    public bool CalibratingGrip => gripCalibration != null && gripCalibration.IsActive;
+
+    public void onCalibrateGrip() { StartGripCalibration(false); }
+    public void onCalibrateGripFlat() { StartGripCalibration(true); }
+    private void StartGripCalibration(bool flat)
+    {
+        if (gripCalibration == null)
+            return;
+        // Close the menu first: showing it hides the bat.
+        if (menuToggle)
+            ToggleUI(false);
+        gripCalibration.Begin(flat);
+    }
+    public void onResetGrip()
+    {
+        if (gripCalibration != null)
+            gripCalibration.ResetToDefault();
+    }
     public void reloadTweakables()
     {
-        _swingTypeText.text = "Bowling Type - " + swingType.ToString();
         float[] config;
         switch(swingType)
         {
@@ -880,19 +670,25 @@ public class Main : MonoBehaviour
             updateTweakables(true);
         }
 
-        if (debugText != null)
+        // Only when the state or delivery changes: rebuilding this string and the canvas every
+        // frame allocated garbage and cost a UI rebuild per frame on the headset.
+        if (gameState != debugShownState || currentBowlingConfig != debugShownConfig)
         {
-            debugText.text = "GameState: " + gameState.ToString();
-            if (currentBowlingConfig != null)
-                debugText.text += "\n" + currentBowlingConfig.ToString();
+            debugShownState = gameState;
+            debugShownConfig = currentBowlingConfig;
+            if (debugText != null)
+                debugText.text = "GameState: " + gameState + (currentBowlingConfig != null ? "\n" + currentBowlingConfig : "");
+            if (SignalMaterial != null)
+                SignalMaterial.color = gameState == eGameState.InGame_Ready ? Color.green : Color.red;
         }
 
-        if(SignalMaterial != null)
+        // Grip calibration owns A and B while it runs, so the A that locks the grip cannot also
+        // start a delivery and B cancels it rather than opening the menu.
+        if (gripCalibration != null && gripCalibration.IsActive)
         {
-            if (gameState == eGameState.InGame_Ready)
-                SignalMaterial.color = Color.green;
-            else
-                SignalMaterial.color = Color.red;
+            gripCalibration.Tick(GetButton(XRButton.A), GetButton(XRButton.B),
+                                 GetButton(XRButton.X) || GetButton(XRButton.Y));
+            return;
         }
 
         // Temporary stuff
@@ -902,7 +698,7 @@ public class Main : MonoBehaviour
         }
 
         // if debug menu is not active!
-        if (!DebugUIBuilder.instance.isActiveAndEnabled)
+        if (!menuToggle)
         {
             switch(gameState)
             {
@@ -920,17 +716,7 @@ public class Main : MonoBehaviour
                 case eGameState.InGame_Ready:
                     {
                         if (GetButton(XRButton.A))
-                        {
-                            currentFielderName = "";
-
-                            // Reset stumps
-                            theStumpsScript.Reset();
-
-                            StopTheBall();
-
-                            // Switch to the process of selecting delivery type, stride & other params before delivery loop
-                            gameState = eGameState.InGame_SelectDelivery;
-                        }
+                            StartNextBall();
                     }
                     break;
                 case eGameState.InGame_SelectDelivery:
@@ -941,7 +727,7 @@ public class Main : MonoBehaviour
                         CameraReplay.Instance.startDisplaying = null;
                         CameraReplay.Instance.StopDisplaying();
                         CameraReplay.Instance.setViewSetting(0);
-                        ShotDistance.Instance.setText("0.0 m");
+                        ShotDistance.Instance.setText("");
                         BallSpeed.Instance.setText("");
                         // TODO: Move bowling machine
 
@@ -977,12 +763,16 @@ public class Main : MonoBehaviour
                             releaseFrom = bowler.ReleasePosition;
 
                         // Work out the whole release from one validated solve (see BallDelivery).
-                        // The config's speedX / speedZ are impulse magnitudes, so divide by mass to
-                        // get the real speeds; `length` is the world X the ball should pitch at.
-                        float speedMps = currentBowlingConfig.speedX / theBallRigidBody.mass;
-                        float lateralMps = currentBowlingConfig.speedZ / theBallRigidBody.mass;
+                        // speedX is an impulse against the configs' 0.2 kg ball; `length` is the
+                        // world X the ball pitches at; speedZ is the line at the batsman's stumps,
+                        // off side positive, so mirror it for a left-hander.
+                        float offSign = battingStyle == eBattingStyle.LeftHanded ? -1f : 1f;
+                        float speedMps = currentBowlingConfig.speedX / Constants.ConfigImpulseMass;
+                        float targetLine = offSign * currentBowlingConfig.speedZ;
+                        BallFlight.DeliveryEffects effects = currentBowlingConfig.Effects(offSign);
+                        theBallScript.deliveryEffects = effects;
                         BallDelivery.Solution delivery = BallDelivery.Solve(
-                            releaseFrom, currentBowlingConfig.length, speedMps, lateralMps);
+                            releaseFrom, currentBowlingConfig.length, speedMps, targetLine, effects);
                         if (!string.IsNullOrEmpty(delivery.warnings))
                             Debug.LogWarning($"[Delivery] {delivery}");
                         else if (verboseStateLogging)
@@ -1007,6 +797,10 @@ public class Main : MonoBehaviour
                         // it by nothing, so there is no snap. When carrying the ball has gone
                         // wrong it is the correction that keeps the delivery sane.
                         theBall.transform.position = delivery.releasePosition;
+                        // And the body itself: autoSyncTransforms is off, so the transform write
+                        // alone left PhysX starting the ball from where the hand was on the last
+                        // physics step - measured up to 0.24 m behind, pitching that much short.
+                        theBallRigidBody.position = delivery.releasePosition;
 
                         // ASSIGN both velocities rather than AddForce onto whatever the body was
                         // carrying. While parented to the bowler's hand the ball is kinematic, and
@@ -1026,6 +820,9 @@ public class Main : MonoBehaviour
                         //theBallScript.lastVelocity = speed;   (commented out because the lastVelocity for the bat collision equations should be updated after the ball hits the pitch.
                         // mark as fresh delivery!
                         theBallScript.fresh = true;
+                        theBallScript.lastPitchPoint = new Vector3(float.NaN, 0f, 0f);
+                        theBallScript.lastLineAtStumps = float.NaN;
+                        lastDelivery = delivery;
                         theBallScript.bounced = false;
                         theBallScript.wide = false;
                         theBatScript.hasHitBall = false;
@@ -1147,7 +944,6 @@ public class Main : MonoBehaviour
             ToggleUI(!menuToggle);
         }
 
-        theHUD.txtVersion.text = ((float)(1f / Time.deltaTime)).ToString();
     }
 
     /*private float GetYVel(float length, float z)
@@ -1165,14 +961,14 @@ public class Main : MonoBehaviour
 
         if (menuToggle)
         {
-            DebugUIBuilder.instance.Show();
+            settingsPanel.Show();
             theBat.SetActive(false);
         }
         else
         {
             // Save changes from settings
             PlayerPrefs.Save();
-            DebugUIBuilder.instance.Hide();
+            settingsPanel.Hide();
             theBat.SetActive(true);
         }
     }
