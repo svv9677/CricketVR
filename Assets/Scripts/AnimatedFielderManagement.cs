@@ -153,7 +153,7 @@ public class AnimatedFielderManagement : MonoBehaviour
         IFielder backup = Backup(first, firstIndex, out Vector3 backupPoint);
         foreach (IFielder f in team)
         {
-            if (f == first) f.SetTarget(ShortOf(f, firstPoint));
+            if (f == first) f.SetTarget(InLine(f, firstPoint, firstIndex >= 0 ? path[firstIndex].velocity : Vector3.zero));
             else if (f == backup) f.SetTarget(ShortOf(f, backupPoint));
             else f.Stop();
         }
@@ -283,6 +283,18 @@ public class AnimatedFielderManagement : MonoBehaviour
     /// in front of the body, where the hands work. Closer than that - the ball at his feet or
     /// beside him - he steps back off it to the same distance: standing on it, the body could not
     /// bend down far enough to get the hands under it.
+    /// Where the caller stands: in the ball's line, StopShort past the meeting point along its
+    /// travel, so it comes straight to him and arrives in front - body behind the ball, as a fielder
+    /// is taught. Stopping short along his own run (ShortOf) left a ground ball passing beside him,
+    /// and he chased it with his hands on the grass. A ball barely moving: ShortOf.
+    private static Vector3 InLine(IFielder f, Vector3 point, Vector3 ballVelocity)
+    {
+        Vector3 along = new Vector3(ballVelocity.x, 0f, ballVelocity.z);
+        if (along.sqrMagnitude < 1f)
+            return ShortOf(f, point);
+        return point + along.normalized * StopShort;
+    }
+
     private static Vector3 ShortOf(IFielder f, Vector3 point)
     {
         Vector3 at = f.Position;

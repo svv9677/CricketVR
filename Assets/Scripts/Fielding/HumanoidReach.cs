@@ -38,9 +38,10 @@ public class HumanoidReach : MonoBehaviour
     [SerializeField] private float maxHipHinge = 80f;
     [SerializeField] private float maxSpineFlex = 20f;
     [Header("Smoothing: critically damped, settles in about 4 / omega seconds")]
-    [SerializeField] private float poseOmega = 8f;
+    // Body and weight settle in ~0.4 s: softer (8, 7), a ground ball arrived before he was down.
+    [SerializeField] private float poseOmega = 10f;
     [SerializeField] private float handOmega = 12f;
-    [SerializeField] private float weightOmega = 7f;
+    [SerializeField] private float weightOmega = 9f;
 
     // ---- Inputs, set every frame by the owner ---------------------------------------------------
     /// World point the palms close on.
@@ -301,22 +302,54 @@ public class HumanoidReach : MonoBehaviour
     /// straight through the face. Metres; the body's current pose (hinged forward or not) counts.
     private const float MinAheadOfChest = 0.22f, HeadClearance = 0.24f;
 
+    /// Bend like a fielder picking a ball up - hips first, knees soft, spine last - whatever this
+    /// body's own settings are. The keeper's are for sitting in his crouch (knees softest, 0.45 m
+    /// of drop); fetching a loose ball with them folded him onto his heels, head between his
+    /// knees, gloves short of the ball (filmed). RestoreBend puts his own back.
+    public void UsePickUpBend()
+    {
+        if (!ready) return;
+        limits.kneeStiffness = 1.0f; limits.hipStiffness = 0.6f; limits.spineStiffness = 1.6f;
+        limits.maxDrop = 0.35f / scale; limits.maxHinge = 80f; limits.maxSpine = 20f;
+    }
+
+    public void RestoreBend()
+    {
+        if (!ready) return;
+        limits.kneeStiffness = kneeStiffness; limits.hipStiffness = hipStiffness; limits.spineStiffness = spineStiffness;
+        limits.maxDrop = maxPelvisDrop / scale; limits.maxHinge = maxHipHinge; limits.maxSpine = maxSpineFlex;
+    }
+
+    /// The torso's own front and up, from the actual spine (hips to head) - right for a man stood
+    /// up or folded over at the hips alike.
+    public Vector3 TorsoUp => head != null && hips != null ? (head.position - hips.position).normalized : transform.up;
+    public Vector3 TorsoFront => Vector3.Cross(transform.right, TorsoUp).normalized;
+    public Vector3 ChestPosition => chest != null ? chest.position : transform.position + transform.up * scale;
+
     private Vector3 ClearOfBody(Vector3 wrist)
     {
         if (head == null || chest == null)
             return wrist;
-        Vector3 local = transform.InverseTransformPoint(wrist);
+        // In front of the torso, measured across the torso itself. It was "in front" along the
+        // feet's forward, which a man folded over at the hips no longer faces: filmed, a fielder
+        // rising with the ball reached for a standing-chest point and his arms went up over his
+        // back, shoulders bent back behind him.
+        Vector3 up = TorsoUp, front = TorsoFront;
+        float torso = Vector3.Distance(head.position, hips.position);
+        float along = Vector3.Dot(wrist - hips.position, up);
+        if (along > -0.1f * scale && along < torso + 0.35f * scale)
+        {
+            float ahead = Vector3.Dot(wrist - chest.position, front);
+            if (ahead < MinAheadOfChest * scale)
+                wrist += front * (MinAheadOfChest * scale - ahead);
+        }
         // The head bone's pivot is at the top of the neck; the face is above and in front of it.
-        Vector3 headLocal = transform.InverseTransformPoint(head.position) + new Vector3(0f, 0.09f, 0.04f) / scale;
-        Vector3 chestLocal = transform.InverseTransformPoint(chest.position);
-        float hipY = transform.InverseTransformPoint(hips.position).y;
-        float ahead = MinAheadOfChest / scale, clear = HeadClearance / scale;
-        if (local.y > hipY - 0.1f / scale)
-            local.z = Mathf.Max(local.z, chestLocal.z + ahead);
-        Vector3 fromHead = local - headLocal;
-        if (fromHead.sqrMagnitude < clear * clear)
-            local = headLocal + (fromHead.sqrMagnitude > 1e-8f ? fromHead.normalized : Vector3.forward) * clear;
-        return transform.TransformPoint(local);
+        Vector3 face = head.position + up * 0.09f * scale + front * 0.04f * scale;
+        Vector3 fromFace = wrist - face;
+        float clear = HeadClearance * scale;
+        if (fromFace.sqrMagnitude < clear * clear)
+            wrist = face + (fromFace.sqrMagnitude > 1e-8f ? fromFace.normalized : front) * clear;
+        return wrist;
     }
 
     /// Fastest the hands' frame (finger, side and palm directions) turns, degrees per second.

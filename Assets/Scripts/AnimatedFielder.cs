@@ -59,6 +59,10 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     /// early and meets it with his arms extended rather than grabbing at it as it arrives.
     private const float ReachStartTime = 1.1f, ReachFullTime = 0.35f;
     private const float CatchStartTime = 1.6f, CatchFullTime = 0.5f, CatchOut = 0.25f;
+    /// A ground ball: down and set early, waiting for it. Starting at 1.1 s and full at 0.35 s, a
+    /// 7-8 m/s roller arrived with the hands still ~0.5 m off the grass (filmed and traced) and
+    /// went under them.
+    private const float GroundStartTime = 1.8f, GroundFullTime = 0.8f;
     /// Soft hands: on the take the hands ride back along the ball's line this far, this fast.
     private const float GiveDistance = 0.2f, GiveTime = 0.15f;
     /// Holding: ball in front of the chest (above the feet, in front of them), and the pause
@@ -141,6 +145,7 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     public void ReturnToStart()
     {
         hasTarget = false;
+        reachingLow = false;
         speed = 0f;
         transform.position = StartPosition;
         transform.LookAt(new Vector3(0f, transform.position.y, 0f));
@@ -202,6 +207,15 @@ public class AnimatedFielder : MonoBehaviour, IFielder
                 FaceTowards(Main.Instance.theBall.transform.position, 1f);
             return;
         }
+        // Down low for the ball, the feet stay set and he faces it. Running on with the hands down
+        // at the grass, the legs still striding, was a crawl (filmed: on all fours after a roller).
+        if (reachingLow)
+        {
+            speed = 0f;
+            SetAnimation(0);
+            FaceTowards(Main.Instance.theBall.transform.position, 1f);
+            return;
+        }
 
         Vector3 to = target - transform.position;
         to.y = 0f;
@@ -234,6 +248,13 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     }
 
     private const float MinRunSpeed = 0.6f;
+    /// Reaching this low (hands below the knee), he stops to take it rather than running on.
+    private const float LowReach = 0.6f;
+    /// m/s of the ball's speed toward him above which he sets his feet and lets it come.
+    private const float ComingAtMe = 1f;
+    /// Seconds of a slow ball's travel the hands lead it by.
+    private const float SlowLead = 0.12f;
+    private bool reachingLow;
 
     /// Tell the body where the hands should be this frame (HumanoidReach applies it in the IK pass).
     private void UpdateReach()
@@ -249,6 +270,9 @@ public class AnimatedFielder : MonoBehaviour, IFielder
             float t = Time.time - heldSince;
             float give = Mathf.Clamp01(t / GiveTime);
             Vector3 back = takenAt + takenAlong * (GiveDistance * (1f - (1f - give) * (1f - give)));
+            // Where his chest will be stood up: the reach solver unbends him toward it. While he is
+            // still bent over it lies above his back; HumanoidReach keeps the hands on the front of
+            // the torso meanwhile, so they rise with him rather than going over his shoulders.
             Vector3 chest = transform.position + transform.up * HoldHeight + transform.forward * HoldAhead;
             float up = Mathf.Clamp01((t - GiveTime) / 0.3f);
             reach.handTarget = Vector3.Lerp(back, chest, up * up * (3f - 2f * up));
@@ -276,23 +300,35 @@ public class AnimatedFielder : MonoBehaviour, IFielder
             if (catching && incoming.sqrMagnitude > 0.01f)
                 point -= incoming.normalized * CatchOut;   // arms out to meet it
             reach.handTarget = point;
+            bool ground = !catching && point.y - transform.position.y < LowReach;
             reach.weight = catching ? Mathf.InverseLerp(CatchStartTime, CatchFullTime, eta)
-                                    : Mathf.InverseLerp(ReachStartTime, ReachFullTime, eta);
+                         : ground ? Mathf.InverseLerp(GroundStartTime, GroundFullTime, eta)
+                                  : Mathf.InverseLerp(ReachStartTime, ReachFullTime, eta);
         }
         else if (live && inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall &&
-                 FlatDistance(ball, transform.position) < ReachRadius + HandsAhead)
+                 FlatDistance(ball, transform.position) < ReachRadius + HandsAhead && InFrontOfFeet(ball))
         {
             // A ball that has stopped (or all but) beside him: the prediction for it is a single
             // point already in the past by the time it is read, so PredictPass finds nothing and
             // he stood over it with his hands at his sides. Go down to the ball itself - a slow
             // one cannot drag the hands round the way a fast one did.
-            reach.handTarget = ball;
-            reach.weight = Mathf.InverseLerp(ReachRadius + HandsAhead, HandsAhead, FlatDistance(ball, transform.position));
+            // A little ahead of a rolling ball: the hands' spring trails its target, and at 2 m/s it
+            // left them ~0.17 m behind, just outside the scoop.
+            reach.handTarget = ball + Vector3.ClampMagnitude(inst.theBallRigidBody.linearVelocity * SlowLead, 0.25f);
+            // ...and only as he slows to it: run up upright, then bend - not down at the grass on the run.
+            reach.weight = Mathf.InverseLerp(ReachRadius + HandsAhead, HandsAhead, FlatDistance(ball, transform.position))
+                         * Mathf.InverseLerp(2.5f, 0.8f, speed);
         }
         else
         {
             reach.weight = 0f;
         }
+        // Set and let it come only while it IS coming. A ball that had stopped 0.77 m away left him
+        // frozen, reaching, 0.29 m short with his feet planted - the play never ended. A stopped,
+        // slow or departing ball he walks up to.
+        Vector3 toMe = transform.position - ball; toMe.y = 0f;
+        bool coming = toMe.sqrMagnitude > 1e-4f && Vector3.Dot(inst.theBallRigidBody.linearVelocity, toMe.normalized) > ComingAtMe;
+        reachingLow = coming && reach.SmoothedWeight > 0.35f && reach.handTarget.y - transform.position.y < LowReach;
         KeepAnimating(live && (hasTarget || reach.weight > 0f));
     }
 
@@ -306,6 +342,14 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     }
 
     private static float FlatDistance(Vector3 a, Vector3 b) => new Vector2(a.x - b.x, a.z - b.z).magnitude;
+
+    /// A ball he can bend down for where he stands: in front of his feet, not under or beside
+    /// them. Anywhere else the plan walks him round to it first (ShortOf), upright.
+    private bool InFrontOfFeet(Vector3 ball)
+    {
+        Vector3 local = transform.InverseTransformPoint(ball);
+        return local.z > 0.25f && local.z < ReachRadius + HandsAhead && Mathf.Abs(local.x) < 0.5f;
+    }
     private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
     /// Within this of his spot he faces the ball rather than his run.
     private const float SettleDistance = 2f;

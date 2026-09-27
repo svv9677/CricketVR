@@ -3028,12 +3028,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47ff0a41282141558d25159cec27944f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HumanoidReach
-  kneeStiffness: 0.6
-  hipStiffness: 1
-  spineStiffness: 2
+  kneeStiffness: 1
+  hipStiffness: 0.6
+  spineStiffness: 1.6
   maxPelvisDrop: 0.45
-  maxHipHinge: 60
-  maxSpineFlex: 25
+  maxHipHinge: 80
+  maxSpineFlex: 20
   poseOmega: 10
   handOmega: 16
   weightOmega: 9

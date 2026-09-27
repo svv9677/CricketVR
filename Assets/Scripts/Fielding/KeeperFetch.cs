@@ -52,16 +52,26 @@ public partial class KeeperCatcher
         fetchSpeed = 0f;
         if (anim != null)
             anim.SetInteger("Action", 0);
+        if (body != null)
+            body.RestoreBend();   // back to his keeping crouch
     }
+
+    /// He stops this far short of a loose ball, so it lies in front of his feet.
+    private const float stopShort = 0.5f;
 
     /// A ball he can go and pick up without a hit: loose after a miss or off the stumps.
     private static bool LooseState(eGameState s) =>
         s == eGameState.InGame_BallMissed || s == eGameState.InGame_BallMissedLoop ||
         s == eGameState.InGame_Bowled || s == eGameState.InGame_BowledLoop;
 
+    /// Also once the delivery is over and the game is getting ready for the next: the ball is dead
+    /// and he is only tidying it up, but at 1.75 s from dead ball to ready he is often still on
+    /// his way. Refused then, he stood bent over it with his gloves 0.10 m from it, never taking it.
     private bool CanPickUp(eGameState state) =>
         away && !holding && !Main.Instance.theBallRigidBody.isKinematic &&
-        (LooseState(state) || state == eGameState.InGame_BallHitLoop);
+        (LooseState(state) || state == eGameState.InGame_BallHitLoop ||
+         state == eGameState.InGame_ResetToReady || state == eGameState.InGame_ResetToReadyLoop ||
+         state == eGameState.InGame_Ready);
 
     /// Once a frame, before the stance code. True when he is away and this has moved him.
     private bool UpdateFetch(eGameState state, float dt)
@@ -78,6 +88,7 @@ public partial class KeeperCatcher
             return false;
         if (anim == null)
             anim = body.GetComponent<Animator>();
+        body.UsePickUpBend();   // a fielder's bend for a ball on the ground, not his crouch
         body.feetOverride = false;   // the run animation's feet
         body.palmExtra = GloveExtra;
         body.handGap = 0.11f;
@@ -115,7 +126,7 @@ public partial class KeeperCatcher
         Vector3 at = bodyRoot.position;
         Vector3 to = fetchTarget - at;
         to.y = 0f;
-        float distance = to.magnitude - 0.45f;
+        float distance = to.magnitude - stopShort;
         if (fetching && !holding && distance > 0.05f)
         {
             float stopping = Mathf.Sqrt(2f * FetchAccel * distance);
@@ -142,10 +153,26 @@ public partial class KeeperCatcher
         Vector3 ball = Main.Instance.theBall.transform.position;
         Vector3 hands = bodyRoot.position + bodyRoot.forward * 0.45f;
         float d = new Vector2(ball.x - hands.x, ball.z - hands.z).magnitude;
-        body.handTarget = ball;
-        body.weight = Mathf.InverseLerp(PickUpReachStart, PickUpReachFull, d);
         body.minCrouch = 0f;
         body.leftHandShare = 1f;
         body.palmFacing = Vector3.zero;
+        // As a person picks a ball up: walk up to it upright, stop with it in front of him, then
+        // bend for it. Only then - never on the move, never for a ball under or beside his feet.
+        // Reaching for it wherever it was had the ball end up under him and him folded and twisted
+        // over it, head at the grass, gloves never on it (filmed).
+        Vector3 local = bodyRoot.InverseTransformPoint(ball);
+        bool inFront = local.z > PickUpNear && local.z < PickUpFar && Mathf.Abs(local.x) < PickUpSide;
+        bool settled = fetchSpeed < 0.3f;
+        if (!inFront && d < PickUpReachStart)
+        {
+            // Not where his hands can take it: step to it (upright), to have it in front again.
+            fetching = true;
+            fetchTarget = ball;
+        }
+        body.handTarget = ball;
+        body.weight = inFront && settled ? 1f : 0f;
     }
+
+    /// Where a ball on the ground can be picked up from: in front of his feet, metres.
+    private const float PickUpNear = 0.25f, PickUpFar = 0.9f, PickUpSide = 0.45f;
 }

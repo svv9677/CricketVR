@@ -18,6 +18,7 @@ public class AnimatedBowler : MonoBehaviour
     private AnimatorStateInfo stateInfo;
 
     private Coroutine startBowling;
+    private Coroutine walkingBack;
     private bool hasRun_StartBowling;
 
     public AFInfoData myBowlers;
@@ -110,15 +111,16 @@ public class AnimatedBowler : MonoBehaviour
             hasRun_StartBowling = false;
         }
 
-        if (inst.gameState == eGameState.InGame_SelectDelivery)
-        {
-            animator.Play("Idle");
-            animator.SetInteger("Action", 0);
-            glide = false;
-        }
-
         if (inst.gameState == eGameState.InGame_SelectDeliveryLoop)
         {
+            // The next ball: straight to his mark, whatever the last one left him doing. The run-up
+            // used to wait for Action 0, which only came when the walk back from the last ball got
+            // him home - ~11 s after the first ball of a session (traced: walking from x -7.6 to
+            // -24.5 before the jog began; run-ups 12.2 s against 4.6 s from the mark). It had a reset
+            // in the SelectDelivery state, but Main moves on from that state within its own Update,
+            // so this LateUpdate never saw it.
+            if (!hasRun_StartBowling && animator.GetInteger("Action") != 0)
+                ReturnToMark();
             if (!hasRun_StartBowling && animator.GetInteger("Action") == 0)
             {
                 transform.position = currentBowlerInfo.startPos;
@@ -274,13 +276,31 @@ public class AnimatedBowler : MonoBehaviour
         Main.Instance.gameState = eGameState.InGame_DeliverBall;
 
         animator.SetInteger("Action", 0);
-        StartCoroutine(StartWalkingBack());
+        walkingBack = StartCoroutine(StartWalkingBack());
+    }
+
+    /// Stop walking back and stand on the mark, ready to run in. He is 20 m away up the pitch.
+    private void ReturnToMark()
+    {
+        if (walkingBack != null)
+            StopCoroutine(walkingBack);
+        walkingBack = null;
+        glide = false;
+        transform.position = currentBowlerInfo.startPos;
+        transform.rotation = Quaternion.Euler(currentBowlerInfo.startRot);
+        animator.Play("Idle");
+        animator.SetInteger("Action", 0);
     }
 
     IEnumerator StartWalkingBack()
     {
         yield return new WaitForSeconds(2f);
-        animator.SetInteger("Action", -1);
+        // Never into the next ball's run-up.
+        eGameState s = Main.Instance.gameState;
+        if (s != eGameState.InGame_SelectDelivery && s != eGameState.InGame_SelectDeliveryLoop &&
+            s != eGameState.InGame_DeliverBall && s != eGameState.InGame_DeliverBallLoop)
+            animator.SetInteger("Action", -1);
+        walkingBack = null;
     }
 
     public void ChangeJogRepeat(int amount)
