@@ -23,8 +23,14 @@ public static class MenuPrefabBuilder
     private const string PrefabPath = PrefabFolder + "/MenuRoot.prefab";
     private const float Mm = 0.001f;              // 1 canvas px = 1 mm, as elsewhere
     private const float MenuWidth = 760f;
-    private const float BackdropWidth = 2600f;
-    private const float BackdropHeight = 1300f;
+    // The backdrop has to fill the view, not hang in front of the player like a picture. At
+    // 3 m behind the card it needs to be enormous: 20 x 10 m covers roughly 145 degrees across,
+    // which is wider than a Quest's field of view, so the camera's clear colour never shows at
+    // the edges.
+    private const float BackdropWidth = 3200f;
+    private const float BackdropHeight = 1600f;
+    private const float BackdropMetresPerPixel = 0.00625f;   // 3200 px -> 20 m
+    private const float BackdropBehind = 3.0f;
     private const float StepperWidth = 88f;
     private const float OversWidth = 170f;
 
@@ -46,8 +52,17 @@ public static class MenuPrefabBuilder
     private static GameObject BuildMenuRoot()
     {
         var root = new GameObject("MenuRoot");
+        // A default pose in front of an un-lifted camera, so the menu is visible in the Scene and
+        // Game views without entering play mode. MenuRoot.Place overwrites this at runtime.
+        root.transform.SetPositionAndRotation(new Vector3(0f, 0f, 1.45f), Quaternion.identity);
         MenuRoot menu = root.AddComponent<MenuRoot>();
-        root.AddComponent<GrabbablePanel>();
+
+        // Grab-to-move works on the whole menu, card and backdrop together.
+        var grab = root.AddComponent<GrabbablePanel>();
+        var gso = new SerializedObject(grab);
+        gso.FindProperty("target").objectReferenceValue = root.transform;
+        gso.FindProperty("saveKey").stringValue = "menu";
+        gso.ApplyModifiedProperties();
 
         GameObject panel = WorldPanelBuilder.Canvas(root, MenuWidth, Mm, true);
 
@@ -59,6 +74,10 @@ public static class MenuPrefabBuilder
 
         MainMenuScreen main = BuildMainMenu(panel.transform);
         PauseScreen pause = BuildPause(panel.transform);
+
+        // MenuRoot.Awake switches screens off at runtime, but Awake does not run in the editor,
+        // so leave only the main menu on: otherwise the prefab shows both screens stacked.
+        pause.gameObject.SetActive(false);
 
         var so = new SerializedObject(menu);
         so.FindProperty("panel").objectReferenceValue = panel;
@@ -78,17 +97,23 @@ public static class MenuPrefabBuilder
     /// vertical layout would otherwise stretch it into the button stack.
     private static MenuBackdrop BuildBackdrop(GameObject root, GameObject cardPanel)
     {
-        GameObject canvas = WorldPanelBuilder.Canvas(root, BackdropWidth, Mm, false);
+        GameObject canvas = WorldPanelBuilder.Canvas(root, BackdropWidth, BackdropMetresPerPixel, false);
         canvas.name = "Backdrop";
         var rect = canvas.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(BackdropWidth, BackdropHeight);
-        // Just behind the card, and centred on it.
-        canvas.transform.localPosition = new Vector3(0f, 0f, 0.02f);
+        // Behind the card in local +Z (the canvas faces -Z, so +Z is away from the player), far
+        // enough back to read as scenery with real parallax rather than a halo around the
+        // buttons. Lifted slightly so the horizon sits above the card rather than behind it.
+        canvas.transform.localPosition = new Vector3(0f, 0.55f, BackdropBehind);
 
         var image = canvas.AddComponent<Image>();
         image.raycastTarget = false;
         image.preserveAspect = true;
         image.color = Color.white;
+        // Assign the plate now as well as at runtime, so the backdrop previews in the editor
+        // instead of showing as a white box before play mode.
+        image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+            "Assets/Resources/UI/Backdrops/Backdrop-BowlersEnd.png");
 
         var backdrop = canvas.AddComponent<MenuBackdrop>();
         var so = new SerializedObject(backdrop);

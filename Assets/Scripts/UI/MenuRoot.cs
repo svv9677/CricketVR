@@ -129,55 +129,66 @@ public class MenuRoot : MonoBehaviour
     {
         string current = stack.Current;
         ApplyVisibility(current);
-        if (current == null || screens == null)
+        MenuScreen screen = Find(current);
+        if (screen == null)
             return;
-        foreach (MenuScreen screen in screens)
-        {
-            if (screen == null || screen.ScreenName != current)
-                continue;
-            // A screen with its own canvas (the settings panel) replaces this card rather than
-            // sitting inside it, so hide ours while it is up.
-            if (panel != null)
-                panel.SetActive(!screen.OwnsItsCanvas);
-            if (backdrop != null && screen.OwnsItsCanvas)
-                backdrop.Hide();
-            screen.OnShow();
-        }
+        // A screen with its own canvas (the settings panel) replaces this card rather than
+        // sitting inside it, so hide ours while it is up.
+        if (panel != null)
+            panel.SetActive(!screen.OwnsItsCanvas);
+        if (backdrop != null && screen.OwnsItsCanvas)
+            backdrop.Hide();
+        screen.OnShow();
     }
 
     private void ApplyVisibility(string current)
     {
         if (screens == null)
             return;
+        MenuScreen wanted = Find(current);
         foreach (MenuScreen screen in screens)
         {
             if (screen == null)
                 continue;
-            bool on = screen.ScreenName == current;
+            // Compare by reference, not by name: if the same screen name is registered twice,
+            // only the first copy is ever shown rather than two panels overlapping.
+            bool on = screen == wanted;
             if (screen.gameObject.activeSelf != on)
                 screen.gameObject.SetActive(on);
         }
     }
 
-    private void HideCurrent()
+    /// The first screen registered under `name`, or null.
+    private MenuScreen Find(string name)
     {
-        string current = stack.Current;
-        if (current == null || screens == null)
-            return;
+        if (name == null || screens == null)
+            return null;
         foreach (MenuScreen screen in screens)
-            if (screen != null && screen.ScreenName == current)
-                screen.OnHide();
+            if (screen != null && screen.ScreenName == name)
+                return screen;
+        return null;
     }
 
+    private void HideCurrent()
+    {
+        MenuScreen screen = Find(stack.Current);
+        if (screen != null)
+            screen.OnHide();
+    }
+
+    /// Pose the whole menu - card and backdrop together - in front of the player.
+    ///
+    /// This moves the root, not just the card: the backdrop is a second canvas alongside the
+    /// card, and moving only the card left the backdrop behind at the origin.
     private void Place()
     {
         Camera head = Camera.main;
-        if (head == null || panel == null)
+        if (head == null)
             return;
         Vector3 forward = Vector3.ProjectOnPlane(head.transform.forward, Vector3.up);
         if (forward.sqrMagnitude < 1e-4f) forward = Vector3.left;
         forward.Normalize();
-        panel.transform.SetPositionAndRotation(
+        transform.SetPositionAndRotation(
             head.transform.position + forward * Distance + Vector3.down * BelowEyes,
             Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(8f, 0f, 0f));
         // Moved by hand before (grip): open where it was left instead.

@@ -57,6 +57,7 @@ public static class MenuSceneBuilder
         if (menu.GetComponent<SplashMenuOpener>() == null)
             menu.gameObject.AddComponent<SplashMenuOpener>();
 
+        StripMatchOnlyUI();
         AttachSettingsScreen(menu, FindOrInstantiateSettingsPanel());
         EnsureFader();
 
@@ -96,12 +97,37 @@ public static class MenuSceneBuilder
         camera.nearClipPlane = 0.05f;
     }
 
+    /// The between-balls dock, grip calibration and the last-shot card are match UI. They have
+    /// no meaning in the menu scene, and the shot card in particular renders as a panel floating
+    /// out in space beside the menu.
+    private static void StripMatchOnlyUI()
+    {
+        foreach (string name in new[] { "NextBallMenu", "ShotCard", "GripCalibrationPanel" })
+        {
+            GameObject go = GameObject.Find("UI/" + name) ?? GameObject.Find(name);
+            if (go != null)
+            {
+                Object.DestroyImmediate(go);
+                Debug.Log($"[MenuSceneBuilder] Removed match-only {name} from Splash.");
+            }
+        }
+    }
+
     /// Splash has no Main, so Build Player UI cannot run there. Take the prefab straight.
+    ///
+    /// Re-running this tool must not stack up copies, so any extras are removed first: an earlier
+    /// version left two SettingsPanels under MenuRoot, both registered as the "settings" screen.
     private static SettingsPanel FindOrInstantiateSettingsPanel()
     {
-        var existing = Object.FindFirstObjectByType<SettingsPanel>(FindObjectsInactive.Include);
-        if (existing != null)
-            return existing;
+        SettingsPanel[] all = Object.FindObjectsByType<SettingsPanel>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 1; i < all.Length; i++)
+        {
+            Debug.Log("[MenuSceneBuilder] Removed a duplicate SettingsPanel.");
+            Object.DestroyImmediate(all[i].gameObject);
+        }
+        if (all.Length > 0 && all[0] != null)
+            return all[0];
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
             "Assets/Resources/Prefabs/UI/SettingsPanel.prefab");
         if (prefab == null)
@@ -163,6 +189,10 @@ public static class MenuSceneBuilder
             instance.transform.SetParent(uiRoot, false);
             menu = instance.GetComponent<MenuRoot>();
         }
+        // Re-pose even an instance that already existed: a prefab instance keeps its own
+        // transform, so a fix to the prefab's default pose does not reach scenes already built.
+        menu.transform.SetPositionAndRotation(new Vector3(0f, 0f, 1.45f), Quaternion.identity);
+
         var so = new SerializedObject(menu);
         so.FindProperty("rootScreen").stringValue = rootScreen;
         so.FindProperty("showBackdrop").boolValue = showBackdrop;
@@ -186,14 +216,21 @@ public static class MenuSceneBuilder
         if (panel.transform.parent != menu.transform)
             panel.transform.SetParent(menu.transform, false);
 
-        // Add it to MenuRoot's screens, once.
+        // Rebuild the screens list so re-running cannot leave stale or duplicate entries: the
+        // two screens from the prefab, then this settings screen.
         var so = new SerializedObject(menu);
         SerializedProperty screens = so.FindProperty("screens");
+        var keep = new List<Object>();
         for (int i = 0; i < screens.arraySize; i++)
-            if (screens.GetArrayElementAtIndex(i).objectReferenceValue == screen)
-                return;
-        screens.arraySize++;
-        screens.GetArrayElementAtIndex(screens.arraySize - 1).objectReferenceValue = screen;
+        {
+            Object entry = screens.GetArrayElementAtIndex(i).objectReferenceValue;
+            if (entry != null && entry != screen && !keep.Contains(entry))
+                keep.Add(entry);
+        }
+        keep.Add(screen);
+        screens.arraySize = keep.Count;
+        for (int i = 0; i < keep.Count; i++)
+            screens.GetArrayElementAtIndex(i).objectReferenceValue = keep[i];
         so.ApplyModifiedProperties();
     }
 

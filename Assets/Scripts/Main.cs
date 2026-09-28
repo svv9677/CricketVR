@@ -239,7 +239,7 @@ public class Main : MonoBehaviour
         // Splash where there is no Main. Its defaults are the ones that used to be inline here.
         difficulty = GameSettings.Difficulty;
         battingStyle = GameSettings.BattingStyle;
-        stadiumMode = (eStadiumMode)PlayerPrefs.GetInt(Constants.PP_StadiumMode, 1);
+        stadiumMode = (eStadiumMode)PlayerPrefs.GetInt(Constants.PP_StadiumMode, (int)eStadiumMode.Day);
         zOffset = PlayerPrefs.GetFloat(Constants.PP_ZOffset, 3f);
 
         // Read Tweakables
