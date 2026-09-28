@@ -38,6 +38,7 @@ decimation before touching a Quest 3.
 | Crack network | 3dtextures.me **Cracked Mud 001** | https://3dtextures.me/2018/08/13/cracked-mud-001/ | **1K free only**, 4K is Patreon-gated |
 | Concrete | ambientCG **Concrete034**, **Concrete047A** | https://ambientcg.com/a/Concrete034 | 047A adds AO |
 | Concrete alt | Poly Haven **Concrete Floor 01** | https://polyhaven.com/a/concrete_floor_01 | Weathered outdoor |
+| Menu backdrops (3 plates) | **Tier 2 — authored in-project** | `Tools > CricketVR > Bake Menu Backdrops` | Rendered from the project's own ModiStadium in CricketVR.unity and colour-graded. No third-party licence. 2048×1024, ASTC 6×6. Regenerate after stadium changes. |
 | Seating plastic | ambientCG **Plastic013A/015A/016A/017A** | https://ambientcg.com/a/Plastic015A | White/blue/yellow/green. **No AO map** — packer defaults it to 1.0 |
 | Painted metal | ambientCG **PaintedMetal005**, **Metal027/028/029** | https://ambientcg.com/a/PaintedMetal005 | Powder-coated steel |
 | Willow (bat) | ambientCG **Wood090A** or **Wood022** | https://ambientcg.com/a/Wood090A | ⚠️ Not actually willow — see gaps |

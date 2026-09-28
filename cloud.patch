@@ -1,0 +1,255 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2870
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 .AppleSystemUIFontMonospaced-Regular;}
+{\colortbl;\red255\green255\blue255;\red20\green20\blue20;\red255\green255\blue255;\red96\green96\blue96;
+\red31\green144\blue46;\red252\green32\blue37;}
+{\*\expandedcolortbl;;\cssrgb\c10196\c10196\c10196;\cssrgb\c100000\c100000\c100000;\cssrgb\c45098\c45098\c45098;
+\cssrgb\c11765\c61961\c23529;\cssrgb\c100000\c22745\c18824;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf2 \cb3 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 From c782e077238062103f085b310af17aaff6a1b2fd Mon Sep 17 00:00:00 2001\
+From: Claude <noreply@anthropic.com>\
+Date: Sat, 26 Sep 2026 01:35:59 +0000\
+Subject: [PATCH] Add procedurally generated random clouds to the sky\
+\
+Add a self-bootstrapping ProceduralClouds component that spawns a\
+randomised cloudscape high in the skybox on every run of the gameplay\
+scenes (CricketVR, Nets). Each run randomises cloud count, placement\
+(azimuth/elevation on the sky dome), per-cloud shape (overlapping\
+squashed ellipsoid puffs), scale and yaw, so the sky looks different\
+each time the scene is played. Clouds drift slowly around the vertical\
+axis. A URP-lit matte white material is built at runtime so the clouds\
+catch the scene's directional light; an optional inspector seed allows\
+reproducing a specific layout.\
+\
+The component auto-spawns via RuntimeInitializeOnLoadMethod, so no\
+scene authoring or manual wiring is required.\
+\
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>\
+Claude-Session: https://claude.ai/code/session_0195sJeqnc6DkygsNn9hUB6C\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 ---\cf2 \strokec2 \
+ Assets/Scripts/ProceduralClouds.cs      | 186 ++++++++++++++++++++++++\
+ Assets/Scripts/ProceduralClouds.cs.meta |  11 ++\
+ 2 files changed, 197 insertions(+)\
+ create mode 100644 Assets/Scripts/ProceduralClouds.cs\
+ create mode 100644 Assets/Scripts/ProceduralClouds.cs.meta\
+\
+diff --git a/Assets/Scripts/ProceduralClouds.cs b/Assets/Scripts/ProceduralClouds.cs\
+new file mode 100644\
+index 0000000..a591c74\
+\cf4 \strokec4 ---\cf2 \strokec2  /dev/null\
+\cf4 \strokec4 +++\cf2 \strokec2  b/Assets/Scripts/ProceduralClouds.cs\
+\cf4 \strokec4 @@\cf2 \strokec2  -0,0 +1,186 \cf4 \strokec4 @@\cf2 \strokec2 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \strokec5 +using System.Collections.Generic;\cf2 \strokec2 \
+\cf5 \strokec5 +using UnityEngine;\cf2 \strokec2 \
+\cf5 \strokec5 +using UnityEngine.SceneManagement;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +/// <summary>\cf2 \strokec2 \
+\cf5 \strokec5 +/// Procedurally generates a set of random clouds high in the sky and drifts them\cf2 \strokec2 \
+\cf5 \strokec5 +/// slowly across the skybox. The layout, count, shape and size of the clouds are\cf2 \strokec2 \
+\cf5 \strokec5 +/// randomised on every run of the game scene, so the sky looks different each time\cf2 \strokec2 \
+\cf5 \strokec5 +/// the scene is played.\cf2 \strokec2 \
+\cf5 \strokec5 +///\cf2 \strokec2 \
+\cf5 \strokec5 +/// The component bootstraps itself via <see cref="Bootstrap"/> so it works without\cf2 \strokec2 \
+\cf5 \strokec5 +/// any manual wiring in the scene: whenever a gameplay scene finishes loading a\cf2 \strokec2 \
+\cf5 \strokec5 +/// single "ProceduralClouds" GameObject is spawned to own the clouds.\cf2 \strokec2 \
+\cf5 \strokec5 +/// </summary>\cf2 \strokec2 \
+\cf5 \strokec5 +public class ProceduralClouds : MonoBehaviour\cf2 \strokec2 \
+\cf5 \strokec5 +\{\cf2 \strokec2 \
+\cf5 \strokec5 +    // Scenes that should get a procedural cloudscape. Kept small so the clouds only\cf2 \strokec2 \
+\cf5 \strokec5 +    // appear in the actual stadium / nets play scenes and not in menus or tests.\cf2 \strokec2 \
+\cf5 \strokec5 +    private static readonly HashSet<string> CloudScenes = new HashSet<string>\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        "CricketVR",\cf2 \strokec2 \
+\cf5 \strokec5 +        "Nets",\cf2 \strokec2 \
+\cf5 \strokec5 +    \};\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    [Header("Cloud field")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [Tooltip("Distance from the world origin at which clouds are placed (world units).")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [SerializeField] private float skyRadius = 420f;\cf2 \strokec2 \
+\cf5 \strokec5 +    [Tooltip("Inclusive range for the number of individual clouds generated per run.")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [SerializeField] private Vector2Int cloudCountRange = new Vector2Int(9, 16);\cf2 \strokec2 \
+\cf5 \strokec5 +    [Tooltip("Lowest / highest elevation angle (degrees above the horizon) a cloud may sit at.")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [SerializeField] private Vector2 elevationRange = new Vector2(18f, 62f);\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    [Header("Cloud shape")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [Tooltip("Inclusive range for the number of overlapping puffs that make up one cloud.")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [SerializeField] private Vector2Int puffCountRange = new Vector2Int(6, 13);\cf2 \strokec2 \
+\cf5 \strokec5 +    [Tooltip("Overall scale multiplier applied to each cloud.")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [SerializeField] private Vector2 cloudScaleRange = new Vector2(28f, 62f);\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    [Header("Motion")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [Tooltip("Angular drift speed around the vertical axis, in degrees per second.")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [SerializeField] private float driftDegreesPerSecond = 0.35f;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    [Header("Appearance")]\cf2 \strokec2 \
+\cf5 \strokec5 +    [SerializeField] private Color cloudColor = new Color(0.95f, 0.96f, 0.98f, 1f);\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    // Optional fixed seed for reproducible layouts. Leave <= 0 for a fresh random\cf2 \strokec2 \
+\cf5 \strokec5 +    // cloudscape every run (the default and what the task asks for).\cf2 \strokec2 \
+\cf5 \strokec5 +    [SerializeField] private int seed = 0;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    private Material _cloudMaterial;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    /// <summary>\cf2 \strokec2 \
+\cf5 \strokec5 +    /// Auto-spawns the cloud generator once a gameplay scene has loaded so no scene\cf2 \strokec2 \
+\cf5 \strokec5 +    /// authoring is required. Runs on every play of the scene.\cf2 \strokec2 \
+\cf5 \strokec5 +    /// </summary>\cf2 \strokec2 \
+\cf5 \strokec5 +    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]\cf2 \strokec2 \
+\cf5 \strokec5 +    private static void Bootstrap()\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        SceneManager.sceneLoaded += OnSceneLoaded;\cf2 \strokec2 \
+\cf5 \strokec5 +        // Handle the scene that is already active when the game starts.\cf2 \strokec2 \
+\cf5 \strokec5 +        Scene active = SceneManager.GetActiveScene();\cf2 \strokec2 \
+\cf5 \strokec5 +        if (active.IsValid())\cf2 \strokec2 \
+\cf5 \strokec5 +            TrySpawnForScene(active);\cf2 \strokec2 \
+\cf5 \strokec5 +    \}\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        TrySpawnForScene(scene);\cf2 \strokec2 \
+\cf5 \strokec5 +    \}\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    private static void TrySpawnForScene(Scene scene)\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        if (!CloudScenes.Contains(scene.name))\cf2 \strokec2 \
+\cf5 \strokec5 +            return;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +        // Avoid duplicates if the scene is (re)loaded additively / multiple times.\cf2 \strokec2 \
+\cf5 \strokec5 +        if (FindFirstObjectByType<ProceduralClouds>() != null)\cf2 \strokec2 \
+\cf5 \strokec5 +            return;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +        var go = new GameObject("ProceduralClouds");\cf2 \strokec2 \
+\cf5 \strokec5 +        SceneManager.MoveGameObjectToScene(go, scene);\cf2 \strokec2 \
+\cf5 \strokec5 +        go.AddComponent<ProceduralClouds>();\cf2 \strokec2 \
+\cf5 \strokec5 +    \}\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    private void Start()\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        // A different seed each run gives a different cloudscape; a positive\cf2 \strokec2 \
+\cf5 \strokec5 +        // inspector seed can be used to reproduce a specific layout.\cf2 \strokec2 \
+\cf5 \strokec5 +        if (seed > 0)\cf2 \strokec2 \
+\cf5 \strokec5 +            Random.InitState(seed);\cf2 \strokec2 \
+\cf5 \strokec5 +        else\cf2 \strokec2 \
+\cf5 \strokec5 +            Random.InitState(unchecked(System.Environment.TickCount ^ System.Guid.NewGuid().GetHashCode()));\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +        _cloudMaterial = BuildCloudMaterial();\cf2 \strokec2 \
+\cf5 \strokec5 +        GenerateClouds();\cf2 \strokec2 \
+\cf5 \strokec5 +    \}\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    private void Update()\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        // Slow, steady drift so the sky feels alive without being distracting.\cf2 \strokec2 \
+\cf5 \strokec5 +        transform.Rotate(Vector3.up, driftDegreesPerSecond * Time.deltaTime, Space.World);\cf2 \strokec2 \
+\cf5 \strokec5 +    \}\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    private Material BuildCloudMaterial()\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        // URP project: prefer the URP lit/simple-lit shaders so clouds catch the\cf2 \strokec2 \
+\cf5 \strokec5 +        // scene's directional light, then fall back to the built-in Standard shader.\cf2 \strokec2 \
+\cf5 \strokec5 +        Shader shader = Shader.Find("Universal Render Pipeline/Simple Lit");\cf2 \strokec2 \
+\cf5 \strokec5 +        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");\cf2 \strokec2 \
+\cf5 \strokec5 +        if (shader == null) shader = Shader.Find("Standard");\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +        var mat = new Material(shader) \{ name = "ProceduralCloudMat" \};\cf2 \strokec2 \
+\cf5 \strokec5 +        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", cloudColor);\cf2 \strokec2 \
+\cf5 \strokec5 +        if (mat.HasProperty("_Color")) mat.SetColor("_Color", cloudColor);\cf2 \strokec2 \
+\cf5 \strokec5 +        // Matte, non-glossy surface reads as a cloud rather than plastic.\cf2 \strokec2 \
+\cf5 \strokec5 +        if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0f);\cf2 \strokec2 \
+\cf5 \strokec5 +        if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0f);\cf2 \strokec2 \
+\cf5 \strokec5 +        mat.enableInstancing = true;\cf2 \strokec2 \
+\cf5 \strokec5 +        return mat;\cf2 \strokec2 \
+\cf5 \strokec5 +    \}\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    private void GenerateClouds()\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        int cloudCount = Random.Range(cloudCountRange.x, cloudCountRange.y + 1);\cf2 \strokec2 \
+\cf5 \strokec5 +        for (int i = 0; i < cloudCount; i++)\cf2 \strokec2 \
+\cf5 \strokec5 +            BuildCloud(i);\cf2 \strokec2 \
+\cf5 \strokec5 +    \}\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    private void BuildCloud(int index)\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        // Place the cloud somewhere on the sky dome: random azimuth + elevation.\cf2 \strokec2 \
+\cf5 \strokec5 +        float azimuth = Random.Range(0f, 360f) * Mathf.Deg2Rad;\cf2 \strokec2 \
+\cf5 \strokec5 +        float elevation = Random.Range(elevationRange.x, elevationRange.y) * Mathf.Deg2Rad;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +        float horizontal = Mathf.Cos(elevation) * skyRadius;\cf2 \strokec2 \
+\cf5 \strokec5 +        Vector3 center = new Vector3(\cf2 \strokec2 \
+\cf5 \strokec5 +            Mathf.Cos(azimuth) * horizontal,\cf2 \strokec2 \
+\cf5 \strokec5 +            Mathf.Sin(elevation) * skyRadius,\cf2 \strokec2 \
+\cf5 \strokec5 +            Mathf.Sin(azimuth) * horizontal);\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +        var cloud = new GameObject("Cloud_" + index);\cf2 \strokec2 \
+\cf5 \strokec5 +        cloud.transform.SetParent(transform, false);\cf2 \strokec2 \
+\cf5 \strokec5 +        cloud.transform.position = center;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +        float cloudScale = Random.Range(cloudScaleRange.x, cloudScaleRange.y);\cf2 \strokec2 \
+\cf5 \strokec5 +        int puffs = Random.Range(puffCountRange.x, puffCountRange.y + 1);\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +        for (int p = 0; p < puffs; p++)\cf2 \strokec2 \
+\cf5 \strokec5 +        \{\cf2 \strokec2 \
+\cf5 \strokec5 +            var puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);\cf2 \strokec2 \
+\cf5 \strokec5 +            puff.name = "Puff_" + p;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +            // Clouds render very far away; no need for collision on them.\cf2 \strokec2 \
+\cf5 \strokec5 +            var col = puff.GetComponent<Collider>();\cf2 \strokec2 \
+\cf5 \strokec5 +            if (col != null) Destroy(col);\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +            puff.GetComponent<Renderer>().sharedMaterial = _cloudMaterial;\cf2 \strokec2 \
+\cf5 \strokec5 +            puff.transform.SetParent(cloud.transform, false);\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +            // Distribute puffs mostly along a horizontal disc so the cloud is\cf2 \strokec2 \
+\cf5 \strokec5 +            // wide and flattish, like a real cumulus mass.\cf2 \strokec2 \
+\cf5 \strokec5 +            Vector3 local = new Vector3(\cf2 \strokec2 \
+\cf5 \strokec5 +                Random.Range(-1f, 1f),\cf2 \strokec2 \
+\cf5 \strokec5 +                Random.Range(-0.25f, 0.35f),\cf2 \strokec2 \
+\cf5 \strokec5 +                Random.Range(-0.7f, 0.7f)) * cloudScale;\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +            // Each puff is a squashed ellipsoid of a slightly random size.\cf2 \strokec2 \
+\cf5 \strokec5 +            float puffSize = Random.Range(0.55f, 1.15f) * cloudScale;\cf2 \strokec2 \
+\cf5 \strokec5 +            puff.transform.localPosition = local;\cf2 \strokec2 \
+\cf5 \strokec5 +            puff.transform.localScale = new Vector3(\cf2 \strokec2 \
+\cf5 \strokec5 +                puffSize,\cf2 \strokec2 \
+\cf5 \strokec5 +                puffSize * Random.Range(0.45f, 0.7f),\cf2 \strokec2 \
+\cf5 \strokec5 +                puffSize * Random.Range(0.75f, 1f));\cf2 \strokec2 \
+\cf5 \strokec5 +        \}\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +        // Give the whole cloud a random yaw so the flattened shape faces a\cf2 \strokec2 \
+\cf5 \strokec5 +        // different way for each one.\cf2 \strokec2 \
+\cf5 \strokec5 +        cloud.transform.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);\cf2 \strokec2 \
+\cf5 \strokec5 +    \}\cf2 \strokec2 \
+\cf5 \strokec5 +\cf2 \strokec2 \
+\cf5 \strokec5 +    private void OnDestroy()\cf2 \strokec2 \
+\cf5 \strokec5 +    \{\cf2 \strokec2 \
+\cf5 \strokec5 +        if (_cloudMaterial != null)\cf2 \strokec2 \
+\cf5 \strokec5 +            Destroy(_cloudMaterial);\cf2 \strokec2 \
+\cf5 \strokec5 +    \}\cf2 \strokec2 \
+\cf5 \strokec5 +\}\cf2 \strokec2 \
+diff --git a/Assets/Scripts/ProceduralClouds.cs.meta b/Assets/Scripts/ProceduralClouds.cs.meta\
+new file mode 100644\
+index 0000000..af95e32\
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 ---\cf2 \strokec2  /dev/null\
+\cf4 \strokec4 +++\cf2 \strokec2  b/Assets/Scripts/ProceduralClouds.cs.meta\
+\cf4 \strokec4 @@\cf2 \strokec2  -0,0 +1,11 \cf4 \strokec4 @@\cf2 \strokec2 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \strokec5 +fileFormatVersion: 2\cf2 \strokec2 \
+\cf5 \strokec5 +guid: 1db7a78660884915b18612539df69aa9\cf2 \strokec2 \
+\cf5 \strokec5 +MonoImporter:\cf2 \strokec2 \
+\cf5 \strokec5 +  externalObjects: \{\}\cf2 \strokec2 \
+\cf5 \strokec5 +  serializedVersion: 2\cf2 \strokec2 \
+\cf5 \strokec5 +  defaultReferences: []\cf2 \strokec2 \
+\cf5 \strokec5 +  executionOrder: 0\cf2 \strokec2 \
+\cf5 \strokec5 +  icon: \{instanceID: 0\}\cf2 \strokec2 \
+\cf5 \strokec5 +  userData: \cf2 \strokec2 \
+\cf5 \strokec5 +  assetBundleName: \cf2 \strokec2 \
+\cf5 \strokec5 +  assetBundleVariant: \cf2 \strokec2 \
+\pard\pardeftab720\partightenfactor0
+\cf6 \strokec6 -- \cf2 \strokec2 \
+2.43.0\
+}

@@ -215,6 +215,10 @@ public class Main : MonoBehaviour
     public void OnDestroy()
     {
         Application.logMessageReceived -= this.HandleLog;
+        // GameSettings.Changed is static and Main is per-scene: without this a destroyed Main
+        // from the previous scene would stay alive on the event and apply settings into a
+        // scene that no longer exists.
+        GameSettings.Changed -= ApplyGameSettings;
     }
 
     // Start is called before the first frame update
@@ -231,21 +235,22 @@ public class Main : MonoBehaviour
         menuToggle = false;
         SetupMenus();
 
-        // Read Settings
-        difficulty = (eDifficulty)PlayerPrefs.GetInt(Constants.PP_Difficulty, 1);
-        battingStyle = (eBattingStyle)PlayerPrefs.GetInt(Constants.PP_BattingStyle, 1);
+        // Read Settings - GameSettings owns these now, so the menus can change them from
+        // Splash where there is no Main. Its defaults are the ones that used to be inline here.
+        difficulty = GameSettings.Difficulty;
+        battingStyle = GameSettings.BattingStyle;
         stadiumMode = (eStadiumMode)PlayerPrefs.GetInt(Constants.PP_StadiumMode, 1);
         zOffset = PlayerPrefs.GetFloat(Constants.PP_ZOffset, 3f);
 
         // Read Tweakables
         // Set default using private vars, and set private var to -1000 so that we
         // let auto-update update this along with the UI
-        overlayVisible = PlayerPrefs.GetInt(Constants.PP_Overlay, 0) == 1;
+        overlayVisible = GameSettings.OverlayVisible;
         _overlayVisible = !overlayVisible;   // so the first update shows or hides the overlay
-        BatAmplifier = PlayerPrefs.GetFloat(Constants.PP_BatPower, Constants.BatPowerRealistic);
+        BatAmplifier = GameSettings.BatPower;
         resetDelay = PlayerPrefs.GetFloat(Constants.PP_ResetDelay, _resetDelay);
         _resetDelay = -1000;
-        fielderSpeed = PlayerPrefs.GetFloat(Constants.PP_FielderSpeed, _fielderSpeed);
+        fielderSpeed = GameSettings.FielderSpeed;
         _fielderSpeed = -1000;
         ampMin = PlayerPrefs.GetFloat(Constants.PP_AmpMin, _ampMin);
         _ampMin = -1000;
@@ -267,8 +272,23 @@ public class Main : MonoBehaviour
 
         SetupXRControllers();
 
+        GameSettings.Changed += ApplyGameSettings;
+
         initialized = true;
         gameState = eGameState.None;
+    }
+
+    /// Pull everything GameSettings owns back into Main. Called whenever the settings screen
+    /// changes something - in this scene, or on the next load after a change made in Splash.
+    private void ApplyGameSettings()
+    {
+        SetDifficulty(GameSettings.Difficulty);
+        SetBattingStyle(GameSettings.BattingStyle);
+        BatAmplifier = GameSettings.BatPower;
+        onFielderSpeed(GameSettings.FielderSpeed);
+        overlayVisible = GameSettings.OverlayVisible;
+        ApplyTweaks();
+        RefreshSettingsPanel();
     }
 
     private void SetupXRControllers()
@@ -938,10 +958,27 @@ public class Main : MonoBehaviour
             }
         }
 
-        // Debug UI toggle!
+        // Pause: B brings up Resume / Settings / Main Menu. Settings is a screen inside it, so
+        // there is one way in from every scene. Closing with B resumes, like the Resume button.
         if (GetButton(XRButton.B))
         {
-            ToggleUI(!menuToggle);
+            MenuRoot menu = MenuRoot.Instance;
+            if (menu != null)
+            {
+                if (menu.IsOpen)
+                {
+                    Time.timeScale = 1f;
+                    menu.Close();
+                }
+                else
+                {
+                    menu.Open();
+                }
+            }
+            else
+            {
+                ToggleUI(!menuToggle);   // no menu in this scene yet: old behaviour
+            }
         }
 
     }

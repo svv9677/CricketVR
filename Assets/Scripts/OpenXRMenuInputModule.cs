@@ -87,6 +87,21 @@ public class OpenXRMenuInputModule : MonoBehaviour
     {
         if (inputModule.xrTrackingOrigin == null && Camera.main != null)
             inputModule.xrTrackingOrigin = Camera.main.transform.parent;
+        // A world-space GraphicRaycaster needs a camera to turn a mouse position into a ray, and
+        // RegisterPanel assigns it only once - at which point Camera.main can still be null, or
+        // the scene's camera may since have been replaced. Re-assert it so the menus stay usable
+        // with the mouse in the editor, where there is no tracked hand to fall back on.
+        if (Camera.main != null)
+        {
+            foreach (GameObject p in panels)
+            {
+                if (p == null)
+                    continue;
+                foreach (var canvas in p.GetComponentsInChildren<Canvas>(true))
+                    if (canvas.worldCamera == null)
+                        canvas.worldCamera = Camera.main;
+            }
+        }
         bool open = AnyPanelOpen() && Application.isFocused;
         // Disabling flushes pressed/drag/hover state when the menus close or focus is lost.
         inputModule.enabled = open;

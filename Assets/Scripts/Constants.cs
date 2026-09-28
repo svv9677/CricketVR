@@ -19,6 +19,8 @@ public static class Constants
     public const string PP_GripRightPosition = "grip_right_pos";
     public const string PP_GripRightEuler = "grip_right_euler";
     public const string PP_BatPower = "bat_power";
+    public const string PP_Overs = "overs";
+    public const string PP_BowlerType = "bowler_type";
 
     public const string CT_MinX = "minX";
     public const string CT_MaxX = "maxX";
