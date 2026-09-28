@@ -43,7 +43,7 @@ public struct CloudFieldSettings
 
     public static CloudFieldSettings Default => new CloudFieldSettings
     {
-        CountRange = new Vector2Int(10, 16),
+        CountRange = new Vector2Int(50, 75),
         // A fair-weather cumulus band. Nothing at the zenith: clouds directly overhead read as
         // a ceiling, and a batter looking up for a catch should see sky.
         ElevationRange = new Vector2(12f, 50f),
