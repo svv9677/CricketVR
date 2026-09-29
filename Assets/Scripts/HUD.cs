@@ -96,8 +96,13 @@ public class HUD : MonoBehaviour
         Reset();
     }
 
-    public void Reset(int totalOvers=5)
+    /// Overs come from GameSettings, which the Splash main menu sets on the Quick Match row.
+    /// The explicit parameter is kept for callers that want to override it.
+    public void Reset(int totalOvers = -1)
     {
+        if (totalOvers < 0)
+            totalOvers = GameSettings.Overs;
+
         Runs = 0;
         Wickets = 0;
         Overs = 0;

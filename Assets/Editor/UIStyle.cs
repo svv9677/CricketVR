@@ -25,6 +25,17 @@ public static class UIStyle
     public static readonly Color AccentHover = Hex(0x5B98FA);
     public static readonly Color AccentPressed = Hex(0x2B6AD6);
     public static readonly Color AccentText = Hex(0x8AB8FF);          // accent for text on the card
+
+    // ---- Menu accents --------------------------------------------------------------------------
+    // The opening menu's vibrant set, sampled from the floodlit backdrop grade so the card and
+    // the plate behind it belong to one picture. Added alongside the blue accent rather than
+    // replacing it: every in-match panel keeps the look it has today.
+    public static readonly Color MenuPrimary = Hex(0xF43F8E);         // Quick Match, Resume
+    public static readonly Color MenuPrimaryHover = Hex(0xFA5FA3);
+    public static readonly Color MenuPrimaryPressed = Hex(0xD42F76);
+    public static readonly Color MenuSecondary = Hex(0xFF6B4A);       // leaving, discarding
+    public static readonly Color MenuSecondaryHover = Hex(0xFF8468);
+    public static readonly Color MenuSecondaryPressed = Hex(0xE0543A);
     public static readonly Color Text = Hex(0xF3F5F8);
     public static readonly Color TextMuted = Hex(0x98A2B3);
     public static readonly Color Track = Hex(0x343C49);
@@ -97,6 +108,21 @@ public static class UIStyle
         block.pressedColor = primary ? AccentPressed : SurfacePressed;
         block.selectedColor = block.normalColor;
         block.disabledColor = new Color(block.normalColor.r, block.normalColor.g, block.normalColor.b, 0.35f);
+        block.colorMultiplier = 1f;
+        block.fadeDuration = 0.08f;
+        return block;
+    }
+
+    /// Colours for a menu call-to-action, in the vibrant set rather than the in-match blue.
+    public static ColorBlock MenuColors(bool primary)
+    {
+        ColorBlock block = ColorBlock.defaultColorBlock;
+        block.normalColor = primary ? MenuPrimary : MenuSecondary;
+        block.highlightedColor = primary ? MenuPrimaryHover : MenuSecondaryHover;
+        block.pressedColor = primary ? MenuPrimaryPressed : MenuSecondaryPressed;
+        block.selectedColor = block.normalColor;
+        block.disabledColor = new Color(block.normalColor.r, block.normalColor.g,
+                                        block.normalColor.b, 0.35f);
         block.colorMultiplier = 1f;
         block.fadeDuration = 0.08f;
         return block;

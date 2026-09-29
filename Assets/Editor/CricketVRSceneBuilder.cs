@@ -56,7 +56,7 @@ public static class CricketVRSceneBuilder
 
     // ---- Pointer / input ---------------------------------------------------------------------
 
-    private static void SetUpPointer()
+    internal static void SetUpPointer()
     {
         LaserPointer laser = Object.FindFirstObjectByType<LaserPointer>(FindObjectsInactive.Include);
         if (laser == null)

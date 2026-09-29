@@ -47,6 +47,10 @@ public partial class SettingsPanel : MonoBehaviour
     [Header("Fielding")]
     public SliderRow fielderSpeedSlider;
 
+    [Header("Match-only rows (hidden when there is no Main, i.e. in Splash)")]
+    [Tooltip("Bowling ranges, Reset Bowling, grip calibration, Just Restart, debug overlay.")]
+    public GameObject[] matchOnly;
+
     [Header("Advanced (collapsed)")]
     public GameObject advanced;
     public TMP_Text advancedLabel;
@@ -94,22 +98,34 @@ public partial class SettingsPanel : MonoBehaviour
 
     // ---- Mirroring Main --------------------------------------------------------------------------
 
-    /// Show Main's current settings. Never fires the control handlers.
+    /// Show the current settings. Never fires the control handlers.
+    ///
+    /// Reads GameSettings rather than Main, so the panel works in Splash where there is no Main
+    /// at all. The bowling ranges are the exception: they come from the loaded bowling profile,
+    /// which only exists in a match, so those rows are hidden outside one.
     public void Refresh()
     {
         Main m = Main.Instance;
-        if (m == null)
-            return;
         if (hand != null)
-            hand.SetValueWithoutNotify(m.BattingStyle == eBattingStyle.LeftHanded ? 0 : 1);
+            hand.SetValueWithoutNotify(GameSettings.BattingStyle == eBattingStyle.LeftHanded ? 0 : 1);
         if (difficultyLevel != null)
-            difficultyLevel.SetValueWithoutNotify(Mathf.Clamp((int)m.Difficulty - 1, 0, 2));
-        SetText(difficultyHint, DifficultyHint(m.Difficulty));
-        SetSlider(batPowerSlider, m.BatAmplifier, UIFormat.BatPower(m.BatAmplifier));
-        RefreshBowling(m);
-        SetSlider(fielderSpeedSlider, m.fielderSpeed, $"{m.fielderSpeed:0.0}×");
+            difficultyLevel.SetValueWithoutNotify(Mathf.Clamp((int)GameSettings.Difficulty - 1, 0, 2));
+        SetText(difficultyHint, DifficultyHint(GameSettings.Difficulty));
+        SetSlider(batPowerSlider, GameSettings.BatPower, UIFormat.BatPower(GameSettings.BatPower));
+        SetSlider(fielderSpeedSlider, GameSettings.FielderSpeed, $"{GameSettings.FielderSpeed:0.0}×");
         if (overlayToggle != null)
-            overlayToggle.SetIsOnWithoutNotify(m.overlayVisible);
+            overlayToggle.SetIsOnWithoutNotify(GameSettings.OverlayVisible);
+
+        // Bowling ranges, grip calibration, Just Restart and the debug overlay are in-match
+        // tuning: there is no bowling profile loaded in Splash, so they are hidden rather than
+        // shown dead. See Docs/Plans/2026-09-27-opening-menu-design.md section 4.
+        bool inMatch = m != null;
+        if (matchOnly != null)
+            foreach (GameObject row in matchOnly)
+                if (row != null && row.activeSelf != inMatch)
+                    row.SetActive(inMatch);
+        if (inMatch)
+            RefreshBowling(m);
     }
 
     private void RefreshBowling(Main m)
@@ -169,11 +185,12 @@ public partial class SettingsPanel : MonoBehaviour
     // ---- Control handlers (wired in the prefab) --------------------------------------------------
     private static Main M => Main.Instance;
 
-    public void OnHand(int index) => M.SetBattingStyle(index == 0 ? eBattingStyle.LeftHanded : eBattingStyle.RightHanded);
+    public void OnHand(int index) =>
+        GameSettings.BattingStyle = index == 0 ? eBattingStyle.LeftHanded : eBattingStyle.RightHanded;
 
     public void OnDifficulty(int index)
     {
-        M.SetDifficulty((eDifficulty)(index + 1));
+        GameSettings.Difficulty = (eDifficulty)(index + 1);
         Refresh();
     }
 
@@ -181,8 +198,7 @@ public partial class SettingsPanel : MonoBehaviour
     {
         if (Mathf.Abs(v - Constants.BatPowerRealistic) <= SnapToRealistic)
             v = Constants.BatPowerRealistic;
-        M.BatAmplifier = v;
-        M.ApplyTweaks();
+        GameSettings.BatPower = v;
     }
 
     public void OnBowler(int index)
@@ -219,8 +235,8 @@ public partial class SettingsPanel : MonoBehaviour
         M.ApplyTweaks();
     }
 
-    public void OnFielderSpeed(float v) => M.onFielderSpeed(Mathf.Round(v * 10f) / 10f);
-    public void OnOverlay(bool on) { M.overlayVisible = on; M.ApplyTweaks(); }
+    public void OnFielderSpeed(float v) => GameSettings.FielderSpeed = Mathf.Round(v * 10f) / 10f;
+    public void OnOverlay(bool on) => GameSettings.OverlayVisible = on;
     public void OnToggleAdvanced() { if (advanced != null) SetAdvanced(!advanced.activeSelf); }
     public void OnCalibrateGrip() => M.onCalibrateGrip();
     public void OnResetGrip() => M.onResetGrip();
