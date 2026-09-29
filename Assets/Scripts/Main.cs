@@ -1076,7 +1076,8 @@ public class Main : MonoBehaviour
     {
         yield return new WaitForSeconds(DeadBallPause);
         float giveUp = Time.time + MaxReturnWait;
-        while (ThrowBack.Busy && Time.time < giveUp)
+        // Ready (the next-ball options) as soon as the keeper has it; the relay home carries on.
+        while (ThrowBack.Busy && !ThrowBack.KeeperHasHadIt && Time.time < giveUp)
             yield return null;
         gameState = eGameState.InGame_ResetToReady;
     }

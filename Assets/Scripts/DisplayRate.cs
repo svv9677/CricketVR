@@ -5,7 +5,8 @@ using UnityEngine.XR;
 using UnityEngine.XR.OpenXR.Features.Meta;
 
 /// <summary>
-/// Runs the headset at 90 Hz instead of Quest's default 72 when the game can keep up.
+/// Runs the headset at 90 Hz instead of Quest's default 72 when the game can keep up, with fixed
+/// foveated rendering to help it keep up.
 ///
 /// A delivery at 130 km/h covers half a metre between frames at 72 Hz, and a hard swing 20-30
 /// degrees: both read as stutter however smoothly they are simulated (the ball is already
@@ -20,6 +21,8 @@ using UnityEngine.XR.OpenXR.Features.Meta;
 public static class DisplayRate
 {
     private const float Wanted = 90f, Fallback = 72f;
+    /// Fixed foveation level, 0 (off) to 1 (strongest).
+    private const float Foveation = 0.75f;
     /// Let loading and shader warm-up pass before judging, then judge over this long.
     private const float SettleSeconds = 6f, JudgeSeconds = 4f;
     /// Average frame rate below this counts as not holding 90.
@@ -49,6 +52,11 @@ public static class DisplayRate
         {
             requested = true;
             requestedAt = Time.realtimeSinceStartup;
+            // Fixed foveated rendering: full resolution where the lenses are sharp, less toward
+            // their edges where nobody looks - the biggest GPU saving there is on Quest.
+            display.foveatedRenderingLevel = Foveation;
+            display.foveatedRenderingFlags = XRDisplaySubsystem.FoveatedRenderingFlags.None;
+            Debug.Log($"[DisplayRate] Foveation {display.foveatedRenderingLevel:F2}");
             if (!Supports(display, Wanted) || !display.TryRequestDisplayRefreshRate(Wanted))
             {
                 judged = true;

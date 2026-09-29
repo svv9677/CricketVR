@@ -60,6 +60,11 @@ public class ShotCard : MonoBehaviour
         eBattingStyle style = main != null ? main.BattingStyle : eBattingStyle.RightHanded;
         if (style != placedFor)
             Place(style);
+        // Only between balls, alongside the next-ball options: while a ball is being bowled or
+        // is in play it is in the way.
+        bool between = main == null || main.gameState == eGameState.InGame_Ready;
+        if (panel.activeSelf != between)
+            panel.SetActive(between);
     }
 
     private void Place(eBattingStyle style)

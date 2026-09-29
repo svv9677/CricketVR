@@ -228,4 +228,22 @@ public static class ReachMath
 
     /// Height of a foot during a step, 0..1 of the step: a sine arc, zero at lift and plant.
     public static float StepArc(float t, float height) => Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI) * height;
+
+    /// How far over (degrees from upright) a diver is when he lands: on his side on the grass.
+    public const float DiveLanded = 88f;
+
+    /// A dive's roll at `s` (0..1 of the dive): over to `atCatch` by `catchPoint` - as far as the
+    /// take needs - then on down to the ground. Whatever the ball's height he ends on the grass:
+    /// capped at what the take needed, a high one left him stood at 45 degrees, stiff (filmed).
+    public static float DiveRoll(float s, float catchPoint, float atCatch)
+    {
+        s = Mathf.Clamp01(s);
+        if (s <= catchPoint)
+        {
+            float a = s / catchPoint;
+            return atCatch * a * a * (3f - 2f * a);
+        }
+        float b = (s - catchPoint) / (1f - catchPoint);
+        return Mathf.Lerp(atCatch, DiveLanded, b * b);
+    }
 }

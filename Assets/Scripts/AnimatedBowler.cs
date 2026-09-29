@@ -326,6 +326,21 @@ public class AnimatedBowler : MonoBehaviour
         animator.SetInteger("Action", 0);
     }
 
+    /// Start the walk back to his mark now (ThrowBack: the keeper has the ball), rather than on
+    /// the timer after his delivery. Not during a run-up or delivery.
+    public void WalkBackToMark()
+    {
+        eGameState s = Main.Instance.gameState;
+        if (Fielding || s == eGameState.InGame_SelectDelivery || s == eGameState.InGame_SelectDeliveryLoop ||
+            s == eGameState.InGame_DeliverBall || s == eGameState.InGame_DeliverBallLoop)
+            return;
+        if (walkingBack != null)
+            StopCoroutine(walkingBack);
+        walkingBack = null;
+        if (Vector3.Distance(transform.position, currentBowlerInfo.startPos) > 1.7f)
+            animator.SetInteger("Action", -1);
+    }
+
     IEnumerator StartWalkingBack()
     {
         yield return new WaitForSeconds(2f);

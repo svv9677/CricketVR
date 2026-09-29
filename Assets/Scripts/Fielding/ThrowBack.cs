@@ -27,14 +27,18 @@ public class ThrowBack : MonoBehaviour
     private const float HoldBeforeThrow = 0.8f;
     /// Fielders this close to the middle make the inner ring (relay men).
     private const float InnerRing = 30f;
-    /// A relay man further than this from the middle of the keeper-to-bowler line is no help.
-    private const float RelayOffLine = 12f;
+    /// A relay man is between keeper and bowler: this far along the way (fractions), and no
+    /// further than RelayOffLine from the line - mid-off and mid-on are about 18 m off it.
+    private static readonly Vector2 RelayBetween = new Vector2(0.15f, 0.85f);
+    private const float RelayOffLine = 24f;
     /// The backup stands this far behind the keeper, on the line of the throw.
     private const float BackupBehind = 8f;
 
     public static ThrowBack Instance { get; private set; }
     /// The ball is still on its way back to the bowler.
     public static bool Busy => Instance != null && Instance.busy;
+    /// The keeper has had it this ball: the next ball can be offered (the relay carries on).
+    public static bool KeeperHasHadIt => Instance != null && Instance.keeperHad;
 
     private enum Phase { Idle, Winding, Flying }
 
@@ -47,6 +51,10 @@ public class ThrowBack : MonoBehaviour
     private readonly List<Segment> flight = new List<Segment>();
     private Phase phase;
     private bool busy;
+    /// From the moment the ball is dead until it is with the bowler or the next ball starts. Not
+    /// tied to the dead-ball states: Ready comes as soon as the keeper has it, mid-relay.
+    private bool active, keeperHad;
+    private Vector3 flightTo, flightThrower;
     private IThrowPlayer holder, receiver;
     private float flightStart, flightTime;
     private bool relayToBowler;
@@ -83,7 +91,7 @@ public class ThrowBack : MonoBehaviour
     private void Clear()
     {
         phase = Phase.Idle;
-        busy = false;
+        busy = active = keeperHad = false;
         holder = receiver = thrownInBy = null;
         relayToBowler = false;
         EndBackup();
@@ -103,7 +111,9 @@ public class ThrowBack : MonoBehaviour
         switch (phase)
         {
             case Phase.Idle:
-                if (!DeadBall(inst.gameState))
+                if (!active && DeadBall(inst.gameState))
+                    active = true;
+                if (!active)
                 {
                     busy = false;
                     if (bowlerHands != null && bowlerHands.HoldingBall)
@@ -131,15 +141,36 @@ public class ThrowBack : MonoBehaviour
             busy = false;
             return;
         }
-        // With the bowler: home.
+        // With the bowler: home. If he fielded it himself, he stops fielding and walks back to
+        // his mark with it in his bowling hand.
         if (IsBowler(holder))
         {
+            if (holder is AnimatedFielder && bowlerHands != null)
+            {
+                // Finish the take first (the give, the ball up to his chest), then walk back.
+                if (holder.HeldFor < HoldBeforeThrow)
+                {
+                    busy = false;
+                    return;
+                }
+                SendBowlerBack();
+                bowlerHands.TakeThrow(Vector3.zero);
+                holder = bowlerHands;
+            }
             busy = false;
+            active = false;
             if (holder is BowlerHands hands)
                 hands.Carry(inst.theBall.transform);
             return;
         }
         busy = true;
+        // The keeper has it: the next ball can be offered, and the bowler starts back to his mark
+        // for the relay to find him there.
+        if (holder == (IThrowPlayer)keeper && !keeperHad)
+        {
+            keeperHad = true;
+            SendBowlerBack();
+        }
         if (holder.HeldFor < HoldBeforeThrow)
             return;
         bool isKeeper = holder == (IThrowPlayer)keeper;
@@ -152,12 +183,21 @@ public class ThrowBack : MonoBehaviour
         if (receiver == (IThrowPlayer)keeper)
         {
             SendBackup(holder.Position);
-            // A bowler who chased it heads back to his end for the ball to come home to.
-            if (BowlerReceiver() is AnimatedFielder bowler && !ReferenceEquals(bowler, holder))
-                bowler.WalkBackToStart();
             thrownInBy = holder;
         }
         phase = Phase.Winding;
+    }
+
+    /// The bowler stops fielding (if he was) and walks back toward his mark.
+    private void SendBowlerBack()
+    {
+        AnimatedBowler bowler = AnimatedBowler.Instance;
+        if (bowler == null)
+            return;
+        BowlerFielding fielding = bowler.GetComponent<BowlerFielding>();
+        if (fielding != null && fielding.Fielding)
+            fielding.StopFielding();
+        bowler.WalkBackToMark();
     }
 
     private void Launch(Main inst)
@@ -170,6 +210,8 @@ public class ThrowBack : MonoBehaviour
                   $"{(flight.Count > 1 ? "one bounce" : "on the full")}, {flightTime:F2} s");
         holder.Release();
         receiver.ExpectBall(to, holder.Position, Time.time + flightTime);
+        flightTo = to;
+        flightThrower = holder.Position;
         Rigidbody rb = inst.theBallRigidBody;
         rb.isKinematic = true;
         rb.interpolation = RigidbodyInterpolation.None;
@@ -186,6 +228,10 @@ public class ThrowBack : MonoBehaviour
     {
         float t = Time.time - flightStart;
         Vector3 at = Evaluate(Mathf.Min(t, flightTime), out Vector3 velocity);
+        // A receiver on the move (the bowler walking back) is where the throw ends up: the arc
+        // bends onto where his hands are now, more toward the end, so there is no jump at the take.
+        float along = Mathf.Clamp01(t / Mathf.Max(flightTime, 1e-3f));
+        at += (receiver.CatchPointFrom(flightThrower) - flightTo) * (along * along * (3f - 2f * along));
         inst.theBall.transform.position = at;
         inst.theBallRigidBody.position = at;
         if (t < flightTime)
@@ -207,7 +253,7 @@ public class ThrowBack : MonoBehaviour
     {
         if (keeper != null && keeper.HoldingBall)
             return keeper;
-        foreach (AnimatedFielder f in FindObjectsByType<AnimatedFielder>(FindObjectsSortMode.None))
+        foreach (AnimatedFielder f in AnimatedFielder.All)
             if (f.HoldingBall)
                 return f;
         if (bowlerHands != null && bowlerHands.HoldingBall)
@@ -220,7 +266,7 @@ public class ThrowBack : MonoBehaviour
     /// The bowler: fielding (his AnimatedFielder), or stood at his end (his hands).
     private IThrowPlayer BowlerReceiver()
     {
-        foreach (AnimatedFielder f in FindObjectsByType<AnimatedFielder>(FindObjectsSortMode.None))
+        foreach (AnimatedFielder f in AnimatedFielder.All)
             if (f.IsBowler)
                 return f;
         return bowlerHands;
@@ -229,26 +275,32 @@ public class ThrowBack : MonoBehaviour
     /// Whoever threw it in to the keeper: never the relay man for the same ball.
     private IThrowPlayer thrownInBy;
 
-    /// From the keeper: the bowler if he is within a pass, otherwise the inner fielder nearest
-    /// the middle of the way (and near it: RelayOffLine), else the bowler with a bounce.
-    /// From the relay man: the bowler.
+    /// From the keeper: through an inner-circle fielder standing between him and the bowler
+    /// whenever there is one (RelayBetween along the way, within RelayOffLine of it) - the nearest
+    /// to the line - and straight to the bowler only when there is nobody. From the relay man:
+    /// the bowler.
     private IThrowPlayer BowlerOrRelay(bool fromKeeper)
     {
         IThrowPlayer bowler = BowlerReceiver();
         if (bowler == null || !fromKeeper)
             return bowler;
-        Vector3 from = holder.Position;
-        if (Flat(bowler.Position - from).magnitude <= KeeperDirect)
+        Vector3 from = Flat(holder.Position);
+        Vector3 way = Flat(bowler.Position) - from;
+        float length2 = way.sqrMagnitude;
+        if (length2 < 1f)
             return bowler;
-        Vector3 middle = 0.5f * (from + bowler.Position);
         AnimatedFielder best = null;
-        float bestD = float.MaxValue;
-        foreach (AnimatedFielder f in FindObjectsByType<AnimatedFielder>(FindObjectsSortMode.None))
+        float bestOff = float.MaxValue;
+        foreach (AnimatedFielder f in AnimatedFielder.All)
         {
             if (f.IsBowler || f.HoldingBall || ReferenceEquals(f, thrownInBy) || Flat(f.StartPosition).magnitude > InnerRing)
                 continue;
-            float d = Flat(f.Position - middle).magnitude;
-            if (d < bestD && d < RelayOffLine) { bestD = d; best = f; }
+            Vector3 p = Flat(f.Position) - from;
+            float along = Vector3.Dot(p, way) / length2;
+            float off = (p - way * along).magnitude;
+            if (along < RelayBetween.x || along > RelayBetween.y || off > RelayOffLine)
+                continue;
+            if (off < bestOff) { bestOff = off; best = f; }
         }
         return best != null ? best : bowler;
     }
@@ -264,7 +316,7 @@ public class ThrowBack : MonoBehaviour
             return;
         Vector3 spot = keeper.Position + line.normalized * BackupBehind;
         float best = float.MaxValue;
-        foreach (AnimatedFielder f in FindObjectsByType<AnimatedFielder>(FindObjectsSortMode.None))
+        foreach (AnimatedFielder f in AnimatedFielder.All)
         {
             if (f.IsBowler || f.HoldingBall || (IThrowPlayer)f == holder)
                 continue;

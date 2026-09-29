@@ -339,6 +339,7 @@ public partial class Bat : MonoBehaviour
 
         position = destPos + destRot * grabOffsetPosition;
         rotation = destRot * grabOffsetRotation;
+        KeepAboveGround(destPos, ref position, ref rotation);
     }
 
 }

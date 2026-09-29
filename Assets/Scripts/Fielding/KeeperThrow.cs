@@ -17,7 +17,8 @@ public partial class KeeperCatcher : IThrowPlayer
 
     // ---- IThrowPlayer ----------------------------------------------------------------------------
     public bool HoldingBall => holding;
-    public float HeldFor => holding ? Time.time - heldSince : 0f;
+    /// Not counting while he is down from a dive: he gets up before he throws.
+    public float HeldFor => holding && !diving ? Time.time - Mathf.Max(heldSince, diveUpAt) : 0f;
     public Vector3 ReleasePoint => KeeperHandPoint;
     public bool ReadyToRelease => throwingOut && Time.time - throwOutStart >= KeeperReleaseTime;
 

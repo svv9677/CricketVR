@@ -20,12 +20,25 @@ public partial class AnimatedFielder
     /// Chest height and how far in front the hands take a throw.
     private const float CatchHeight = 1.15f, CatchAhead = 0.35f;
 
+    /// Every fielder in play (the bowler too, while he fields), for ThrowBack to look through each
+    /// frame without searching the scene.
+    public static readonly System.Collections.Generic.List<AnimatedFielder> All = new System.Collections.Generic.List<AnimatedFielder>();
+
+    private void OnEnable()
+    {
+        if (!All.Contains(this))
+            All.Add(this);
+    }
+
+    private void OnDisable() => All.Remove(this);
+
     private bool throwing, expecting, walkingBack;
     private float throwStart, walkBackAt = -1f, expectAt;
     private Vector3 throwAt, expectPoint, expectFrom;
 
     // ---- IThrowPlayer ----------------------------------------------------------------------------
-    public float HeldFor => holdingBall ? Time.time - heldSince : 0f;
+    /// Not counting while he is down from a dive: he gets up before he throws.
+    public float HeldFor => holdingBall && !diving ? Time.time - Mathf.Max(heldSince, diveUpAt) : 0f;
     public Vector3 ReleasePoint => ThrowHandPoint;
     public bool ReadyToRelease => throwing && Time.time - throwStart >= ReleaseTime;
 
@@ -137,6 +150,8 @@ public partial class AnimatedFielder
             reach.quickness = 1f;
             reach.look = true;
             reach.lookTarget = Main.Instance.theBall.transform.position;
+            Vector3 toThrower = expectFrom - expectPoint;
+            reach.palmFacing = toThrower.sqrMagnitude > 1e-4f ? toThrower.normalized : transform.forward;
             return true;
         }
         return false;

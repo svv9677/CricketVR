@@ -64,7 +64,9 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
     /// out in front for over a second and take it at full stretch, arms locked - "zombie arms".
     /// A fielder runs with his arms free, brings the hands up late, and takes it in front of his
     /// chest, elbows bent.
-    private const float CatchStartTime = 0.9f, CatchFullTime = 0.3f, CatchOut = 0.08f;
+    /// A catch: arms out this far along the ball's line to meet it, not at the chest - at 0.08 the
+    /// bowler took a head-high catch with his hands curled at his chest (filmed).
+    private const float CatchStartTime = 0.9f, CatchFullTime = 0.3f, CatchOut = 0.22f;
     /// A ground ball: down and set early, waiting for it. Starting at 1.1 s and full at 0.35 s, a
     /// 7-8 m/s roller arrived with the hands still ~0.5 m off the grass (filmed and traced) and
     /// went under them.
@@ -162,6 +164,7 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             WalkBackToStart();
         else if (state == eGameState.InGame_SelectDelivery)
         {
+            EndDive();
             holdingBall = false;
             ClearThrow();
             if (FlatDistance(transform.position, StartPosition) > FarFromStart)
@@ -173,6 +176,7 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
 
     public void ReturnToStart()
     {
+        EndDive();
         hasTarget = false;
         reachingLow = false;
         speed = 0f;
@@ -231,6 +235,9 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
 
     private void Move()
     {
+        // Diving for one out of reach (AnimatedFielderDive), down, or getting up.
+        if (UpdateDive())
+            return;
         // Throwing it in, or a throw coming to him: he stands and faces it.
         if (MoveForThrow())
             return;
@@ -308,7 +315,9 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
         if (reach == null || !reach.Ready)
             return;
         // Throwing (arms free for the throw) or taking a throw (hands to where it will arrive).
-        if (ReachForThrow())
+        // Palms follow the arms unless a take below says which way they face.
+        reach.palmFacing = Vector3.zero;
+        if (ReachForThrow() || ReachForDive())
             return;
         Main inst = Main.Instance;
         Vector3 ball = inst.theBall.transform.position;
@@ -351,7 +360,11 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             bool catching = !inst.theBallScript.bounced && point.y > 0.5f;
             Vector3 incoming = inst.theBallRigidBody.linearVelocity;
             if (catching && incoming.sqrMagnitude > 0.01f)
+            {
                 point -= incoming.normalized * CatchOut;   // arms out to meet it
+                // Palms to the ball: fingers up above the chest, cupped below (HumanoidReach grip).
+                reach.palmFacing = -incoming.normalized;
+            }
             reach.handTarget = point;
             bool ground = !catching && point.y - transform.position.y < LowReach;
             reach.weight = catching ? Mathf.InverseLerp(CatchStartTime, CatchFullTime, eta)
@@ -505,8 +518,13 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             bool slow = inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall;
             bool inHands = slow ? reach.ClosestPalm(lastBall, now) <= SlowGatherDistance
                                 : ReachMath.SegmentDistance(lastBall, now, reach.HoldPoint) <= CatchPocket;
-            if (inHands)
-                animatedFielderManagementScript.Gather(this);   // -> Take -> TakeBall
+            if (inHands && Time.time >= diveSpilledUntil)
+            {
+                if (diving && !DiveTakeSticks())
+                    DiveSpill();   // a diving take only sometimes holds
+                else
+                    animatedFielderManagementScript.Gather(this);   // -> Take -> TakeBall
+            }
         }
         lastBall = holdingBall ? ball.position : now;
     }

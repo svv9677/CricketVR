@@ -346,9 +346,20 @@ public partial class HumanoidReach : MonoBehaviour
         side = smoothSide;
     }
 
-    /// As multiples of the standing hip height (~0.95 m): up above ~1.3 m, down below ~1.05 m.
-    private const float FingersUpAbove = 1.35f, FingersDownBelow = 1.1f;
-    private bool fingersUp;
+    /// How a take is made, from where the hands meet the ball against the body as it is now:
+    /// fingers up (palms to the ball) above the chest, fingers down (cupped) below it, fingers out
+    /// to the side for one wide of the body at waist-to-chest height. Measured from the shoulders
+    /// in his current posture - a keeper rising out of his crouch, a fielder bent to a ball - not
+    /// from fixed heights: those had a keeper taking waist-high balls overhand and chest-high ones
+    /// underhand, depending on the last ball.
+    private enum Grip { Up, Down, Out }
+    /// Below the shoulders by this much (x scale) is the chest line; the margin either side that
+    /// must be crossed to change grip mid-reach, so it cannot flicker on the line.
+    private const float ChestBelowShoulders = 0.22f, GripHysteresis = 0.08f;
+    /// A ball this far (x scale) out to the side of the shoulder is taken fingers out.
+    private const float WideOfShoulder = 0.3f;
+    private Grip grip;
+    private bool gripChosen;
 
     private void RawFrame(out Vector3 finger, out Vector3 side)
     {
@@ -356,16 +367,24 @@ public partial class HumanoidReach : MonoBehaviour
         Vector3 reach = handPos - shoulders;
         if (palmFacing.sqrMagnitude > 1e-6f)
         {
-            // Fingers down, cupped, for a ball below the waist of a man standing; up only for one
-            // above the chest; in between whichever they were, so it cannot flicker on the line.
-            // It used to be "above the current hip" - in a keeper's crouch about 0.5 m - so nearly
-            // every take was overhand, fingers up. Heights from the feet, as a standing body has them.
-            // Palms facing up (cradling the ball): fingers point forward instead.
             Vector3 facing = palmFacing.normalized;
-            float h = transform.InverseTransformPoint(handPos).y;
-            if (h > body.hipHeight * FingersUpAbove) fingersUp = true;
-            else if (h < body.hipHeight * FingersDownBelow) fingersUp = false;
-            finger = Vector3.ProjectOnPlane(fingersUp ? transform.up : -transform.up, facing);
+            Vector3 up = transform.up;
+            float h = Vector3.Dot(handPos - shoulders, up) + ChestBelowShoulders * scale;   // + above the chest line
+            float halfShoulders = 0.5f * Vector3.Distance(leftUpperArm.position, rightUpperArm.position);
+            float across = Vector3.Dot(handPos - shoulders, transform.right);
+            bool wide = Mathf.Abs(across) > halfShoulders + WideOfShoulder * scale && h > -0.45f * scale && h < 0.1f * scale;
+            float margin = gripChosen ? GripHysteresis * scale : 0f;
+            Grip wanted = wide ? Grip.Out
+                        : h > (grip == Grip.Up ? -margin : margin) ? Grip.Up : Grip.Down;
+            if (!gripChosen || wanted != grip)
+            {
+                grip = wanted;
+                gripChosen = true;
+            }
+            Vector3 fingerWay = grip == Grip.Up ? up
+                              : grip == Grip.Down ? -up
+                              : transform.right * Mathf.Sign(across);
+            finger = Vector3.ProjectOnPlane(fingerWay, facing);
             if (finger.sqrMagnitude < 0.04f)
                 finger = Vector3.ProjectOnPlane(transform.forward, facing);
             finger = finger.normalized;
@@ -387,6 +406,7 @@ public partial class HumanoidReach : MonoBehaviour
         {
             leftWrist = rightWrist = Quaternion.identity;
             frameSet = false;   // start the next reach from its own frame, not a stale one
+            gripChosen = false; // and choose its grip afresh
             return;
         }
         Frame(out Vector3 finger, out Vector3 side);
@@ -476,5 +496,6 @@ public partial class HumanoidReach : MonoBehaviour
         spineFrozen = false;
         leftWrist = rightWrist = Quaternion.identity;
         frameSet = false;
+        gripChosen = false;
     }
 }

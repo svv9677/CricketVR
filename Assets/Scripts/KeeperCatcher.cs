@@ -106,7 +106,8 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         // re-reads it in this state (Live), so clear it or he would wait for it instead of fetching.
         if (state == eGameState.InGame_Bowled)
             hasIntercept = false;
-        // A hit changes everything about where the ball is going: read it again now.
+        // A hit changes everything about where the ball is going: read it again now (as it was a
+        // reaction time ago - he has not seen the new line yet).
         nextPredict = 0f;
         lastBall = inst.theBallRigidBody.position;
     }
@@ -150,18 +151,38 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
 
     // ---- Reading the ball ------------------------------------------------------------------------
 
+    /// How long after the ball does something he can act on it: a human's reaction time. He reads
+    /// the ball as it was this long ago, so an edge, or turn off the pitch, has him still going
+    /// the old way for that long - which is what beats real keepers. He used to re-read the live
+    /// ball every 0.05 s and follow every deflection at once.
+    private const float ReactionTime = 0.22f;
+    private struct Seen { public float time; public Vector3 position, velocity; }
+    private readonly List<Seen> seen = new List<Seen>(64);
+
     private void FixedUpdate()
     {
-        if (!Live(out _) || Time.time < nextPredict)
+        if (!Live(out _))
+        {
+            seen.Clear();
+            return;
+        }
+        Rigidbody rb = Main.Instance.theBallRigidBody;
+        seen.Add(new Seen { time = Time.time, position = rb.position, velocity = rb.linearVelocity });
+        while (seen.Count > 2 && seen[1].time <= Time.time - ReactionTime)
+            seen.RemoveAt(0);
+        if (Time.time < nextPredict)
             return;
         nextPredict = Time.time + PredictInterval;
-        Rigidbody rb = Main.Instance.theBallRigidBody;
-        hasIntercept = Predict(rb.position, rb.linearVelocity, out intercept, out float eta);
+        // Nothing to go on until he has watched it for his reaction time.
+        Seen s = seen[0];
+        if (s.time > Time.time - ReactionTime)
+            return;
+        hasIntercept = Predict(s.position, s.velocity, out intercept, out float eta);
         if (hasIntercept)
         {
-            interceptAt = Time.time + eta;
-            if (rb.linearVelocity.sqrMagnitude > 0.01f)
-                incoming = rb.linearVelocity.normalized;
+            interceptAt = s.time + eta;
+            if (s.velocity.sqrMagnitude > 0.01f)
+                incoming = s.velocity.normalized;
         }
     }
 
@@ -207,6 +228,7 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         lastRoot = transform.position;
 
         bool live = Live(out eGameState state);
+        body.quickness = 1f;   // the dive speeds his arms up; everything else eases
         // The ball is dead and coming back to him, or he is throwing it on (KeeperThrow).
         if (UpdateThrowRole(dt))
             return;
@@ -250,6 +272,12 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         Vector3 fwd = bodyRoot.forward, up = bodyRoot.up;
         bool between = !coming && state != eGameState.InGame_SelectDeliveryLoop &&
                        state != eGameState.InGame_DeliverBall && state != eGameState.InGame_DeliverBallLoop;
+        // Nothing on: stand easy until the bowler sets off.
+        if (between && !InPlay(state))
+        {
+            StandEasy();
+            return;
+        }
         Vector3 rest = between ? bodyRoot.position + fwd * RestHandsAhead + up * RestHandsUp
                                : bodyRoot.position + fwd * 0.45f + up * 0.42f;
         float eta = interceptAt - Time.time;
@@ -268,6 +296,61 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         // Gloves face the ball coming in, or straight up the pitch while waiting.
         Vector3 face = Vector3.Slerp(fwd, -incoming, onIt);
         body.palmFacing = face.sqrMagnitude > 1e-4f ? face : fwd;
+    }
+
+    /// A ball is being bowled or is in play - no standing easy.
+    private static bool InPlay(eGameState s) =>
+        s == eGameState.InGame_SelectDelivery || s == eGameState.InGame_SelectDeliveryLoop ||
+        s == eGameState.InGame_DeliverBall || s == eGameState.InGame_DeliverBallLoop ||
+        s == eGameState.InGame_BallHit || s == eGameState.InGame_BallHitLoop;
+
+    /// How often his eyes move on, seconds (a random time in this range), and how fast they get there.
+    private static readonly Vector2 GlanceEvery = new Vector2(1.8f, 4f);
+    private const float GlanceSpeed = 2.5f;
+    /// Standing easy: where the gloves rest (in front, at the waist) and how much of the reach.
+    private const float EasyHandsAhead = 0.25f, EasyHandsUp = 1.0f, EasyWeight = 0.85f;
+    private float nextGlance;
+    private Vector3 glanceAt, lookNow;
+
+    /// Between balls: stood up, feet in, arms down (the standing idle), looking about - at the
+    /// bowler walking back, the batter, the field, the crowd - the way a keeper waits. The
+    /// half-crouch with his gloves on his knees, held between every ball, looked set and awkward.
+    private void StandEasy()
+    {
+        body.minCrouch = 0f;
+        // Gloves loosely together in front of the waist, a light touch over the standing idle:
+        // that clip on its own holds the keeper's arms stiffly out from his sides (filmed).
+        body.handTarget = bodyRoot.position + bodyRoot.forward * EasyHandsAhead + bodyRoot.up * EasyHandsUp;
+        body.weight = EasyWeight;
+        body.leftHandShare = 1f;
+        body.handGap = 0.12f;
+        body.palmFacing = Vector3.zero;
+        feet.StanceHalfWidth = StandStance;
+        feet.Settle = true;
+        if (Time.time >= nextGlance)
+        {
+            nextGlance = Time.time + Random.Range(GlanceEvery.x, GlanceEvery.y);
+            glanceAt = Glance();
+        }
+        if (lookNow == Vector3.zero)
+            lookNow = glanceAt;
+        lookNow = Vector3.Lerp(lookNow, glanceAt, 1f - Mathf.Exp(-GlanceSpeed * Time.deltaTime));
+        body.look = true;
+        body.lookTarget = lookNow;
+    }
+
+    private Vector3 Glance()
+    {
+        Vector3 fwd = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+        Vector3 right = Vector3.Cross(Vector3.up, fwd);
+        float pick = Random.value;
+        if (pick < 0.35f && AnimatedBowler.Instance != null)
+            return AnimatedBowler.Instance.transform.position + Vector3.up * 1.6f;
+        if (pick < 0.6f)
+            return BatterHead();
+        // Somewhere out in the field, or up at the stands, in front and to the sides.
+        return transform.position + fwd * Random.Range(15f, 60f) + right * Random.Range(-40f, 40f) +
+               Vector3.up * Random.Range(1f, 12f);
     }
 
     /// Standing up with it: how long it takes, how much of the reach stays on (the right glove
@@ -333,9 +416,14 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
                  // A delivery must clear the wide boxes at the stumps (x 9.8-10.8) first, or a keeper
                  // standing up to the spinners would take it inside them and no wide could be called.
                  !(state == eGameState.InGame_DeliverBallLoop && now.x < WideBoxesEndX) &&
+                 Time.time >= spilledUntil &&
                  body.ClosestPalm(lastBall, now) <= (away ? PickUpDistance : GatherDistance))
         {
-            TakeIt(state, now);
+            // At full stretch in a dive, it only sometimes sticks (KeeperDive.DiveTakeSticks).
+            if (diving && !DiveTakeSticks())
+                Spill();
+            else
+                TakeIt(state, now);
         }
         lastBall = holding ? ball.position : now;
     }
