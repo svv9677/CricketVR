@@ -79,6 +79,27 @@ public class BatSounds : MonoBehaviour
         source.PlayOneShot(clip, volume * Mathf.Lerp(MinVolume, 1f, Mathf.Sqrt(loud)) * Random.Range(0.92f, 1f));
     }
 
+    /// The bat coming down on the ground (Bat's ground check): a dull knock where it touched -
+    /// the toe recordings, lower and muffled, as wood on turf sounds - louder the harder it lands.
+    /// Speed is how fast the bat was coming down, m/s.
+    public void PlayGround(Vector3 point, float speed)
+    {
+        if (toe == null || toe.Length == 0 || source == null)
+            return;
+        AudioClip clip = toe[Random.Range(0, toe.Length)];
+        if (clip == null)
+            return;
+        float loud = Mathf.Clamp01(speed / GroundFullSpeed);
+        if (source.transform != transform)
+            source.transform.position = point;
+        source.pitch = Random.Range(0.72f, 0.8f);
+        tone.cutoffFrequency = Mathf.Lerp(700f, 1800f, loud);
+        source.PlayOneShot(clip, Mathf.Lerp(0.2f, 0.75f, Mathf.Sqrt(loud)));
+    }
+
+    /// Coming down this fast (m/s) is as loud as a knock on the ground gets.
+    private const float GroundFullSpeed = 4f;
+
     /// Which recordings a contact uses, and how it is played.
     private void Voice(BatContact.ContactKind kind, out AudioClip[] takes, out float pitch, out float volume)
     {

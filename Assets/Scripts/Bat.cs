@@ -313,6 +313,7 @@ public partial class Bat : MonoBehaviour
             HeldPose(out Vector3 finalPos, out Quaternion finalRot);
             myRigidBody.transform.position = finalPos;
             myRigidBody.transform.rotation = finalRot;
+            CheckGroundTap();
         }
 
         CheckForContact();

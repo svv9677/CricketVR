@@ -13,7 +13,8 @@ using UnityEngine;
 /// KeeperCatcher.ReactionTime) that his feet will not get him there. Seen late, the ball arrives
 /// before he is stretched out and goes past the gloves: he still dives, and misses. The dive used
 /// to take exactly as long as the ball did - a 2 m dive in 0.2 s when it had to - and he took
-/// balls no one could. Even a glove on it at full stretch only sometimes holds (DiveTakeSticks);
+/// balls no one could. A glove on it in a dive holds most of the time, less at full stretch
+/// (DiveTakeSticks);
 /// otherwise it pops out (Spill).
 /// </summary>
 public partial class KeeperCatcher
@@ -35,7 +36,7 @@ public partial class KeeperCatcher
     /// How far the push-off carries his feet, at most, and how long he stays down and takes to rise.
     private const float MaxPush = 0.9f, LieTime = 0.45f, LieWithBall = 0.6f, RiseTime = 0.6f;
     /// Chance a dive take sticks: a short dive, and one at full stretch.
-    private const float StickShort = 0.75f, StickFull = 0.3f;
+    private const float StickShort = 0.9f, StickFull = 0.55f;
     /// After a spill, not his again for this long (it is popping out of the gloves).
     private const float SpillBlock = 0.4f;
 

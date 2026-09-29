@@ -2,32 +2,42 @@ using UnityEngine;
 
 /// <summary>
 /// A fielder's dive: for a ball going past him out of reach - a catch or a ground ball - that his
-/// feet will not get him to in time but a dive might. Same model as the keeper's (KeeperDive): a
-/// dive takes DiveTime from the push to landing, he is stretched out CatchPoint of the way
-/// through, then goes on down, lies a moment and gets up. Launched late, he is not out far enough
-/// yet and it goes past. A glove on it in a dive only sometimes holds (DiveTakeSticks) - a diving
-/// take is always the harder one.
+/// feet will not get him to in time but a dive might.
+///
+/// A real dive, not a fall: he pushes off and his hips fly out toward the ball - up for a high
+/// one, skimming low for a ground ball - the body going near-flat in the air with the arms
+/// stretched out ahead, meeting the ball DiveCatchPoint of the way through the flight. He lands on
+/// his side and front and slides on along the grass, stays down a moment, and gets up. (It used
+/// to be a roll about his feet: he toppled over like a felled tree and never left the ground.)
+/// The body is posed about the hips (HipHeight up from the feet), so turning him flat moves his
+/// feet off the ground too, not his head into it.
+///
+/// Launched late, he is not stretched out yet when it arrives, and it goes past. A hand on it in a
+/// dive holds it most of the time, less at full stretch (DiveTakeSticks).
 /// </summary>
 public partial class AnimatedFielder
 {
     /// How far beyond his normal reach a dive gets his hands, metres.
     private const float DiveReach = 2.5f;
-    private const float DiveTime = 0.6f, DiveCatchPoint = 0.7f;
-    private const float DiveLead = DiveTime * DiveCatchPoint;
-    /// Shoulders above his feet standing, for how far over he goes.
-    private const float DiveShoulder = 1.4f;
-    private const float DiveMaxPush = 1.1f, DiveLie = 0.5f, DiveLieWithBall = 0.6f, DiveRise = 0.6f;
+    /// Push-off to landing, and how far through it the arms meet the ball.
+    private const float DiveFlight = 0.55f, DiveCatchPoint = 0.7f;
+    private const float DiveLead = DiveFlight * DiveCatchPoint;
+    /// Sliding on along the grass after landing: how long, and how far at most.
+    private const float DiveSlideTime = 0.35f, DiveMaxSlide = 0.9f;
+    /// Hips above the feet standing; hips above the grass lying on his side; hips to fingertips
+    /// with the arms stretched out (shoulders 0.5 m up the body, then the arm).
+    private const float HipHeight = 0.95f, LyingHips = 0.2f, HipsToHands = 1.0f;
+    private const float DiveLie = 0.45f, DiveLieWithBall = 0.55f, DiveRise = 0.6f;
     /// Only for a ball this low - not one over his head.
-    private const float DiveMaxHeight = 2.1f;
+    private const float DiveMaxHeight = 2.2f;
     /// Chance a diving take sticks: just out of reach, and at full stretch.
-    private const float DiveStickShort = 0.6f, DiveStickFull = 0.2f;
+    private const float DiveStickShort = 0.85f, DiveStickFull = 0.5f;
     private const float DiveSpillBlock = 0.4f;
 
     private bool diving;
-    private float diveStart, diveSide, diveRoll, diveStretch, diveLanded = -1f, diveSpilledUntil, diveUpAt = -1f, diveLeap;
-    /// Highest a fielder gets off the ground leaping for a high one, metres.
-    private const float MaxLeap = 0.45f;
-    private Vector3 divePoint, diveFrom, diveTo, diveIncoming;
+    private float diveStart, diveSide, diveRoll, diveStretch, diveLanded = -1f, diveSpilledUntil, diveUpAt = -1f;
+    private float diveHipsAtCatch, diveReachOut, diveSlide;
+    private Vector3 divePoint, diveFrom, diveDir, diveIncoming;
     private Quaternion diveFacing;
 
     /// Called first in Move: starts a dive when one is on, and runs it. True while it owns him.
@@ -40,31 +50,63 @@ public partial class AnimatedFielder
             StartDive(point, eta);
         }
         float t = Time.time - diveStart;
-        float s = Mathf.Clamp01(t / DiveTime);
-        float out1 = 1f - (1f - s) * (1f - s);
-        float roll = ReachMath.DiveRoll(s, DiveCatchPoint, diveRoll);
-        if (s >= 1f && diveLanded < 0f)
-            diveLanded = Time.time;
         float stayDown = holdingBall ? DiveLieWithBall : DiveLie;
-        Vector3 at = Vector3.Lerp(diveFrom, diveTo, out1);
-        if (diveLanded >= 0f && Time.time - diveLanded > stayDown)
+        float roll;
+        Vector3 hips;
+        if (t < DiveFlight)
         {
-            float up = Mathf.Clamp01((Time.time - diveLanded - stayDown) / DiveRise);
-            roll = ReachMath.DiveLanded * (1f - up * up * (3f - 2f * up));
-            if (up >= 1f)
+            // In the air.
+            float s = t / DiveFlight;
+            float c = DiveCatchPoint;
+            roll = ReachMath.DiveRoll(s, c, diveRoll);
+            float across = diveReachOut * (1f - (1f - s) * (1f - s)) / (1f - (1f - c) * (1f - c));
+            float y = s <= c ? Mathf.Lerp(HipHeight, diveHipsAtCatch, Smooth(s / c))
+                             : Mathf.Lerp(diveHipsAtCatch, LyingHips, Sq((s - c) / (1f - c)));
+            hips = diveFrom + diveDir * across + Vector3.up * y;
+        }
+        else
+        {
+            // Down, sliding on, lying there, then up.
+            if (diveLanded < 0f)
+                diveLanded = Time.time;
+            float since = Time.time - diveLanded;
+            float slid = diveSlide * (1f - Sq(1f - Mathf.Clamp01(since / DiveSlideTime)));
+            float landed = diveReachOut / (1f - (1f - DiveCatchPoint) * (1f - DiveCatchPoint));
+            hips = diveFrom + diveDir * (landed + slid) + Vector3.up * LyingHips;
+            roll = ReachMath.DiveLanded;
+            float rise = since - DiveSlideTime - stayDown;
+            if (rise > 0f)
             {
-                EndDive();
-                return false;
+                // Up about his feet, where they lie.
+                float up = Mathf.Clamp01(rise / DiveRise);
+                roll = ReachMath.DiveLanded * (1f - Smooth(up));
+                Quaternion lying = diveFacing * Quaternion.AngleAxis(-diveSide * ReachMath.DiveLanded, Vector3.forward);
+                Vector3 feet = hips - lying * (Vector3.up * HipHeight);
+                feet.y = BallFlight.GroundY(feet);
+                if (up >= 1f)
+                {
+                    transform.position = feet;
+                    EndDive();
+                    return false;
+                }
+                transform.position = feet;
+                transform.rotation = diveFacing * Quaternion.AngleAxis(-diveSide * roll, Vector3.forward);
+                speed = 0f;
+                SetAnimation(0);
+                return true;
             }
         }
-        // Off the ground for a high one: a leap sideways, up and down again over the dive.
-        at.y += diveLeap * Mathf.Sin(Mathf.PI * s);
-        transform.position = at;
-        transform.rotation = diveFacing * Quaternion.AngleAxis(-diveSide * roll, Vector3.forward);
+        // Posed about the hips: the feet go wherever the body's angle puts them.
+        Quaternion body = diveFacing * Quaternion.AngleAxis(-diveSide * roll, Vector3.forward);
+        transform.position = hips - body * (Vector3.up * HipHeight);
+        transform.rotation = body;
         speed = 0f;
         SetAnimation(0);
         return true;
     }
+
+    private static float Smooth(float a) { a = Mathf.Clamp01(a); return a * a * (3f - 2f * a); }
+    private static float Sq(float a) { a = Mathf.Clamp01(a); return a * a; }
 
     /// The arms during a dive. True while diving (UpdateReach leaves them alone).
     private bool ReachForDive()
@@ -73,7 +115,7 @@ public partial class AnimatedFielder
             return false;
         if (holdingBall)
             return false;   // the normal hold: give, then in to the chest
-        bool reaching = diveLanded < 0f && Time.time < diveStart + DiveTime * DiveCatchPoint + 0.15f;
+        bool reaching = diveLanded < 0f && Time.time < diveStart + DiveFlight * DiveCatchPoint + 0.15f;
         reach.handTarget = divePoint;
         reach.weight = reaching ? 1f : Mathf.MoveTowards(reach.weight, 0.3f, Time.deltaTime * 3f);
         reach.quickness = 2.5f;   // arms flung out, not eased (eased, a keeper's were 0.3 m short)
@@ -121,7 +163,7 @@ public partial class AnimatedFielder
         divePoint = point;
         Vector3 v = inst.theBallRigidBody.linearVelocity;
         diveIncoming = v.sqrMagnitude > 0.01f ? v.normalized : -transform.forward;
-        // Face back along the ball's line (toward where it comes from), and go over sideways.
+        // Face back along the ball's line (toward where it comes from), and go out sideways to it.
         Vector3 face = Flat(-diveIncoming);
         if (face.sqrMagnitude < 1e-4f)
             face = Flat(transform.forward);
@@ -129,20 +171,20 @@ public partial class AnimatedFielder
         Vector3 right = diveFacing * Vector3.right;
         Vector3 offset = Flat(point - transform.position);
         diveSide = Mathf.Sign(Vector3.Dot(offset, right));
-        float lateral = Mathf.Abs(Vector3.Dot(offset, right));
         diveStretch = Mathf.InverseLerp(ReachRadius, ReachRadius + DiveReach, offset.magnitude);
-        float atCatchPush = 1f - (1f - DiveCatchPoint) * (1f - DiveCatchPoint);
-        float push = Mathf.Clamp(lateral - (DiveShoulder - 0.1f), 0.2f, DiveMaxPush) / atCatchPush;
+        diveDir = offset.sqrMagnitude > 1e-4f ? offset.normalized : right * diveSide;
         diveFrom = transform.position;
-        // Along the ball's line too, as much as he needs (up to half a metre).
-        float along = Mathf.Clamp(Vector3.Dot(offset, face.normalized), -0.5f, 0.5f);
-        diveTo = diveFrom + right * (diveSide * push) + face.normalized * along;
-        diveTo.y = BallFlight.GroundY(diveTo);
-        float height = Mathf.Max(0.1f, point.y - transform.position.y + 0.3f);
-        // Over as far as the take needs (and at least into a real dive), then on to the ground.
-        diveRoll = Mathf.Clamp(Mathf.Acos(Mathf.Clamp01(height / DiveShoulder)) * Mathf.Rad2Deg, 40f, ReachMath.DiveLanded);
-        // A ball above the shoulders: he leaps for it, up to MaxLeap off the ground.
-        diveLeap = Mathf.Clamp01((point.y - transform.position.y - 1.1f) / 0.8f) * MaxLeap;
+        // How the body meets it: flat out for a low ball, more upright (and off the ground) for a
+        // high one - the hips at the height that puts the outstretched hands on the ball.
+        float ballUp = point.y - transform.position.y;
+        float atCatch = Mathf.Lerp(82f, 40f, Mathf.InverseLerp(0.3f, 1.9f, ballUp));
+        diveRoll = atCatch;
+        float a = atCatch * Mathf.Deg2Rad;
+        diveHipsAtCatch = Mathf.Clamp(ballUp - HipsToHands * Mathf.Cos(a), 0.3f, 1.45f);
+        // The hips travel the rest of the way out: the hands reach HipsToHands along the body.
+        diveReachOut = Mathf.Max(0.2f, offset.magnitude - HipsToHands * Mathf.Sin(a));
+        // Carried on along the grass by the speed of the dive.
+        diveSlide = Mathf.Min(DiveMaxSlide, 0.25f * diveReachOut / DiveFlight * DiveSlideTime + 0.15f);
         hasTarget = false;
         speed = 0f;
     }

@@ -90,6 +90,7 @@ public class ThrowBack : MonoBehaviour
         busy = active = keeperHad = false;
         holder = receiver = thrownInBy = null;
         relayToBowler = false;
+        chain.Clear();
         EndBackup();
         if (bowlerHands != null)
             bowlerHands.Drop();
@@ -215,8 +216,8 @@ public class ThrowBack : MonoBehaviour
         if (c != null)
             c.enabled = false;   // Main switches it back on at the next release
         flightStart = Time.time;
-        // The keeper passing it on starts the relay home; a relay man passes it to the bowler.
-        relayToBowler = keeperThrowing;
+        // The keeper passing it on starts the chain home; it goes on until the bowler has it.
+        relayToBowler = relayToBowler || keeperThrowing;
         phase = Phase.Flying;
     }
 
@@ -235,8 +236,8 @@ public class ThrowBack : MonoBehaviour
         receiver.TakeThrow(velocity);
         if (receiver == (IThrowPlayer)keeper)
             EndBackup();
-        // Whoever takes it from the keeper is either the bowler or the relay man, who throws on
-        // to the bowler; from anyone else it came in to the keeper.
+        // On the chain home, each relay man throws on to the next (or the bowler); from anyone
+        // else it came in to the keeper.
         relayToBowler = relayToBowler && !IsBowler(receiver);
         holder = receiver;
         receiver = null;
@@ -271,26 +272,44 @@ public class ThrowBack : MonoBehaviour
     /// Whoever threw it in to the keeper: never the relay man for the same ball.
     private IThrowPlayer thrownInBy;
 
-    /// From the keeper: always through an inner-circle fielder - the one on the shortest way
-    /// round (keeper to him to the bowler) - and straight to the bowler only when there is nobody
-    /// inside the circle at all. From the relay man: the bowler.
+    /// The relay men used so far this ball: nobody takes it twice.
+    private readonly List<AnimatedFielder> chain = new List<AnimatedFielder>();
+    /// A relay man this close to the bowler throws straight to him; each hop must get the ball at
+    /// least MinProgress nearer the bowler, and be a throw he can make.
+    private const float FinalHop = 15f, MinProgress = 6f, MaxHop = 35f;
+
+    /// The next man in the chain home: from the keeper, from each relay man in turn, an
+    /// inner-circle fielder nearer the bowler - the one most on the way (holder to him to the
+    /// bowler, shortest) - until one is close enough to the bowler to give it to him. Straight to
+    /// the bowler only when nobody is left who helps. It used to be one relay, then the bowler.
     private IThrowPlayer BowlerOrRelay(bool fromKeeper)
     {
         IThrowPlayer bowler = BowlerReceiver();
-        if (bowler == null || !fromKeeper)
-            return bowler;
+        if (bowler == null)
+            return null;
         Vector3 from = Flat(holder.Position), to = Flat(bowler.Position);
+        float left = (to - from).magnitude;
+        if (!fromKeeper && left <= FinalHop)
+            return bowler;
         AnimatedFielder best = null;
         float bestWay = float.MaxValue;
         foreach (AnimatedFielder f in AnimatedFielder.All)
         {
-            if (f.IsBowler || f.HoldingBall || ReferenceEquals(f, thrownInBy) || Flat(f.StartPosition).magnitude > InnerRing)
+            if (f.IsBowler || f.HoldingBall || ReferenceEquals(f, thrownInBy) || ReferenceEquals(f, holder) ||
+                chain.Contains(f) || Flat(f.StartPosition).magnitude > InnerRing)
                 continue;
             Vector3 p = Flat(f.Position);
-            float way = (p - from).magnitude + (to - p).magnitude;
+            float hop = (p - from).magnitude, after = (to - p).magnitude;
+            // From the keeper anyone in the circle will do; after that, only a step nearer home.
+            if (!fromKeeper && (after > left - MinProgress || hop > MaxHop))
+                continue;
+            float way = hop + after;
             if (way < bestWay) { bestWay = way; best = f; }
         }
-        return best != null ? best : bowler;
+        if (best == null)
+            return bowler;
+        chain.Add(best);
+        return best;
     }
 
     /// The fielder nearest the spot behind the keeper runs to back up the throw.

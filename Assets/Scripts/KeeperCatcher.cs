@@ -106,8 +106,11 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         // re-reads it in this state (Live), so clear it or he would wait for it instead of fetching.
         if (state == eGameState.InGame_Bowled)
             hasIntercept = false;
-        // A hit changes everything about where the ball is going: read it again now (as it was a
-        // reaction time ago - he has not seen the new line yet).
+        // Off the bat: a new line he has not seen yet - he reacts to it a reaction time later.
+        if (state == eGameState.InGame_BallHit)
+            deflectedAt = Time.time;
+        else if (state == eGameState.InGame_SelectDelivery)
+            deflectedAt = -1f;
         nextPredict = 0f;
         lastBall = inst.theBallRigidBody.position;
     }
@@ -151,48 +154,44 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
 
     // ---- Reading the ball ------------------------------------------------------------------------
 
-    /// How long after the ball does something he can act on it: a human's reaction time. He reads
-    /// the ball as it was this long ago, so an edge, or turn off the pitch, has him still going
-    /// the old way for that long - which is what beats real keepers. He used to re-read the live
-    /// ball every 0.05 s and follow every deflection at once.
+    /// How long after a deflection he can act on it: a human's reaction time. A delivery he reads
+    /// from the moment it leaves the bowler's hand - its swing too - and keeps reading as it comes:
+    /// nothing about it surprises him. Off the bat it changes line without warning, and for this
+    /// long he keeps going for where it was going (that is what beats real keepers); then he reads
+    /// the new line. Delaying every read, as it did, had him missing easy straight deliveries.
     private const float ReactionTime = 0.22f;
-    private struct Seen { public float time; public Vector3 position, velocity; }
-    private readonly List<Seen> seen = new List<Seen>(64);
+    private float deflectedAt = -1f;
 
     private void FixedUpdate()
     {
-        if (!Live(out _))
-        {
-            seen.Clear();
+        if (!Live(out eGameState state) || Time.time < nextPredict)
             return;
-        }
-        Rigidbody rb = Main.Instance.theBallRigidBody;
-        seen.Add(new Seen { time = Time.time, position = rb.position, velocity = rb.linearVelocity });
-        while (seen.Count > 2 && seen[1].time <= Time.time - ReactionTime)
-            seen.RemoveAt(0);
-        if (Time.time < nextPredict)
+        // Just off the bat: carry on with the read he had until he has reacted.
+        if (deflectedAt >= 0f && Time.time - deflectedAt < ReactionTime)
             return;
         nextPredict = Time.time + PredictInterval;
-        // Nothing to go on until he has watched it for his reaction time.
-        Seen s = seen[0];
-        if (s.time > Time.time - ReactionTime)
-            return;
-        hasIntercept = Predict(s.position, s.velocity, out intercept, out float eta);
+        Rigidbody rb = Main.Instance.theBallRigidBody;
+        // A delivery still in the air before it pitches swings: read it with its swing.
+        Ball ball = Main.Instance.theBallScript;
+        BallFlight.DeliveryEffects effects = state == eGameState.InGame_DeliverBallLoop && ball.fresh
+            ? new BallFlight.DeliveryEffects { swingAccelPerV2 = ball.deliveryEffects.swingAccelPerV2, swingSign = ball.deliveryEffects.swingSign }
+            : BallFlight.DeliveryEffects.None;
+        hasIntercept = Predict(rb.position, rb.linearVelocity, effects, out intercept, out float eta);
         if (hasIntercept)
         {
-            interceptAt = s.time + eta;
-            if (s.velocity.sqrMagnitude > 0.01f)
-                incoming = s.velocity.normalized;
+            interceptAt = Time.time + eta;
+            if (rb.linearVelocity.sqrMagnitude > 0.01f)
+                incoming = rb.linearVelocity.normalized;
         }
     }
 
     /// Where the ball crosses the glove plane, HandsAhead in front of him, if it comes to him.
-    private bool Predict(Vector3 position, Vector3 velocity, out Vector3 point, out float eta)
+    private bool Predict(Vector3 position, Vector3 velocity, BallFlight.DeliveryEffects effects, out Vector3 point, out float eta)
     {
         point = Vector3.zero;
         eta = 0f;
         Transform anchor = transform;
-        BallFlight.Simulate(position, velocity, BallFlight.DeliveryEffects.None, PredictTime, path,
+        BallFlight.Simulate(position, velocity, effects, PredictTime, path,
             s => anchor.InverseTransformPoint(s.position).z < HandsAhead - 0.5f || s.position.y < -1f, PredictStep);
         Vector3 prev = anchor.InverseTransformPoint(position);
         float prevTime = 0f;

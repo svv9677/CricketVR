@@ -39,12 +39,54 @@ public partial class Bat
         transform.SetPositionAndRotation(position, rotation);
     }
 
+    // ---- The bat touching down: a knock you can hear and feel -------------------------------------
+
+    /// Within this of the ground counts as on it (so resting there does not re-trigger); slower
+    /// than this coming down makes no sound; not again for this long.
+    private const float TouchBand = 0.01f, MinTapSpeed = 0.25f, TapGap = 0.15f;
+    private float groundDepth, groundGap = 1f, lastGap = 1f, nextTap;
+    private Vector3 groundPoint;
+    private bool onGround;
+
+    /// After the simulated pose each frame (LateUpdate): touching down is a knock.
+    private void CheckGroundTap()
+    {
+        bool touching = groundDepth > 0f || groundGap < TouchBand;
+        if (touching && !onGround && Time.time >= nextTap)
+        {
+            // How fast it came down: the gap it closed this frame, plus how far it tried to go in.
+            float speed = (Mathf.Max(0f, lastGap) + groundDepth) / Mathf.Max(Time.deltaTime, 1e-3f);
+            if (speed >= MinTapSpeed)
+            {
+                nextTap = Time.time + TapGap;
+                if (sounds == null)
+                    sounds = GetComponent<BatSounds>();
+                if (sounds != null)
+                    sounds.PlayGround(groundPoint, speed);
+                float buzz = Mathf.Clamp01(0.2f + speed / 6f);
+                XRInput.SendHaptics(attachParent == leftHandParent, buzz, 0.04f);
+            }
+        }
+        onGround = touching;
+        lastGap = groundGap;
+    }
+
     /// Turn the bat about the hand (pivot) until no corner of it is below the ground.
     private void KeepAboveGround(Vector3 pivot, ref Vector3 position, ref Quaternion rotation)
     {
+        groundDepth = 0f;
+        groundGap = 1f;
         if (localCorners == null && !FindCorners())
             return;
         Vector3 scale = transform.lossyScale;
+        // How close the lowest corner is before any correction (for the knock when it touches).
+        foreach (Vector3 local in localCorners)
+        {
+            Vector3 p = position + rotation * Vector3.Scale(scale, local);
+            float gap = p.y - BallFlight.GroundY(p) - GroundClearance;
+            if (gap < groundGap) { groundGap = gap; groundPoint = new Vector3(p.x, BallFlight.GroundY(p), p.z); }
+        }
+        groundDepth = Mathf.Max(0f, -groundGap);
         for (int pass = 0; pass < GroundPasses; pass++)
         {
             // The deepest corner, by how far it is under the ground beneath it.
