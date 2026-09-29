@@ -60,6 +60,7 @@ public class CrowdController : MonoBehaviour
         _audio.clip = cheerClip;
         _audio.loop = true;
         _audio.volume = ambienceVolume;
+        GameAudio.Route(_audio, GameAudio.Channel.Crowd);
         if (cheerClip != null)
             _audio.Play();
         // A Quest audio-device change (headset sleep, headphones) stops every source.

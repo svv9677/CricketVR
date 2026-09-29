@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class Bat : MonoBehaviour
+public partial class Bat : MonoBehaviour
 {
     [SerializeField]
     protected Transform controllerParent;
@@ -204,7 +204,7 @@ public class Bat : MonoBehaviour
         if (sounds == null)
             sounds = GetComponent<BatSounds>();
         if (sounds != null)
-            sounds.Play(result.kind, result.impactSpeed);
+            sounds.Play(result.kind, result.impactSpeed, inst.theBall.transform.position);
 
         ShotStruck?.Invoke(new ShotInfo
         {
@@ -310,30 +310,35 @@ public class Bat : MonoBehaviour
         // If all set, and grabbing, update the transforms
         if (grabbable && grabbing)
         {
-            Vector3 destPos = attachParent.TransformPoint(Vector3.zero); // Replace with any local offset on hand, if needed
-            Quaternion destRot = attachParent.rotation * Quaternion.identity; // Replace with any local rotation on hand
-
-            Vector3 grabOffsetPosition;
-            Quaternion grabOffsetRotation;
-            if (attachParent == rightHandParent)
-            {
-                grabOffsetPosition = rightGrabOffsetPosition;
-                grabOffsetRotation = Quaternion.Euler(rightGrabOffsetEuler);
-            }
-            else
-            {
-                grabOffsetPosition = leftGrabOffsetPosition;
-                grabOffsetRotation = Quaternion.Euler(leftGrabOffsetEuler);
-            }
-
-            Vector3 finalPos = destPos + destRot * grabOffsetPosition;
-            Quaternion finalRot = destRot * grabOffsetRotation;
-
+            HeldPose(out Vector3 finalPos, out Quaternion finalRot);
             myRigidBody.transform.position = finalPos;
             myRigidBody.transform.rotation = finalRot;
         }
 
         CheckForContact();
+    }
+
+    /// Where the bat is with the hand holding it where attachParent is now.
+    private void HeldPose(out Vector3 position, out Quaternion rotation)
+    {
+        Vector3 destPos = attachParent.TransformPoint(Vector3.zero); // Replace with any local offset on hand, if needed
+        Quaternion destRot = attachParent.rotation * Quaternion.identity; // Replace with any local rotation on hand
+
+        Vector3 grabOffsetPosition;
+        Quaternion grabOffsetRotation;
+        if (attachParent == rightHandParent)
+        {
+            grabOffsetPosition = rightGrabOffsetPosition;
+            grabOffsetRotation = Quaternion.Euler(rightGrabOffsetEuler);
+        }
+        else
+        {
+            grabOffsetPosition = leftGrabOffsetPosition;
+            grabOffsetRotation = Quaternion.Euler(leftGrabOffsetEuler);
+        }
+
+        position = destPos + destRot * grabOffsetPosition;
+        rotation = destRot * grabOffsetRotation;
     }
 
 }

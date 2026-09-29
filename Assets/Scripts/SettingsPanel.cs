@@ -69,8 +69,12 @@ public partial class SettingsPanel : MonoBehaviour
     [Header("View & Comfort")]
     public SliderRow cameraHeightSlider;
 
-    [Header("Audio")]
-    public SliderRow volumeSlider;
+    [Header("Audio: one slider per GameAudio.Channel, 0-200%")]
+    public SliderRow masterVolume;
+    public SliderRow batVolume;
+    public SliderRow crowdVolume;
+    public SliderRow stumpsVolume;
+    public SliderRow fieldersVolume;
 
     private const float Distance = 1.45f;
     /// Bat power snaps to "Realistic" within this much of it.
@@ -93,12 +97,20 @@ public partial class SettingsPanel : MonoBehaviour
             OpenXRMenuInputModule.RegisterPanel(panel);
             registered = true;
         }
-        Transform head = Camera.main.transform;
-        Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
-        if (forward.sqrMagnitude < 1e-4f) forward = Vector3.left;
-        forward.Normalize();
-        panel.transform.SetPositionAndRotation(head.position + forward * Distance + Vector3.down * 0.1f,
-                                               Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(8f, 0f, 0f));
+        // Its fixed spot in front of the player (MenuLayout); in a scene without one, ahead of the gaze.
+        if (MenuLayout.TryGet(MenuLayout.Settings, out Vector3 spot, out Quaternion facing))
+        {
+            panel.transform.SetPositionAndRotation(spot, facing);
+        }
+        else
+        {
+            Transform head = Camera.main.transform;
+            Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
+            if (forward.sqrMagnitude < 1e-4f) forward = Vector3.left;
+            forward.Normalize();
+            panel.transform.SetPositionAndRotation(head.position + forward * Distance + Vector3.down * 0.1f,
+                                                   Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(8f, 0f, 0f));
+        }
         // Moved by hand before (grip): open where it was left instead.
         GrabbablePanel grab = GetComponent<GrabbablePanel>();
         if (grab != null)
@@ -181,7 +193,11 @@ public partial class SettingsPanel : MonoBehaviour
             overlayToggle.SetIsOnWithoutNotify(GameSettings.OverlayVisible);
         SetText(oversLabel, GameSettings.Overs == 1 ? "1 over" : $"{GameSettings.Overs} overs");
         SetSlider(cameraHeightSlider, GameSettings.CameraHeight, $"{GameSettings.CameraHeight * 100f:+0;-0;0} cm");
-        SetSlider(volumeSlider, GameSettings.MasterVolume, $"{GameSettings.MasterVolume * 100f:0}%");
+        SetVolume(masterVolume, GameAudio.Channel.Master);
+        SetVolume(batVolume, GameAudio.Channel.Bat);
+        SetVolume(crowdVolume, GameAudio.Channel.Crowd);
+        SetVolume(stumpsVolume, GameAudio.Channel.Stumps);
+        SetVolume(fieldersVolume, GameAudio.Channel.Fielders);
 
         // Bowling ranges, grip calibration, Just Restart and the debug overlay are in-match
         // tuning: there is no bowling profile loaded in Splash, so they are hidden rather than
@@ -227,6 +243,12 @@ public partial class SettingsPanel : MonoBehaviour
         if (row == null) return;
         if (row.slider != null) row.slider.SetValueWithoutNotify(value);
         SetText(row.value, text);
+    }
+
+    private static void SetVolume(SliderRow row, GameAudio.Channel c)
+    {
+        float v = GameAudio.GetVolume(c);
+        SetSlider(row, v, $"{v * 100f:0}%");
     }
 
     private static void SetRange(RangeRow row, float low, float high, string label, string text)
@@ -322,16 +344,32 @@ public partial class SettingsPanel : MonoBehaviour
             rig.PlaceAtCrease();
     }
 
-    public void OnVolume(float v)
+    public void OnMasterVolume(float v) => OnVolume(GameAudio.Channel.Master, v);
+    public void OnBatVolume(float v) => OnVolume(GameAudio.Channel.Bat, v);
+    public void OnCrowdVolume(float v) => OnVolume(GameAudio.Channel.Crowd, v);
+    public void OnStumpsVolume(float v) => OnVolume(GameAudio.Channel.Stumps, v);
+    public void OnFieldersVolume(float v) => OnVolume(GameAudio.Channel.Fielders, v);
+
+    /// Whole 5% steps, so a slider dragged back lands exactly on 100%.
+    private void OnVolume(GameAudio.Channel c, float v)
     {
-        GameSettings.MasterVolume = Mathf.Round(v * 100f) / 100f;
+        GameAudio.SetVolume(c, Mathf.Round(v * 20f) / 20f);
         Refresh();
     }
     public void OnOverlay(bool on) => GameSettings.OverlayVisible = on;
     public void OnToggleAdvanced() { if (advanced != null) SetAdvanced(!advanced.activeSelf); }
     public void OnCalibrateGrip() => M.onCalibrateGrip();
     public void OnResetGrip() => M.onResetGrip();
-    public void OnClose() => M.CloseSettings();
+    /// Done: back to whoever opened Settings - the pause card, the main menu, or (opened from
+    /// between balls) closed. Only without a menu in the scene does Main close it.
+    public void OnClose()
+    {
+        var screen = GetComponent<SettingsScreen>();
+        if (screen != null && MenuRoot.Instance != null && MenuRoot.Instance.IsOpen)
+            screen.OnDone();
+        else if (M != null)
+            M.CloseSettings();
+    }
 
     /// Advanced > Testing: reload the whole scene from scratch. For testing, when a play has got
     /// into a state that the next ball does not clear.

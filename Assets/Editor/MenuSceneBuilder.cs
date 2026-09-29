@@ -91,6 +91,8 @@ public static class MenuSceneBuilder
         }
         if (rig.GetComponent<XRRigSetup>() == null)
             rig.gameObject.AddComponent<XRRigSetup>();
+        // Head tracking: without it the camera never moves in the headset.
+        MenuLayoutBuilder.TrackHead(camera);
 
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = new Color(0.043f, 0.024f, 0.094f);   // matches the grade's top

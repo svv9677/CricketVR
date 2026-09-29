@@ -15,7 +15,7 @@ using UnityEngine.UI;
 ///   Fielding       fielder speed
 ///   Match          overs
 ///   View & Comfort camera height (this session), recentre at the crease
-///   Audio          volume
+///   Audio          volumes 0-200%: master, bat and ball, crowd, stumps, fielders' calls
 ///   Developer      debug overlay, restart the scene
 ///
 /// Used by UIPrefabBuilder for a fresh build, and by Tools > CricketVR > Rebuild Settings Pages,
@@ -67,7 +67,7 @@ public static class SettingsPanelBuilder
         Category(home, "Fielding", "Fielder speed", c.OnPageFielding);
         Category(home, "Match", "Overs", c.OnPageMatch);
         Category(home, "View & Comfort", "Camera height, recentre", c.OnPageView);
-        Category(home, "Audio", "Volume", c.OnPageAudio);
+        Category(home, "Audio", "Master, bat, crowd, stumps, fielders", c.OnPageAudio);
         Category(home, "Developer", "Debug overlay, restart", c.OnPageDeveloper);
 
         Transform batting = Page(card, "batting", pages, names);
@@ -114,7 +114,13 @@ public static class SettingsPanelBuilder
         matchOnly.Add(recentre.gameObject);
 
         Transform audio = Page(card, "audio", pages, names);
-        c.volumeSlider = UIControls.ValueSlider(audio, "Volume", 0f, 1f, false, c.OnVolume);
+        // 0-200%, the tick at 100% (as recorded).
+        float max = GameAudio.MaxVolume;
+        c.masterVolume = UIControls.ValueSlider(audio, "Master", 0f, max, false, c.OnMasterVolume, 1f);
+        c.batVolume = UIControls.ValueSlider(audio, "Bat and ball", 0f, max, false, c.OnBatVolume, 1f);
+        c.crowdVolume = UIControls.ValueSlider(audio, "Crowd", 0f, max, false, c.OnCrowdVolume, 1f);
+        c.stumpsVolume = UIControls.ValueSlider(audio, "Stumps", 0f, max, false, c.OnStumpsVolume, 1f);
+        c.fieldersVolume = UIControls.ValueSlider(audio, "Fielders' calls", 0f, max, false, c.OnFieldersVolume, 1f);
 
         Transform developer = Page(card, "developer", pages, names);
         c.overlayToggle = UIControls.ToggleButton(developer, "Debug overlay", c.OnOverlay);

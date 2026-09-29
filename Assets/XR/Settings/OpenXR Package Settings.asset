@@ -389,7 +389,11 @@ MonoBehaviour:
   m_Name: Standalone
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
   features:
+  - {fileID: 5398908849641990636}
+  - {fileID: -1583992289371547976}
+  - {fileID: -8167211407653662608}
   - {fileID: -366851666937494728}
+  - {fileID: -4579888881212343024}
   - {fileID: 6684222169715104453}
   - {fileID: 4984905634987227609}
   - {fileID: 7605547980290205868}
@@ -400,6 +404,18 @@ MonoBehaviour:
   - {fileID: -3580645044505082213}
   - {fileID: 7799062869493058711}
   - {fileID: 2385568332458969955}
+  - {fileID: -3410238817949796835}
+  - {fileID: 8109250442655931493}
+  - {fileID: 855651389302888615}
+  - {fileID: 4371536828174501168}
+  - {fileID: 128419798139654853}
+  - {fileID: 4101115463357005258}
+  - {fileID: -6560672862366203306}
+  - {fileID: 7024767955158180015}
+  - {fileID: -1713456592811812760}
+  - {fileID: 6532831499860256331}
+  - {fileID: 5252779827576000648}
+  - {fileID: -5843309201088063971}
   - {fileID: 7778323811984492445}
   - {fileID: 1015094443479908180}
   - {fileID: 528795177393469687}
@@ -408,22 +424,6 @@ MonoBehaviour:
   - {fileID: 2764505351235783656}
   - {fileID: -5871536655585824708}
   - {fileID: 7894999983958936645}
-  - {fileID: -1583992289371547976}
-  - {fileID: -8167211407653662608}
-  - {fileID: -4579888881212343024}
-  - {fileID: 6532831499860256331}
-  - {fileID: 5252779827576000648}
-  - {fileID: 4371536828174501168}
-  - {fileID: 128419798139654853}
-  - {fileID: -3410238817949796835}
-  - {fileID: -6560672862366203306}
-  - {fileID: 855651389302888615}
-  - {fileID: 8109250442655931493}
-  - {fileID: 5398908849641990636}
-  - {fileID: -1713456592811812760}
-  - {fileID: -5843309201088063971}
-  - {fileID: 4101115463357005258}
-  - {fileID: 7024767955158180015}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0
@@ -519,7 +519,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dfde4033cbc8045a69c465b226fd4284, type: 3}
   m_Name: DisplayUtilitiesFeature Android
   m_EditorClassIdentifier: Unity.XR.MetaOpenXR::UnityEngine.XR.OpenXR.Features.Meta.DisplayUtilitiesFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 'Meta Quest: Display Utilities'
   version: 0.1.0
   featureIdInternal: com.unity.openxr.feature.meta-display-utilities

@@ -69,11 +69,16 @@ public class BatGripCalibration : MonoBehaviour
         previousEuler = leftHand ? bat.leftGrabOffsetEuler : bat.rightGrabOffsetEuler;
         IsActive = true;
 
+        // The shells go in front of where the player stands, facing the way they face (MenuLayout:
+        // toward the bowler), not wherever they are looking.
         Transform head = Camera.main.transform;
-        Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
-        if (forward.sqrMagnitude < 1e-4f)
-            forward = Vector3.left;
-        forward.Normalize();
+        if (!MenuLayout.TryGetEye(out _, out Vector3 forward))
+        {
+            forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
+            if (forward.sqrMagnitude < 1e-4f)
+                forward = Vector3.left;
+            forward.Normalize();
+        }
         float floorY = head.parent != null ? head.parent.position.y : 0f;
 
         if (upright == null)
@@ -90,8 +95,12 @@ public class BatGripCalibration : MonoBehaviour
 
         // The panel sits off to the side of the free hand, so it never hides either shell.
         Vector3 side = Vector3.Cross(Vector3.up, forward) * (leftHand ? 0.45f : -0.45f);
+        Vector3 panelAt = head.position + forward * 0.7f + side + Vector3.down * 0.2f;
+        if (MenuLayout.TryGet(leftHand ? MenuLayout.GripPanelLeftHanded : MenuLayout.GripPanelRightHanded,
+                              out Vector3 spot, out _))
+            panelAt = spot;
         if (GripCalibrationPanel.Instance != null)
-            GripCalibrationPanel.Instance.Show(head.position + forward * 0.7f + side + Vector3.down * 0.2f, forward);
+            GripCalibrationPanel.Instance.Show(panelAt, forward);
 
         EnterPassthrough();
     }

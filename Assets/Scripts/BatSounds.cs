@@ -12,12 +12,15 @@ using UnityEngine;
 /// Each kind has a few takes, one picked at random and detuned slightly so no two shots sound
 /// identical. Loudness and brightness follow the closing speed along the contact normal - how
 /// hard ball and bat actually met - not the exit speed, so a hard swing that only clips an edge
-/// is still quiet. Played from one pooled 3D source on the bat: no objects made per hit
+/// is still quiet. Played from one pooled 3D source, the Impact Voice child of the
+/// bat, moved to where the ball met the blade for each hit: no objects made per hit
 /// (PlayClipAtPoint makes and destroys one each time).
 /// </summary>
-[RequireComponent(typeof(AudioSource))]
 public class BatSounds : MonoBehaviour
 {
+    [Tooltip("The Impact Voice child (AudioSource + AudioLowPassFilter), moved to each contact.")]
+    [SerializeField] private AudioSource voice;
+
     [SerializeField] private AudioClip[] middled;
     [SerializeField] private AudioClip[] good;
     [SerializeField] private AudioClip[] edge;
@@ -37,10 +40,17 @@ public class BatSounds : MonoBehaviour
 
     private void Awake()
     {
-        source = GetComponent<AudioSource>();
-        tone = GetComponent<AudioLowPassFilter>();
+        source = voice != null ? voice : GetComponent<AudioSource>();
+        if (source == null)
+        {
+            Debug.LogError("BatSounds has no Impact Voice - run Tools > CricketVR > Add Bat Impact Voice.", this);
+            enabled = false;
+            return;
+        }
+        GameAudio.Route(source, GameAudio.Channel.Bat);
+        tone = source.GetComponent<AudioLowPassFilter>();
         if (tone == null)
-            tone = gameObject.AddComponent<AudioLowPassFilter>();
+            tone = source.gameObject.AddComponent<AudioLowPassFilter>();
         tone.lowpassResonanceQ = 1f;
         source.playOnAwake = false;
         source.spatialBlend = 1f;
@@ -49,12 +59,15 @@ public class BatSounds : MonoBehaviour
         source.rolloffMode = AudioRolloffMode.Logarithmic;
     }
 
-    /// Played from the bat itself: the source is on the bat, within half a metre of any contact.
-    public void Play(BatContact.ContactKind kind, float impactSpeed)
+    /// Played from where the ball met the bat. The voice is a child of the bat, so it rides along
+    /// with the follow-through for the fraction of a second the sound lasts.
+    public void Play(BatContact.ContactKind kind, float impactSpeed, Vector3 contactPoint)
     {
         Voice(kind, out AudioClip[] takes, out float pitch, out float volume);
         if (takes == null || takes.Length == 0 || source == null)
             return;
+        if (source.transform != transform)
+            source.transform.position = contactPoint;
         AudioClip clip = takes[Random.Range(0, takes.Length)];
         if (clip == null)
             return;

@@ -279,7 +279,7 @@ public class Main : MonoBehaviour
         SetupXRControllers();
 
         GameSettings.Changed += ApplyGameSettings;
-        AudioListener.volume = GameSettings.MasterVolume;
+        GameAudio.ApplyAll();
 
         initialized = true;
         gameState = eGameState.None;
@@ -597,11 +597,19 @@ public class Main : MonoBehaviour
 
     public void OpenSettings()
     {
+        // The settings panel is a screen of the menu (MenuRoot) now, and MenuRoot keeps its
+        // screens switched off until it shows them: showing the panel directly left it inside an
+        // inactive parent, so nothing appeared.
+        if (MenuRoot.Instance != null)
+        {
+            MenuRoot.Instance.OpenAt("settings");
+            return;
+        }
         if (!menuToggle)
             ToggleUI(true);
     }
 
-    public bool SettingsOpen => menuToggle;
+    public bool SettingsOpen => menuToggle || (MenuRoot.Instance != null && MenuRoot.Instance.IsOpen);
     public bool CalibratingGrip => gripCalibration != null && gripCalibration.IsActive;
 
     public void onCalibrateGrip() { StartGripCalibration(false); }

@@ -16,7 +16,6 @@ GameObject:
   - component: {fileID: 3504492058990763363}
   - component: {fileID: 2468536972802485838}
   - component: {fileID: 8261757766710125975}
-  - component: {fileID: 7484224692437373236}
   - component: {fileID: 741051747061509208}
   m_Layer: 0
   m_Name: Bat
@@ -40,6 +39,7 @@ Transform:
   m_Children:
   - {fileID: 7806812127181258295}
   - {fileID: 2267938003630290214}
+  - {fileID: 4533030574038056166}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &199507635142268838
@@ -212,13 +212,79 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 81ef86cfe853948e7bd8533ae8f0834d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BatGripCalibration
---- !u!82 &7484224692437373236
-AudioSource:
+--- !u!114 &741051747061509208
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 199507635142268923}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9366dbcfd39c84a3fbbb68f8cd7b23b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BatSounds
+  voice: {fileID: 6925984149972812557}
+  middled:
+  - {fileID: 8300000, guid: 4763a13114aa742a890394f8904cd17a, type: 3}
+  - {fileID: 8300000, guid: 39c95f53f402b4230b7b25fbf2f55258, type: 3}
+  good:
+  - {fileID: 8300000, guid: f6fd5ebcec8b24cb28c0ecf35f8fa409, type: 3}
+  - {fileID: 8300000, guid: 4693f044099dd4b5cb91b10d470da28a, type: 3}
+  edge:
+  - {fileID: 8300000, guid: 16af75865c6084a8db43e0335e7a6580, type: 3}
+  - {fileID: 8300000, guid: fbe0713b3ef744bfb97bf5dd2362cd76, type: 3}
+  - {fileID: 8300000, guid: 588df1e5ca0764299b8cd4e0d5486425, type: 3}
+  - {fileID: 8300000, guid: 02395874655214f4ab85317c2e3f3263, type: 3}
+  toe:
+  - {fileID: 8300000, guid: 3d388f809443d41839bc0f4297f02748, type: 3}
+  - {fileID: 8300000, guid: f99caf60e60524644990535d3145d9c1, type: 3}
+  - {fileID: 8300000, guid: 882664975925b48268b985eac24d8c56, type: 3}
+  handle:
+  - {fileID: 8300000, guid: c82f17229eb184405ba369551cc8d4c0, type: 3}
+  - {fileID: 8300000, guid: 737f1fe8a04e643ab893984e549054a1, type: 3}
+  - {fileID: 8300000, guid: 3633abf2a5bae4a3387b07e826098b33, type: 3}
+  - {fileID: 8300000, guid: 840f5a2b2dc734013b7fcc648353b4d7, type: 3}
+--- !u!1 &830166405201575435
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4533030574038056166}
+  - component: {fileID: 6925984149972812557}
+  - component: {fileID: 7599222916977885183}
+  m_Layer: 0
+  m_Name: Impact Voice
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4533030574038056166
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 830166405201575435}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 199507635142268811}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &6925984149972812557
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 830166405201575435}
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
@@ -309,38 +375,31 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &741051747061509208
-MonoBehaviour:
+--- !u!169 &7599222916977885183
+AudioLowPassFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 199507635142268923}
+  m_GameObject: {fileID: 830166405201575435}
   m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9366dbcfd39c84a3fbbb68f8cd7b23b7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BatSounds
-  middled:
-  - {fileID: 8300000, guid: 4763a13114aa742a890394f8904cd17a, type: 3}
-  - {fileID: 8300000, guid: 39c95f53f402b4230b7b25fbf2f55258, type: 3}
-  good:
-  - {fileID: 8300000, guid: f6fd5ebcec8b24cb28c0ecf35f8fa409, type: 3}
-  - {fileID: 8300000, guid: 4693f044099dd4b5cb91b10d470da28a, type: 3}
-  edge:
-  - {fileID: 8300000, guid: 16af75865c6084a8db43e0335e7a6580, type: 3}
-  - {fileID: 8300000, guid: fbe0713b3ef744bfb97bf5dd2362cd76, type: 3}
-  - {fileID: 8300000, guid: 588df1e5ca0764299b8cd4e0d5486425, type: 3}
-  - {fileID: 8300000, guid: 02395874655214f4ab85317c2e3f3263, type: 3}
-  toe:
-  - {fileID: 8300000, guid: 3d388f809443d41839bc0f4297f02748, type: 3}
-  - {fileID: 8300000, guid: f99caf60e60524644990535d3145d9c1, type: 3}
-  - {fileID: 8300000, guid: 882664975925b48268b985eac24d8c56, type: 3}
-  handle:
-  - {fileID: 8300000, guid: c82f17229eb184405ba369551cc8d4c0, type: 3}
-  - {fileID: 8300000, guid: 737f1fe8a04e643ab893984e549054a1, type: 3}
-  - {fileID: 8300000, guid: 3633abf2a5bae4a3387b07e826098b33, type: 3}
-  - {fileID: 8300000, guid: 840f5a2b2dc734013b7fcc648353b4d7, type: 3}
+  serializedVersion: 3
+  m_LowpassResonanceQ: 1
+  lowpassLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.22727273
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &1086151735689333264
 GameObject:
   m_ObjectHideFlags: 0

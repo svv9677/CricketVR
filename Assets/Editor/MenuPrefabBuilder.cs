@@ -155,7 +155,6 @@ public static class MenuPrefabBuilder
         _ = fewer;
         _ = more;
 
-        UIControls.ActionButton(column, "Practice in Nets", screen.OnPracticeInNets, false);
         UIControls.ActionButton(column, "Settings", screen.OnSettings, false);
 
         var so = new SerializedObject(screen);

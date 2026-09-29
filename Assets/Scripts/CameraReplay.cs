@@ -319,13 +319,18 @@ public class CameraReplay : MonoBehaviour
         if (!frameCaptured)
             CaptureScreenFrame(head.position);
 
-        Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
-        if (forward.sqrMagnitude < 1e-4f)
-            forward = Vector3.ProjectOnPlane(head.up, Vector3.up);   // looking straight down/up
-        forward = forward.sqrMagnitude > 1e-6f ? forward.normalized : Vector3.forward;
+        // Straight ahead of the player's fixed spot (MenuLayout), not wherever they are looking.
+        if (!MenuLayout.TryGetEye(out Vector3 eyePoint, out Vector3 forward))
+        {
+            eyePoint = head.position;
+            forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
+            if (forward.sqrMagnitude < 1e-4f)
+                forward = Vector3.ProjectOnPlane(head.up, Vector3.up);   // looking straight down/up
+            forward = forward.sqrMagnitude > 1e-6f ? forward.normalized : Vector3.forward;
+        }
 
-        position = head.position + forward * frontDistance + Vector3.down * frontDrop;
-        Vector3 toViewer = head.position - position;
+        position = eyePoint + forward * frontDistance + Vector3.down * frontDrop;
+        Vector3 toViewer = eyePoint - position;
         rotation = Quaternion.LookRotation(toViewer, Vector3.up) * Quaternion.Inverse(screenFrame);
         scale = homeScale * (homeWidth > 1e-4f ? frontWidth / homeWidth : 1f);
         return true;

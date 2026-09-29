@@ -61,13 +61,21 @@ public class NextBallMenu : MonoBehaviour
             OpenXRMenuInputModule.RegisterPanel(panel);
             registered = true;
         }
-        Transform head = Camera.main.transform;
-        Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
-        if (forward.sqrMagnitude < 1e-4f) forward = Vector3.left;
-        forward.Normalize();
-        // Canvas text faces -Z, so point +Z away from the player; tilt it up toward the eyes.
-        panel.transform.SetPositionAndRotation(head.position + forward * Distance + Vector3.down * BelowEyes,
-                                               Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(20f, 0f, 0f));
+        // Its fixed spot in front of the player (MenuLayout); in a scene without one, ahead of the gaze.
+        if (MenuLayout.TryGet(MenuLayout.NextBall, out Vector3 spot, out Quaternion facing))
+        {
+            panel.transform.SetPositionAndRotation(spot, facing);
+        }
+        else
+        {
+            Transform head = Camera.main.transform;
+            Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
+            if (forward.sqrMagnitude < 1e-4f) forward = Vector3.left;
+            forward.Normalize();
+            // Canvas text faces -Z, so point +Z away from the player; tilt it up toward the eyes.
+            panel.transform.SetPositionAndRotation(head.position + forward * Distance + Vector3.down * BelowEyes,
+                                                   Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(20f, 0f, 0f));
+        }
         // Moved by hand before (grip): open where it was left instead.
         GrabbablePanel grab = GetComponent<GrabbablePanel>();
         if (grab != null)

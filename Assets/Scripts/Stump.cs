@@ -62,6 +62,6 @@ public class Stump : MonoBehaviour
     public IEnumerator PlayBallHitStumpSoundDelayed(Vector3 point)
     {
         yield return new WaitForSeconds(0.3f);
-        AudioSource.PlayClipAtPoint(audioClip, point);
+        GameAudio.PlayAt(audioClip, point, GameAudio.Channel.Stumps);
     }
 }
