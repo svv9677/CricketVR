@@ -64,6 +64,9 @@ public static class BallDelivery
     /// A bouncer that passes the stumps higher than this is over the batter's head and would be
     /// called wide (or a no-ball for height). The ball is pulled fuller until it clears the check.
     public const float MaxHeightAtStumps = 1.9f;
+    /// ...except the odd bouncer that gets away from the bowler (BowlingParams.overHead): up to
+    /// this, over the batter's head, and called wide (Ball, at the stumps).
+    public const float OverHeadBouncerHeight = 2.8f;
     /// How far fuller each retry pulls a too-high bouncer, and how many times it may.
     const float FullerStep = 0.5f;
     const int MaxFullerRetries = 8;
@@ -101,8 +104,10 @@ public static class BallDelivery
     /// <param name="targetLineZ">World Z the ball should be at when it reaches the batsman's
     /// stumps, after swing, the bounce and any turn. This is what the bowler controls, and what
     /// decides whether it is a wide.</param>
+    /// <param name="maxHeightAtStumps">Highest it may pass the stumps before it is pulled fuller;
+    /// raised for the odd bouncer let go over the batter's head (a wide).</param>
     public static Solution Solve(Vector3 handPosition, float targetPitchX, float speedMps, float targetLineZ,
-                                 BallFlight.DeliveryEffects effects)
+                                 BallFlight.DeliveryEffects effects, float maxHeightAtStumps = MaxHeightAtStumps)
     {
         string warn = "";
         Vector3 release = ValidateRelease(handPosition, ref warn, out bool positionCorrected);
@@ -116,7 +121,7 @@ public static class BallDelivery
         // half a metre at a time, until it passes the stumps at a legal height. The step is small
         // so the ball stays short - just not absurdly so.
         float fullest = BatsmanStumpsX - PoppingCreaseDistance;
-        for (int i = 0; i < MaxFullerRetries && shot.heightAtStumps > MaxHeightAtStumps && pitchX < fullest; i++)
+        for (int i = 0; i < MaxFullerRetries && shot.heightAtStumps > maxHeightAtStumps && pitchX < fullest; i++)
         {
             float fuller = Mathf.Min(pitchX + FullerStep, fullest);
             warn += $"bouncer {shot.heightAtStumps:F2} m high at the stumps; pitch x {pitchX:F2} -> {fuller:F2}. ";

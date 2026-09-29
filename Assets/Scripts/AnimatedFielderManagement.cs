@@ -107,6 +107,12 @@ public class AnimatedFielderManagement : MonoBehaviour
         }
         else if (state != eGameState.InGame_BallHitLoop)
         {
+            // It is taken, over the rope, or the play is over: call everyone else off. The man
+            // backing up the chase kept running on behind the one who had caught it.
+            if (tracking)
+                foreach (AnimatedFielder f in AnimatedFielder.All)
+                    if (!f.HoldingBall)
+                        f.CallOff();
             tracking = false;
             path.Clear();
         }
@@ -367,6 +373,9 @@ public class AnimatedFielderManagement : MonoBehaviour
         Main inst = Main.Instance;
         if (!tracking || inst.theBallRigidBody.isKinematic || inst.gameState != eGameState.InGame_BallHitLoop)
             return false;
+        // Over the rope it is a boundary, whoever touches it (BoundaryCollider calls it).
+        if (BoundaryCollider.Beyond(inst.theBallRigidBody.position))
+            return false;
         tracking = false;
         Take(fielder, fielder.name);
         return true;
@@ -388,6 +397,10 @@ public class AnimatedFielderManagement : MonoBehaviour
         inst.theBallScript.myParticles.enabled = false;
         if (fielder != null)
             fielder.TakeBall();
+        // Everyone else stops chasing: it is in someone's hands.
+        foreach (AnimatedFielder other in AnimatedFielder.All)
+            if (other != fielder)
+                other.CallOff();
         inst.currentFielderName = name;
         inst.gameState = eGameState.InGame_BallFielded;
     }

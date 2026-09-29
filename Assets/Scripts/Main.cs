@@ -584,6 +584,7 @@ public class Main : MonoBehaviour
         if (gameState != eGameState.InGame_Ready)
             return;
         currentFielderName = "";
+        Extras.Clear();
 
         // Reset stumps - both ends
         foreach (Stumps stumps in FindObjectsByType<Stumps>(FindObjectsSortMode.None))
@@ -816,7 +817,8 @@ public class Main : MonoBehaviour
                         BallFlight.DeliveryEffects effects = currentBowlingConfig.Effects(offSign);
                         theBallScript.deliveryEffects = effects;
                         BallDelivery.Solution delivery = BallDelivery.Solve(
-                            releaseFrom, currentBowlingConfig.length, speedMps, targetLine, effects);
+                            releaseFrom, currentBowlingConfig.length, speedMps, targetLine, effects,
+                            currentBowlingConfig.overHead ? BallDelivery.OverHeadBouncerHeight : BallDelivery.MaxHeightAtStumps);
                         if (!string.IsNullOrEmpty(delivery.warnings))
                             Debug.LogWarning($"[Delivery] {delivery}");
                         else if (verboseStateLogging)

@@ -125,6 +125,8 @@ public class BowlingParams
     public float pitchTurn;
     public bool applySwing;
     public bool applyPitchTurn;
+    /// A bouncer let go over the batter's head (a wide): the solver does not pull it fuller.
+    public bool overHead;
 
     public BowlingParams()
     {
@@ -221,19 +223,23 @@ public static class DeliveryPicker
 
     /// Yorkers pitch at the batter's toes, 1.3 m out - just ahead of the popping crease (1.22 m),
     /// so even the fullest ball bounces before it reaches the batter.
+    /// Weights spread wider than a stock-ball-heavy attack (good length was 40%, now 29%): the
+    /// batter should not be able to settle on one length.
     public static readonly Band[] PaceBands =
     {
-        new Band(eLengthBand.Yorker,        1.3f,  2f,  0.08f),
+        new Band(eLengthBand.Yorker,        1.3f,  2f,  0.12f),
         new Band(eLengthBand.Full,          2f,    4f,  0.22f),
-        new Band(eLengthBand.GoodLength,    4f,    7f,  0.40f),
-        new Band(eLengthBand.BackOfALength, 7f,    9f,  0.18f),
-        new Band(eLengthBand.Short,         9f,   12f,  0.12f),
+        new Band(eLengthBand.GoodLength,    4f,    7f,  0.29f),
+        new Band(eLengthBand.BackOfALength, 7f,    9f,  0.21f),
+        new Band(eLengthBand.Short,         9f,   12.5f, 0.16f),
     };
     public static readonly Band[] SpinBands =
     {
-        new Band(eLengthBand.Full,          1.5f, 3.5f, 0.30f),
-        new Band(eLengthBand.GoodLength,    3.5f, 5.5f, 0.55f),
-        new Band(eLengthBand.Short,         5.5f, 7f,   0.15f),
+        new Band(eLengthBand.Yorker,        1.3f, 1.8f, 0.07f),
+        new Band(eLengthBand.Full,          1.8f, 3.5f, 0.28f),
+        new Band(eLengthBand.GoodLength,    3.5f, 5.5f, 0.38f),
+        new Band(eLengthBand.BackOfALength, 5.5f, 6.8f, 0.17f),
+        new Band(eLengthBand.Short,         6.8f, 8.5f, 0.10f),
     };
 
     /// Stumps span +-0.114. The corridor - off stump to a bat's width outside it - is where good
@@ -380,9 +386,41 @@ public class BowlingProfile
         param.speedZ = pick.line;
         param.swing = Random.Range(minSwing, maxSwing);
         param.pitchTurn = Random.Range(minPitchTurn, maxPitchTurn);
+        Vary(param);
         param.applySwing = true;
         param.applyPitchTurn = true;
         return param;
+    }
+
+    /// Chance a swing bowler's ball holds its line (barely swings), and how much it does then.
+    public const float NoSwingChance = 0.12f, NoSwingMax = 0.12f;
+    /// Chance of a leg-spinner's googly (turns the other way) and an off-spinner's arm ball (goes
+    /// straight on, a touch of drift the other way).
+    public const float GooglyChance = 0.12f, ArmBallChance = 0.12f;
+    /// Chance a quick's short ball gets away over the batter's head (a wide).
+    public const float OverHeadChance = 0.2f;
+
+    /// The odd ball that is not like the others: they are what makes a batter watch every one.
+    private void Vary(BowlingParams param)
+    {
+        switch (swingType)
+        {
+            case eSwingType.InSwing:
+            case eSwingType.OutSwing:
+                if (Random.value < NoSwingChance)
+                    param.swing = Random.Range(0f, NoSwingMax);
+                break;
+            case eSwingType.LegSpin:
+                if (Random.value < GooglyChance)
+                    param.pitchTurn = -param.pitchTurn;
+                break;
+            case eSwingType.OffSpin:
+                if (Random.value < ArmBallChance)
+                    param.pitchTurn = Random.Range(-0.05f, 0.05f);
+                break;
+        }
+        param.overHead = !DeliveryPicker.IsSpin(swingType) && param.lengthBand == eLengthBand.Short &&
+                         Random.value < OverHeadChance;
     }
 }
 

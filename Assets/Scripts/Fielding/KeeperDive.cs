@@ -221,5 +221,11 @@ public partial class KeeperCatcher
                             across * Random.Range(-1.5f, 1.5f);
         spilledUntil = Time.time + SpillBlock;
         hasIntercept = false;
+        // Loose off the gloves: the batters can run byes (or wides) until someone gathers it.
+        eGameState s = Main.Instance.gameState;
+        if (s == eGameState.InGame_DeliverBallLoop)
+            Extras.Begin(false);
+        else if (s == eGameState.InGame_BallMissed || s == eGameState.InGame_BallMissedLoop)
+            Extras.Begin(Main.Instance.theBallScript.wide);
     }
 }

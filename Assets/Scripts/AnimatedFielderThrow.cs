@@ -168,6 +168,17 @@ public partial class AnimatedFielder
         walkingBack = true;   // after SetTarget, which clears it
     }
 
+    /// Someone else has it (or it is over the rope): stop chasing and stand, watching the ball.
+    /// Not while he is diving - he finishes going down and gets up.
+    public void CallOff()
+    {
+        if (walkingBack || throwing || expecting || backingUp)
+            return;
+        hasTarget = false;
+        reachingLow = false;
+        speed = 0f;
+    }
+
     private void ClearThrow()
     {
         throwing = expecting = backingUp = false;

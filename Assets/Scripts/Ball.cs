@@ -103,6 +103,13 @@ public class Ball : MonoBehaviour
         {
             float f = (BallDelivery.BatsmanStumpsX - prevPosition.x) / Mathf.Max(1e-5f, here.x - prevPosition.x);
             lastLineAtStumps = Mathf.Lerp(prevPosition.z, here.z, f);
+            // Over the batter's head at the stumps: a wide, called there like the side wides.
+            float heightAtStumps = Mathf.Lerp(prevPosition.y, here.y, f);
+            if (heightAtStumps - BallFlight.Radius > HeadTop())
+            {
+                wide = true;
+                inst.gameState = eGameState.InGame_BallMissed;
+            }
         }
         prevPosition = here;
 
@@ -136,6 +143,17 @@ public class Ball : MonoBehaviour
             myRigidBody.linearVelocity = Vector3.zero;
             myRigidBody.isKinematic = true;
         }
+    }
+
+    /// The top of the batter's head: the player's own eyes (the headset) plus the head above them.
+    /// A ball passing the stumps with all of it above this is wide.
+    private const float EyesToHeadTop = 0.12f, StandingEyes = 1.65f;
+
+    private static float HeadTop()
+    {
+        Camera eye = Camera.main;
+        float eyes = eye != null ? eye.transform.position.y : BallFlight.GroundY(new Vector3(BallDelivery.BatsmanStumpsX, 0f, 0f)) + StandingEyes;
+        return eyes + EyesToHeadTop;
     }
 
     public void PlayTrail()

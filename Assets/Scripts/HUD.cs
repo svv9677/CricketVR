@@ -153,6 +153,13 @@ public class HUD : MonoBehaviour
     void HandleGameState()
     {
         eGameState st = Main.Instance.gameState;
+        // A ball that beat the keeper, played on (Extras): byes, or runs added to a wide.
+        if (Extras.InPlay && (st == eGameState.InGame_BallFielded || st == eGameState.InGame_BallPastBoundary))
+        {
+            AddExtras(st == eGameState.InGame_BallPastBoundary ? 4 : RunsForTime());
+            UpdateUI();
+            return;
+        }
         if(st == eGameState.InGame_BallFielded)
         {
             // first check, if it bounced or not
@@ -221,6 +228,31 @@ public class HUD : MonoBehaviour
             //start track of time till ball gets fielded
             StartOfShot = System.DateTime.UtcNow;
         }
+    }
+
+    /// Runs the batters take while the ball is fielded, by how long that took (as for a shot).
+    int RunsForTime()
+    {
+        double seconds = System.DateTime.UtcNow.Subtract(StartOfShot).TotalSeconds;
+        return seconds < 2f ? 0 : seconds < 4.5f ? 1 : seconds < 7.5f ? 2 : seconds < 11f ? 3 : 4;
+    }
+
+    /// Byes (a legal ball: it counts in the over, "2b" in the recent balls) or, off a wide, runs
+    /// added to that wide ("3wd"). Extras go to the team, never to the batter.
+    void AddExtras(int runs)
+    {
+        Runs += runs;
+        if (runs % 2 == 1)
+            SwitchBatsmen();
+        if (Extras.OnWide)
+        {
+            int last = BowledBalls.Count - 1;
+            if (last >= 0 && BowledBalls[last] == "wd" && runs > 0)
+                BowledBalls[last] = $"{1 + runs}wd";
+            return;
+        }
+        IncrementBalls();
+        BowledBalls.Add(runs == 0 ? "*" : $"{runs}b");
     }
 
     // Note: -1 runs is a wicket

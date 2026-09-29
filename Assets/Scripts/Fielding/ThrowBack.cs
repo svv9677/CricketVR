@@ -27,10 +27,6 @@ public class ThrowBack : MonoBehaviour
     private const float HoldBeforeThrow = 0.8f;
     /// Fielders this close to the middle make the inner ring (relay men).
     private const float InnerRing = 30f;
-    /// A relay man is between keeper and bowler: this far along the way (fractions), and no
-    /// further than RelayOffLine from the line - mid-off and mid-on are about 18 m off it.
-    private static readonly Vector2 RelayBetween = new Vector2(0.15f, 0.85f);
-    private const float RelayOffLine = 24f;
     /// The backup stands this far behind the keeper, on the line of the throw.
     private const float BackupBehind = 8f;
 
@@ -275,32 +271,24 @@ public class ThrowBack : MonoBehaviour
     /// Whoever threw it in to the keeper: never the relay man for the same ball.
     private IThrowPlayer thrownInBy;
 
-    /// From the keeper: through an inner-circle fielder standing between him and the bowler
-    /// whenever there is one (RelayBetween along the way, within RelayOffLine of it) - the nearest
-    /// to the line - and straight to the bowler only when there is nobody. From the relay man:
-    /// the bowler.
+    /// From the keeper: always through an inner-circle fielder - the one on the shortest way
+    /// round (keeper to him to the bowler) - and straight to the bowler only when there is nobody
+    /// inside the circle at all. From the relay man: the bowler.
     private IThrowPlayer BowlerOrRelay(bool fromKeeper)
     {
         IThrowPlayer bowler = BowlerReceiver();
         if (bowler == null || !fromKeeper)
             return bowler;
-        Vector3 from = Flat(holder.Position);
-        Vector3 way = Flat(bowler.Position) - from;
-        float length2 = way.sqrMagnitude;
-        if (length2 < 1f)
-            return bowler;
+        Vector3 from = Flat(holder.Position), to = Flat(bowler.Position);
         AnimatedFielder best = null;
-        float bestOff = float.MaxValue;
+        float bestWay = float.MaxValue;
         foreach (AnimatedFielder f in AnimatedFielder.All)
         {
             if (f.IsBowler || f.HoldingBall || ReferenceEquals(f, thrownInBy) || Flat(f.StartPosition).magnitude > InnerRing)
                 continue;
-            Vector3 p = Flat(f.Position) - from;
-            float along = Vector3.Dot(p, way) / length2;
-            float off = (p - way * along).magnitude;
-            if (along < RelayBetween.x || along > RelayBetween.y || off > RelayOffLine)
-                continue;
-            if (off < bestOff) { bestOff = off; best = f; }
+            Vector3 p = Flat(f.Position);
+            float way = (p - from).magnitude + (to - p).magnitude;
+            if (way < bestWay) { bestWay = way; best = f; }
         }
         return best != null ? best : bowler;
     }
@@ -400,12 +388,44 @@ public class ThrowBack : MonoBehaviour
         private Vector3 Hand => bowler.HandTransform != null ? bowler.HandTransform.position
                                                               : bowler.transform.position + Vector3.up * 1.3f;
 
-        public Vector3 CatchPointFrom(Vector3 from) => Hand;
+        private BowlerFielding Hands => bowler.GetComponent<BowlerFielding>();
+
+        /// In front of his chest on the thrower's side: where his hands go up to take it.
+        public Vector3 CatchPointFrom(Vector3 from)
+        {
+            Vector3 at = bowler.transform.position;
+            Vector3 toThrower = Flat(from - at);
+            Vector3 side = toThrower.sqrMagnitude > 1e-4f ? toThrower.normalized : bowler.transform.forward;
+            return at + Vector3.up * 1.3f + side * 0.45f;
+        }
+
         public void BeginThrow(Vector3 target) { }
         public void Release() => holding = false;
-        public void ExpectBall(Vector3 point, Vector3 from, float arrivalTime) { }
-        public void TakeThrow(Vector3 incoming) { holding = true; since = Time.time; }
+
+        /// He sees it coming: hands up to it as he walks (BowlerFielding).
+        public void ExpectBall(Vector3 point, Vector3 from, float arrivalTime)
+        {
+            BowlerFielding hands = Hands;
+            if (hands != null)
+                hands.ExpectThrow(point, from, arrivalTime);
+        }
+
+        public void TakeThrow(Vector3 incoming)
+        {
+            holding = true;
+            since = Time.time;
+            BowlerFielding hands = Hands;
+            if (hands != null)
+                hands.TookThrow();
+        }
+
         public void Drop() => holding = false;
-        public void Carry(Transform ball) => ball.position = Hand;
+
+        /// Between his hands while he takes it, then in his bowling hand.
+        public void Carry(Transform ball)
+        {
+            BowlerFielding hands = Hands;
+            ball.position = hands != null && hands.HoldingInBothHands(out Vector3 at) ? at : Hand;
+        }
     }
 }
