@@ -44,6 +44,18 @@ public partial class KeeperCatcher
     private bool diving, diveCommitted;
     private float diveStart, diveSide, diveFrom, diveTo, diveRoll, diveReach, landedAt = -1f;
     private float spilledUntil, diveUpAt = -1f;
+    /// Through the dive at which physics takes the landing, just after the take.
+    private const float RagdollFrom = 0.85f;
+    private FielderRagdoll ragdoll;
+    private bool ragdollDown;
+    private Vector3 lastHips;
+
+    private Vector3 HipsPosition()
+    {
+        Animator a = body.GetComponent<Animator>();
+        Transform h = a != null ? a.GetBoneTransform(HumanBodyBones.Hips) : null;
+        return h != null ? h.position : bodyRoot.position + Vector3.up;
+    }
 
     /// Where his feet go for a ball arriving `ballX` across from his mark (both anchor-local).
     private float FootworkGoal(float ballX)
@@ -61,6 +73,9 @@ public partial class KeeperCatcher
 
     private void ClearDive()
     {
+        if (ragdollDown && ragdoll != null)
+            ragdoll.Recover();
+        ragdollDown = false;
         diving = false;
         diveCommitted = false;
         landedAt = -1f;
@@ -81,6 +96,25 @@ public partial class KeeperCatcher
             if (!diveCommitted || interceptAt - Time.time > DiveLead)
                 return false;
             StartDive();
+        }
+        // Handed to physics for the landing: down, then a get-up clip (FielderRagdoll).
+        if (ragdollDown)
+        {
+            if (ragdoll != null && ragdoll.Busy)
+                return true;
+            ragdollDown = false;
+            diving = false;
+            diveCommitted = false;
+            diveUpAt = Time.time;
+            landedAt = -1f;
+            // Back on his line where he got up, facing up the pitch.
+            shuffleX = footGoal = Mathf.Clamp(bodyRoot.localPosition.x, -MaxShuffle - MaxPush, MaxShuffle + MaxPush);
+            shuffleVelocity = 0f;
+            bodyRoot.localRotation = Quaternion.identity;
+            bodyRoot.localPosition = new Vector3(shuffleX, BodyDrop, 0f);
+            feet.StanceHalfWidth = StandStance;
+            feet.Plant(Ground(bodyRoot.position), bodyRoot.right);
+            return false;
         }
         float t = Time.time - diveStart;
         float s = Mathf.Clamp01(t / DiveTime);
@@ -116,6 +150,21 @@ public partial class KeeperCatcher
         // Topple about his feet toward the ball: a roll about his forward axis.
         bodyRoot.localRotation = Quaternion.AngleAxis(-diveSide * roll, Vector3.forward);
         lastBody = bodyRoot.position;
+        // Past the take and going down: physics has the landing (a get-up clip follows).
+        Vector3 hipsNow = HipsPosition();
+        if (s >= RagdollFrom && landedAt < 0f)
+        {
+            if (ragdoll == null)
+                ragdoll = body.GetComponent<FielderRagdoll>();
+            if (ragdoll != null && ragdoll.Ready)
+            {
+                Vector3 velocity = (hipsNow - lastHips) / Mathf.Max(dt, 1e-3f);
+                ragdoll.Fall(velocity, Vector3.zero);
+                ragdollDown = true;
+                return true;
+            }
+        }
+        lastHips = hipsNow;
 
         body.feetOverride = false;             // the legs go with the body
         body.minCrouch = 0f;
@@ -182,6 +231,7 @@ public partial class KeeperCatcher
     private void StartDive()
     {
         diving = true;
+        lastHips = HipsPosition();
         diveStart = Time.time;
         landedAt = -1f;
         Vector3 local = transform.InverseTransformPoint(intercept);

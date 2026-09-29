@@ -37,7 +37,11 @@ public partial class AnimatedFielder
     private bool diving;
     private float diveStart, diveSide, diveRoll, diveStretch, diveLanded = -1f, diveSpilledUntil, diveUpAt = -1f;
     private float diveHipsAtCatch, diveReachOut, diveSlide;
-    private Vector3 divePoint, diveFrom, diveDir, diveIncoming;
+    private Vector3 divePoint, diveFrom, diveDir, diveIncoming, lastDiveHips;
+    /// Through the flight at which physics takes the landing (just after the take, near the ground).
+    private const float RagdollFrom = 0.82f;
+    private FielderRagdoll ragdoll;
+    private bool ragdollDown;
     private Quaternion diveFacing;
 
     /// Called first in Move: starts a dive when one is on, and runs it. True while it owns him.
@@ -48,6 +52,19 @@ public partial class AnimatedFielder
             if (!ShouldDive(out Vector3 point, out float eta))
                 return false;
             StartDive(point, eta);
+        }
+        // Handed to physics for the landing: down, then the get-up clip (FielderRagdoll).
+        if (ragdollDown)
+        {
+            speed = 0f;
+            if (ragdoll != null && ragdoll.Busy)
+                return true;
+            ragdollDown = false;
+            diving = false;
+            diveLanded = -1f;
+            diveUpAt = Time.time;
+            headingVelocity = 0f;
+            return false;
         }
         float t = Time.time - diveStart;
         float stayDown = holdingBall ? DiveLieWithBall : DiveLie;
@@ -63,6 +80,20 @@ public partial class AnimatedFielder
             float y = s <= c ? Mathf.Lerp(HipHeight, diveHipsAtCatch, Smooth(s / c))
                              : Mathf.Lerp(diveHipsAtCatch, LyingHips, Sq((s - c) / (1f - c)));
             hips = diveFrom + diveDir * across + Vector3.up * y;
+            // Past the take and nearly down: physics has the landing, the slide and the tumble,
+            // moving as he was (a get-up clip follows). Without a ragdoll, the scripted landing below.
+            if (s >= RagdollFrom && ragdoll != null && ragdoll.Ready)
+            {
+                Quaternion pose = diveFacing * Quaternion.AngleAxis(-diveSide * roll, Vector3.forward);
+                Vector3 velocity = t > 0.02f ? (hips - lastDiveHips) / Mathf.Max(Time.deltaTime, 1e-3f) : diveDir * 4f;
+                transform.position = hips - pose * (Vector3.up * HipHeight);
+                transform.rotation = pose;
+                ragdoll.Fall(velocity, Vector3.zero);
+                ragdollDown = true;
+                speed = 0f;
+                return true;
+            }
+            lastDiveHips = hips;
         }
         else
         {
@@ -161,6 +192,10 @@ public partial class AnimatedFielder
         diveStart = Time.time;
         diveLanded = -1f;
         divePoint = point;
+        if (ragdoll == null)
+            ragdoll = GetComponent<FielderRagdoll>();
+        ragdollDown = false;
+        lastDiveHips = transform.position + Vector3.up * HipHeight;
         Vector3 v = inst.theBallRigidBody.linearVelocity;
         diveIncoming = v.sqrMagnitude > 0.01f ? v.normalized : -transform.forward;
         // Face back along the ball's line (toward where it comes from), and go out sideways to it.
@@ -193,6 +228,9 @@ public partial class AnimatedFielder
     {
         if (!diving)
             return;
+        if (ragdollDown && ragdoll != null)
+            ragdoll.Recover();
+        ragdollDown = false;
         diving = false;
         diveLanded = -1f;
         diveUpAt = Time.time;
