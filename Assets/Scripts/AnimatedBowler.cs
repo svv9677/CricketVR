@@ -89,6 +89,9 @@ public class AnimatedBowler : MonoBehaviour
         animator = GetComponent<Animator>();
 
         hasRun_StartBowling = false;
+        // After he has bowled he fields like anyone else (BowlerFielding).
+        if (GetComponent<BowlerFielding>() == null)
+            gameObject.AddComponent<BowlerFielding>();
     }
 
     private void Update()
@@ -97,8 +100,39 @@ public class AnimatedBowler : MonoBehaviour
     }
 
     // Update is called once per frame
+    /// Fielding after his delivery (BowlerFielding): his bowling code stands aside - no walk back
+    /// to his mark, no turning toward it - until the next ball hands him back.
+    public bool Fielding { get; private set; }
+
+    public void BeginFielding()
+    {
+        Fielding = true;
+        if (walkingBack != null)
+            StopCoroutine(walkingBack);
+        walkingBack = null;
+        glide = false;
+    }
+
+    public void EndFielding(RuntimeAnimatorController bowlingController)
+    {
+        Fielding = false;
+        // LateUpdate clears this between balls, but it stood aside the whole time he was fielding:
+        // left set from the last run-up, the next one never started and the game waited for a
+        // delivery that never came (played end to end: stuck on the second ball).
+        hasRun_StartBowling = false;
+        if (startBowling != null)
+            StopCoroutine(startBowling);
+        startBowling = null;
+        animator.runtimeAnimatorController = bowlingController;
+        animator.applyRootMotion = true;
+        animator.speed = 1f;
+        animator.SetInteger("Action", 0);
+    }
+
     void LateUpdate()
     {
+        if (Fielding)
+            return;
         Main inst = Main.Instance;
 
         // First, before anything below can fail: keep the ball on the hand. The old pin sat at the
@@ -148,7 +182,7 @@ public class AnimatedBowler : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (glide)
+        if (glide && !Fielding)
         {
             // Frames it takes for the transition from walk to idle to complete
             float totalFrames = 60f;

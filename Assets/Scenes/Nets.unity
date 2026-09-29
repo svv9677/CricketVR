@@ -29130,11 +29130,11 @@ PrefabInstance:
       objectReference: {fileID: 1537914173}
     - target: {fileID: 942000609, guid: 4318f7f22038244f99f443d58b561153, type: 3}
       propertyPath: rightGrabOffsetPosition.y
-      value: 0.09
+      value: 0.0733
       objectReference: {fileID: 0}
     - target: {fileID: 942000609, guid: 4318f7f22038244f99f443d58b561153, type: 3}
       propertyPath: rightGrabOffsetPosition.z
-      value: 0.2
+      value: 0.1763
       objectReference: {fileID: 0}
     - target: {fileID: 942000609, guid: 4318f7f22038244f99f443d58b561153, type: 3}
       propertyPath: rightGrabOffsetRotation.w

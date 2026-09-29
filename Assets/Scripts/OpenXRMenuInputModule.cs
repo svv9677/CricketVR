@@ -35,6 +35,8 @@ public class OpenXRMenuInputModule : MonoBehaviour
     // ---- For GrabbablePanel: grip while pointing at a panel moves it ------------------------------
     /// The laser's origin and direction, posed in LateUpdate.
     public Transform Aim => aim;
+    /// The laser's visible beam (grip calibration keeps it drawn in passthrough).
+    public LineRenderer Beam => beam;
     public bool GripHeld => GripOf(activeHand)?.isPressed == true;
     public bool GripPressedThisFrame => GripOf(activeHand)?.wasPressedThisFrame == true;
 

@@ -12,8 +12,9 @@ using UnityEngine;
 ///   * Reading it: from the ball's live state, BallFlight predicts where it crosses the glove
 ///     plane (HandsAhead in front of him), re-run every PredictInterval so swing and the bounce
 ///     are picked up as they happen.
-///   * Feet: the body moves across at up to ShuffleSpeed with KeeperFootwork stepping the feet
-///     (plant, lift, plant) so they never slide.
+///   * Feet: only as far as the gloves need (KeeperDive.FootworkGoal), at up to ShuffleSpeed with
+///     KeeperFootwork stepping the feet (plant, lift, plant) so they never slide; a ball his feet
+///     cannot get him to in time, he dives for (KeeperDive).
 ///   * Height: he sits in a deep crouch (Crouch of pelvis drop) until the delivery pitches, then
 ///     rises to the height the ball will arrive at.
 ///   * Gloves: to the predicted point from ReachLead before it arrives, tracking it; the ball is
@@ -115,10 +116,13 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         hasIntercept = false;
         shuffleX = shuffleVelocity = 0f;
         ClearFetch();
+        ClearDive();
         if (bodyRoot != null)
         {
             bodyRoot.localRotation = Quaternion.identity;
             bodyRoot.localPosition = new Vector3(0f, BodyDrop, 0f);
+            feet.StanceHalfWidth = CrouchStance;
+            feet.Settle = false;
             feet.Plant(Ground(bodyRoot.position), bodyRoot.right);
         }
         if (body != null)
@@ -202,11 +206,15 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         lastRoot = transform.position;
 
         bool live = Live(out eGameState state);
+        // Diving for a wide one (KeeperDive), down, or getting back up: nothing else moves him.
+        if (UpdateDive(live, dt))
+            return;
         // Gone after a loose ball (KeeperCatcher.Fetch): on his feet, running, not in his stance.
         if (UpdateFetch(state, dt))
             return;
         Vector3 localHit = hasIntercept ? transform.InverseTransformPoint(intercept) : Vector3.zero;
-        float goal = holding ? shuffleX : hasIntercept && live ? Mathf.Clamp(localHit.x, -MaxShuffle, MaxShuffle) : shuffleX;
+        // Only as far as the gloves need (KeeperDive.FootworkGoal), not behind every line.
+        float goal = holding ? shuffleX : hasIntercept && live ? FootworkGoal(localHit.x) : shuffleX;
         shuffleX = ReachMath.Shuffle(shuffleX, ref shuffleVelocity, goal, ShuffleSpeed, ShuffleAccel, dt);
         bodyRoot.localPosition = new Vector3(shuffleX, BodyDrop, 0f);
         Vector3 velocity = dt > 0f ? (bodyRoot.position - lastBody) / dt : Vector3.zero;
@@ -258,23 +266,42 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         body.palmFacing = face.sqrMagnitude > 1e-4f ? face : fwd;
     }
 
-    /// After the take: give with both gloves, then stand up holding it in the right glove, the left
-    /// arm dropping away, and look up the pitch at the batter - not down at his hands.
+    /// Standing up with it: how long it takes, how much of the reach stays on (the right glove
+    /// holding the ball; the rest is the standing idle), and the feet's width stood up and crouched.
+    private const float StandTime = 0.5f, HeldWeight = 0.6f;
+    public const float CrouchStance = 0.24f, StandStance = 0.14f;
+    private float crouchAtTake;
+
+    /// After the take: give with both gloves, then stand up into a normal stance - feet in to
+    /// standing width, the ball in the right glove in front of his chest, the left arm and the rest
+    /// of him back to the standing idle - and look up at the batter.
+    ///
+    /// Filmed from four sides, the old hold was the "weird pose": the full keeping crouch put back
+    /// on during the give (a high take dropped him into a squat with his arms over his head), then
+    /// stood "up" with his feet still planted wide, knees bent and splayed, hunched over a glove
+    /// hanging at his waist, his head ducked into his gloves.
     private void Hold()
     {
         float t = Time.time - heldSince;
         float give = Mathf.Clamp01(t / GiveTime);
         Vector3 back = contact + incoming * (GiveDistance * (1f - (1f - give) * (1f - give)));
-        float stand = Mathf.Clamp01((t - StandUpAfter) / 0.4f);
+        float stand = Mathf.Clamp01((t - StandUpAfter) / StandTime);
         float s = stand * stand * (3f - 2f * stand);
-        // Ball in the right glove, a little out to the side at the waist.
-        Vector3 held = bodyRoot.position + bodyRoot.up * 1.0f + bodyRoot.right * 0.28f + bodyRoot.forward * 0.3f;
+        // Ball in the right glove in front of his chest, measured from his torso as it is now (a
+        // standing-waist point was inside his thigh while he was still crouched).
+        Vector3 held = body.ChestPosition + body.TorsoFront * 0.28f - body.TorsoUp * 0.12f + bodyRoot.right * 0.12f;
         body.handTarget = Vector3.Lerp(back, held, s);
-        body.weight = 1f;
+        body.weight = Mathf.Lerp(1f, HeldWeight, s);
         body.leftHandShare = 1f - s;
-        body.minCrouch = Crouch * (1f - stand);
+        // No deeper than he was when he took it, then up.
+        body.minCrouch = crouchAtTake * (1f - s);
+        feet.StanceHalfWidth = Mathf.Lerp(CrouchStance, StandStance, s);
+        feet.Settle = stand > 0f;
         body.palmFacing = Vector3.Slerp(-incoming, bodyRoot.up, s);
-        body.lookTarget = Vector3.Lerp(Main.Instance.theBall.transform.position, BatterHead(), s);
+        // Eyes off the gloves at once and up to the batter.
+        float lookUp = Mathf.Clamp01(t / 0.3f);
+        Vector3 ball = Main.Instance.theBall.transform.position;
+        body.lookTarget = Vector3.Lerp(ball + bodyRoot.forward * 2f + Vector3.up * 0.5f, BatterHead(), lookUp * lookUp * (3f - 2f * lookUp));
     }
 
     /// Where the batter's eyes are: the player's head, or a standing batter at the crease.
@@ -316,6 +343,7 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         holding = true;
         heldSince = Time.time;
         contact = body.HoldPoint;
+        crouchAtTake = body.CurrentDrop;
         holdOffset = ballNow - contact;
         if (state == eGameState.InGame_BallHitLoop)
         {

@@ -216,11 +216,14 @@ public class Bat : MonoBehaviour
             edge = result.edge,
         });
 
-        // Haptics follow the contact too: a middle is a firm short thump, an edge or the toe a
-        // longer, weaker buzz - the sting a mistimed shot sends up the handle.
+        // Haptics follow the contact too, both hands (both are on the handle): a middle is a hard,
+        // short jolt; an edge, the toe or the shoulder a long buzz - the sting a mistimed shot sends
+        // up the handle. Every contact is felt: even a thin edge starts at 0.7.
         bool clean = result.kind == BatContact.ContactKind.Middled || result.kind == BatContact.ContactKind.Good;
-        float strength = Mathf.Clamp01(0.35f + result.impactSpeed / 40f);
-        XRInput.SendHaptics(attachParent == leftHandParent, clean ? strength : strength * 0.6f, clean ? 0.06f : 0.16f);
+        float strength = Mathf.Clamp01(0.7f + result.impactSpeed / 50f);
+        float duration = clean ? 0.12f : 0.25f;
+        XRInput.SendHaptics(true, strength, duration);
+        XRInput.SendHaptics(false, strength, duration);
         ShotDistance.Instance.RecordHit(inst.theBall.transform.position);
         CameraReplay.Instance.setViewSetting(1, 1f);
         if (SceneManager.GetActiveScene().name == "Nets")

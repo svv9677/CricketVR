@@ -421,8 +421,11 @@ public class BatContactTests
         // was how Easy played it before (the bug): an edge, and weaker than the fixed response.
         BatContact.Result hard = BatContact.Respond(hit, blade, scale, ball, bat, BallMass, Constants.BatColliderMultiplierHard);
         Debug.Log($"[BatContactTests] same point read against the real blade (the old Easy): {hard.kind} q{hard.quality:F2} {hard.velocity.magnitude:F1} m/s");
+        // That point is 5.8 cm outside the real blade - beyond a 3.6 cm ball's reach of its rounded
+        // edge, so it no longer deflects the ball at all (Sweep would never report it on Hard).
+        // What matters is that Easy reads it as a good hit and the real blade as the edge.
         Assert.That(hard.edge, Is.True);
-        Assert.That(wide.velocity.magnitude, Is.GreaterThan(hard.velocity.magnitude));
+        Assert.That(wide.quality, Is.GreaterThan(hard.quality + 0.5f));
     }
 
     [Test]

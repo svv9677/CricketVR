@@ -77,6 +77,21 @@ public class AnimatedFielderManagement : MonoBehaviour
             Main.Instance.onGameStateChanged -= HandleGameState;
     }
 
+    /// A player joining the field for this ball - the bowler once he has delivered it
+    /// (BowlerFielding) - and leaving it again.
+    public void Join(IFielder f)
+    {
+        if (!team.Contains(f))
+            team.Add(f);
+    }
+
+    public void Leave(IFielder f)
+    {
+        team.Remove(f);
+        if (caller == f)
+            caller = null;
+    }
+
     private void HandleGameState()
     {
         eGameState state = Main.Instance.gameState;

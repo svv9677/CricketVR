@@ -35,7 +35,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.51, y: 0.51, z: 0.51}
+  m_LocalScale: {x: 0.475, y: 0.475, z: 0.475}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7806812127181258295}
@@ -58,7 +58,7 @@ MeshRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 199507635142268923}
   m_Enabled: 1
-  m_CastShadows: 1
+  m_CastShadows: 0
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
@@ -146,9 +146,9 @@ MonoBehaviour:
   controllerParent: {fileID: 0}
   leftHandParent: {fileID: 0}
   rightHandParent: {fileID: 0}
-  leftGrabOffsetPosition: {x: -0.041704044, y: 0.13335042, z: 0.20517677}
+  leftGrabOffsetPosition: {x: -0.039630055, y: 0.11668802, z: 0.18147096}
   leftGrabOffsetEuler: {x: 145, y: -5, z: -60}
-  rightGrabOffsetPosition: {x: 0.041704044, y: 0.13335042, z: 0.20517677}
+  rightGrabOffsetPosition: {x: 0.039630055, y: 0.11668802, z: 0.18147096}
   rightGrabOffsetEuler: {x: 145, y: 5, z: 60}
   trackerObject: {fileID: 3831318129957227716}
   fieldersParent: {fileID: 0}
@@ -322,37 +322,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BatSounds
   middled:
-  - {fileID: 8300000, guid: 4d25ddb554a30413a8a7684e32a0caa5, type: 3}
-  - {fileID: 8300000, guid: fab852fe8b0fc42aa90589b6b5ca5082, type: 3}
-  - {fileID: 8300000, guid: 3b8449fbb0eda423aa501597059416b3, type: 3}
+  - {fileID: 8300000, guid: 4763a13114aa742a890394f8904cd17a, type: 3}
+  - {fileID: 8300000, guid: 39c95f53f402b4230b7b25fbf2f55258, type: 3}
   good:
-  - {fileID: 8300000, guid: cf56a3b0f46d04bac8082ef53eef49e2, type: 3}
-  - {fileID: 8300000, guid: 41b3f37534b0a4ef294f8328b7968099, type: 3}
-  - {fileID: 8300000, guid: 38e35bb3e090f4b3c8fa944bc1960d2d, type: 3}
-  thickEdge:
-  - {fileID: 8300000, guid: defed1f3e342e49889e1b663be510c31, type: 3}
-  - {fileID: 8300000, guid: 0d34f830b1da04138a31cdc708b26015, type: 3}
-  - {fileID: 8300000, guid: eb4f8def7f3b44008b2d300d3a7a5ca0, type: 3}
-  thinEdge:
-  - {fileID: 8300000, guid: 26128a09f832a4aa983feeff8bebd993, type: 3}
-  - {fileID: 8300000, guid: 94baab11f8c944cfe9a57f5693038213, type: 3}
-  - {fileID: 8300000, guid: db3042eb17234471cb6d2a9782977b77, type: 3}
+  - {fileID: 8300000, guid: f6fd5ebcec8b24cb28c0ecf35f8fa409, type: 3}
+  - {fileID: 8300000, guid: 4693f044099dd4b5cb91b10d470da28a, type: 3}
+  edge:
+  - {fileID: 8300000, guid: 16af75865c6084a8db43e0335e7a6580, type: 3}
+  - {fileID: 8300000, guid: fbe0713b3ef744bfb97bf5dd2362cd76, type: 3}
+  - {fileID: 8300000, guid: 588df1e5ca0764299b8cd4e0d5486425, type: 3}
+  - {fileID: 8300000, guid: 02395874655214f4ab85317c2e3f3263, type: 3}
   toe:
-  - {fileID: 8300000, guid: 4ae1e64cf9f7c42ffb9942bc03444ebf, type: 3}
-  - {fileID: 8300000, guid: 7bede587504044c19bf376b662ae8b11, type: 3}
-  - {fileID: 8300000, guid: d4974af4c117f4b7eb034c44638ca993, type: 3}
-  shoulder:
-  - {fileID: 8300000, guid: 93be96886272a4503b493e6806257adb, type: 3}
-  - {fileID: 8300000, guid: 100688d6476144bbe83872dda10402d7, type: 3}
-  - {fileID: 8300000, guid: f1e7af4dd9eb34c73a8d51dd8b054b30, type: 3}
+  - {fileID: 8300000, guid: 3d388f809443d41839bc0f4297f02748, type: 3}
+  - {fileID: 8300000, guid: f99caf60e60524644990535d3145d9c1, type: 3}
+  - {fileID: 8300000, guid: 882664975925b48268b985eac24d8c56, type: 3}
   handle:
-  - {fileID: 8300000, guid: 228a3147c9daf4b6eb054a288a5961a4, type: 3}
-  - {fileID: 8300000, guid: c6474e21ddf554f5dae7d1d0e2c40595, type: 3}
-  - {fileID: 8300000, guid: 3c68f3e2c76144176894297b520e0254, type: 3}
-  back:
-  - {fileID: 8300000, guid: 1921763fd61b34160875f245eca3d670, type: 3}
-  - {fileID: 8300000, guid: e80017903460447878c99fca54d08b73, type: 3}
-  - {fileID: 8300000, guid: 73d0b7148621b4b008c70a9f5c74aa86, type: 3}
+  - {fileID: 8300000, guid: c82f17229eb184405ba369551cc8d4c0, type: 3}
+  - {fileID: 8300000, guid: 737f1fe8a04e643ab893984e549054a1, type: 3}
+  - {fileID: 8300000, guid: 3633abf2a5bae4a3387b07e826098b33, type: 3}
+  - {fileID: 8300000, guid: 840f5a2b2dc734013b7fcc648353b4d7, type: 3}
 --- !u!1 &1086151735689333264
 GameObject:
   m_ObjectHideFlags: 0

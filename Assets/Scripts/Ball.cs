@@ -31,6 +31,9 @@ public class Ball : MonoBehaviour
     [HideInInspector] public Vector3 lastPitchPoint = new Vector3(float.NaN, 0f, 0f);
     [HideInInspector] public float lastLineAtStumps = float.NaN;
     private Vector3 prevPosition;
+    /// Seconds of path the trail shows: bowled (0.12 s, ~4 m at 35 m/s) and after the hit. Was
+    /// 0.25 s throughout.
+    private const float DeliveryTrail = 0.12f, HitTrail = 0.3f;
 
     // Start is called before the first frame update
     void Start()
@@ -85,6 +88,13 @@ public class Ball : MonoBehaviour
         else if (!myParticles.enabled)
         {
             myParticles.enabled = true;
+        }
+        // Shorter while it is being bowled (a long streak coming at the batter gives the line away
+        // and clutters the view), normal-to-long once it is hit.
+        if (myParticles.enabled)
+        {
+            bool delivery = inst.gameState == eGameState.InGame_DeliverBall || inst.gameState == eGameState.InGame_DeliverBallLoop;
+            myParticles.time = delivery ? DeliveryTrail : HitTrail;
         }
 
         Vector3 here = myRigidBody.position;

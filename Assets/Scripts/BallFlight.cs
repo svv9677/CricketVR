@@ -37,13 +37,14 @@ public static class BallFlight
     public static float AeroK => 0.5f * AirDensity * Area / Mass;
 
     // ---- Surfaces ------------------------------------------------------------------------------
-    // Must match the physics materials: ball (0.5 bounce, 0.3 friction), pitch (0.7, 0.45),
+    // Must match the physics materials: ball (0.5 bounce, 0.3 friction), pitch (0.8, 0.45),
     // outfield (0.3, 0.5), all combined by Average.
     // The pitch was 0.55 (e 0.525) with no grip, and measured in play every length arrived low:
     // back of a length 0.55-0.65 m at the stumps, where a real one is thigh-to-waist high, so
     // short balls skidded through and read as full. A hard, true strip at e 0.6 plus the grip
-    // below puts back of a length ~0.75 m and a short ball ~1.3-1.5 m at the batter.
-    public const float PitchRestitution = 0.6f;
+    // below put back of a length ~0.75 m and a short ball ~1.3-1.5 m at the batter; raised to
+    // 0.65 (pitch material 0.7 -> 0.8) on request for a little more bounce (2026-09-28).
+    public const float PitchRestitution = 0.65f;
     public const float OutfieldRestitution = 0.4f;
     /// The prepared strip. Everything else is outfield.
     public static readonly Vector2 PitchHalfExtent = new Vector2(12f, 3f);
