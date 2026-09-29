@@ -117,6 +117,7 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         shuffleX = shuffleVelocity = 0f;
         ClearFetch();
         ClearDive();
+        ClearThrowRole();
         if (bodyRoot != null)
         {
             bodyRoot.localRotation = Quaternion.identity;
@@ -206,6 +207,9 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         lastRoot = transform.position;
 
         bool live = Live(out eGameState state);
+        // The ball is dead and coming back to him, or he is throwing it on (KeeperThrow).
+        if (UpdateThrowRole(dt))
+            return;
         // Diving for a wide one (KeeperDive), down, or getting back up: nothing else moves him.
         if (UpdateDive(live, dt))
             return;
@@ -320,7 +324,9 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         Vector3 now = ball.position;
         if (holding)
         {
-            if (body != null && body.Ready)
+            if (throwingOut)
+                ball.position = KeeperHandPoint;   // in the throwing hand through the wind-up
+            else if (body != null && body.Ready)
                 ball.position = body.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
         }
         else if (body != null && body.Ready && (Live(out eGameState state) || CanPickUp(state)) && body.SmoothedWeight > 0.3f &&

@@ -71,6 +71,78 @@ public class XRRigSetup : MonoBehaviour
             p.y = fallbackEyeHeight;
             cameraTransform.localPosition = p;
         }
+        PlaceAtCreaseWhenReady();
+        // The session's height adjustment (Settings > View & Comfort), on top of the floor.
+        Vector3 root = transform.position;
+        root.y = _floorY + GameSettings.CameraHeight;
+        transform.position = root;
+    }
+
+    // ---- Standing at the crease ---------------------------------------------------------------
+
+    [Tooltip("Where the player's head is put: at the batting crease, on the middle-stump line.")]
+    [SerializeField] private Vector2 creaseHeadXZ = new Vector2(BallDelivery.BatsmanStumpsX - 0.95f, 0f);
+
+    private float _floorY;
+    private bool _placed;
+    private int _placeDelayFrames = 3;
+    private bool _subscribed;
+
+    private void Start()
+    {
+        _floorY = transform.position.y;
+    }
+
+    private void OnDisable()
+    {
+        if (!_subscribed)
+            return;
+        SubsystemManager.GetSubsystems(Subsystems);
+        foreach (XRInputSubsystem s in Subsystems)
+            s.trackingOriginUpdated -= OnTrackingOriginUpdated;
+        _subscribed = false;
+    }
+
+    /// The player stands still at the crease: wherever they are in their room, the rig is moved
+    /// and turned so their head is on the crease, facing the bowler. Done once the headset is
+    /// tracking, and again whenever it is recentred (the Oculus button held).
+    private void PlaceAtCreaseWhenReady()
+    {
+        if (!_subscribed)
+        {
+            SubsystemManager.GetSubsystems(Subsystems);
+            foreach (XRInputSubsystem s in Subsystems)
+            {
+                s.trackingOriginUpdated += OnTrackingOriginUpdated;
+                _subscribed = true;
+            }
+        }
+        // Only in a match (CricketVR, Nets): Splash has no crease, just the menu.
+        if (_placed || cameraTransform == null || Main.Instance == null)
+            return;
+        // A few frames in, so the first tracked head pose is in.
+        if (_placeDelayFrames-- > 0)
+            return;
+        PlaceAtCrease();
+    }
+
+    private void OnTrackingOriginUpdated(XRInputSubsystem subsystem) => _placed = false;
+
+    /// Turn the rig about the head so the head faces the bowler (down -X), then slide it so the
+    /// head is over the crease.
+    public void PlaceAtCrease()
+    {
+        if (cameraTransform == null)
+            return;
+        Vector3 facing = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up);
+        if (facing.sqrMagnitude > 1e-4f)
+        {
+            float turn = Vector3.SignedAngle(facing, Vector3.left, Vector3.up);
+            transform.RotateAround(cameraTransform.position, Vector3.up, turn);
+        }
+        Vector3 head = cameraTransform.position;
+        transform.position += new Vector3(creaseHeadXZ.x - head.x, 0f, creaseHeadXZ.y - head.z);
+        _placed = true;
     }
 
     /// <summary>

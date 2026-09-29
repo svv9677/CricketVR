@@ -132,6 +132,37 @@ public static class GameSettings
         }
     }
 
+    private const string PP_MasterVolume = "MasterVolume";
+
+    /// Overall game volume, 0..1, saved. Applied to the AudioListener as soon as it is set, and
+    /// by Main on start.
+    public static float MasterVolume
+    {
+        get => PlayerPrefs.GetFloat(PP_MasterVolume, 1f);
+        set
+        {
+            float v = Mathf.Clamp01(value);
+            AudioListener.volume = v;
+            if (Mathf.Approximately(v, MasterVolume)) return;
+            PlayerPrefs.SetFloat(PP_MasterVolume, v);
+            PlayerPrefs.Save();
+        }
+    }
+
+    // ---- This session only ----------------------------------------------------------------------
+
+    public const float MinCameraHeight = -0.5f, MaxCameraHeight = 0.5f;
+
+    /// Metres added to the player's eye height, for a player shorter or taller than their
+    /// headset thinks, or sitting down. Not saved: it lasts until the game is closed, and every
+    /// session starts from the headset's own height. XRRigSetup applies it every frame.
+    public static float CameraHeight
+    {
+        get => cameraHeight;
+        set => cameraHeight = Mathf.Clamp(value, MinCameraHeight, MaxCameraHeight);
+    }
+    private static float cameraHeight;
+
     // ---- Persistence --------------------------------------------------------------------------
 
     private static void Load()

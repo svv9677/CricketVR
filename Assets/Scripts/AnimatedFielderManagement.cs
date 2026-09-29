@@ -63,6 +63,9 @@ public class AnimatedFielderManagement : MonoBehaviour
         if (keeper != null)
             team.Add(keeper);
         Main.Instance.onGameStateChanged += HandleGameState;
+        // Once the ball is dead it goes back to the bowler via the keeper (ThrowBack).
+        if (GetComponent<ThrowBack>() == null)
+            gameObject.AddComponent<ThrowBack>();
         if (Main.Instance.theBoundaryCollider != null)
         {
             var capsule = Main.Instance.theBoundaryCollider.GetComponent<CapsuleCollider>();

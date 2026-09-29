@@ -279,6 +279,7 @@ public class Main : MonoBehaviour
         SetupXRControllers();
 
         GameSettings.Changed += ApplyGameSettings;
+        AudioListener.volume = GameSettings.MasterVolume;
 
         initialized = true;
         gameState = eGameState.None;
@@ -898,8 +899,8 @@ public class Main : MonoBehaviour
                         // For now, switch to next state
                         gameState = eGameState.InGame_BallFielded_Loop;
 
-                        // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
+                        // Reset once the ball is back with the bowler (ThrowBack).
+                        StartCoroutine(WaitForReturnThenReset());
                     }
                     break;
                 case eGameState.InGame_BallFielded_Loop:
@@ -930,8 +931,8 @@ public class Main : MonoBehaviour
                         CameraReplay.Instance.StopRecording(0f);
                         gameState = eGameState.InGame_BallMissedLoop;
 
-                        // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
+                        // Reset once the keeper has passed it back to the bowler (ThrowBack).
+                        StartCoroutine(WaitForReturnThenReset());
                     }
                     break;
                 case eGameState.InGame_BallMissedLoop:
@@ -1055,6 +1056,21 @@ public class Main : MonoBehaviour
         // reset ball position to inside machine
         theBall.transform.position = new Vector3(-8.95f, 2.95f, 0f);
         theBallRigidBody.position = theBall.transform.position;
+    }
+
+    /// Longest the next ball waits for the ball to come back to the bowler.
+    public const float MaxReturnWait = 10f;
+
+    /// The dead-ball pause, then wait while the ball is thrown back in to the keeper and on to the
+    /// bowler (ThrowBack), then set up the next ball. Without the wait the fielders were reset mid
+    /// throw.
+    private IEnumerator WaitForReturnThenReset()
+    {
+        yield return new WaitForSeconds(DeadBallPause);
+        float giveUp = Time.time + MaxReturnWait;
+        while (ThrowBack.Busy && Time.time < giveUp)
+            yield return null;
+        gameState = eGameState.InGame_ResetToReady;
     }
 
     public IEnumerator WaitAndSetGameState(float delay, eGameState state)

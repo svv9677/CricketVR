@@ -57,6 +57,21 @@ public partial class SettingsPanel : MonoBehaviour
     public RangeRow lineRange;                 // metres from middle stump, off side positive
     public Toggle overlayToggle;
 
+    [Header("Pages: a list of categories, each opening its own page")]
+    [Tooltip("\"home\" (the category list) and one page per category, by the names in pageNames.")]
+    public GameObject[] pages;
+    public string[] pageNames;
+    public TMP_Text pageTitle;
+
+    [Header("Match")]
+    public TMP_Text oversLabel;
+
+    [Header("View & Comfort")]
+    public SliderRow cameraHeightSlider;
+
+    [Header("Audio")]
+    public SliderRow volumeSlider;
+
     private const float Distance = 1.45f;
     /// Bat power snaps to "Realistic" within this much of it.
     private const float SnapToRealistic = 3f;
@@ -90,8 +105,57 @@ public partial class SettingsPanel : MonoBehaviour
             grab.Restore();
         if (M != null)
             M.ApplyTweaks();   // the bowler may have changed at the end of an over
+        ShowPage(HomePage);   // opens on the list of categories
         Refresh();
         panel.SetActive(true);
+    }
+
+    // ---- Pages -------------------------------------------------------------------------------------
+    // Settings open on a list of categories; each opens its own page with a Back. One long card
+    // held everything before, which grew with every setting added. The categories are the ones
+    // settings will keep growing into: Batting, Bowling, Fielding, Match, View & Comfort, Audio,
+    // Developer.
+
+    public const string HomePage = "home";
+    private string currentPage = HomePage;
+
+    public void ShowPage(string name)
+    {
+        currentPage = name;
+        if (pages != null && pageNames != null)
+            for (int i = 0; i < pages.Length && i < pageNames.Length; i++)
+                if (pages[i] != null)
+                    pages[i].SetActive(pageNames[i] == name);
+        SetText(pageTitle, name == HomePage ? "Settings" : PageTitle(name));
+        Refresh();
+    }
+
+    public static string PageTitle(string name) => name switch
+    {
+        "batting" => "Batting",
+        "bowling" => "Bowling",
+        "fielding" => "Fielding",
+        "match" => "Match",
+        "view" => "View & Comfort",
+        "audio" => "Audio",
+        "developer" => "Developer",
+        _ => "Settings",
+    };
+
+    public void OnHome() => ShowPage(HomePage);
+    public void OnPageBatting() => ShowPage("batting");
+    public void OnPageBowling() => ShowPage("bowling");
+    public void OnPageFielding() => ShowPage("fielding");
+    public void OnPageMatch() => ShowPage("match");
+    public void OnPageView() => ShowPage("view");
+    public void OnPageAudio() => ShowPage("audio");
+    public void OnPageDeveloper() => ShowPage("developer");
+
+    /// Back from a category goes to the list; from the list it closes Settings.
+    public void OnBackOrClose()
+    {
+        if (currentPage != HomePage) ShowPage(HomePage);
+        else OnClose();
     }
 
     public void Hide() => panel.SetActive(false);
@@ -115,6 +179,9 @@ public partial class SettingsPanel : MonoBehaviour
         SetSlider(fielderSpeedSlider, GameSettings.FielderSpeed, $"{GameSettings.FielderSpeed:0.0}×");
         if (overlayToggle != null)
             overlayToggle.SetIsOnWithoutNotify(GameSettings.OverlayVisible);
+        SetText(oversLabel, GameSettings.Overs == 1 ? "1 over" : $"{GameSettings.Overs} overs");
+        SetSlider(cameraHeightSlider, GameSettings.CameraHeight, $"{GameSettings.CameraHeight * 100f:+0;-0;0} cm");
+        SetSlider(volumeSlider, GameSettings.MasterVolume, $"{GameSettings.MasterVolume * 100f:0}%");
 
         // Bowling ranges, grip calibration, Just Restart and the debug overlay are in-match
         // tuning: there is no bowling profile loaded in Splash, so they are hidden rather than
@@ -236,6 +303,30 @@ public partial class SettingsPanel : MonoBehaviour
     }
 
     public void OnFielderSpeed(float v) => GameSettings.FielderSpeed = Mathf.Round(v * 10f) / 10f;
+
+    public void OnFewerOvers() { GameSettings.Overs--; Refresh(); }
+    public void OnMoreOvers() { GameSettings.Overs++; Refresh(); }
+
+    /// This session only (not saved): whole centimetres.
+    public void OnCameraHeight(float v)
+    {
+        GameSettings.CameraHeight = Mathf.Round(v * 100f) / 100f;
+        Refresh();
+    }
+
+    /// Put the player back at the crease, facing the bowler, as at the start.
+    public void OnRecentre()
+    {
+        XRRigSetup rig = FindFirstObjectByType<XRRigSetup>();
+        if (rig != null)
+            rig.PlaceAtCrease();
+    }
+
+    public void OnVolume(float v)
+    {
+        GameSettings.MasterVolume = Mathf.Round(v * 100f) / 100f;
+        Refresh();
+    }
     public void OnOverlay(bool on) => GameSettings.OverlayVisible = on;
     public void OnToggleAdvanced() { if (advanced != null) SetAdvanced(!advanced.activeSelf); }
     public void OnCalibrateGrip() => M.onCalibrateGrip();

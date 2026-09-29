@@ -15,7 +15,7 @@ using UnityEngine;
 /// between the palms, the last few centimetres faded out over HoldSettle, and he stands up with it
 /// (the reach springs settle in ~0.4 s) and turns to the stumps.
 /// </summary>
-public class AnimatedFielder : MonoBehaviour, IFielder
+public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
 {
     // Serialized names kept so the scene's nine fielders stay wired up.
     [SerializeField]
@@ -155,12 +155,19 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     private void HandleGameState()
     {
         eGameState state = Main.Instance.gameState;
-        // A new delivery: drop the ball (Main parks it) and go back to the fielding position.
-        if (state == eGameState.InGame_SelectDelivery || state == eGameState.InGame_ResetToReadyLoop)
+        // Between balls he walks back to his fielding position (AnimatedFielderThrow); only one
+        // still far off when the next ball starts is put straight there. He used to be put back
+        // the moment the ball was dead.
+        if (state == eGameState.InGame_ResetToReadyLoop)
+            WalkBackToStart();
+        else if (state == eGameState.InGame_SelectDelivery)
         {
-            if (state == eGameState.InGame_SelectDelivery)
-                holdingBall = false;
-            ReturnToStart();
+            holdingBall = false;
+            ClearThrow();
+            if (FlatDistance(transform.position, StartPosition) > FarFromStart)
+                ReturnToStart();
+            else
+                WalkBackToStart();
         }
     }
 
@@ -190,6 +197,7 @@ public class AnimatedFielder : MonoBehaviour, IFielder
         point.y = transform.position.y;
         target = point;
         hasTarget = true;
+        walkingBack = false;   // sent after the ball: at a run, not the walk back
     }
 
     public void Stop()
@@ -223,6 +231,9 @@ public class AnimatedFielder : MonoBehaviour, IFielder
 
     private void Move()
     {
+        // Throwing it in, or a throw coming to him: he stands and faces it.
+        if (MoveForThrow())
+            return;
         if (!hasTarget)
         {
             speed = 0f;
@@ -251,13 +262,22 @@ public class AnimatedFielder : MonoBehaviour, IFielder
         {
             speed = 0f;
             SetAnimation(0);
+            if (walkingBack)
+            {
+                // Home: face the batter again, ready for the next ball.
+                walkingBack = false;
+                hasTarget = false;
+                FaceTowards(Vector3.zero, 1f);
+                return;
+            }
             FaceTowards(Main.Instance.theBall.transform.position, 1f);
             return;
         }
 
-        // Accelerate to full speed, and ease off just in time to stop on the spot.
+        // Accelerate to full speed, and ease off just in time to stop on the spot. Walking back
+        // between balls, only a jog.
         float stopping = Mathf.Sqrt(2f * Acceleration * distance);
-        speed = Mathf.Min(RunSpeed, speed + Acceleration * Time.deltaTime, stopping);
+        speed = Mathf.Min(walkingBack ? JogSpeed : RunSpeed, speed + Acceleration * Time.deltaTime, stopping);
         Vector3 step = to / distance * Mathf.Min(distance, speed * Time.deltaTime);
         transform.position += step;
         // Run facing the way he runs; settling into his spot, turn to face the ball and side-step
@@ -286,6 +306,9 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     private void UpdateReach()
     {
         if (reach == null || !reach.Ready)
+            return;
+        // Throwing (arms free for the throw) or taking a throw (hands to where it will arrive).
+        if (ReachForThrow())
             return;
         Main inst = Main.Instance;
         Vector3 ball = inst.theBall.transform.position;
@@ -467,7 +490,9 @@ public class AnimatedFielder : MonoBehaviour, IFielder
         Vector3 now = ball.position;
         if (holdingBall)
         {
-            if (reach != null && reach.Ready)
+            if (throwing)
+                ball.position = ThrowHandPoint;   // in the throwing hand through the wind-up
+            else if (reach != null && reach.Ready)
                 ball.position = reach.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
             else
                 ball.position = holdBallOffset != null ? holdBallOffset.position : transform.position + Vector3.up;

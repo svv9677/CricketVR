@@ -27,8 +27,19 @@ public static class GameLoopTest
     public static bool Done { get; private set; } = true;
     public static string Log => log.ToString();
 
+    /// Where each ball is sent, in turn: 0 = straight back past the bowler, 1-9 = at that fielder,
+    /// -1 = not hit at all (left to the keeper). Null: alternate bowler and fielder 6.
+    private static int[] targets;
+
+    public static void Run(int count, int[] hitTargets)
+    {
+        Run(count);
+        targets = hitTargets;
+    }
+
     public static void Run(int count)
     {
+        targets = null;
         total = count;
         balls = 0;
         phase = 0;
@@ -68,7 +79,11 @@ public static class GameLoopTest
                     Stuck("never reached Ready");
                 break;
             case 1:   // bowled; hit it as it reaches the batter
-                if (s == eGameState.InGame_DeliverBallLoop &&
+                if (s == eGameState.InGame_DeliverBallLoop && targets != null && targets[balls % targets.Length] < 0)
+                {
+                    Next(2, "  left alone for the keeper");
+                }
+                else if (s == eGameState.InGame_DeliverBallLoop &&
                     inst.theBall.transform.position.x > BallDelivery.BatsmanStumpsX - 1.6f)
                 {
                     Hit(inst);
@@ -120,8 +135,9 @@ public static class GameLoopTest
     {
         Rigidbody rb = inst.theBallRigidBody;
         Vector3 from = inst.theBall.transform.position;
-        Vector3 to = balls % 2 == 0 ? AnimatedBowler.Instance.transform.position + Vector3.forward * 1.2f
-                                    : Constants.fieldingPositions[5];
+        int target = targets != null ? targets[balls % targets.Length] : (balls % 2 == 0 ? 0 : 6);
+        Vector3 to = target == 0 ? AnimatedBowler.Instance.transform.position + Vector3.forward * 1.2f
+                                 : Constants.fieldingPositions[target - 1];
         Vector3 dir = new Vector3(to.x - from.x, 0f, to.z - from.z).normalized;
         rb.linearVelocity = dir * HitPace + Vector3.up * 1.5f;
         inst.theBatScript.hasHitBall = true;

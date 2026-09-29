@@ -10,9 +10,7 @@ using UnityEngine.UI;
 /// Tools > CricketVR > Build Player UI. Builds the player-facing panels as prefabs under
 /// Assets/Resources/Prefabs/UI, all in the UIStyle look, and places them in the open scene under
 /// "UI" (replacing what the last run - or Build UI Prefabs - put there):
-///   * SettingsPanel - batting (hand, difficulty, bat power, grip), fielding, bowling (type, speed,
-///     swing/drift, turn/seam, reset) and a collapsed Advanced section (line, debug overlay,
-///     Just Restart);
+///   * SettingsPanel - a list of categories, each its own page (SettingsPanelBuilder);
 ///   * NextBallMenu - the between-balls dock (bowler + Change, Bowl, Settings, Calibrate grip)
 ///     with the replay card (ReplayControls) beside it;
 ///   * GripCalibrationPanel - Upright | Flat, Lock, Cancel;
@@ -25,11 +23,6 @@ public static class UIPrefabBuilder
 {
     private const string PrefabFolder = "Assets/Resources/Prefabs/UI";
     private const float Mm = 0.001f;                       // 1 canvas px = 1 mm
-    private const float SettingsWidth = 1120f;
-    private const float LeftWidth = 448f;                  // (1120 - 2 * 32 padding - 48 gap) split
-    private const float RightWidth = 560f;
-    private const float ColumnGap = 48f;
-    private const float InlineLabel = 150f;
     private const string A = "  <size=75%>(A)</size>";
     private const string B = "  <size=75%>(B)</size>";
 
@@ -71,101 +64,16 @@ public static class UIPrefabBuilder
     {
         var root = new GameObject("SettingsPanel");
         var c = root.AddComponent<SettingsPanel>();
-        GameObject panel = WorldPanelBuilder.Canvas(root, SettingsWidth, Mm, true);
+        GameObject panel = WorldPanelBuilder.Canvas(root, SettingsPanelBuilder.Width, Mm, true);
         WorldPanelBuilder.MakeCard(panel, UIStyle.Pad, UIStyle.SectionGap);
         WorldPanelBuilder.FitContent(panel, false);
 
-        Header(panel.transform, "Settings", "Changes apply from the next ball  ·  Hold grip to move", "Done" + B, c.OnClose);
-        TwoColumns(panel.transform, out Transform left, out Transform right);
-        BattingSection(left, c);
-        FieldingSection(left, c);
-        BowlingSection(right, c);
-        UIControls.Divider(panel.transform);
-        AdvancedSection(panel.transform, c);
+        SettingsPanelBuilder.BuildContent(panel.transform, c);
 
         SetField(c, "panel", panel);
         Grabbable(root, panel, "settings");
         Save(root, uiRoot);
         return c;   // the scene instance (SaveAsPrefabAssetAndConnect returns the asset, not this)
-    }
-
-    private static void Header(Transform parent, string title, string subtitle, string closeLabel, UnityAction close)
-    {
-        Transform row = WorldPanelBuilder.Column(parent, false, UIStyle.Gap);
-        WorldPanelBuilder.NoForceExpand(row);
-        Transform titles = WorldPanelBuilder.Column(row, true, 0f);
-        WorldPanelBuilder.Line(titles, title, UIStyle.TitleSize, FontStyles.Bold, UIStyle.Text, 48f, TextAlignmentOptions.Left);
-        WorldPanelBuilder.Line(titles, subtitle, UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 28f, TextAlignmentOptions.Left);
-        UIControls.ActionButton(row, closeLabel, close, true, UIStyle.Control, 200f);
-    }
-
-    private static Transform TwoColumns(Transform parent, out Transform left, out Transform right)
-    {
-        Transform body = WorldPanelBuilder.Column(parent, false, ColumnGap);
-        WorldPanelBuilder.NoForceExpand(body);
-        body.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-        left = WorldPanelBuilder.FixedColumn(body, LeftWidth, UIStyle.Gap);
-        right = WorldPanelBuilder.FixedColumn(body, RightWidth, UIStyle.Gap);
-        return body;
-    }
-
-    private static void BattingSection(Transform column, SettingsPanel c)
-    {
-        WorldPanelBuilder.Section(column, "Batting");
-        c.hand = UIControls.Segmented(InlineField(column, "Hand"), new[] { "Left", "Right" }, c.OnHand);
-
-        Transform difficulty = Group(column);
-        c.difficultyHint = UIControls.LabelLine(difficulty, "Difficulty", "", out _);
-        c.difficultyLevel = UIControls.Segmented(difficulty, new[] { "Easy", "Medium", "Hard" }, c.OnDifficulty);
-
-        // 50%-150% of a real swing: BatContact.SwingScale clamps to exactly this, so every position
-        // of the slider does something and none promises pace the physics will not give.
-        c.batPowerSlider = UIControls.ValueSlider(column, "Bat power", 38f, 112f, true, c.OnBatPower, Constants.BatPowerRealistic);
-
-        Transform grip = InlineField(column, "Grip");
-        UIControls.ActionButton(grip, "Calibrate", c.OnCalibrateGrip, false);
-        UIControls.ActionButton(grip, "Reset", c.OnResetGrip, false, UIStyle.Control, 120f);
-    }
-
-    private static void FieldingSection(Transform column, SettingsPanel c)
-    {
-        WorldPanelBuilder.Section(column, "Fielding");
-        c.fielderSpeedSlider = UIControls.ValueSlider(column, "Fielder speed", 0.5f, 2.5f, false, c.OnFielderSpeed);
-    }
-
-    private static void BowlingSection(Transform column, SettingsPanel c)
-    {
-        Transform head = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
-        WorldPanelBuilder.NoForceExpand(head);
-        WorldPanelBuilder.Section(head, "Bowling");
-        UIControls.ActionButton(head, "Reset", c.OnResetBowling, false, UIStyle.Control, 120f);
-
-        var labels = new string[UIFormat.BowlerTypes.Length];
-        for (int i = 0; i < labels.Length; i++)
-            labels[i] = UIFormat.BowlerType(UIFormat.BowlerTypes[i]);
-        Transform bowler = Group(column);
-        Label(bowler, "Bowler");
-        c.bowler = UIControls.Segmented(bowler, labels, c.OnBowler);
-
-        c.speedRange = UIControls.Range(column, "Speed", 60f, 165f, 1f, c.OnSpeedRange);
-        c.swingRange = UIControls.Range(column, "Swing", 0f, 1f, 0.05f, c.OnSwingRange);
-        c.turnRange = UIControls.Range(column, "Turn", -0.1f, 1f, 0.01f, c.OnTurnRange);
-    }
-
-    private static void AdvancedSection(Transform parent, SettingsPanel c)
-    {
-        Button toggle = UIControls.ActionButton(parent, "Advanced", c.OnToggleAdvanced, false);
-        c.advancedLabel = UIControls.LabelOf(toggle);
-
-        Transform body = TwoColumns(parent, out Transform left, out Transform right);
-        WorldPanelBuilder.Section(left, "Display");
-        c.overlayToggle = UIControls.ToggleButton(left, "Debug overlay", c.OnOverlay);
-        WorldPanelBuilder.Section(left, "Testing");
-        UIControls.ActionButton(left, "Just Restart", c.OnJustRestart, false);
-        WorldPanelBuilder.Section(right, "Bowling line");
-        c.lineRange = UIControls.Range(right, "At the stumps", -0.75f, 0.75f, 0.01f, c.OnLineRange);
-        c.advanced = body.gameObject;
-        body.gameObject.SetActive(false);   // collapsed until opened
     }
 
     // ---- Next ball + replay ---------------------------------------------------------------------
@@ -339,22 +247,6 @@ public static class UIPrefabBuilder
     }
 
     // ---- Layout helpers -------------------------------------------------------------------------
-
-    /// A label and its control, 8 px apart.
-    private static Transform Group(Transform parent) => WorldPanelBuilder.Column(parent, true, UIStyle.Unit);
-
-    private static void Label(Transform parent, string text) =>
-        WorldPanelBuilder.Line(parent, text, UIStyle.LabelSize, FontStyles.Normal, UIStyle.Text, UIStyle.LabelRow, TextAlignmentOptions.Left);
-
-    /// "Label  [control .......]" on one row; returns the row for the control(s).
-    private static Transform InlineField(Transform parent, string label)
-    {
-        Transform row = WorldPanelBuilder.Column(parent, false, UIStyle.Gap);
-        WorldPanelBuilder.NoForceExpand(row);
-        WorldPanelBuilder.Line(row, label, UIStyle.LabelSize, FontStyles.Normal, UIStyle.Text, UIStyle.Control,
-                               TextAlignmentOptions.Left, InlineLabel);
-        return row;
-    }
 
     private static Transform NestedCard(Transform parent, string name, float width)
     {
