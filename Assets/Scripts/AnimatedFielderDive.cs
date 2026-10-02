@@ -44,6 +44,8 @@ public partial class AnimatedFielder
     private FielderRagdoll ragdoll;
     private bool ragdollDown;
     private Quaternion diveFacing;
+    /// Down under physics, he goes on reaching for it until this long after it was due (s).
+    private const float DiveReachOnAfter = 0.25f;
 
     /// Called first in Move: starts a dive when one is on, and runs it. True while it owns him.
     private bool UpdateDive()
@@ -59,7 +61,20 @@ public partial class AnimatedFielder
         {
             speed = 0f;
             if (ragdoll != null && ragdoll.Busy)
+            {
+                // Handed over before the ball got to him: his arms still go for it (and he can
+                // still take it) until it is past. With it: hugged in as he lands.
+                Main inst = Main.Instance;
+                if (holdingBall)
+                    ragdoll.HugBall();
+                else if (!inst.theBallRigidBody.isKinematic && inst.gameState == eGameState.InGame_BallHitLoop &&
+                         Time.time < diveStart + DiveFlight * DiveCatchPoint + DiveReachOnAfter)
+                {
+                    Vector3 ball = inst.theBall.transform.position;
+                    ragdoll.ReachFor((ball - divePoint).sqrMagnitude < 1f ? ball : divePoint, 0.1f);
+                }
                 return true;
+            }
             ragdollDown = false;
             diving = false;
             diveLanded = -1f;

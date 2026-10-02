@@ -52,6 +52,16 @@ public partial class KeeperCatcher
     private FielderRagdoll ragdoll;
     private bool ragdollDown;
     private Vector3 lastHips;
+    /// Down under physics, he goes on reaching for it until this long after it was due (s).
+    private const float ReachOnAfter = 0.25f;
+
+    /// Where the hands go for it: the point he read it crossing, then the ball itself once it is
+    /// close (a reading can be a little off; the last of the reach is for the ball).
+    private static Vector3 ReachPoint(Vector3 read)
+    {
+        Vector3 ball = Main.Instance.theBall.transform.position;
+        return (ball - read).sqrMagnitude < 1f ? ball : read;
+    }
 
     private Vector3 HipsPosition()
     {
@@ -109,7 +119,15 @@ public partial class KeeperCatcher
         if (ragdollDown)
         {
             if (ragdoll != null && ragdoll.Busy)
+            {
+                // Handed over before the ball got to him: his arms still go for it (and he can
+                // still take it) until it is past. With it: hugged in as he lands.
+                if (holding)
+                    ragdoll.HugBall();
+                else if (live && hasIntercept && Time.time < interceptAt + ReachOnAfter)
+                    ragdoll.ReachFor(ReachPoint(intercept), 0.11f);
                 return true;
+            }
             ragdollDown = false;
             diving = false;
             diveCommitted = false;

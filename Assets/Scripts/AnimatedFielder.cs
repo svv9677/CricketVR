@@ -518,7 +518,9 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
                 ball.position = ThrowHandPoint;   // in the throwing hand through the wind-up
             else if (reach != null && reach.Ready)
             {
-                Vector3 held = reach.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
+                // In one glove while physics has him (FielderRagdoll.HeldBallPoint).
+                Vector3 held = ragdollDown && ragdoll != null ? ragdoll.HeldBallPoint(now)
+                             : reach.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
                 // Never put the ball somewhere impossible (a body gone wrong under physics).
                 if (!float.IsNaN(held.x) && !float.IsNaN(held.y) && !float.IsNaN(held.z) && held.sqrMagnitude < 1e6f)
                     ball.position = held;
@@ -534,8 +536,9 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             bool slow = inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall;
             bool inHands = slow ? reach.ClosestPalm(lastBall, now) <= SlowGatherDistance
                                 : ReachMath.SegmentDistance(lastBall, now, reach.HoldPoint) <= CatchPocket;
-            // Not while he is down on the grass under physics: his reach is off then (review).
-            if (inHands && Time.time >= diveSpilledUntil && !ragdollDown)
+            // Not while he is down on the grass under physics: his reach is off then (review) -
+            // unless his arms are still going for it (FielderRagdoll.ReachFor, in the air).
+            if (inHands && Time.time >= diveSpilledUntil && (!ragdollDown || (ragdoll != null && ragdoll.Reaching)))
             {
                 if (diving && !DiveTakeSticks())
                     DiveSpill();   // a diving take only sometimes holds

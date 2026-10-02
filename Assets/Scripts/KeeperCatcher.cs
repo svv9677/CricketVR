@@ -533,6 +533,8 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         {
             if (throwingOut)
                 ball.position = KeeperHandPoint;   // in the throwing hand through the wind-up
+            else if (ragdollDown && ragdoll != null && body != null && body.Ready)
+                ball.position = ragdoll.HeldBallPoint(now);   // in one glove while physics has him
             else if (body != null && body.Ready)
                 ball.position = body.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
         }
@@ -540,7 +542,7 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
                  // A delivery must clear the wide boxes at the stumps (x 9.8-10.8) first, or a keeper
                  // standing up to the spinners would take it inside them and no wide could be called.
                  !(state == eGameState.InGame_DeliverBallLoop && now.x < WideBoxesEndX) &&
-                 Time.time >= spilledUntil && !ragdollDown &&
+                 Time.time >= spilledUntil && (!ragdollDown || (ragdoll != null && ragdoll.Reaching)) &&
                  body.ClosestPalm(lastBall, now) <= (away ? PickUpDistance : GatherDistance))
         {
             // At full stretch in a dive, it only sometimes sticks (KeeperDive.DiveTakeSticks).

@@ -72,6 +72,7 @@ public partial class FielderRagdoll : MonoBehaviour
         foreach (Rigidbody b in bodies)
             b.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
         CacheGroundGuard();
+        CacheReachBodies();
         // Only the skeleton the Animator drives. Everything else under the hips - the keeper's
         // pads, helmet and gloves, extra rig bones - keeps its own local pose and simply follows
         // its bone. Blending every transform's world rotation wrote over those local poses and,
@@ -149,6 +150,7 @@ public partial class FielderRagdoll : MonoBehaviour
         state = State.Down;
         downAt = Time.time;
         stillFor = 0f;
+        ballHand = 0;
         anim.enabled = false;
         if (Reach != null)
             Reach.enabled = false;
