@@ -196,8 +196,11 @@ public partial class Bat : MonoBehaviour
     }
 
     /// Closing speed (m/s) at which the bat's jolt is at full strength (most firm shots), and the
-    /// strength of the gentlest contact.
-    private const float HapticFullImpact = 25f, HapticMin = 0.5f;
+    /// strength of the gentlest contact; how long the gentlest and the hardest last (s). The
+    /// strength is capped at 1, so a harder hit has to be felt as a longer jolt too: at 0.5-1.0
+    /// strength over 0.07-0.22 s, most hits were weaker than the old flat 0.7+ (0.72 at 5 m/s,
+    /// 0.82 at 10 against 0.8 and 0.9) - more varied, but not stronger.
+    private const float HapticFullImpact = 20f, HapticMin = 0.75f, HapticShort = 0.08f, HapticLong = 0.3f;
 
     private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeed, BatContact.Result result)
     {
@@ -226,7 +229,7 @@ public partial class Bat : MonoBehaviour
         bool clean = result.kind == BatContact.ContactKind.Middled || result.kind == BatContact.ContactKind.Good;
         float hard = Mathf.Clamp01(result.impactSpeed / HapticFullImpact);
         float strength = Mathf.Lerp(HapticMin, 1f, Mathf.Sqrt(hard));
-        float duration = Mathf.Lerp(0.07f, 0.22f, hard) + (clean ? 0f : 0.12f);
+        float duration = Mathf.Lerp(HapticShort, HapticLong, hard) + (clean ? 0f : 0.12f);
         XRInput.SendHaptics(true, strength, duration);
         XRInput.SendHaptics(false, strength, duration);
         ShotDistance.Instance.RecordHit(inst.theBall.transform.position);
