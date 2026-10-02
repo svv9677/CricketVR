@@ -14,7 +14,9 @@ using UnityEngine;
 /// The colliders are on the Body layer, which the ball ignores: a fielder down on the ground does
 /// not deflect the ball.
 /// </summary>
-public class FielderRagdoll : MonoBehaviour
+// After HumanoidReach (and the fielders' own LateUpdates): the ground guard sees the final pose.
+[DefaultExecutionOrder(100)]
+public partial class FielderRagdoll : MonoBehaviour
 {
     public const string FaceDownState = "Get Up Face Down", FaceUpState = "Get Up Face Up", SideState = "Get Up Side";
 
@@ -59,8 +61,17 @@ public class FielderRagdoll : MonoBehaviour
         hips = anim.GetBoneTransform(HumanBodyBones.Hips);
         head = anim.GetBoneTransform(HumanBodyBones.Head);
         bodies = hips.GetComponentsInChildren<Rigidbody>(true);
+        if (bodies.Length > 0)
+            AddHandAndFootColliders();   // before the colliders are gathered
         colliders = hips.GetComponentsInChildren<Collider>(true);
+        if (bodies.Length > 0)
+            UseRagdollLayer();
         hipsBody = hips.GetComponent<Rigidbody>();
+        // A falling limb at a few m/s covers more than its own thickness in a physics step: swept,
+        // it cannot step through the ground's (one-sided) mesh.
+        foreach (Rigidbody b in bodies)
+            b.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        CacheGroundGuard();
         // Only the skeleton the Animator drives. Everything else under the hips - the keeper's
         // pads, helmet and gloves, extra rig bones - keeps its own local pose and simply follows
         // its bone. Blending every transform's world rotation wrote over those local poses and,
@@ -223,8 +234,13 @@ public class FielderRagdoll : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (state != State.GettingUp)
-            return;
+        if (state == State.GettingUp)
+            GetUpPose();
+        KeepAboveGround();
+    }
+
+    private void GetUpPose()
+    {
         // Out of the ragdoll's pose into the clip's.
         float w = Mathf.Clamp01((Time.time - blendFrom) / BlendTime);
         if (w < 1f)
