@@ -159,14 +159,27 @@ public partial class HumanoidReach
         gHipL = W(cHipL); gHipR = W(cHipR);
         gUp = (gNeck - gHips).normalized;
         gFront = Vector3.Cross(transform.right, gUp).normalized;
-        Vector3 fwd = transform.forward;
-        gKneeL = SolveKnee(gHipL, animator.GetIKPosition(AvatarIKGoal.LeftFoot), fwd);
-        gKneeR = SolveKnee(gHipR, animator.GetIKPosition(AvatarIKGoal.RightFoot), fwd);
+        gKneeL = SolveKnee(gHipL, animator.GetIKPosition(AvatarIKGoal.LeftFoot), kneeHintL);
+        gKneeR = SolveKnee(gHipR, animator.GetIKPosition(AvatarIKGoal.RightFoot), kneeHintR);
         guardPosed = true;
     }
 
+    // The knee hints ApplyBodyAndFeet set this pass, if it set them.
+    private Vector3 kneeHintL, kneeHintR;
+    private bool kneesHinted;
+
+    /// The knee of a two-bone leg bending toward where the leg IK is told to bend it - splayed out
+    /// in a squat - or straight forward when the animation has the legs. Always solved bending
+    /// forward, the guard's knees were 13 cm inside the real ones at the bottom of a pick-up (knees
+    /// 0.49 m apart, measured), and kept the hands out of thighs that were not there.
+    private Vector3 SolveKnee(Vector3 hip, Vector3 ankle, Vector3 hint)
+    {
+        Vector3 bend = kneesHinted ? hint - 0.5f * (hip + ankle) : transform.forward;
+        return SolveKneeToward(hip, ankle, bend);
+    }
+
     /// The knee of a two-bone leg from hip to ankle, bending toward `bend`.
-    private Vector3 SolveKnee(Vector3 hip, Vector3 ankle, Vector3 bend)
+    private Vector3 SolveKneeToward(Vector3 hip, Vector3 ankle, Vector3 bend)
     {
         Vector3 toAnkle = ankle - hip;
         float d = Mathf.Clamp(toAnkle.magnitude, 1e-4f, thighLength + shinLength - 1e-4f);

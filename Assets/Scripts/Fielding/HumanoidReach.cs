@@ -258,6 +258,7 @@ public partial class HumanoidReach : MonoBehaviour
         Quaternion rr = Quaternion.Slerp(animator.GetIKRotation(AvatarIKGoal.RightFoot), transform.rotation, footBlend);
 
         float active = Mathf.Clamp01(Mathf.Max(smoothedWeight, pose.drop * scale / 0.03f));
+        kneesHinted = false;
         if (active < 0.001f && footBlend < 0.001f)
         {
             SetFootWeights(0f);
@@ -279,8 +280,11 @@ public partial class HumanoidReach : MonoBehaviour
         // splay; nobody squats knock-kneed).
         float outward = (0.1f + 0.25f * pose.drop / Mathf.Max(0.01f, limits.maxDrop)) * scale;
         Vector3 pelvis = animator.bodyPosition;
-        animator.SetIKHintPosition(AvatarIKHint.LeftKnee, 0.5f * (pelvis + lf) + (fwd * 0.6f * scale - right * outward));
-        animator.SetIKHintPosition(AvatarIKHint.RightKnee, 0.5f * (pelvis + rf) + (fwd * 0.6f * scale + right * outward));
+        kneeHintL = 0.5f * (pelvis + lf) + (fwd * 0.6f * scale - right * outward);
+        kneeHintR = 0.5f * (pelvis + rf) + (fwd * 0.6f * scale + right * outward);
+        kneesHinted = true;
+        animator.SetIKHintPosition(AvatarIKHint.LeftKnee, kneeHintL);
+        animator.SetIKHintPosition(AvatarIKHint.RightKnee, kneeHintR);
     }
 
     private void SetFootWeights(float w)
@@ -338,8 +342,12 @@ public partial class HumanoidReach : MonoBehaviour
     public void UsePickUpBend()
     {
         if (!ready) return;
-        limits.kneeStiffness = 0.8f; limits.hipStiffness = 0.8f; limits.spineStiffness = 1.6f;
-        limits.maxDrop = 0.45f / scale; limits.maxHinge = 70f; limits.maxSpine = 20f;
+        // Mostly from the hips, knees part bent: the chest stays above the knees and the arms go
+        // down in front of them. Knees as free as the hips, he sank 0.38 m into a squat with his
+        // chest folded down between his knees - no room left there for his arms, which went
+        // through his thighs or tucked into his chest whichever way they were steered (measured).
+        limits.kneeStiffness = 1.4f; limits.hipStiffness = 0.6f; limits.spineStiffness = 1.6f;
+        limits.maxDrop = 0.35f / scale; limits.maxHinge = 80f; limits.maxSpine = 25f;
     }
 
     public void RestoreBend()

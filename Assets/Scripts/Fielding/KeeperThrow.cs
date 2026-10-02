@@ -71,7 +71,8 @@ public partial class KeeperCatcher : IThrowPlayer
         heldSince = Time.time;
         if (incomingDir.sqrMagnitude > 1e-6f)
             incoming = incomingDir.normalized;
-        contact = body != null && body.Ready ? body.HoldPoint : Main.Instance.theBall.transform.position;
+        giveBy = GiveDistance;   // a throw in has pace
+        contact =body != null && body.Ready ? body.HoldPoint : Main.Instance.theBall.transform.position;
         holdOffset = Main.Instance.theBall.transform.position - contact;
         crouchAtTake = body != null ? body.CurrentDrop : 0f;
     }

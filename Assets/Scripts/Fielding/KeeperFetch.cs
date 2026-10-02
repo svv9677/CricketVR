@@ -69,8 +69,16 @@ public partial class KeeperCatcher
             body.RestoreBend();   // back to his keeping crouch
     }
 
-    /// He stops this far short of a loose ball, so it lies in front of his feet.
-    private const float stopShort = 0.5f;
+    /// He stops this far short of a loose ball, so it lies in front of his knees when he bends.
+    /// At 0.5 it ended up 0.13-0.3 m ahead of his knees in the squat and his arms went down
+    /// through his thighs to it, and came back up through them holding it (measured, filmed).
+    private const float stopShort = 0.7f;
+    /// Closer than stopShort by this much (rolled in under him), he steps back from it, slowly.
+    private const float BackOffBy = 0.15f, StepBackSpeed = 0.8f;
+    /// A ball slower than this (m/s) is one to walk up to and pick up, not to cut off.
+    private const float StillBall = 0.5f;
+    /// Crouched less than this (metres of pelvis drop), he is up: feet in to standing width.
+    private const float StoodDrop = 0.08f;
 
     /// A ball he can go and pick up without a hit: loose after a miss or off the stumps.
     private static bool LooseState(eGameState s) =>
@@ -125,7 +133,7 @@ public partial class KeeperCatcher
             Vector3 p = path[i].position;
             if (p.y > 1.2f)
                 continue;
-            float run = Mathf.Max(0f, new Vector2(p.x - from.x, p.z - from.z).magnitude - 0.5f);
+            float run = Mathf.Max(0f, new Vector2(p.x - from.x, p.z - from.z).magnitude - stopShort);
             if (run / RunSpeed <= path[i].time)
                 return p;
         }
@@ -137,6 +145,15 @@ public partial class KeeperCatcher
     private void RunTo(float dt)
     {
         Vector3 at = bodyRoot.position;
+        // Close to a ball that has all but stopped, he goes to the ball itself. The fielding plan's
+        // meeting point (for cutting off a moving ball) is 0.4 m on his side of it: re-set every
+        // replan against the step up to it, he went back and forth a centimetre, never settled to
+        // bend, and the ball was never finished (GameLoopTest, stuck).
+        Rigidbody rb = Main.Instance.theBallRigidBody;
+        Vector3 ball = Main.Instance.theBall.transform.position;
+        if (fetching && !holding && !rb.isKinematic && rb.linearVelocity.sqrMagnitude < StillBall * StillBall &&
+            new Vector2(ball.x - at.x, ball.z - at.z).magnitude < PickUpReachStart + stopShort)
+            fetchTarget = ball;
         Vector3 to = fetchTarget - at;
         to.y = 0f;
         float distance = to.magnitude - stopShort;
@@ -157,6 +174,13 @@ public partial class KeeperCatcher
         else
         {
             fetchSpeed = 0f;
+            // Too close to bend for it in front of him: a step back. He only ever stepped toward
+            // it, and a ball under his feet left him stood over it.
+            if (fetching && !holding && distance < -BackOffBy && to.sqrMagnitude > 1e-4f)
+            {
+                at -= to.normalized * Mathf.Min(-distance, StepBackSpeed * dt);
+                bodyRoot.position = new Vector3(at.x, BallFlight.GroundY(at), at.z);
+            }
             Vector3 look = Main.Instance.theBall.transform.position - at;
             look.y = 0f;
             if (!holding && look.sqrMagnitude > 0.01f)
@@ -202,9 +226,11 @@ public partial class KeeperCatcher
         lastBody = bodyRoot.position;
         // Bending for the ball, feet apart to his keeping width first: squatting on his standing
         // width his knees closed together and both forearms went down through his thighs, gloves
-        // between the pads (filmed from in front, 5-6 cm in).
-        bool bending = !holding && body.weight > 0.5f;
-        feet.StanceHalfWidth = bending ? CrouchStance : StandStance;
+        // between the pads (filmed from in front, 5-6 cm in). And they stay apart until he is up
+        // again: stepped in at the take, still crouched, his left arm let go of the ball and hung
+        // down through his closed-up thigh (7 cm, measured).
+        bool low = !holding ? body.weight > 0.5f : body.CurrentDrop > StoodDrop;
+        feet.StanceHalfWidth = low ? CrouchStance : StandStance;
         feet.Tick(Ground(bodyRoot.position), bodyRoot.right, velocity, dt);
         FeetPlanted();
         body.leftFootTarget = feet.Left;
@@ -238,5 +264,9 @@ public partial class KeeperCatcher
     }
 
     /// Where a ball on the ground can be picked up from: in front of his feet, metres.
-    private const float PickUpNear = 0.25f, PickUpFar = 0.9f, PickUpSide = 0.45f;
+    /// Near enough that it is ahead of his knees once he is down (they come 0.2 m forward), and no
+    /// further than his gloves reach bending from the hips: at 1.0 he stood bent over a ball 0.99 m
+    /// out, gloves 0.3 m short of it, never stepping in - the game never finished the ball
+    /// (GameLoopTest, stuck). Further than this he steps up to it (to stopShort).
+    private const float PickUpNear = 0.45f, PickUpFar = 0.8f, PickUpSide = 0.45f;
 }

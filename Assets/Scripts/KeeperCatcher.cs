@@ -46,6 +46,11 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
     /// Gloves go to the ball from this long before it arrives, fully there by ReachFull.
     private const float ReachLead = 0.8f, ReachFull = 0.3f;
     private const float GiveTime = 0.15f, GiveDistance = 0.22f, HoldSettle = 0.1f, StandUpAfter = 0.35f;
+    /// The give grows from nothing for a ball slower than GiveFrom to all of it from GiveFull, m/s.
+    private const float GiveFrom = 2f, GiveFull = 6f;
+    /// Picked up (no give), he starts up this soon after the take, seconds.
+    private const float PickUpStandAfter = 0.1f;
+    private float giveBy = GiveDistance;
     private const float GloveExtra = 0.03f;
 
     private readonly List<BallFlight.Sample> path = new List<BallFlight.Sample>(256);
@@ -411,6 +416,9 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         body.handGap = 0.12f;
         body.palmFacing = Vector3.zero;
         feet.StanceHalfWidth = StandStance;
+        // Stood up, how high his chest is above his feet (Hold rises to it).
+        if (body.CurrentDrop < 0.02f)
+            standingChest = Vector3.Dot(body.ChestPosition - bodyRoot.position, bodyRoot.up);
         if (Time.time >= nextGlance)
         {
             nextGlance = Time.time + Random.Range(GlanceEvery.x, GlanceEvery.y);
@@ -440,6 +448,14 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
     /// Standing up with it: how long it takes, how much of the reach stays on (the right glove
     /// holding the ball; the rest is the standing idle), and the feet's width stood up and crouched.
     private const float StandTime = 0.5f, HeldWeight = 0.6f;
+    /// Crouched deeper than this (pelvis drop, metres) he keeps both gloves on the ball.
+    private const float BothHandsUpTo = 0.15f;
+    /// Held in both gloves, the ball is this much further out in front of his chest, metres.
+    private const float TwoHandsOut = 0.08f;
+    /// His chest's height above his feet stood up: measured standing easy between balls; until
+    /// then, his rig's (1.093 m at his 1.11 scale, measured).
+    private float standingChest = -1f;
+    private float StandingChestHeight => standingChest > 0f ? standingChest : 0.985f * bodyRoot.lossyScale.y;
     public const float CrouchStance = 0.24f, StandStance = 0.14f;
     private float crouchAtTake;
 
@@ -455,15 +471,36 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
     {
         float t = Time.time - heldSince;
         float give = Mathf.Clamp01(t / GiveTime);
-        Vector3 back = contact + incoming * (GiveDistance * (1f - (1f - give) * (1f - give)));
-        float stand = Mathf.Clamp01((t - StandUpAfter) / StandTime);
+        Vector3 back = contact + incoming * (giveBy * (1f - (1f - give) * (1f - give)));
+        // A ball taken without pace (picked up off the grass) comes straight up with him. Held at
+        // the ground for the catch's give-and-settle pause, he went on folding over it - hinge 50
+        // degrees at the take, 79 by 0.35 s - and was still bent 80 degrees at 0.8 s (measured).
+        float standAfter = giveBy > 0f ? StandUpAfter : PickUpStandAfter;
+        float stand = Mathf.Clamp01((t - standAfter) / StandTime);
         float s = stand * stand * (3f - 2f * stand);
         // Ball in the right glove in front of his chest, measured from his torso as it is now (a
-        // standing-waist point was inside his thigh while he was still crouched).
-        Vector3 held = body.ChestPosition + body.TorsoFront * 0.28f - body.TorsoUp * 0.12f + bodyRoot.right * 0.12f;
+        // standing-waist point was inside his thigh while he was still crouched) - turning to his
+        // upright frame as he stands. Measured from the torso alone, folded over a picked-up ball
+        // "in front of his chest" was under it: the low target held the hinge at 77 degrees, and
+        // the gloves came up under his chest, elbows into it and an arm past his thigh (measured).
+        // Both gloves on it until he is nearly up. Let go on the stand-up clock alone, the left arm
+        // went back to hanging at his side while he was still 0.25 m down, its elbow into his
+        // thigh (7 cm, measured).
+        float bothHands = Mathf.Max(1f - s, Mathf.InverseLerp(BothHandsUpTo - 0.1f, BothHandsUpTo, body.CurrentDrop));
+        body.leftHandShare = bothHands;
+        // ...and from there to where his chest is when he stands: measured off his chest as it is
+        // now, bent over it stayed low, and the low target kept him bent over - 90 degrees at the
+        // hips 0.75 s after picking it up, gloves tucked under his chest (filmed, 9 cm in).
+        // Further out while both gloves hold it: at 0.28 the left arm, reaching over to the right
+        // glove, folded its elbow into his chest. Centring it instead brought his arms down onto
+        // his thighs as he rose.
+        float upright = Mathf.Clamp01(stand * 2f);
+        float outFront = 0.28f + TwoHandsOut * bothHands;
+        Vector3 fromTorso = body.ChestPosition + body.TorsoFront * outFront - body.TorsoUp * 0.12f;
+        Vector3 standingChest = bodyRoot.position + bodyRoot.up * (StandingChestHeight - 0.12f) + bodyRoot.forward * outFront;
+        Vector3 held = Vector3.Lerp(fromTorso, standingChest, upright) + bodyRoot.right * 0.12f;
         body.handTarget = Vector3.Lerp(back, held, s);
         body.weight = Mathf.Lerp(1f, HeldWeight, s);
-        body.leftHandShare = 1f - s;
         // No deeper than he was when he took it, then up.
         body.minCrouch = crouchAtTake * (1f - s);
         // Feet in to standing width in one step each as he starts to rise. Narrowing the stance
@@ -521,6 +558,10 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         Rigidbody rb = inst.theBallRigidBody;
         if (rb.linearVelocity.sqrMagnitude > 0.01f)
             incoming = rb.linearVelocity.normalized;
+        // Soft hands give with a ball that has pace, not with one picked up off the grass: given
+        // back along a stale direction (an earlier delivery's), the gloves came 0.3 m in to just
+        // in front of his knees, sinking him deeper, his arms into his thighs (measured).
+        giveBy = GiveDistance * Mathf.InverseLerp(GiveFrom, GiveFull, rb.linearVelocity.magnitude);
         holding = true;
         heldSince = Time.time;
         contact = body.HoldPoint;
