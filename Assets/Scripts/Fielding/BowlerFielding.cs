@@ -75,13 +75,27 @@ public class BowlerFielding : MonoBehaviour
     private void Begin()
     {
         bowler.BeginFielding();
-        animator.runtimeAnimatorController = fieldingController;
+        SwapController(fieldingController);
         animator.applyRootMotion = false;
         reach.enabled = true;
         reach.ResetPose();
         fielder = gameObject.AddComponent<AnimatedFielder>();
         fielder.InitAsBowler(field, animator);
         field.Join(fielder);
+    }
+
+    /// Over a moment from the pose he is in into the new controller's (FielderRagdoll).
+    private const float SwapBlend = 0.25f;
+
+    /// Swapped bare, the skeleton sat in its bind pose until the new controller ran - a T-pose
+    /// flicker, every time he started fielding and every time he went back to bowling (measured).
+    private void SwapController(RuntimeAnimatorController controller)
+    {
+        FielderRagdoll ragdoll = GetComponent<FielderRagdoll>();
+        if (ragdoll != null)
+            ragdoll.BlendFromCurrentPose(SwapBlend);
+        animator.runtimeAnimatorController = controller;
+        animator.Update(0f);   // the new controller's pose now, not next frame
     }
 
     // ---- Taking the throw back while he walks to his mark (ThrowBack) ------------------------------
@@ -183,6 +197,10 @@ public class BowlerFielding : MonoBehaviour
         reach.weight = 0f;
         reach.ResetPose();
         reach.enabled = false;
+        // Back to the bowling controller without the bind-pose flicker (SwapController).
+        if (ragdoll != null)
+            ragdoll.BlendFromCurrentPose(SwapBlend);
         bowler.EndFielding(bowlingController);
+        animator.Update(0f);
     }
 }

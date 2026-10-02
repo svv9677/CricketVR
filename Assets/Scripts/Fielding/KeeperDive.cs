@@ -142,6 +142,11 @@ public partial class KeeperCatcher
             feet.Plant(Ground(bodyRoot.position), bodyRoot.right);
             return false;
         }
+        // Diving: nothing of him into the ground (FielderRagdoll's guard, off the rest of the time).
+        if (ragdoll == null)
+            ragdoll = body.GetComponent<FielderRagdoll>();
+        if (ragdoll != null)
+            ragdoll.GuardGroundThisFrame();
         float t = Time.time - diveStart;
         float s = Mathf.Clamp01(t / DiveTime);
         float out1 = 1f - (1f - s) * (1f - s);                     // quick off the mark, easing in

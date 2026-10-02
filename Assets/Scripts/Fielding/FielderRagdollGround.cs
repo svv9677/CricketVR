@@ -10,7 +10,7 @@ using UnityEngine;
 /// Animated (the dive before the hand-off, the Mixamo get-ups, a slide, a pick-up) nothing knew
 /// about the ground at all: the trailing feet of a dive went 8 cm in, and the get-up clips, lying,
 /// put head, chest, hips and arms 7-10 cm under it (measured). So after the animation and the IK,
-/// every frame he is not under physics, KeepAboveGround puts back up whatever is under it: the body as a
+/// while he dives or gets up, KeepAboveGround puts back up whatever is under it: the body as a
 /// whole for the trunk and head, a leg or arm swung up at the hip or shoulder, a foot or hand turned
 /// up at the ankle or wrist for the toes or fingers. Nothing under it, nothing moves.
 /// </summary>
@@ -21,8 +21,21 @@ public partial class FielderRagdoll
     /// standing (its sole): a foot stood flat touches the ground and is not "under" it. A fixed,
     /// fatter one sloping down to the toes read 3-7 cm under on every standing foot.
     private const float HandRadius = 0.025f, FingersBeyond = 0.02f;
-    // The guard runs on every animated frame: run only near the ground (hips under 0.83 m), it
-    // missed the keeper's push-off into a dive, feet 4 cm in with his hips still 0.84 m up.
+    // The guard runs while he is falling or getting up: the dives ask for it each frame
+    // (GuardGroundThisFrame), and the get-up has it. Run on every animated frame, it "fixed" the
+    // run cycle's and the bowling stride's feet as they struck the grass: a leg near vertical under
+    // the hip needs a huge swing to lift a few centimetres, and the bowler's legs kicked out 40-76 cm
+    // in a frame running in and walking back (measured; 9.8 cm at worst with the guard off). Gated
+    // on hip height instead (under 0.83 m), it missed the keeper's push-off into a dive.
+    private float guardUntil = -1f;
+
+    /// Keep him out of the ground this frame (a dive in progress calls it every frame).
+    public void GuardGroundThisFrame() => guardUntil = Time.time + 0.05f;
+
+    /// A limb is swung at most this much in a frame, and not at all if its low point is less than
+    /// this share of its length out from the pivot (straight down under the hip or shoulder,
+    /// swinging it cannot lift it).
+    private const float MaxSwing = 10f, MinLever = 0.25f;
     private float soleL = 0.012f, soleR = 0.012f;
 
     private Collider hipsCollider, chestCollider, headCollider;
@@ -121,6 +134,8 @@ public partial class FielderRagdoll
     {
         if (limbs == null || hips == null || state == State.Down)
             return;
+        if (state != State.GettingUp && Time.time > guardUntil)
+            return;
         float scale = transform.lossyScale.y;
         float ground = BallFlight.GroundY(hips.position);
         // The trunk and head under it: the whole of him up.
@@ -151,14 +166,14 @@ public partial class FielderRagdoll
         }
     }
 
-    /// Turn `bone` about its own pivot so the point `p` on it rises by `rise`.
+    /// Turn `bone` about its own pivot so the point `p` on it rises by `rise` (within MaxSwing).
     private static void SwingUp(Transform bone, Vector3 p, float rise)
     {
         Vector3 r = p - bone.position;
         Vector3 flat = new Vector3(r.x, 0f, r.z);
-        if (flat.sqrMagnitude < 1e-6f)
-            return;   // straight below the pivot: turning it cannot lift it
-        float angle = Mathf.Atan2(rise, flat.magnitude) * Mathf.Rad2Deg;
+        if (flat.magnitude < MinLever * r.magnitude || flat.sqrMagnitude < 1e-6f)
+            return;   // (nearly) straight below the pivot: turning it cannot lift it
+        float angle = Mathf.Min(MaxSwing, Mathf.Atan2(rise, flat.magnitude) * Mathf.Rad2Deg);
         Vector3 axis = Vector3.Cross(Vector3.up, flat).normalized;
         Quaternion turn = Quaternion.AngleAxis(angle, axis);
         if ((turn * r).y < r.y)

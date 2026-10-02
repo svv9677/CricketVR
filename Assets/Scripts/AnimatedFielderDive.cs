@@ -56,6 +56,9 @@ public partial class AnimatedFielder
                 return false;
             StartDive(point, eta);
         }
+        // Diving: nothing of him into the ground (FielderRagdoll's guard, off the rest of the time).
+        if (ragdoll != null)
+            ragdoll.GuardGroundThisFrame();
         // Handed to physics for the landing: down, then the get-up clip (FielderRagdoll).
         if (ragdollDown)
         {

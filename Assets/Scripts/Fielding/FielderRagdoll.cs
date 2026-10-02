@@ -238,6 +238,7 @@ public partial class FielderRagdoll : MonoBehaviour
     {
         if (state == State.GettingUp)
             GetUpPose();
+        ApplyPoseBlend();
         KeepAboveGround();
     }
 

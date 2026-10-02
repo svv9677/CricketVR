@@ -81,6 +81,9 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
     /// Holding: ball in front of the chest (above the feet, in front of them), and the pause
     /// before turning to throw it in.
     private const float HoldHeight = 1.15f, HoldAhead = 0.32f, TurnAfter = 0.5f;
+    /// After the give, it goes into the right hand from this long on, over OneHandTime (s), held
+    /// RightHandOut (m) to the right of his middle.
+    private const float OneHandAfter = 0.1f, OneHandTime = 0.35f, RightHandOut = 0.12f;
 
     private Transform holdBallOffset;
     private HumanoidReach reach;
@@ -328,6 +331,7 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
         // Throwing (arms free for the throw) or taking a throw (hands to where it will arrive).
         // Palms follow the arms unless a take below says which way they face.
         reach.palmFacing = Vector3.zero;
+        reach.leftHandShare = 1f;   // both hands, unless the hold below has it in one
         if (ReachForThrow() || ReachForDive())
             return;
         Main inst = Main.Instance;
@@ -345,11 +349,19 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             // bent over it lies above his back; HumanoidReach's body guard (HumanoidReachBody) keeps
             // the hands out of the torso and on its front meanwhile, so they rise with him - without
             // it they swept up through his chest (measured 12 cm in).
-            Vector3 chest = transform.position + transform.up * HoldHeight + transform.forward * HoldAhead;
+            // Both hands take it and give with it; then it goes into the right (throwing) hand,
+            // carried in front of his right side, and the left lets go. Held in both all the way,
+            // palms facing across a point at the chest, the fingers pointed at each other and the
+            // hands laced through each other in front of him - "crossed over" (filmed).
+            float oneHand = Mathf.Clamp01((t - GiveTime - OneHandAfter) / OneHandTime);
+            oneHand = oneHand * oneHand * (3f - 2f * oneHand);
+            Vector3 chest = transform.position + transform.up * HoldHeight + transform.forward * HoldAhead +
+                            transform.right * (RightHandOut * oneHand);
             float up = Mathf.Clamp01((t - GiveTime) / 0.3f);
             reach.handTarget = Vector3.Lerp(back, chest, up * up * (3f - 2f * up));
             reach.weight = 1f;
             reach.handGap = 0.09f;
+            reach.leftHandShare = 1f - oneHand;
             reach.look = false;
             return;
         }
