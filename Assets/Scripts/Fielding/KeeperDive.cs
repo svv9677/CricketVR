@@ -43,9 +43,12 @@ public partial class KeeperCatcher
     private float footGoal;
     private bool diving, diveCommitted;
     private float diveStart, diveSide, diveFrom, diveTo, diveRoll, diveReach, landedAt = -1f;
-    private float spilledUntil, diveUpAt = -1f;
-    /// Through the dive at which physics takes the landing, just after the take.
-    private const float RagdollFrom = 0.85f;
+    private float spilledUntil, diveUpAt = -1f, diveLeap;
+    /// Highest he gets off the ground diving for a high one, metres.
+    private const float MaxDiveLeap = 0.45f;
+    /// Through the dive at which physics takes over - in the air, as the ball reaches (or passes)
+    /// his gloves. Sooner if he has it.
+    private const float RagdollFrom = 0.74f, RagdollWithBall = 0.5f;
     private FielderRagdoll ragdoll;
     private bool ragdollDown;
     private Vector3 lastHips;
@@ -90,9 +93,14 @@ public partial class KeeperCatcher
         {
             if (!live || holding || away || !hasIntercept)
                 return false;
-            // Decided once he has read it: a keeper sees he has to go, stays set, and goes.
+            // Decided once he has read it: a keeper sees he has to go, stays set, and goes - unless
+            // a later read (swing, the turn off the pitch) brings it back within a lunge, when he
+            // takes it on his feet instead. Latched for good, he dived for balls he could have
+            // stood and taken, and a dive take only sometimes holds (review).
             if (!diveCommitted && CannotGetThere())
                 diveCommitted = true;
+            else if (diveCommitted && WithinLunge())
+                diveCommitted = false;
             if (!diveCommitted || interceptAt - Time.time > DiveLead)
                 return false;
             StartDive();
@@ -146,13 +154,14 @@ public partial class KeeperCatcher
                 return false;
             }
         }
-        bodyRoot.localPosition = new Vector3(x, BodyDrop, 0f);
+        // Off the ground for a high one: a leap sideways, up and down again over the dive.
+        bodyRoot.localPosition = new Vector3(x, BodyDrop + diveLeap * Mathf.Sin(Mathf.PI * s), 0f);
         // Topple about his feet toward the ball: a roll about his forward axis.
         bodyRoot.localRotation = Quaternion.AngleAxis(-diveSide * roll, Vector3.forward);
         lastBody = bodyRoot.position;
         // Past the take and going down: physics has the landing (a get-up clip follows).
         Vector3 hipsNow = HipsPosition();
-        if (s >= RagdollFrom && landedAt < 0f)
+        if ((s >= RagdollFrom || (holding && s >= RagdollWithBall)) && landedAt < 0f)
         {
             if (ragdoll == null)
                 ragdoll = body.GetComponent<FielderRagdoll>();
@@ -207,6 +216,13 @@ public partial class KeeperCatcher
         return true;
     }
 
+    /// The latest read has it within a lunge of where he is (with a margin, so he does not flip).
+    private bool WithinLunge()
+    {
+        Vector3 local = transform.InverseTransformPoint(intercept);
+        return Mathf.Abs(local.x - shuffleX) < LungeReach - 0.15f;
+    }
+
     /// Too wide for his feet in the time there is (and within a dive): he will have to dive.
     private bool CannotGetThere()
     {
@@ -250,6 +266,8 @@ public partial class KeeperCatcher
         // height, the arms reaching the rest; then on down to the ground.
         float height = Mathf.Max(0.1f, local.y + 0.3f);
         float rollAtCatch = Mathf.Acos(Mathf.Clamp01(height / ShoulderHeight)) * Mathf.Rad2Deg;
+        // A high one: he takes off for it (standing, a 1.8 m ball 2.4 m wide was 0.28 m out of reach).
+        diveLeap = Mathf.Clamp01((local.y - 1.2f) / 0.8f) * MaxDiveLeap;
         diveRoll = Mathf.Clamp(rollAtCatch, 30f, ReachMath.DiveLanded);
     }
 

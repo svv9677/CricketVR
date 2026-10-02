@@ -1076,11 +1076,17 @@ public class Main : MonoBehaviour
     /// throw.
     private IEnumerator WaitForReturnThenReset()
     {
+        bool extrasBefore = Extras.InPlay;
         yield return new WaitForSeconds(DeadBallPause);
         float giveUp = Time.time + MaxReturnWait;
         // Ready (the next-ball options) as soon as the keeper has it; the relay home carries on.
-        while (ThrowBack.Busy && !ThrowBack.KeeperHasHadIt && Time.time < giveUp)
+        while (ThrowBack.Busy && !ThrowBack.KeeperHasHadIt && Time.time < giveUp && Extras.InPlay == extrasBefore)
             yield return null;
+        // It got past the keeper meanwhile (a wide he missed) and is being played on for byes
+        // (Extras): that play ends the ball, not this wait. Resetting here cut a wide's byes off
+        // a second in, never scored (review).
+        if (Extras.InPlay && !extrasBefore)
+            yield break;
         gameState = eGameState.InGame_ResetToReady;
     }
 

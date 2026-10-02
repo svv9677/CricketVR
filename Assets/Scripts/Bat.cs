@@ -195,6 +195,10 @@ public partial class Bat : MonoBehaviour
         OnBallHit(inst, incoming, outgoing, swingVelocity.magnitude, result);
     }
 
+    /// Closing speed (m/s) at which the bat's jolt is at full strength (most firm shots), and the
+    /// strength of the gentlest contact.
+    private const float HapticFullImpact = 25f, HapticMin = 0.5f;
+
     private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeed, BatContact.Result result)
     {
         hasHitBall = true;
@@ -216,12 +220,13 @@ public partial class Bat : MonoBehaviour
             edge = result.edge,
         });
 
-        // Haptics follow the contact too, both hands (both are on the handle): a middle is a hard,
-        // short jolt; an edge, the toe or the shoulder a long buzz - the sting a mistimed shot sends
-        // up the handle. Every contact is felt: even a thin edge starts at 0.7.
+        // Haptics follow the contact too, both hands (both are on the handle), and scale with how
+        // hard it was hit: a nudge is a short buzz, a full-blooded strike a full-strength jolt that
+        // lasts. A mishit (edge, toe, shoulder) rings on longer - the sting up the handle.
         bool clean = result.kind == BatContact.ContactKind.Middled || result.kind == BatContact.ContactKind.Good;
-        float strength = Mathf.Clamp01(0.7f + result.impactSpeed / 50f);
-        float duration = clean ? 0.12f : 0.25f;
+        float hard = Mathf.Clamp01(result.impactSpeed / HapticFullImpact);
+        float strength = Mathf.Lerp(HapticMin, 1f, Mathf.Sqrt(hard));
+        float duration = Mathf.Lerp(0.07f, 0.22f, hard) + (clean ? 0f : 0.12f);
         XRInput.SendHaptics(true, strength, duration);
         XRInput.SendHaptics(false, strength, duration);
         ShotDistance.Instance.RecordHit(inst.theBall.transform.position);

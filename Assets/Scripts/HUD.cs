@@ -81,7 +81,8 @@ public class HUD : MonoBehaviour
                            set {}
                          }
 
-    private System.DateTime StartOfShot;
+    /// When the shot (or the byes) started, in game time: pausing mid-chase must not add runs.
+    private float StartOfShot;
 
 
     // Start is called before the first frame update
@@ -150,9 +151,16 @@ public class HUD : MonoBehaviour
     }
 
     // Update is called once per frame
+    private bool keeperMovePending;
+
     void HandleGameState()
     {
         eGameState st = Main.Instance.gameState;
+        if (st == eGameState.InGame_SelectDelivery && keeperMovePending)
+        {
+            keeperMovePending = false;
+            UpdateKeeperPosition();
+        }
         // A ball that beat the keeper, played on (Extras): byes, or runs added to a wide.
         if (Extras.InPlay && (st == eGameState.InGame_BallFielded || st == eGameState.InGame_BallPastBoundary))
         {
@@ -170,7 +178,7 @@ public class HUD : MonoBehaviour
             }
             else
             {
-                double seconds = System.DateTime.UtcNow.Subtract(StartOfShot).TotalSeconds;
+                float seconds = Time.time - StartOfShot;
                 //Debug.Log("SHOT TIMER: " + seconds.ToString());
                 if (seconds < 2f)
                     AddRuns(0);
@@ -226,14 +234,14 @@ public class HUD : MonoBehaviour
         if(st == eGameState.InGame_BallHit)
         {
             //start track of time till ball gets fielded
-            StartOfShot = System.DateTime.UtcNow;
+            StartOfShot = Time.time;
         }
     }
 
     /// Runs the batters take while the ball is fielded, by how long that took (as for a shot).
     int RunsForTime()
     {
-        double seconds = System.DateTime.UtcNow.Subtract(StartOfShot).TotalSeconds;
+        float seconds = Time.time - StartOfShot;
         return seconds < 2f ? 0 : seconds < 4.5f ? 1 : seconds < 7.5f ? 2 : seconds < 11f ? 3 : 4;
     }
 
@@ -303,7 +311,8 @@ public class HUD : MonoBehaviour
                 break;
             case 10:
                 {
-                    IncrementRuns(1);
+                    // A wide is an extra: the team's run, not the batter's (it was credited to him).
+                    Runs += 1;
                     BowledBalls.Add("wd");
                 }
                 break;
@@ -355,7 +364,10 @@ public class HUD : MonoBehaviour
     {
         CurrentBowler = Bowlers[index];
         Main.Instance.swingType = CurrentBowler.Type;
-        UpdateKeeperPosition();
+        // The keeper moves up or back for the new bowler at the start of his first ball - not now,
+        // when (end of an over) he may be holding the ball or throwing it on: moved now, he
+        // teleported 5-12 m with it and a throw in his wind-up never came (review).
+        keeperMovePending = true;
         AnimatedBowler.Instance.UpdateInfo(index);
     }
 
@@ -456,7 +468,7 @@ public class HUD : MonoBehaviour
             {
                 str = BowledBalls[i] + " " + str;
 
-                if (!BowledBalls[i].Equals("wd"))
+                if (!BowledBalls[i].EndsWith("wd"))
                 {
                     legal++;
                     if (legal == 6)

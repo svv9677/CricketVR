@@ -27,6 +27,8 @@ public static class FieldingFilm
         public string name;
         public Vector3 from, velocity, look;
         public bool delivery;
+        /// From the bowler's hand: not pitched yet (Ball.fresh), as a real delivery.
+        public bool fromHand;
         public Vector3 cameraSide;
     }
 
@@ -128,6 +130,27 @@ public static class FieldingFilm
         {
             name = $"K_{side:+0.0;-0.0;0}_{height:0.0}",
             from = from, velocity = v, look = k + Vector3.up * 0.7f, delivery = true,
+            cameraSide = -facing * 0.35f + right,
+        });
+    }
+
+    /// A real delivery: from the bowler's hand at `pace`, pitching on the strip, reaching the
+    /// keeper `side` metres to his right at `height` (KeeperGrid's solver).
+    public static void AtKeeperFromHand(float side, float height, float pace = 35f)
+    {
+        if (!KeeperGrid.DeliveryTo(side, height, pace, out Vector3 from, out Vector3 v))
+        {
+            report.Add($"KH_{side:+0.0;-0.0;0}_{height:0.0}: cannot be bowled at that height");
+            return;
+        }
+        Transform keeper = Main.Instance.theKeeper.transform;
+        Vector3 k = keeper.position;
+        Vector3 facing = Flat(keeper.forward).normalized;
+        Vector3 right = Vector3.Cross(Vector3.up, facing);
+        shots.Add(new Shot
+        {
+            name = $"KH_{side:+0.0;-0.0;0}_{height:0.0}",
+            from = from, velocity = v, look = k + Vector3.up * 0.7f, delivery = true, fromHand = true,
             cameraSide = -facing * 0.35f + right,
         });
     }
@@ -283,8 +306,9 @@ public static class FieldingFilm
         inst.theBall.transform.position = shot.from;
         rb.linearVelocity = shot.velocity;
         rb.angularVelocity = Vector3.zero;
-        inst.theBallScript.fresh = false;
-        inst.theBallScript.bounced = shot.delivery;
+        inst.theBallScript.fresh = shot.fromHand;
+        inst.theBallScript.bounced = shot.delivery && !shot.fromHand;
+        inst.theBallScript.deliveryEffects = BallFlight.DeliveryEffects.None;
         inst.theBatScript.hasHitBall = true;   // the idle bat in the Editor must not meet it
         inst.gameState = shot.delivery ? eGameState.InGame_DeliverBallLoop : eGameState.InGame_BallHit;
 

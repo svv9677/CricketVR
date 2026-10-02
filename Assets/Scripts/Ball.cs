@@ -54,7 +54,9 @@ public class Ball : MonoBehaviour
            myParticles = GetComponent<TrailRenderer>();
 
         //If, ball comes to a stop by itself, BEFORE a shot, assume that it was a dead ball
-        if (bounced && myRigidBody.linearVelocity.magnitude < 0.1f && inst.gameState == eGameState.InGame_DeliverBallLoop)
+        // (It has pitched: `fresh` is cleared at the bounce. This tested `bounced`, which is only
+        // ever set after a hit, so a delivery that died short of the keeper hung the game.)
+        if (!fresh && !myRigidBody.isKinematic && myRigidBody.linearVelocity.magnitude < 0.1f && inst.gameState == eGameState.InGame_DeliverBallLoop)
         {
             inst.resetDelay = 0.5f;
             inst.gameState = eGameState.InGame_ResetToReady;

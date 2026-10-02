@@ -34,8 +34,10 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
     [SerializeField] private HumanoidReach body;
     [SerializeField] private Transform bodyRoot;
 
-    /// A ball this close to a glove's palm is in it (gloves are big: a little over a bare hand).
-    public const float GatherDistance = 0.17f;
+    /// A ball this close to a glove's palm is in it. Keeping gloves are big - webbed, well past
+    /// the fingers - and at 0.17 head-high balls went through glove-high hands 0.19-0.28 m off
+    /// (KeeperGrid).
+    public const float GatherDistance = 0.2f;
     private const float WideBoxesEndX = 10.85f;
     private const float HandsAhead = 0.5f;
     private const float MaxShuffle = 1.6f, ShuffleSpeed = 3f, ShuffleAccel = 20f;
@@ -118,6 +120,7 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
     private void ResetStance()
     {
         hasIntercept = false;
+        jumpY = 0f;
         shuffleX = shuffleVelocity = 0f;
         ClearFetch();
         ClearDive();
@@ -171,10 +174,12 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
             return;
         nextPredict = Time.time + PredictInterval;
         Rigidbody rb = Main.Instance.theBallRigidBody;
-        // A delivery still in the air before it pitches swings: read it with its swing.
+        // A delivery still in the air before it pitches swings, and will turn off the pitch: he
+        // reads both, as a keeper reads the bowler's hand. (Without the turn a spinner's ball was
+        // read up to half a metre off its line until it pitched.)
         Ball ball = Main.Instance.theBallScript;
         BallFlight.DeliveryEffects effects = state == eGameState.InGame_DeliverBallLoop && ball.fresh
-            ? new BallFlight.DeliveryEffects { swingAccelPerV2 = ball.deliveryEffects.swingAccelPerV2, swingSign = ball.deliveryEffects.swingSign }
+            ? ball.deliveryEffects
             : BallFlight.DeliveryEffects.None;
         hasIntercept = Predict(rb.position, rb.linearVelocity, effects, out intercept, out float eta);
         if (hasIntercept)
@@ -241,7 +246,11 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         // Only as far as the gloves need (KeeperDive.FootworkGoal), not behind every line.
         float goal = holding ? shuffleX : hasIntercept && live ? FootworkGoal(localHit.x) : shuffleX;
         shuffleX = ReachMath.Shuffle(shuffleX, ref shuffleVelocity, goal, ShuffleSpeed, ShuffleAccel, dt);
-        bodyRoot.localPosition = new Vector3(shuffleX, BodyDrop, 0f);
+        // Off the ground for a high one (Keep's jump), coming back down once it is over.
+        if (!jumping)
+            jumpY = Mathf.MoveTowards(jumpY, 0f, JumpFall * dt);
+        jumping = false;
+        bodyRoot.localPosition = new Vector3(shuffleX, BodyDrop + jumpY, 0f);
         Vector3 velocity = dt > 0f ? (bodyRoot.position - lastBody) / dt : Vector3.zero;
         lastBody = bodyRoot.position;
         feet.Tick(Ground(bodyRoot.position), bodyRoot.right, velocity, dt);
@@ -280,13 +289,26 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         Vector3 rest = between ? bodyRoot.position + fwd * RestHandsAhead + up * RestHandsUp
                                : bodyRoot.position + fwd * 0.45f + up * 0.42f;
         float eta = interceptAt - Time.time;
-        // Down in the crouch until the delivery pitches (keepers rise with the bounce); an edge
-        // or a ball already bounced is read straight away.
-        bool readable = coming && (state != eGameState.InGame_DeliverBallLoop || Main.Instance.theBallScript.bounced || eta < 0.25f);
+        // His gloves go to it from the moment he reads it - out of the bowler's hand - easing in
+        // over ReachLead..ReachFull. He stays down in his crouch until the delivery pitches
+        // (keepers rise with the bounce), or until it is nearly on him. This used to wait for
+        // Ball.bounced, which is only ever set after a hit, so for every delivery the gloves and
+        // the rise jumped in 0.25 s before it arrived and were still ~0.2 m short (review).
+        bool readable = coming;
+        bool pitched = state != eGameState.InGame_DeliverBallLoop || !Main.Instance.theBallScript.fresh || eta < 0.35f;
         float onIt = readable ? Mathf.InverseLerp(ReachLead, ReachFull, eta) : 0f;
         float arriveY = transform.InverseTransformPoint(intercept).y;
-        float rise = readable ? Mathf.Clamp01((arriveY - 0.45f) / 0.9f) : 0f;
+        float rise = readable && pitched ? Mathf.Clamp01((arriveY - 0.45f) / 0.9f) : 0f;
         body.minCrouch = between ? RestCrouch : Crouch * (1f - rise);
+        // Above his standing reach: jump for it, at the top of the jump as it arrives.
+        float high = readable ? Mathf.Clamp01((arriveY - JumpAbove) / JumpFullAt) : 0f;
+        if (high > 0f && eta < JumpLead && eta > -0.1f)
+        {
+            float phase = Mathf.Clamp01((JumpLead - eta) / (2f * JumpLead));
+            jumpY = MaxJump * high * Mathf.Sin(Mathf.PI * phase);
+            jumping = true;
+            body.feetOverride = false;   // the legs go up with him
+        }
         body.handTarget = Vector3.Lerp(rest, intercept, onIt);
         body.weight = between ? RestWeight : Mathf.Max(0.85f, onIt);
         if (between && AnimatedBowler.Instance != null)
@@ -296,6 +318,14 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         Vector3 face = Vector3.Slerp(fwd, -incoming, onIt);
         body.palmFacing = face.sqrMagnitude > 1e-4f ? face : fwd;
     }
+
+    /// Jumping for a high one: balls arriving above JumpAbove (standing, his gloves reach about
+    /// that), as high as MaxJump for one JumpFullAt above it; he leaves the ground JumpLead before
+    /// it arrives and falls back at JumpFall m/s. Standing, every head-high ball missed his gloves
+    /// by 0.2-0.3 m and every one above it by 0.45 m (KeeperGrid).
+    private const float JumpAbove = 1.6f, JumpFullAt = 0.6f, MaxJump = 0.4f, JumpLead = 0.3f, JumpFall = 2.5f;
+    private float jumpY;
+    private bool jumping;
 
     /// A ball is being bowled or is in play - no standing easy.
     private static bool InPlay(eGameState s) =>
@@ -415,7 +445,7 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
                  // A delivery must clear the wide boxes at the stumps (x 9.8-10.8) first, or a keeper
                  // standing up to the spinners would take it inside them and no wide could be called.
                  !(state == eGameState.InGame_DeliverBallLoop && now.x < WideBoxesEndX) &&
-                 Time.time >= spilledUntil &&
+                 Time.time >= spilledUntil && !ragdollDown &&
                  body.ClosestPalm(lastBall, now) <= (away ? PickUpDistance : GatherDistance))
         {
             // At full stretch in a dive, it only sometimes sticks (KeeperDive.DiveTakeSticks).

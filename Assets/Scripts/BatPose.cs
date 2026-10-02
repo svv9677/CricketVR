@@ -63,8 +63,9 @@ public partial class Bat
                     sounds = GetComponent<BatSounds>();
                 if (sounds != null)
                     sounds.PlayGround(groundPoint, speed);
-                float buzz = Mathf.Clamp01(0.2f + speed / 6f);
-                XRInput.SendHaptics(attachParent == leftHandParent, buzz, 0.04f);
+                // Felt in the hand, harder and longer the harder it comes down.
+                float hard = Mathf.Clamp01(speed / 4f);
+                XRInput.SendHaptics(attachParent == leftHandParent, Mathf.Lerp(0.35f, 1f, hard), Mathf.Lerp(0.04f, 0.12f, hard));
             }
         }
         onGround = touching;

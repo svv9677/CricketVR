@@ -38,8 +38,9 @@ public partial class AnimatedFielder
     private float diveStart, diveSide, diveRoll, diveStretch, diveLanded = -1f, diveSpilledUntil, diveUpAt = -1f;
     private float diveHipsAtCatch, diveReachOut, diveSlide;
     private Vector3 divePoint, diveFrom, diveDir, diveIncoming, lastDiveHips;
-    /// Through the flight at which physics takes the landing (just after the take, near the ground).
-    private const float RagdollFrom = 0.82f;
+    /// Through the flight at which physics takes over - in the air, as the ball reaches (or passes)
+    /// his hands: from there it is a body falling, not a dive being aimed. Sooner if he has it.
+    private const float RagdollFrom = 0.74f, RagdollWithBall = 0.5f;
     private FielderRagdoll ragdoll;
     private bool ragdollDown;
     private Quaternion diveFacing;
@@ -82,7 +83,7 @@ public partial class AnimatedFielder
             hips = diveFrom + diveDir * across + Vector3.up * y;
             // Past the take and nearly down: physics has the landing, the slide and the tumble,
             // moving as he was (a get-up clip follows). Without a ragdoll, the scripted landing below.
-            if (s >= RagdollFrom && ragdoll != null && ragdoll.Ready)
+            if ((s >= RagdollFrom || (holdingBall && s >= RagdollWithBall)) && ragdoll != null && ragdoll.Ready)
             {
                 Quaternion pose = diveFacing * Quaternion.AngleAxis(-diveSide * roll, Vector3.forward);
                 Vector3 velocity = t > 0.02f ? (hips - lastDiveHips) / Mathf.Max(Time.deltaTime, 1e-3f) : diveDir * 4f;

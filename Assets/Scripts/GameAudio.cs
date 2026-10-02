@@ -36,6 +36,10 @@ public static class GameAudio
         }
     }
 
+    /// Built-in lift per channel at 100%: the bat sits above the crowd (a struck ball should be
+    /// the loudest thing you hear).
+    private static float BaseGainDb(Channel c) => c == Channel.Bat ? 4f : 0f;
+
     public static float GetVolume(Channel c) => PlayerPrefs.GetFloat(PrefKey(c), 1f);
 
     public static void SetVolume(Channel c, float volume)
@@ -60,8 +64,8 @@ public static class GameAudio
         if (Mixer == null)
             return;
         float v = GetVolume(c);
-        // 20 log10: 1 -> 0 dB, 2 -> +6 dB; silence is the fader's floor.
-        Mixer.SetFloat(Parameter(c), v > 0.0001f ? 20f * Mathf.Log10(v) : -80f);
+        // 20 log10: 1 -> 0 dB, 2 -> +6 dB; silence is the fader's floor. Plus the channel's own lift.
+        Mixer.SetFloat(Parameter(c), v > 0.0001f ? 20f * Mathf.Log10(v) + BaseGainDb(c) : -80f);
     }
 
     public static AudioMixerGroup Group(Channel c)

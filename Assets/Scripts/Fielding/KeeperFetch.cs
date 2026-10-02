@@ -31,7 +31,7 @@ public partial class KeeperCatcher
     public float RunSpeed => AnimatedFielder.BaseRunSpeed * FetchSpeedShare *
                              Mathf.Max(0.5f, Main.Instance != null ? Main.Instance.fielderSpeed : 1.5f);
     public bool HasTarget => fetching;
-    public bool Available => body != null && body.Ready && !holding;
+    public bool Available => body != null && body.Ready && !holding && !diving;
     public bool IsKeeper => true;
     public string Name => name;
 

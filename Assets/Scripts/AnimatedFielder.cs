@@ -98,7 +98,9 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
 
     // ---- IFielder ------------------------------------------------------------------------------
     public Vector3 Position => transform.position;
-    public bool Available => isActiveAndEnabled && !holdingBall;
+    /// Free to be sent after the ball: not holding it, and not down from a dive (review: a fielder
+    /// lying on the grass after a spill was made the caller and everyone else stood off).
+    public bool Available => isActiveAndEnabled && !holdingBall && !diving;
     public bool IsKeeper => false;
     public string Name => name;
 
@@ -518,7 +520,8 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             bool slow = inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall;
             bool inHands = slow ? reach.ClosestPalm(lastBall, now) <= SlowGatherDistance
                                 : ReachMath.SegmentDistance(lastBall, now, reach.HoldPoint) <= CatchPocket;
-            if (inHands && Time.time >= diveSpilledUntil)
+            // Not while he is down on the grass under physics: his reach is off then (review).
+            if (inHands && Time.time >= diveSpilledUntil && !ragdollDown)
             {
                 if (diving && !DiveTakeSticks())
                     DiveSpill();   // a diving take only sometimes holds

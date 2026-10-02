@@ -27,9 +27,11 @@ public class BatSounds : MonoBehaviour
     [SerializeField] private AudioClip[] toe;
     [SerializeField] private AudioClip[] handle;
 
-    /// Closing speed (m/s) at which a contact plays at full volume; a dead-bat block is ~5-10.
-    private const float FullVolumeImpact = 45f;
-    private const float MinVolume = 0.25f;
+    /// Closing speed (m/s) at which a contact plays at full volume (a dead-bat block is ~5-10, a
+    /// full drive 30+), and how loud the softest one is. Louder and quicker to full volume than
+    /// before (45 m/s, 0.25): a firm shot should crack.
+    private const float FullVolumeImpact = 35f;
+    private const float MinVolume = 0.4f;
 
     /// Low-pass corner (Hz) for the softest contact and for a full-blooded one: a dead-bat block
     /// is dull as well as quiet, a hard strike is bright.
@@ -79,23 +81,25 @@ public class BatSounds : MonoBehaviour
         source.PlayOneShot(clip, volume * Mathf.Lerp(MinVolume, 1f, Mathf.Sqrt(loud)) * Random.Range(0.92f, 1f));
     }
 
-    /// The bat coming down on the ground (Bat's ground check): a dull knock where it touched -
-    /// the toe recordings, lower and muffled, as wood on turf sounds - louder the harder it lands.
-    /// Speed is how fast the bat was coming down, m/s.
+    /// The bat coming down on the ground (Bat's ground check): a deep knock where it touched,
+    /// louder the harder it lands. Speed is how fast the bat was coming down, m/s.
     public void PlayGround(Vector3 point, float speed)
     {
-        if (toe == null || toe.Length == 0 || source == null)
-            return;
-        AudioClip clip = toe[Random.Range(0, toe.Length)];
-        if (clip == null)
+        if (ground == null || source == null)
             return;
         float loud = Mathf.Clamp01(speed / GroundFullSpeed);
         if (source.transform != transform)
             source.transform.position = point;
-        source.pitch = Random.Range(0.72f, 0.8f);
-        tone.cutoffFrequency = Mathf.Lerp(700f, 1800f, loud);
-        source.PlayOneShot(clip, Mathf.Lerp(0.2f, 0.75f, Mathf.Sqrt(loud)));
+        // One sound, every time: the deep knock, louder (and a touch brighter) the harder it lands.
+        source.pitch = 0.85f;
+        tone.cutoffFrequency = Mathf.Lerp(900f, 1600f, loud);
+        source.PlayOneShot(ground, Mathf.Lerp(0.35f, 1f, Mathf.Sqrt(loud)));
     }
+
+    /// The bat on the ground: the deepest recording in the set (handle_1: spectral centroid 640 Hz,
+    /// over half its energy below 400 Hz). Picking among the toe takes, as it did, sometimes played
+    /// toe_2 (centroid 4.8 kHz) - a hollow, bright knock.
+    [SerializeField] private AudioClip ground;
 
     /// Coming down this fast (m/s) is as loud as a knock on the ground gets.
     private const float GroundFullSpeed = 4f;
@@ -124,6 +128,7 @@ public class BatSounds : MonoBehaviour
     public void LoadTakes()
     {
         middled = Load("middled"); good = Load("good"); edge = Load("edge"); toe = Load("toe"); handle = Load("handle");
+        ground = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Bat/Real/handle_1.wav");
         UnityEditor.EditorUtility.SetDirty(this);
     }
 

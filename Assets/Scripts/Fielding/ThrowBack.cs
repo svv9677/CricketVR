@@ -51,6 +51,9 @@ public class ThrowBack : MonoBehaviour
     /// tied to the dead-ball states: Ready comes as soon as the keeper has it, mid-relay.
     private bool active, keeperHad;
     private Vector3 flightTo, flightThrower;
+    private float windingSince;
+    /// No throw takes longer than this to leave the hand.
+    private const float MaxWinding = 3f;
     private IThrowPlayer holder, receiver;
     private float flightStart, flightTime;
     private bool relayToBowler;
@@ -96,9 +99,12 @@ public class ThrowBack : MonoBehaviour
             bowlerHands.Drop();
     }
 
+    /// The ball is dead and someone may be holding it: off the bat and fielded, missed, or bowled
+    /// (the keeper fetches it from behind the stumps - without Bowled here he kept it, review).
     private static bool DeadBall(eGameState s) =>
         s == eGameState.InGame_BallFielded || s == eGameState.InGame_BallFielded_Loop ||
-        s == eGameState.InGame_BallMissed || s == eGameState.InGame_BallMissedLoop;
+        s == eGameState.InGame_BallMissed || s == eGameState.InGame_BallMissedLoop ||
+        s == eGameState.InGame_Bowled || s == eGameState.InGame_BowledLoop;
 
     private void LateUpdate()
     {
@@ -122,6 +128,10 @@ public class ThrowBack : MonoBehaviour
             case Phase.Winding:
                 if (holder.ReadyToRelease)
                     Launch(inst);
+                // The thrower lost his throw (reset under it, put down): decide again rather than
+                // wait for a release that will never come (review).
+                else if (!holder.HoldingBall || Time.time - windingSince > MaxWinding)
+                    phase = Phase.Idle;
                 break;
             case Phase.Flying:
                 Fly(inst);
@@ -177,6 +187,7 @@ public class ThrowBack : MonoBehaviour
         if (receiver == null)
             return;
         holder.BeginThrow(receiver.CatchPointFrom(holder.Position));
+        windingSince = Time.time;
         if (receiver == (IThrowPlayer)keeper)
         {
             SendBackup(holder.Position);
@@ -295,7 +306,7 @@ public class ThrowBack : MonoBehaviour
         float bestWay = float.MaxValue;
         foreach (AnimatedFielder f in AnimatedFielder.All)
         {
-            if (f.IsBowler || f.HoldingBall || ReferenceEquals(f, thrownInBy) || ReferenceEquals(f, holder) ||
+            if (f.IsBowler || !f.Available || ReferenceEquals(f, thrownInBy) || ReferenceEquals(f, holder) ||
                 chain.Contains(f) || Flat(f.StartPosition).magnitude > InnerRing)
                 continue;
             Vector3 p = Flat(f.Position);
@@ -325,7 +336,7 @@ public class ThrowBack : MonoBehaviour
         float best = float.MaxValue;
         foreach (AnimatedFielder f in AnimatedFielder.All)
         {
-            if (f.IsBowler || f.HoldingBall || (IThrowPlayer)f == holder)
+            if (f.IsBowler || !f.Available || (IThrowPlayer)f == holder)
                 continue;
             float d = Flat(f.Position - spot).magnitude;
             if (d < best && d < 35f) { best = d; backup = f; }

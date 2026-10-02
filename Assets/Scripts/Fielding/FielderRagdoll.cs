@@ -41,6 +41,7 @@ public class FielderRagdoll : MonoBehaviour
     private Rigidbody hipsBody;
     private Transform[] bones;
     private Quaternion[] snapshot;
+    private Vector3[] restLocal;
     private Vector3 snapshotHips;
     private Vector3 hipsForwardLocal;
     private float downAt, stillFor, blendFrom;
@@ -60,8 +61,24 @@ public class FielderRagdoll : MonoBehaviour
         bodies = hips.GetComponentsInChildren<Rigidbody>(true);
         colliders = hips.GetComponentsInChildren<Collider>(true);
         hipsBody = hips.GetComponent<Rigidbody>();
-        bones = hips.GetComponentsInChildren<Transform>(true);
+        // Only the skeleton the Animator drives. Everything else under the hips - the keeper's
+        // pads, helmet and gloves, extra rig bones - keeps its own local pose and simply follows
+        // its bone. Blending every transform's world rotation wrote over those local poses and,
+        // with nothing animating them back, left the kit twisted until the next fall.
+        var animated = new System.Collections.Generic.List<Transform>();
+        for (HumanBodyBones b = HumanBodyBones.Hips; b < HumanBodyBones.LastBone; b++)
+        {
+            Transform t = anim.GetBoneTransform(b);
+            if (t != null && !animated.Contains(t))
+                animated.Add(t);
+        }
+        bones = animated.ToArray();
         snapshot = new Quaternion[bones.Length];
+        // The bones' own lengths. The Animator turns limb bones but does not place them, so a joint
+        // that stretched a little under physics would have stayed stretched after he got up.
+        restLocal = new Vector3[bones.Length];
+        for (int i = 0; i < bones.Length; i++)
+            restLocal[i] = bones[i].localPosition;
         // Which way his front is, in the hips bone's own frame (for face up or down).
         hipsForwardLocal = Quaternion.Inverse(hips.rotation) * transform.forward;
         // The fielder's own root body: moved by code, never by physics. Left dynamic (as the scene
@@ -134,6 +151,9 @@ public class FielderRagdoll : MonoBehaviour
         if (state == State.Animated)
             return;
         Animate(true);
+        for (int i = 0; i < bones.Length; i++)
+            if (bones[i] != hips)
+                bones[i].localPosition = restLocal[i];
         anim.enabled = true;
         anim.speed = 1f;
         anim.applyRootMotion = false;
@@ -169,6 +189,9 @@ public class FielderRagdoll : MonoBehaviour
         float speed = playing == FaceDownState ? FaceDownSpeed : playing == FaceUpState ? FaceUpSpeed : SideSpeed;
 
         Animate(true);
+        for (int i = 0; i < bones.Length; i++)
+            if (bones[i] != hips)
+                bones[i].localPosition = restLocal[i];
         // Upright, then the clip's first frame, turned and moved to lie where he lies.
         transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
         anim.enabled = true;
