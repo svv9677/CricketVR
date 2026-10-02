@@ -176,12 +176,11 @@ public static class CricketVRSceneBuilder
 
     private static void SetUpReplay()
     {
-        RenderTexture view = RenderTextureAsset("Assets/Resources/Textures/ReplayView.renderTexture", false, 24);
-        RenderTexture frames = RenderTextureAsset("Assets/Resources/Textures/ReplayFrames.renderTexture", true, 0);
+        RenderTexture view = RenderTextureAsset("Assets/Resources/Textures/ReplayView.renderTexture", 24);
         var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Large Displays/ReplayDisplay.mat");
         material.shader = Shader.Find("CricketVR/ReplayScreen");
-        material.SetTexture("_Frames", frames);
-        material.SetFloat("_Slice", -1f);
+        material.SetTexture("_View", view);
+        material.SetFloat("_On", 0f);
         EditorUtility.SetDirty(material);
 
         var replay = Object.FindFirstObjectByType<CameraReplay>();
@@ -197,21 +196,19 @@ public static class CricketVRSceneBuilder
         }
         SetField(replay, "targetMat", material);
         SetField(replay, "view", view);
-        SetField(replay, "frames", frames);
     }
 
-    /// 320x240 is all a 16 m screen 80 m away can show on a Quest 2.
-    private static RenderTexture RenderTextureAsset(string path, bool array, int depth)
+    /// The replay camera renders the replay live into this (CameraReplay): 800x600 with 4x MSAA
+    /// fills the screen brought in front of the player (~45 degrees) without blurring.
+    private static RenderTexture RenderTextureAsset(string path, int depth)
     {
         var existing = AssetDatabase.LoadAssetAtPath<RenderTexture>(path);
         if (existing != null)
             return existing;
-        var rt = new RenderTexture(320, 240, depth, RenderTextureFormat.ARGB32)
+        var rt = new RenderTexture(800, 600, depth, RenderTextureFormat.ARGB32)
         {
-            dimension = array ? UnityEngine.Rendering.TextureDimension.Tex2DArray : UnityEngine.Rendering.TextureDimension.Tex2D,
-            volumeDepth = array ? 64 : 1,
             useMipMap = false,
-            antiAliasing = 1,
+            antiAliasing = 4,
             filterMode = FilterMode.Bilinear,
         };
         AssetDatabase.CreateAsset(rt, path);

@@ -759,10 +759,7 @@ public class Main : MonoBehaviour
                         currentBowlingConfig = bowlingProfileManager.GetProfile(theHUD.CurrentBowler.Type).GetRandomDelivery();
                         // Each ball starts from the normal gap; a boundary or a keeper's miss sets its own.
                         resetDelay = NextBallDelay;
-                        CameraReplay.Instance.startCapturing = null;
-                        CameraReplay.Instance.startDisplaying = null;
-                        CameraReplay.Instance.StopDisplaying();
-                        CameraReplay.Instance.setViewSetting(0);
+                        CameraReplay.Instance.ResetForNextBall();
                         ShotDistance.Instance.setText("");
                         BallSpeed.Instance.setText("");
                         // TODO: Move bowling machine
@@ -864,7 +861,6 @@ public class Main : MonoBehaviour
                         theBallScript.wide = false;
                         theBatScript.hasHitBall = false;
 
-                        CameraReplay.Instance.StartRecording(0f);
                         StartCoroutine(BallSpeed.Instance.updateBallSpeed());
                         gameState = eGameState.InGame_DeliverBallLoop;
                     }
@@ -882,7 +878,7 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.StopRecording(2f);
+                        CameraReplay.Instance.ShowReplayIn(2f);
                         gameState = eGameState.InGame_BallHitLoop;
                     }
                     break;
@@ -913,7 +909,7 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.StopRecording(1f);
+                        CameraReplay.Instance.ShowReplayIn(1f);
                         gameState = eGameState.InGame_BowledLoop;
 
                         // Wait for '2' seconds and reset to Ready
@@ -929,7 +925,7 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.StopRecording(0f);
+                        CameraReplay.Instance.ShowReplayIn(0f);
                         gameState = eGameState.InGame_BallMissedLoop;
 
                         // Reset once the keeper has passed it back to the bowler (ThrowBack).

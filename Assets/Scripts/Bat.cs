@@ -233,7 +233,7 @@ public partial class Bat : MonoBehaviour
         XRInput.SendHaptics(true, strength, duration);
         XRInput.SendHaptics(false, strength, duration);
         ShotDistance.Instance.RecordHit(inst.theBall.transform.position);
-        CameraReplay.Instance.setViewSetting(1, 1f);
+        CameraReplay.Instance.FollowBallFrom(1f);
         if (SceneManager.GetActiveScene().name == "Nets")
             StartCoroutine(AutomaticReset(2f));
     }
