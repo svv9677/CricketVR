@@ -1068,19 +1068,24 @@ public class Main : MonoBehaviour
         theBallRigidBody.position = theBall.transform.position;
     }
 
-    /// Longest the next ball waits for the ball to come back to the bowler.
+    /// Longest the next ball waits for a missed ball to be in the keeper's gloves.
     public const float MaxReturnWait = 10f;
+    /// A beat after the ball is in someone's hands before the next ball is set up.
+    public const float InHandsPause = 0.3f;
 
-    /// The dead-ball pause, then wait while the ball is thrown back in to the keeper and on to the
-    /// bowler (ThrowBack), then set up the next ball. Without the wait the fielders were reset mid
-    /// throw.
+    /// The dead-ball pause, then the next ball is offered as soon as someone has the ball in his
+    /// hands - the fielder who picked it up, or the keeper - while the throw in and the relay home
+    /// (ThrowBack) carry on behind. It used to wait for the keeper to receive the throw. The
+    /// fielders are not reset under the throw: walking back leaves anyone throwing, holding or
+    /// expecting the ball alone.
     private IEnumerator WaitForReturnThenReset()
     {
         bool extrasBefore = Extras.InPlay;
-        yield return new WaitForSeconds(DeadBallPause);
+        yield return new WaitForSeconds(InHandsPause);
         float giveUp = Time.time + MaxReturnWait;
-        // Ready (the next-ball options) as soon as the keeper has it; the relay home carries on.
-        while (ThrowBack.Busy && !ThrowBack.KeeperHasHadIt && Time.time < giveUp && Extras.InPlay == extrasBefore)
+        // A missed ball still loose (not yet in the keeper's gloves): wait for him to have it, or
+        // for it to get past him and be played on for byes.
+        while (!theBallRigidBody.isKinematic && Time.time < giveUp && Extras.InPlay == extrasBefore)
             yield return null;
         // It got past the keeper meanwhile (a wide he missed) and is being played on for byes
         // (Extras): that play ends the ball, not this wait. Resetting here cut a wide's byes off
