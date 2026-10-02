@@ -50,8 +50,6 @@ public class Main : MonoBehaviour
     [SerializeField]
     public GameObject theBoundaryCollider;
     [SerializeField]
-    protected GameObject BowlingMachineFace;
-    [SerializeField]
     protected Material NightMaterial;
     [SerializeField]
     protected Material DayMaterial;
@@ -170,7 +168,6 @@ public class Main : MonoBehaviour
     private BatGripCalibration gripCalibration;
     private eGameState debugShownState = (eGameState)(-1);
     private BowlingParams debugShownConfig;
-    private Material SignalMaterial;
 
     // Console log parameters
     private const int HISTORY_MAX_LINES = 100;
@@ -196,10 +193,6 @@ public class Main : MonoBehaviour
         if(theStumps != null)
         {
             theStumpsScript = theStumps.GetComponent<Stumps>();
-        }
-        if(BowlingMachineFace != null)
-        {
-            SignalMaterial = BowlingMachineFace.GetComponent<Renderer>().material;
         }
         if(hudParent != null)
         {
@@ -721,8 +714,6 @@ public class Main : MonoBehaviour
             debugShownConfig = currentBowlingConfig;
             if (debugText != null)
                 debugText.text = "GameState: " + gameState + (currentBowlingConfig != null ? "\n" + currentBowlingConfig : "");
-            if (SignalMaterial != null)
-                SignalMaterial.color = gameState == eGameState.InGame_Ready ? Color.green : Color.red;
         }
 
         // Grip calibration owns A and B while it runs, so the A that locks the grip cannot also

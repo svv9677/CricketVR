@@ -13562,12 +13562,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bb380e6ad1b364c8ca70c2ec57137521, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1 &629055821 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4644603753444507371, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-    type: 3}
-  m_PrefabInstance: {fileID: 7405092095619500676}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &636164758
 GameObject:
   m_ObjectHideFlags: 0
@@ -13735,7 +13729,6 @@ MonoBehaviour:
   theKeeper: {fileID: 1926376175}
   theStadium: {fileID: 1199562283}
   theBoundaryCollider: {fileID: 96328050}
-  BowlingMachineFace: {fileID: 629055821}
   NightMaterial: {fileID: 10301, guid: 0000000000000000f000000000000000, type: 0}
   DayMaterial: {fileID: 10301, guid: 0000000000000000f000000000000000, type: 0}
   theNightLights: {fileID: 1462605827}
@@ -43269,46 +43262,6 @@ PrefabInstance:
         type: 3}
       propertyPath: m_IsActive
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -10.37
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 90
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 3403105785464008900, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
         type: 3}
