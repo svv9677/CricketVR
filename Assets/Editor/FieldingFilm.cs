@@ -29,6 +29,8 @@ public static class FieldingFilm
         public bool delivery;
         /// From the bowler's hand: not pitched yet (Ball.fresh), as a real delivery.
         public bool fromHand;
+        /// A loose ball the keeper has to go and pick up (a missed ball, not one to his gloves).
+        public bool loose;
         public Vector3 cameraSide;
     }
 
@@ -50,6 +52,10 @@ public static class FieldingFilm
     public static bool Done { get; private set; } = true;
     /// Also show the film camera in the Game view, on top of the game's own, to watch live.
     public static bool Watch;
+    /// Watching in the Game window only: no frames written (smooth to watch), the camera at
+    /// WatchAngle (degrees from his front; 45 = three-quarter front).
+    public static bool SaveFrames = true;
+    public static float WatchAngle = 45f;
     public static string Report => string.Join("\n", report);
 
     public static void Clear() { shots.Clear(); report.Clear(); }
@@ -155,6 +161,25 @@ public static class FieldingFilm
         });
     }
 
+    /// A loose ball for the keeper to go and pick up: rolling along the ground from `ahead` metres
+    /// in front of him and `side` to his right, toward his right at `speed` - he gets up out of his
+    /// stance, runs to it, bends and gathers it.
+    public static void KeeperPickUp(float ahead, float side, float speed = 3f)
+    {
+        Transform keeper = Main.Instance.theKeeper.transform;
+        Vector3 k = keeper.position;
+        Vector3 facing = Flat(keeper.forward).normalized;
+        Vector3 right = Vector3.Cross(Vector3.up, facing);
+        Vector3 from = k + facing * ahead + right * side;
+        from.y = BallFlight.GroundY(from) + BallFlight.Radius + 0.01f;
+        shots.Add(new Shot
+        {
+            name = $"KPick_{ahead:0.0}_{side:+0.0;-0.0;0}",
+            from = from, velocity = right * speed, look = k + Vector3.up * 0.7f, delivery = true, loose = true,
+            cameraSide = -facing * 0.35f + right,
+        });
+    }
+
     /// Launch speed from `from` so the ball comes down through `height` above the ground at
     /// `target`, `pace` m/s along the ground: vertical speed by bisection on the real flight model.
     private static Vector3 Solve(Vector3 from, Vector3 target, float height, float pace)
@@ -236,8 +261,16 @@ public static class FieldingFilm
         foreach (AnimatedFielder f in Object.FindObjectsByType<AnimatedFielder>(FindObjectsSortMode.None))
         {
             typeof(AnimatedFielder).GetField("holdingBall", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(f, false);
+            // And out of a throw he had started: left set, he stood facing his target for the whole
+            // next shot (F6 never moved for a ground ball after taking the catch before it).
+            typeof(AnimatedFielder).GetMethod("ClearThrow", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(f, null);
             f.ReturnToStart();
         }
+        // The relay as a new ball leaves it (SelectDelivery, which this skips): after a real ball the
+        // bowler went on carrying the ball he was thrown, and pulled every launched shot back into
+        // his hands - six keeper shots never left him (watch run after GameLoopTest).
+        if (ThrowBack.Instance != null)
+            typeof(ThrowBack).GetMethod("Clear", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(ThrowBack.Instance, null);
         BowlerFielding bowlerFielding = Object.FindFirstObjectByType<BowlerFielding>();
         if (bowlerFielding != null)
             bowlerFielding.StopFielding();
@@ -270,7 +303,9 @@ public static class FieldingFilm
         }
 
         Track(shots[index]);
-        if (Time.time >= nextFrame)
+        if (!SaveFrames)
+            PoseCamera(WatchAngle);
+        else if (Time.time >= nextFrame)
         {
             Film();
             nextFrame += 1f / FilmFps;
@@ -283,7 +318,7 @@ public static class FieldingFilm
         float elapsed = Time.time - shotStart;
         bool over = (takenAt >= 0f && Time.time - takenAt > AfterTake) || elapsed > ShotTimeout ||
                     s == eGameState.InGame_BallPastBoundary || s == eGameState.InGame_BallPastBoundaryLoop ||
-                    (shots[index].delivery && !taken && (s == eGameState.InGame_BallMissed || s == eGameState.InGame_BallMissedLoop) && elapsed > 1.5f);
+                    (shots[index].delivery && !shots[index].loose && !taken && (s == eGameState.InGame_BallMissed || s == eGameState.InGame_BallMissedLoop) && elapsed > 1.5f);
         if (!over)
             return;
         report.Add($"{shots[index].name}: {(takenAt >= 0f ? $"TAKEN at {takenAt - shotStart:F2}s" : "NOT TAKEN")} " +
@@ -310,7 +345,8 @@ public static class FieldingFilm
         inst.theBallScript.bounced = shot.delivery && !shot.fromHand;
         inst.theBallScript.deliveryEffects = BallFlight.DeliveryEffects.None;
         inst.theBatScript.hasHitBall = true;   // the idle bat in the Editor must not meet it
-        inst.gameState = shot.delivery ? eGameState.InGame_DeliverBallLoop : eGameState.InGame_BallHit;
+        inst.gameState = shot.loose ? eGameState.InGame_BallMissed
+                       : shot.delivery ? eGameState.InGame_DeliverBallLoop : eGameState.InGame_BallHit;
 
         Time.timeScale = TimeScale;
         shotStart = Time.time;
@@ -408,7 +444,7 @@ public static class FieldingFilm
         Vector3 facing = Flat(shot.delivery ? inst.theKeeper.transform.forward : reach.transform.forward);
         if (facing.sqrMagnitude > 1e-4f)
             subjectFacing = Vector3.Slerp(subjectFacing, facing.normalized, 0.15f).normalized;
-        PoseCamera(90f);
+        PoseCamera(SaveFrames ? 90f : WatchAngle);
     }
 
     /// Cameras round the man, by angle from his front (0 = in front looking at him, 90 = his
@@ -526,7 +562,7 @@ public static class FieldingFilm
             File.WriteAllBytes(Path.Combine(dir, $"f{frame:000}.png"), grab.EncodeToPNG());
         }
         cam.targetTexture = null;   // back to the Game view when watching
-        PoseCamera(90f);
+        PoseCamera(WatchAngle);
         frame++;
     }
 

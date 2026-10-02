@@ -172,6 +172,10 @@ public class BowlerFielding : MonoBehaviour
     {
         if (!Fielding)
             return;
+        // Down after a dive (ragdoll): back on his feet before he goes back to bowling.
+        FielderRagdoll ragdoll = GetComponent<FielderRagdoll>();
+        if (ragdoll != null)
+            ragdoll.Recover();
         field.Leave(fielder);
         // He may be holding the ball: let go of it; the bowling code takes it for the next ball.
         Destroy(fielder);

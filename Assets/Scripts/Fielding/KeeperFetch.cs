@@ -15,12 +15,25 @@ public partial class KeeperCatcher
     private const float PickUpDistance = 0.22f;
     /// Keepers run a little slower than fielders, in pads.
     private const float FetchSpeedShare = 0.85f;
-    private const float FetchAccel = 8f, FetchTurnRate = 540f, AnimatedRun = 4f;
+    /// The run clip's speed (3.41 m/s at human scale 1, measured) times his scale: matched to how
+    /// fast he really moves, so his feet do not slide. It was taken as 4.
+    private const float FetchAccel = 8f, FetchTurnRate = 540f, RunClipSpeed = 3.41f, MinRunMove = 1f;
+    /// Times his avatar's human scale and his model's own scale (the keeper is scaled up 11%):
+    /// the human scale alone left his strides 11% short of the ground covered.
+    private float AnimatedRun => RunClipSpeed * (anim != null ? anim.humanScale * anim.transform.lossyScale.y : 1f);
     /// Gloves go down to the ball from this far and are on it by the second.
     private const float PickUpReachStart = 2.2f, PickUpReachFull = 0.7f;
     private const float RefetchInterval = 0.1f;
+    /// Closer than RunFrom he walks it on planted steps (KeeperFootwork), at up to StepSpeed;
+    /// further, he runs. Every fetch used to run: for a ball 2 m away he glided off on the idle,
+    /// slid his planted foot at 3 m/s through the Start Running blend, and ran on the spot once
+    /// he had stopped (measured) - nobody sprints two metres.
+    private const float RunFrom = 4f, StepSpeed = 1.4f;
+    /// Into and out of the run, seconds; the run's legs slowed while it blends out.
+    private const float RunBlend = 0.2f, StopBlend = 0.25f, StoppingAnimSpeed = 0.4f;
 
     private bool fetching;      // running to fetchTarget
+    private bool running;       // on the run animation (else stepping, or stood)
     private bool away;          // off his mark this delivery (stance code off)
     private Vector3 fetchTarget;
     private float fetchSpeed, nextRefetch;
@@ -48,7 +61,7 @@ public partial class KeeperCatcher
 
     private void ClearFetch()
     {
-        fetching = away = false;
+        fetching = away = running = false;
         fetchSpeed = 0f;
         if (anim != null)
             anim.SetInteger("Action", 0);
@@ -89,7 +102,6 @@ public partial class KeeperCatcher
         if (anim == null)
             anim = body.GetComponent<Animator>();
         body.UsePickUpBend();   // a fielder's bend for a ball on the ground, not his crouch
-        body.feetOverride = false;   // the run animation's feet
         body.palmExtra = GloveExtra;
         body.handGap = 0.11f;
         body.look = true;
@@ -120,31 +132,83 @@ public partial class KeeperCatcher
         return path.Count > 0 ? path[path.Count - 1].position : position;
     }
 
-    /// Run to the target, stopping just short so the ball ends up in front of him.
+    /// Go to the target - running, or stepping when it is close - stopping just short so the ball
+    /// ends up in front of him.
     private void RunTo(float dt)
     {
         Vector3 at = bodyRoot.position;
         Vector3 to = fetchTarget - at;
         to.y = 0f;
         float distance = to.magnitude - stopShort;
-        if (fetching && !holding && distance > 0.05f)
+        bool moving = fetching && !holding && distance > 0.05f;
+        if (moving && !running && distance > RunFrom)
+            StartRun();
+        if (moving)
         {
             float stopping = Mathf.Sqrt(2f * FetchAccel * distance);
-            fetchSpeed = Mathf.Min(RunSpeed, fetchSpeed + FetchAccel * dt, stopping);
+            fetchSpeed = Mathf.Min(running ? RunSpeed : StepSpeed, fetchSpeed + FetchAccel * dt, stopping);
             at += to.normalized * Mathf.Min(distance, fetchSpeed * dt);
             bodyRoot.position = new Vector3(at.x, BallFlight.GroundY(at), at.z);
             bodyRoot.rotation = Quaternion.RotateTowards(bodyRoot.rotation, Quaternion.LookRotation(to), FetchTurnRate * dt);
-            anim.SetInteger("Action", 1);
-            anim.speed = Mathf.Clamp(fetchSpeed / AnimatedRun, 0.6f, 2f);
-            return;
+            // Off his stance: the reach he had there lets go quickly, not over his first strides
+            // (filmed: he set off with his arms held out in front of him).
+            body.quickness = 2.5f;
         }
-        fetchSpeed = 0f;
+        else
+        {
+            fetchSpeed = 0f;
+            Vector3 look = Main.Instance.theBall.transform.position - at;
+            look.y = 0f;
+            if (!holding && look.sqrMagnitude > 0.01f)
+                bodyRoot.rotation = Quaternion.RotateTowards(bodyRoot.rotation, Quaternion.LookRotation(look), FetchTurnRate * dt);
+        }
+        // Slowed below a run: out of it, the last of the way on his feet.
+        if (running && fetchSpeed < MinRunMove)
+            StopRun();
+        if (running)
+        {
+            // The run's cycle matched to his speed: its feet carry him.
+            anim.speed = Mathf.Clamp(fetchSpeed / AnimatedRun, 0.3f, 2.4f);
+            body.feetOverride = false;
+        }
+        else
+        {
+            anim.speed = anim.IsInTransition(0) ? StoppingAnimSpeed : 1f;
+            StepFeet(dt);
+        }
+    }
+
+    private void StartRun()
+    {
+        running = true;
+        anim.SetInteger("Action", 1);
+        // Straight into the run: the controller's Idle > Start Running > Run chain is fixed
+        // seconds, stretched by the slow animator speed at a standing start to 0.7 s of blending
+        // while he was already moving at 3 m/s.
+        anim.CrossFadeInFixedTime("1 Run", RunBlend);
+    }
+
+    private void StopRun()
+    {
+        running = false;
         anim.SetInteger("Action", 0);
-        anim.speed = 1f;
-        Vector3 look = Main.Instance.theBall.transform.position - at;
-        look.y = 0f;
-        if (!holding && look.sqrMagnitude > 0.01f)
-            bodyRoot.rotation = Quaternion.RotateTowards(bodyRoot.rotation, Quaternion.LookRotation(look), FetchTurnRate * dt);
+        anim.CrossFadeInFixedTime("0 Idle", StopBlend);
+    }
+
+    /// Walking it, or stood: feet planted and stepping with him (KeeperFootwork).
+    private void StepFeet(float dt)
+    {
+        Vector3 velocity = dt > 0f ? (bodyRoot.position - lastBody) / dt : Vector3.zero;
+        lastBody = bodyRoot.position;
+        // Bending for the ball, feet apart to his keeping width first: squatting on his standing
+        // width his knees closed together and both forearms went down through his thighs, gloves
+        // between the pads (filmed from in front, 5-6 cm in).
+        bool bending = !holding && body.weight > 0.5f;
+        feet.StanceHalfWidth = bending ? CrouchStance : StandStance;
+        feet.Tick(Ground(bodyRoot.position), bodyRoot.right, velocity, dt);
+        FeetPlanted();
+        body.leftFootTarget = feet.Left;
+        body.rightFootTarget = feet.Right;
     }
 
     /// Both gloves down to the ball as he gets to it: palms toward each other to scoop it.

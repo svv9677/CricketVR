@@ -10,6 +10,10 @@ public partial class KeeperCatcher : IThrowPlayer
 {
     private const float KeeperReleaseTime = 0.82f, KeeperFollowThrough = 0.9f;
     private const float KeeperCatchHeight = 1.1f, KeeperCatchAhead = 0.4f;
+    /// Turning to throw (degrees per second): quick, but at a rate his feet can step round with.
+    /// He throws from the stance he stood up into: a wider one of its own cost two more steps
+    /// just to widen it, on top of the turn's (five steps in 0.6 s, measured - a shuffle).
+    private const float TurnToThrow = 300f;
 
     private bool throwingOut, expectingThrow;
     private float throwOutStart, expectThrowAt, standAfterThrowUntil = -1f;
@@ -35,6 +39,8 @@ public partial class KeeperCatcher : IThrowPlayer
         throwingOut = true;
         throwOutStart = Time.time;
         throwOutAt = target;
+        if (body != null)
+            body.LetSpineGo();   // the throw's own spine, not the one he held the ball with
         Animator a = body != null ? body.GetComponent<Animator>() : null;
         if (a != null)
         {
@@ -96,8 +102,17 @@ public partial class KeeperCatcher : IThrowPlayer
         Vector3 faceTo = throwingOut ? throwOutAt : expectingThrow ? expectThrowFrom : Main.Instance.theBall.transform.position;
         Vector3 flat = Vector3.ProjectOnPlane(faceTo - bodyRoot.position, Vector3.up);
         if (flat.sqrMagnitude > 1e-4f)
-            bodyRoot.rotation = Quaternion.RotateTowards(bodyRoot.rotation, Quaternion.LookRotation(flat), 540f * dt);
-        body.feetOverride = false;   // standing: the animation's feet
+            bodyRoot.rotation = Quaternion.RotateTowards(bodyRoot.rotation, Quaternion.LookRotation(flat), TurnToThrow * dt);
+        // Feet planted and stepping round as he turns (KeeperFootwork), the throw made over them.
+        // On the animation's feet, the body turning above them swivelled and slid them across
+        // the grass - he slid back into the throw (filmed).
+        Vector3 velocity = dt > 0f ? (bodyRoot.position - lastBody) / dt : Vector3.zero;
+        lastBody = bodyRoot.position;
+        feet.StanceHalfWidth = StandStance;
+        feet.Tick(Ground(bodyRoot.position), bodyRoot.right, velocity, dt);
+        FeetPlanted();
+        body.leftFootTarget = feet.Left;
+        body.rightFootTarget = feet.Right;
         body.minCrouch = 0f;
         body.look = true;
         body.lookTarget = faceTo;

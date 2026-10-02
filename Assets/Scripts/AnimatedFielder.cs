@@ -40,8 +40,11 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
     public const float BaseRunSpeed = 5f;
     public const float Acceleration = 10f;
     public const float TurnRate = 720f;
-    /// Forward speed baked into the run animation, used to keep the feet from sliding.
-    private const float AnimatedRunSpeed = 4f;
+    /// Forward speed baked into the run animation (Standard Run: 3.41 m/s at human scale 1,
+    /// measured with AnimationClip.averageSpeed), used to keep the feet from sliding. It was taken
+    /// as 4: the legs cycled 15% slow for the ground covered and the feet skated on every stride.
+    private const float RunClipSpeed = 3.41f;
+    private float AnimatedRunSpeed => RunClipSpeed * (myAnimator != null ? myAnimator.humanScale * myAnimator.transform.lossyScale.y : 1f);
 
     /// A moving ball is caught when it comes into the pocket between the palms - this close to the
     /// middle of the two hands - not merely near one of them.
@@ -159,9 +162,9 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
     private void HandleGameState()
     {
         eGameState state = Main.Instance.gameState;
-        // Between balls he walks back to his fielding position (AnimatedFielderThrow); only one
-        // still far off when the next ball starts is put straight there. He used to be put back
-        // the moment the ball was dead.
+        // Between balls he walks back to his fielding position (AnimatedFielderThrow). When the next
+        // ball starts, whatever he is doing - still relaying the last one, walking back, down from
+        // a dive - stops at once and he is on his mark in his ready pose: the new ball is on.
         if (state == eGameState.InGame_ResetToReadyLoop)
             WalkBackToStart();
         else if (state == eGameState.InGame_SelectDelivery)
@@ -169,10 +172,13 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             EndDive();
             holdingBall = false;
             ClearThrow();
-            if (FlatDistance(transform.position, StartPosition) > FarFromStart)
-                ReturnToStart();
-            else
-                WalkBackToStart();
+            walkingBack = false;
+            ReturnToStart();
+            if (myAnimator != null)
+            {
+                myAnimator.speed = 1f;
+                myAnimator.Play("0 Idle", 0, 0f);
+            }
         }
     }
 
@@ -299,10 +305,13 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
         bool running = speed > MinRunSpeed;
         SetAnimation(running ? 1 : 0);
         if (myAnimator != null && running)
-            myAnimator.speed = Mathf.Clamp(speed / AnimatedRunSpeed, 0.6f, 2f);
+            myAnimator.speed = Mathf.Clamp(speed / AnimatedRunSpeed, MinRunAnim, 2.4f);
     }
 
-    private const float MinRunSpeed = 0.6f;
+    /// Below this he stands rather than runs; the run cycle is never slowed below MinRunAnim. With
+    /// the cycle held at 0.6 down to 0.6 m/s, a fielder easing into his spot ran on the spot at
+    /// 2 m/s worth of strides - the feet slid.
+    private const float MinRunSpeed = 1.0f, MinRunAnim = 0.3f;
     /// Reaching this low (hands below the knee), he stops to take it rather than running on.
     private const float LowReach = 0.6f;
     /// m/s of the ball's speed toward him above which he sets his feet and lets it come.
@@ -508,7 +517,12 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             if (throwing)
                 ball.position = ThrowHandPoint;   // in the throwing hand through the wind-up
             else if (reach != null && reach.Ready)
-                ball.position = reach.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
+            {
+                Vector3 held = reach.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
+                // Never put the ball somewhere impossible (a body gone wrong under physics).
+                if (!float.IsNaN(held.x) && !float.IsNaN(held.y) && !float.IsNaN(held.z) && held.sqrMagnitude < 1e6f)
+                    ball.position = held;
+            }
             else
                 ball.position = holdBallOffset != null ? holdBallOffset.position : transform.position + Vector3.up;
         }

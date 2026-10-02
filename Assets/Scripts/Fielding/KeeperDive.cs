@@ -208,7 +208,7 @@ public partial class KeeperCatcher
             // stiff as a plank about his feet (filmed).
             Vector3 flatRight = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
             Vector3 under = Ground(transform.TransformPoint(new Vector3(x, 0f, 0f)));
-            body.feetOverride = true;
+            FeetPlanted();
             body.leftFootTarget = under - flatRight * StandStance + Vector3.up * feet.AnkleHeight;
             body.rightFootTarget = under + flatRight * StandStance + Vector3.up * feet.AnkleHeight;
             body.minCrouch = Mathf.Max(body.minCrouch, 0.35f * Mathf.Sin(rising * Mathf.PI));

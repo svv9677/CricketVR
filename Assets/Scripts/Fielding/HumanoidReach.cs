@@ -71,6 +71,8 @@ public partial class HumanoidReach : MonoBehaviour
     [System.NonSerialized] public Vector3 lookTarget;
     /// Feet placed by the owner (keeper footwork) instead of by the animation.
     [System.NonSerialized] public bool feetOverride;
+    private float footBlend;
+    private const float FootBlendTime = 0.2f;
     [System.NonSerialized] public Vector3 leftFootTarget, rightFootTarget;
 
     // ---- State ------------------------------------------------------------------------------------
@@ -187,16 +189,47 @@ public partial class HumanoidReach : MonoBehaviour
 
         ReachMath.Pose want = ReachMath.Pose.Lerp(default, ReachMath.Solve(body, limits, transform.InverseTransformPoint(handPos)), smoothedWeight);
         want.drop = Mathf.Min(limits.maxDrop, Mathf.Max(want.drop, minCrouch / scale));
+        // Balance: crouched, the trunk leans forward from the hips to keep his weight over his
+        // feet - the deeper the knees, the further over. Without it a reach to his chest while
+        // still crouched (a keeper standing up with the ball) left the knees bent and the trunk
+        // bolt upright: sitting back on his heels, leaning back (filmed).
+        float crouched = Mathf.Clamp01(want.drop / Mathf.Max(1e-3f, limits.maxDrop));
+        want.hinge = Mathf.Max(want.hinge, Mathf.Min(limits.maxHinge, BalanceHinge * crouched));
         SpringPose(want, dt * quick);
 
         ApplyBodyAndFeet();
         ApplySpine();
         PoseGuardBody();   // the body as posed this pass, for keeping the hands out of it
         ApplyHands();
-        animator.SetLookAtWeight(look ? Mathf.Max(0.6f, smoothedWeight) * 0.9f : 0f, 0.1f, 0.8f, 1f, 0.5f);
+        // The head turns to what he looks at as a head does - at most LookTurnSpeed - and looking
+        // on or off fades in and out. Set straight to the target, it snapped: at a keeper's take
+        // his head jerked 16-19 cm in a frame from the ball on the grass up to the batter.
+        float wantLook = look ? Mathf.Max(0.6f, smoothedWeight) * 0.9f : 0f;
+        lookWeight = Mathf.MoveTowards(lookWeight, wantLook, dt / LookFadeTime);
+        Transform headBone = animator.GetBoneTransform(HumanBodyBones.Head);
+        Vector3 eyes = headBone != null ? headBone.position : transform.position + transform.up * 1.6f * scale;
         if (look)
-            animator.SetLookAtPosition(lookTarget);
+        {
+            Vector3 toTarget = lookTarget - eyes;
+            if (toTarget.sqrMagnitude > 1e-4f)
+            {
+                if (lookDir == Vector3.zero)
+                    lookDir = toTarget.normalized;
+                lookDir = Vector3.RotateTowards(lookDir, toTarget.normalized, LookTurnSpeed * Mathf.Deg2Rad * dt, 0f).normalized;
+                lookDistance = toTarget.magnitude;
+            }
+        }
+        animator.SetLookAtWeight(lookWeight, 0.1f, 0.8f, 1f, 0.5f);
+        if (lookWeight > 0f && lookDir != Vector3.zero)
+            animator.SetLookAtPosition(eyes + lookDir * Mathf.Max(lookDistance, 1f));
     }
+
+    /// Forward lean of the trunk (degrees at the hips) in a full crouch, scaled down as he rises.
+    private const float BalanceHinge = 35f;
+
+    private const float LookTurnSpeed = 270f, LookFadeTime = 0.3f;
+    private float lookWeight, lookDistance = 5f;
+    private Vector3 lookDir;
 
     private void SpringPose(ReachMath.Pose want, float dt)
     {
@@ -214,13 +247,18 @@ public partial class HumanoidReach : MonoBehaviour
         Vector3 up = transform.up, fwd = transform.forward, right = transform.right;
         // Read the animated foot goals before the body moves - they are world positions, so they
         // stay on the ground while the pelvis comes down.
-        Vector3 lf = feetOverride ? leftFootTarget : animator.GetIKPosition(AvatarIKGoal.LeftFoot);
-        Vector3 rf = feetOverride ? rightFootTarget : animator.GetIKPosition(AvatarIKGoal.RightFoot);
-        Quaternion lr = feetOverride ? transform.rotation : animator.GetIKRotation(AvatarIKGoal.LeftFoot);
-        Quaternion rr = feetOverride ? transform.rotation : animator.GetIKRotation(AvatarIKGoal.RightFoot);
+        // Between the animation's own feet and the planted ones (feetOverride), blended over
+        // FootBlendTime: switched in one frame - a keeper getting up to throw, setting off to fetch,
+        // settling for the next ball - the legs and the hips over them jumped (measured 14-17 cm at
+        // the head in a frame).
+        footBlend = Mathf.MoveTowards(footBlend, feetOverride ? 1f : 0f, Time.deltaTime / FootBlendTime);
+        Vector3 lf = Vector3.Lerp(animator.GetIKPosition(AvatarIKGoal.LeftFoot), leftFootTarget, footBlend);
+        Vector3 rf = Vector3.Lerp(animator.GetIKPosition(AvatarIKGoal.RightFoot), rightFootTarget, footBlend);
+        Quaternion lr = Quaternion.Slerp(animator.GetIKRotation(AvatarIKGoal.LeftFoot), transform.rotation, footBlend);
+        Quaternion rr = Quaternion.Slerp(animator.GetIKRotation(AvatarIKGoal.RightFoot), transform.rotation, footBlend);
 
         float active = Mathf.Clamp01(Mathf.Max(smoothedWeight, pose.drop * scale / 0.03f));
-        if (active < 0.001f && !feetOverride)
+        if (active < 0.001f && footBlend < 0.001f)
         {
             SetFootWeights(0f);
             return;
@@ -229,8 +267,10 @@ public partial class HumanoidReach : MonoBehaviour
         animator.bodyRotation = Quaternion.AngleAxis(pose.twist * 0.3f, up) *
                                 Quaternion.AngleAxis(pose.hinge, right) *
                                 Quaternion.AngleAxis(-pose.roll * 0.5f, fwd) * animator.bodyRotation;
+        KeepBodyOverFeet(lf, rf);
+        KeepFeetReachable(lf, rf);
 
-        SetFootWeights(feetOverride ? 1f : active);
+        SetFootWeights(Mathf.Max(footBlend, active));
         animator.SetIKPosition(AvatarIKGoal.LeftFoot, lf);
         animator.SetIKPosition(AvatarIKGoal.RightFoot, rf);
         animator.SetIKRotation(AvatarIKGoal.LeftFoot, lr);
@@ -260,7 +300,9 @@ public partial class HumanoidReach : MonoBehaviour
     private void ApplySpine()
     {
         bool active = smoothedWeight > 0.005f || Mathf.Abs(pose.spine) > 0.05f || Mathf.Abs(pose.twist) > 0.05f;
-        if (!active)
+        if (spineLetGo && weight > 0.05f)
+            spineLetGo = false;   // a new reach
+        if (!active || spineLetGo)
         {
             spineFrozen = false;
             return;
@@ -418,8 +460,10 @@ public partial class HumanoidReach : MonoBehaviour
         rightWrist = AlignHand(rightHand, rightMiddle, rightIndex, rightLittle, false, finger, rPalm, smoothedWeight, rightWrist, dt);
     }
 
-    /// Most a wrist turns from the animated hand, and how fast it gets there.
-    private const float MaxWristTurn = 100f, WristSpeed = 720f;
+    /// Most a wrist turns from the animated hand, and how fast it gets there. A real wrist turns
+    /// well under 90 degrees; at 100 (and 720 deg/s) the keeper's gloves visibly corkscrewed on
+    /// chest-high and higher takes.
+    private const float MaxWristTurn = 65f, WristSpeed = 400f;
     /// Each wrist's turn on top of the animated hand, carried frame to frame.
     private Quaternion leftWrist = Quaternion.identity, rightWrist = Quaternion.identity;
 

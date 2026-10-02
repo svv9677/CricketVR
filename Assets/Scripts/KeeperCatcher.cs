@@ -98,8 +98,9 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         eGameState state = inst.gameState;
         if (state == eGameState.InGame_SelectDelivery)
         {
+            bool hadBall = holding;
             holding = false;
-            ResetStance();
+            NewBall(hadBall);
         }
         // Someone else has it, or it has gone for four: stop where he is.
         if (state == eGameState.InGame_BallFielded || state == eGameState.InGame_BallPastBoundary)
@@ -117,8 +118,42 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         lastBall = inst.theBallRigidBody.position;
     }
 
+    /// A new ball. Still in the last one - holding it, throwing it on, waiting for a throw,
+    /// fetching, down from a dive - he stops at once and is set on his mark in his stance, idle
+    /// animation, as the ball comes. Otherwise (standing easy near his mark) he settles into it:
+    /// the shuffle goal back to the middle, his pose easing into the crouch - the hard reset
+    /// snapped his pose springs and feet in one frame, a twitch at the start of every ball.
+    private void NewBall(bool hadBall)
+    {
+        bool inPlay = hadBall || throwingOut || expectingThrow || standAfterThrowUntil >= 0f || away || diving;
+        bool nearMark = bodyRoot != null && Mathf.Abs(bodyRoot.localPosition.x) < 0.8f && Mathf.Abs(bodyRoot.localPosition.z) < 0.3f;
+        Animator a = body != null ? body.GetComponent<Animator>() : null;
+        if (inPlay || !nearMark)
+        {
+            ResetStance();
+            if (a != null)
+            {
+                a.speed = 1f;
+                a.SetInteger("Action", 0);
+                a.Play("0 Idle", 0, 0f);
+            }
+            return;
+        }
+        hasIntercept = false;
+        footGoal = 0f;
+        returnHome = true;
+        ClearThrowRole();
+        ClearDive();
+        bodyRoot.localRotation = Quaternion.identity;
+    }
+
+    private bool returnHome;
+
     private void ResetStance()
     {
+        // Out of a dive, his pose starts again from neutral; otherwise it carries on - a hard pose
+        // reset is the jerk up and back down into the crouch.
+        bool wasDown = diving;
         hasIntercept = false;
         jumpY = 0f;
         shuffleX = shuffleVelocity = 0f;
@@ -130,12 +165,27 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
             bodyRoot.localRotation = Quaternion.identity;
             bodyRoot.localPosition = new Vector3(0f, BodyDrop, 0f);
             feet.StanceHalfWidth = CrouchStance;
-            feet.Settle = false;
             feet.Plant(Ground(bodyRoot.position), bodyRoot.right);
         }
-        if (body != null)
+        if (body != null && wasDown)
             body.ResetPose();
         lastRoot = transform.position;
+    }
+
+    /// His feet planted (KeeperFootwork) from here on. Taking them over from the animation (he was
+    /// running, throwing), plant them where they are: planted where they were before he set off,
+    /// they were pulled metres back across the grass (audit: a foot jumped 0.8 m after a pick-up).
+    private void FeetPlanted()
+    {
+        if (!body.feetOverride)
+        {
+            Animator a = body.GetComponent<Animator>();
+            Transform l = a != null ? a.GetBoneTransform(HumanBodyBones.LeftFoot) : null;
+            Transform r = a != null ? a.GetBoneTransform(HumanBodyBones.RightFoot) : null;
+            if (l != null && r != null)
+                feet.PlantAt(l.position, r.position);
+        }
+        body.feetOverride = true;
     }
 
     /// A point on the ground under p: the real surface, as the ball sees it. HUD stands him at
@@ -244,7 +294,10 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
             return;
         Vector3 localHit = hasIntercept ? transform.InverseTransformPoint(intercept) : Vector3.zero;
         // Only as far as the gloves need (KeeperDive.FootworkGoal), not behind every line.
-        float goal = holding ? shuffleX : hasIntercept && live ? FootworkGoal(localHit.x) : shuffleX;
+        // Back to his mark at a new ball (NewBall), stepping there; otherwise where he is.
+        if (returnHome && (Mathf.Abs(shuffleX) < 0.02f || (hasIntercept && live)))
+            returnHome = false;
+        float goal = holding ? shuffleX : hasIntercept && live ? FootworkGoal(localHit.x) : returnHome ? 0f : shuffleX;
         shuffleX = ReachMath.Shuffle(shuffleX, ref shuffleVelocity, goal, ShuffleSpeed, ShuffleAccel, dt);
         // Off the ground for a high one (Keep's jump), coming back down once it is over.
         if (!jumping)
@@ -254,7 +307,7 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         Vector3 velocity = dt > 0f ? (bodyRoot.position - lastBody) / dt : Vector3.zero;
         lastBody = bodyRoot.position;
         feet.Tick(Ground(bodyRoot.position), bodyRoot.right, velocity, dt);
-        body.feetOverride = true;
+        FeetPlanted();
         body.leftFootTarget = feet.Left;
         body.rightFootTarget = feet.Right;
         body.palmExtra = GloveExtra;
@@ -286,6 +339,9 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
             StandEasy();
             return;
         }
+        // Feet out to his keeping width as he gets down (standing easy had them in at standing
+        // width, and he crouched over them like that - thighs into his arms).
+        feet.StanceHalfWidth = CrouchStance;
         Vector3 rest = between ? bodyRoot.position + fwd * RestHandsAhead + up * RestHandsUp
                                : bodyRoot.position + fwd * 0.45f + up * 0.42f;
         float eta = interceptAt - Time.time;
@@ -355,7 +411,6 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         body.handGap = 0.12f;
         body.palmFacing = Vector3.zero;
         feet.StanceHalfWidth = StandStance;
-        feet.Settle = true;
         if (Time.time >= nextGlance)
         {
             nextGlance = Time.time + Random.Range(GlanceEvery.x, GlanceEvery.y);
@@ -411,8 +466,11 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         body.leftHandShare = 1f - s;
         // No deeper than he was when he took it, then up.
         body.minCrouch = crouchAtTake * (1f - s);
-        feet.StanceHalfWidth = Mathf.Lerp(CrouchStance, StandStance, s);
-        feet.Settle = stand > 0f;
+        // Feet in to standing width in one step each as he starts to rise. Narrowing the stance
+        // gradually had them take tiny 4 cm steps one after another, barely lifting - a shuffle.
+        // Away from his mark (a fetched ball) he is stood already (KeeperFetch.StepFeet).
+        if (!away)
+            feet.StanceHalfWidth = stand > 0f ? StandStance : CrouchStance;
         body.palmFacing = Vector3.Slerp(-incoming, bodyRoot.up, s);
         // Eyes off the gloves at once and up to the batter.
         float lookUp = Mathf.Clamp01(t / 0.3f);

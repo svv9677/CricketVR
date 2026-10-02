@@ -56,6 +56,8 @@ public partial class AnimatedFielder
         throwAt = target;
         hasTarget = false;
         speed = 0f;
+        if (reach != null)
+            reach.LetSpineGo();   // the throw's own spine, not the one he held the ball with
         if (myAnimator != null)
         {
             myAnimator.speed = 1f;

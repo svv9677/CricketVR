@@ -20,7 +20,9 @@ public partial class HumanoidReach
     private const float MinAheadOfChest = 0.22f, HeadClearance = 0.24f;
     /// A wrist is this far from the spine's line at least (torso depth ~0.12 plus the wrist), and
     /// this far from a thigh's (thigh ~0.075 plus the wrist). Metres.
-    private const float TorsoClearance = 0.19f, ThighClearance = 0.12f;
+    /// Thigh clearance from the bone's axis: a thigh is ~0.08 m in radius, a glove ~0.06 thick -
+    /// at 0.12 a keeper's glove reaching down between his legs went 5 cm into his thigh (audit).
+    private const float TorsoClearance = 0.19f, ThighClearance = 0.16f;
 
     /// The torso's own front and up, from the actual spine (hips to head) - right for a man stood
     /// up or folded over at the hips alike.
@@ -51,6 +53,66 @@ public partial class HumanoidReach
         thighLength = Vector3.Distance(leftUpperLeg.position, lowerLegL.position);
         shinLength = Vector3.Distance(lowerLegL.position, footL.position);
         guardMeasured = true;
+    }
+
+    private bool spineLetGo;
+
+    /// Back to the animation's spine now, for an animation that moves the spine itself (a throw),
+    /// until the next reach. Fading out with the reach, the spine stayed held in the pose taken when
+    /// he started holding the ball: through the first half of the throw his upper body was held
+    /// 25 degrees behind the clip's - bent back into the wind-up - and then snapped forward in
+    /// one frame near the release (measured, keeper and clip sampled on his rig). Let go at the
+    /// start of the throw, the held pose is still his standing one, so nothing jumps.
+    public void LetSpineGo()
+    {
+        spineFrozen = false;
+        spineLetGo = true;
+    }
+
+    /// Planted feet stay reachable: legs straightened no further than this share of their length,
+    /// the body brought down at most MaxReachDrop to get there.
+    private const float MaxLegStretch = 0.97f, MaxReachDrop = 0.3f;
+    /// Over planted feet the body (centre of mass) stays within this of the point between them.
+    /// At 0.25 his pelvis still sat 0.32 m behind his feet through the throw, trunk 11 degrees
+    /// back - the throw looked bent back (measured).
+    private const float MaxBodyOffFeet = 0.12f;
+
+    /// The fielders' Throw clip carries the body through its stride (baked into the pose): over the
+    /// keeper's planted feet it took his pelvis 0.7 m back from them as the throw began - he slid
+    /// back into it, leaning off his heels - and snapped it back 0.6 m in a frame as it ended
+    /// (measured). With his feet planted, the body stays over them: a weight shift, not a walk.
+    private void KeepBodyOverFeet(Vector3 leftFoot, Vector3 rightFoot)
+    {
+        if (footBlend <= 0f)
+            return;
+        Vector3 off = animator.bodyPosition - 0.5f * (leftFoot + rightFoot);
+        off.y = 0f;
+        float limit = MaxBodyOffFeet * scale;
+        float over = off.magnitude - limit;
+        if (over > 0f)
+            animator.bodyPosition -= off.normalized * (over * footBlend);
+    }
+
+    /// Feet planted (feetOverride) out of reach of the hips the animation has - a throw clip
+    /// rising onto the toes, a get-up still half up - and the IK left both feet hanging in the
+    /// air, ankles 14 cm up through the keeper's throw (measured). The body comes down until the
+    /// legs reach the ground instead.
+    private void KeepFeetReachable(Vector3 leftFoot, Vector3 rightFoot)
+    {
+        if (!calibrated || footBlend <= 0f)
+            return;
+        float length = (thighLength + shinLength) * MaxLegStretch;
+        float drop = Mathf.Max(DropToReach(leftFoot, cHipL, length), DropToReach(rightFoot, cHipR, length));
+        if (drop > 0f)
+            animator.bodyPosition -= Vector3.up * (Mathf.Min(drop, MaxReachDrop * scale) * footBlend);
+    }
+
+    private float DropToReach(Vector3 foot, Vector3 hipLocal, float length)
+    {
+        Vector3 toFoot = foot - (animator.bodyPosition + animator.bodyRotation * hipLocal);
+        float across = new Vector2(toFoot.x, toFoot.z).magnitude;
+        float below = Mathf.Sqrt(Mathf.Max(0f, length * length - across * across));
+        return Mathf.Max(0f, -toFoot.y - below);
     }
 
     // Where the bones sat relative to the body (bodyPosition/bodyRotation) as last posed.
@@ -225,6 +287,10 @@ public partial class HumanoidReach
         // Never a bend toward the head or into the torso: holding the ball at his chest while
         // bent over, the elbows came up into his head (measured 8 cm).
         hint = OutOfCapsule(hint, gHips, gNeck, ElbowClearance * scale, gFront);
+        // ...nor into a thigh: reaching down beside the legs (a pick-up) the bend took the forearm
+        // across the thigh (audit: 7 cm in).
+        hint = OutOfCapsule(hint, gHipL, gKneeL, (ThighClearance + 0.06f) * scale, Vector3.zero);
+        hint = OutOfCapsule(hint, gHipR, gKneeR, (ThighClearance + 0.06f) * scale, Vector3.zero);
         Vector3 face = gHead + up * 0.09f * scale;
         Vector3 fromHead = hint - face;
         if (fromHead.sqrMagnitude < ElbowClearance * ElbowClearance * scale * scale)

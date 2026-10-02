@@ -56,6 +56,29 @@ public static class RagdollBuilderTool
         Debug.Log("[RagdollBuilderTool] Ragdoll built on " + KeeperPrefab);
     }
 
+    public const string BowlerPrefab = "Assets/Resources/Prefabs/Bowler.prefab";
+
+    /// The bowler too: he fields after his delivery (BowlerFielding) and dives like a fielder,
+    /// with the fielders' controller then - so the same get-up clips.
+    [MenuItem("Tools/CricketVR/Build Bowler Ragdoll")]
+    public static void BuildBowler()
+    {
+        GameObject root = PrefabUtility.LoadPrefabContents(BowlerPrefab);
+        try
+        {
+            Animator a = root.GetComponentInChildren<Animator>(true);
+            BuildOn(a);
+            if (a.GetComponent<FielderRagdoll>() == null)
+                a.gameObject.AddComponent<FielderRagdoll>();
+            PrefabUtility.SaveAsPrefabAsset(root, BowlerPrefab);
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+        Debug.Log("[RagdollBuilderTool] Ragdoll built on " + BowlerPrefab);
+    }
+
     public static void BuildOn(Animator a)
     {
         Transform Bone(HumanBodyBones b) => a.GetBoneTransform(b);
@@ -239,7 +262,7 @@ public static class RagdollBuilderTool
             if (state == null)
                 state = sm.AddState(stateName, new Vector3(600f, 60f * System.Array.FindIndex(GetUpClips, g => g.state == stateName), 0f));
             state.motion = clip;
-            state.iKOnFeet = false;
+            state.iKOnFeet = true;    // the clip's own foot contacts held: feet flat on the ground, not hovering, toes up
             state.writeDefaultValues = true;
         }
         EditorUtility.SetDirty(ctrl);

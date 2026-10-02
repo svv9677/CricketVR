@@ -44,7 +44,7 @@ public class FielderRagdoll : MonoBehaviour
     private Vector3[] restLocal;
     private Vector3 snapshotHips;
     private Vector3 hipsForwardLocal;
-    private float downAt, stillFor, blendFrom;
+    private float downAt, stillFor, blendFrom, restAnkle;
     private string playing;
 
     /// Down or getting up: the fielder's own code leaves him alone.
@@ -73,6 +73,9 @@ public class FielderRagdoll : MonoBehaviour
                 animated.Add(t);
         }
         bones = animated.ToArray();
+        // His ankle's height standing (the bind pose stands flat on the ground).
+        Transform foot = anim.GetBoneTransform(HumanBodyBones.LeftFoot);
+        restAnkle = foot != null ? (foot.position.y - transform.position.y) / Mathf.Max(1e-4f, transform.lossyScale.y) : 0.07f;
         snapshot = new Quaternion[bones.Length];
         // The bones' own lengths. The Animator turns limb bones but does not place them, so a joint
         // that stretched a little under physics would have stayed stretched after he got up.
@@ -126,6 +129,12 @@ public class FielderRagdoll : MonoBehaviour
     {
         if (!Ready || state == State.Down)
             return;
+        // A body handed over at an absurd speed (a bad frame time, a stale last position) flies
+        // apart - the joints explode and the bones go to infinity. A diver moves at a few m/s.
+        if (!IsFinite(velocity)) velocity = Vector3.zero;
+        if (!IsFinite(spin)) spin = Vector3.zero;
+        velocity = Vector3.ClampMagnitude(velocity, MaxFallSpeed);
+        spin = Vector3.ClampMagnitude(spin, 6f);
         state = State.Down;
         downAt = Time.time;
         stillFor = 0f;
@@ -240,5 +249,46 @@ public class FielderRagdoll : MonoBehaviour
         }
     }
 
+    /// Feet within this of standing height are stood on: fully at FootFull above it, not at all
+    /// from FootNone (kneeling up on his toes, a foot lifted to step).
+    private const float FootFull = 0.025f, FootNone = 0.055f;
+
+    /// Getting up, the feet he stands on go flat on the ground. The Mixamo get-ups end standing
+    /// with the heels dug 3 cm in and the toes 30 degrees up (measured against his idle); the clip
+    /// alone drives him here, so nothing else put them down.
+    private void OnAnimatorIK(int layer)
+    {
+        if (state != State.GettingUp)
+            return;
+        float rest = restAnkle * transform.lossyScale.y;
+        PlantFoot(AvatarIKGoal.LeftFoot, rest);
+        PlantFoot(AvatarIKGoal.RightFoot, rest);
+    }
+
+    private void PlantFoot(AvatarIKGoal goal, float rest)
+    {
+        Vector3 p = anim.GetIKPosition(goal);
+        float ground = BallFlight.GroundY(p);
+        float above = p.y - ground - rest;
+        float w = Mathf.InverseLerp(FootNone, FootFull, above);
+        if (w <= 0f)
+            return;
+        Vector3 forward = Flat(anim.GetIKRotation(goal) * Vector3.forward);
+        if (forward.sqrMagnitude < 1e-4f)
+            forward = Flat(transform.forward);
+        p.y = ground + rest;
+        anim.SetIKPosition(goal, p);
+        anim.SetIKRotation(goal, Quaternion.LookRotation(forward, Vector3.up));
+        anim.SetIKPositionWeight(goal, w);
+        anim.SetIKRotationWeight(goal, w);
+    }
+
     private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
+
+    private static bool IsFinite(Vector3 v) =>
+        !(float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z) ||
+          float.IsInfinity(v.x) || float.IsInfinity(v.y) || float.IsInfinity(v.z));
+
+    /// Fastest a body is handed to physics, m/s.
+    private const float MaxFallSpeed = 12f;
 }
