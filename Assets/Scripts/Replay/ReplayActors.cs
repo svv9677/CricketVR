@@ -6,6 +6,9 @@ using UnityEngine;
 /// ball, the bat, and the stumps and bails. Each has a stand-in (ReplayStandIns) under one
 /// "Replay Stage" object, inactive unless a replay is on the screen.
 ///
+/// The stage stays active: hidden (forceRenderingOff) and not skinned, a stand-in costs nothing,
+/// and activating some 800 transforms when a replay began was a hitch of its own.
+///
 /// ShotRecorder captures the live actors into the recording's PoseTrack (Capture); CameraReplay
 /// poses the stand-ins from it (Apply) and films them. Only the replay camera sees the stand-ins,
 /// and only it is blind to the live actors, for the length of its render (SetReplayView) - so
@@ -22,11 +25,7 @@ public sealed class ReplayActors
     private readonly List<Transform> pointLive = new List<Transform>(), pointStand = new List<Transform>();
     private readonly List<Renderer> live = new List<Renderer>(), stand = new List<Renderer>();
     private readonly List<SkinnedMeshRenderer> skins = new List<SkinnedMeshRenderer>();
-    private readonly List<GameObject> panels = new List<GameObject>();
     private bool[] liveWasOff;
-    private int[] panelLayers;
-    private int hiddenLayer;
-    private bool panelsHidden;
     private GameObject stage;
     private Transform ballStand, batStand;
     private bool viewing;
@@ -47,7 +46,6 @@ public sealed class ReplayActors
     private void Create(Main main)
     {
         stage = new GameObject("Replay Stage");
-        stage.SetActive(false);
         var players = new List<Animator>();
         foreach (Animator animator in Object.FindObjectsByType<Animator>(FindObjectsSortMode.None))
             if (animator.isHuman && animator.GetComponentInChildren<SkinnedMeshRenderer>() != null)
@@ -151,15 +149,14 @@ public sealed class ReplayActors
                 live.Add(r);
     }
 
-    /// And these canvases (the menus). A canvas is not a renderer: for each frame the replay
-    /// camera films it moves to `layer`, which that camera does not draw (HidePanels).
-    public void HideCanvasesAlso(IEnumerable<Canvas> canvases, int layer)
+    /// And these canvases (the menus), for good: a canvas is not a renderer, so it moves to `layer`,
+    /// which the replay camera does not draw and the eyes' camera does. Once, not per replay frame:
+    /// a canvas takes its layer when its geometry is built, and swapping it each frame rebuilt it.
+    public static void MoveCanvases(IEnumerable<Canvas> canvases, int layer)
     {
-        hiddenLayer = layer;
         foreach (Canvas canvas in canvases)
-            if (canvas != null && !panels.Contains(canvas.gameObject))
-                panels.Add(canvas.gameObject);
-        panelLayers = new int[panels.Count];
+            if (canvas != null)
+                canvas.gameObject.layer = layer;
     }
 
     // ---- Recording -----------------------------------------------------------------------------
@@ -190,12 +187,6 @@ public sealed class ReplayActors
     }
 
     // ---- Playback ------------------------------------------------------------------------------
-
-    public void ShowStage(bool on)
-    {
-        if (stage != null && stage.activeSelf != on)
-            stage.SetActive(on);
-    }
 
     /// Every stand-in as it was `time` seconds into `shot`.
     public void Apply(ShotRecording shot, float time)
@@ -254,31 +245,5 @@ public sealed class ReplayActors
         }
         foreach (Renderer r in stand)
             r.forceRenderingOff = !on;
-    }
-
-    /// The HideCanvasesAlso canvases out of the replay camera's picture, for a frame it films.
-    /// Earlier than SetReplayView: a canvas takes its layer when its geometry is built, after
-    /// LateUpdate and before any camera renders, so this goes on in LateUpdate and off after the
-    /// replay camera's render. The eyes' camera draws that layer too: the player sees no change.
-    public void HidePanels(bool hidden)
-    {
-        if (hidden == panelsHidden)
-            return;
-        panelsHidden = hidden;
-        for (int i = 0; i < panels.Count; i++)
-        {
-            GameObject panel = panels[i];
-            if (panel == null)
-                continue;
-            if (hidden)
-            {
-                panelLayers[i] = panel.layer;
-                panel.layer = hiddenLayer;
-            }
-            else
-            {
-                panel.layer = panelLayers[i];
-            }
-        }
     }
 }

@@ -29,36 +29,36 @@ public partial class CameraReplay : MonoBehaviour
     private RenderTexture view;
     [Tooltip("Replay frames rendered per second while the replay plays. The camera is off otherwise.")]
     [SerializeField]
-    private float renderRate = 36f;
+    private float renderRate = 30f;
     [Tooltip("Seconds of the bowler's run-up shown before the release.")]
     [SerializeField]
     private float leadIn = 1.2f;
+    [Tooltip("Seconds after the shot the replay runs on for, at most (the rest of a long chase is cut).")]
+    [SerializeField]
+    private float afterShot = 4f;
     [Tooltip("Seconds the last frame holds before the replay loops.")]
     [SerializeField]
     private float loopPause = 1f;
-
-    // The two views: from behind the bowler's arm (the TV view, a long lens from the start pose),
-    // then, from a moment after a hit, side on behind the bowler's stumps, following the ball.
-    private static readonly Vector3 FollowFrom = new Vector3(-14f, 1.78f, 0f);
-    private const float TvFov = 7f, FollowFov = 60f;
 
     private static readonly int ViewId = Shader.PropertyToID("_View");
     private static readonly int OnId = Shader.PropertyToID("_On");
 
     private Camera myCamera;
+    private BroadcastCamera broadcast;
+    private ReplayOverlay overlay;
     private ShotRecorder recorder;
     private ReplayActors actors;
     private bool othersHidden;
-    private Vector3 startPos;
-    private Quaternion startRot;
-    private float followAt = float.MaxValue;     // Time.time the replay view starts following the ball
+    private bool warmed;
+    private Renderer screenRenderer;
+    private readonly Plane[] eyePlanes = new Plane[6];
 
     private bool pending;
     private float showAt;
     private bool displaying;
     private bool screenLit;
     private ShotRecording shot;
-    private float playFrom, playTo, playTime, followTime, holdLeft, nextRender;
+    private float playFrom, playTo, playTime, holdLeft, nextRender;
 
     public bool IsShowing => displaying;
 
@@ -68,9 +68,8 @@ public partial class CameraReplay : MonoBehaviour
             CameraReplay.Instance = this;
         InitScreen();
         UseRuntimeMaterial();
+        screenRenderer = screen != null ? screen.GetComponent<Renderer>() : null;
 
-        startPos = transform.position;
-        startRot = transform.rotation;
         myCamera = GetComponent<Camera>();
         myCamera.enabled = false;               // on only for the frames a replay frame is filmed
         myCamera.targetTexture = view;
@@ -78,6 +77,8 @@ public partial class CameraReplay : MonoBehaviour
         int ui = LayerMask.NameToLayer("UI");
         if (ui >= 0)
             myCamera.cullingMask &= ~(1 << ui);
+        broadcast = new BroadcastCamera(myCamera);
+        overlay = new ReplayOverlay(myCamera);
         if (targetMat != null)
         {
             targetMat.SetTexture(ViewId, view);
@@ -92,16 +93,13 @@ public partial class CameraReplay : MonoBehaviour
         RenderPipelineManager.beginCameraRendering -= BeginCamera;
         RenderPipelineManager.endCameraRendering -= EndCamera;
         if (actors != null)
-        {
             actors.SetReplayView(false);
-            actors.HidePanels(false);
-        }
         ReleaseScreen();
     }
 
     // ---- The game's calls ----------------------------------------------------------------------
 
-    /// The ball is dead (or about to be): show the replay `delay` seconds from now, ending there.
+    /// The ball is dead: show the replay `delay` seconds from now.
     public void ShowReplayIn(float delay)
     {
         if (pending || displaying)
@@ -114,17 +112,10 @@ public partial class CameraReplay : MonoBehaviour
             recorder.RecordAtLeastUntil(showAt);
     }
 
-    /// After a hit: the replay's view follows the ball from `delay` seconds after this moment.
-    public void FollowBallFrom(float delay)
-    {
-        followAt = Time.time + delay;
-    }
-
-    /// The next ball: the screen off, the views back to the start.
+    /// The next ball: the screen off.
     public void ResetForNextBall()
     {
         pending = false;
-        followAt = float.MaxValue;
         StopDisplaying();
     }
 
@@ -136,29 +127,47 @@ public partial class CameraReplay : MonoBehaviour
             myCamera.enabled = false;
         if (targetMat != null)
             targetMat.SetFloat(OnId, 0f);
-        if (actors != null)
-            actors.ShowStage(false);
+        overlay?.Hide();
     }
 
     // ---- Playback ------------------------------------------------------------------------------
 
     private void LateUpdate()
     {
+        if (!warmed && WarmUp())
+            return;
         if (pending && Time.time >= showAt)
         {
             pending = false;
             BeginDisplay();
         }
-        bool film = displaying && Advance(Time.deltaTime);
+        bool film = displaying && Advance(Time.deltaTime) && ScreenInView();
         if (film)
         {
             actors.Apply(shot, playTime);
-            PoseCamera(playTime);
+            broadcast.Apply();
             actors.SkinThisFrame(true);
-            actors.HidePanels(true);
         }
         if (myCamera.enabled != film)
             myCamera.enabled = film;
+    }
+
+    /// One render at load, with the stand-ins in, the screen still dark: the shaders, the MSAA
+    /// target and the stand-ins' skinning are set up then, not in the frame the first replay
+    /// starts (on the headset, that first frame was a stall).
+    private bool WarmUp()
+    {
+        if (recorder == null)
+            recorder = ShotRecorder.Instance;
+        if (recorder == null || recorder.Actors == null)
+            return false;
+        actors = recorder.Actors;
+        HideOthersOnce();
+        broadcast.Apply();
+        actors.SkinThisFrame(true);
+        myCamera.enabled = true;
+        warmed = true;
+        return true;
     }
 
     private void BeginDisplay()
@@ -170,18 +179,25 @@ public partial class CameraReplay : MonoBehaviour
         if (actors == null || shot == null || !shot.Released || shot.Count < 2)
             return;
         HideOthersOnce();
-        // From the bowler's last strides to the moment the game asked for the replay.
+        // From the bowler's last strides to a few seconds after the shot (or the ball going by).
         playFrom = Mathf.Max(0f, shot.ReleaseTime - leadIn);
-        playTo = Mathf.Min(shot.Duration, showAt - shot.StartedAt);
+        float shotAt = shot.HasContact ? shot.ContactTime : shot.ReleaseTime + 0.8f;
+        playTo = Mathf.Min(shot.Duration, showAt - shot.StartedAt, shotAt + afterShot);
         if (playTo <= playFrom)
             return;
-        followTime = followAt < float.MaxValue ? followAt - shot.StartedAt : float.MaxValue;
-        playTime = playFrom;
-        holdLeft = 0f;
+        Restart();
         nextRender = 0f;
         screenLit = false;
         displaying = true;
-        actors.ShowStage(true);
+        overlay.Show(ReleaseSpeedKmh(shot));
+    }
+
+    private void Restart()
+    {
+        playTime = playFrom;
+        holdLeft = 0f;
+        broadcast.Reset();
+        broadcast.Step(shot, playTime, 0f);
     }
 
     /// Moves the replay on by `dt`; true when this frame should be filmed.
@@ -192,20 +208,20 @@ public partial class CameraReplay : MonoBehaviour
             holdLeft -= dt;     // the screen keeps showing the last frame: nothing to render
             if (holdLeft > 0f)
                 return false;
-            playTime = playFrom;
+            Restart();
             return Paced();
         }
-        playTime += dt;
+        playTime = Mathf.Min(playTime + dt, playTo);
+        broadcast.Step(shot, playTime, dt);
         if (playTime >= playTo)
         {
-            playTime = playTo;
             holdLeft = Mathf.Max(loopPause, 1e-3f);
             return true;        // the last frame, to hold
         }
         return Paced();
     }
 
-    /// `renderRate` frames a second, give or take half a frame (every other frame at 72 Hz).
+    /// `renderRate` frames a second, give or take half a frame.
     private bool Paced()
     {
         float interval = 1f / Mathf.Max(1f, renderRate);
@@ -217,24 +233,29 @@ public partial class CameraReplay : MonoBehaviour
         return true;
     }
 
-    private void PoseCamera(float time)
+    /// No replay frames for a screen the player is not looking at: the replay plays on unseen
+    /// and is filmed again the moment it comes back into view.
+    private bool ScreenInView()
     {
-        if (time < followTime)
-        {
-            transform.SetPositionAndRotation(startPos, startRot);
-            myCamera.fieldOfView = TvFov;
-            return;
-        }
-        Vector3 look = shot.BallAt(time) - FollowFrom;
-        transform.position = FollowFrom;
-        if (look.sqrMagnitude > 1e-6f)
-            transform.rotation = Quaternion.LookRotation(look, Vector3.up);
-        myCamera.fieldOfView = FollowFov;
+        Camera eye = Camera.main;
+        if (screenRenderer == null || eye == null || eye == myCamera || !screenLit)
+            return true;
+        GeometryUtility.CalculateFrustumPlanes(eye, eyePlanes);
+        return GeometryUtility.TestPlanesAABB(eyePlanes, screenRenderer.bounds);
+    }
+
+    /// The delivery's speed just out of the hand, from the recorded ball.
+    private static float ReleaseSpeedKmh(ShotRecording shot)
+    {
+        float t = shot.ReleaseTime + 0.05f, dt = 0.1f;
+        if (t + dt > shot.Duration)
+            return 0f;
+        return (shot.BallAt(t + dt) - shot.BallAt(t)).magnitude / dt * UIFormat.KmhPerMps;
     }
 
     /// The replay camera must not see what is live now and has no place in the replay: the
-    /// screen itself (it would film its own picture), the hologram, the player's hands and the
-    /// menu pointer.
+    /// screen itself (it would film its own picture), the hologram, the player's hands, the menu
+    /// pointer and the menus.
     private void HideOthersOnce()
     {
         if (othersHidden)
@@ -244,6 +265,10 @@ public partial class CameraReplay : MonoBehaviour
             actors.HideAlso(screen.GetComponentsInChildren<Renderer>(true));
         if (ShotReplay.Instance != null)
             actors.HideAlso(ShotReplay.Instance.GetComponentsInChildren<Renderer>(true));
+        // The live result over the stumps belongs to now, not to the ball being replayed.
+        BallResultText result = FindFirstObjectByType<BallResultText>();
+        if (result != null)
+            actors.HideAlso(result.GetComponentsInChildren<Renderer>(true));
         // The hands, under the XR rig's own root - never a root that holds the game itself.
         Camera eye = Camera.main;
         if (eye != null && eye != myCamera && eye.transform.root.GetComponentInChildren<Main>(true) == null)
@@ -263,7 +288,7 @@ public partial class CameraReplay : MonoBehaviour
             if (canvas.renderMode == RenderMode.WorldSpace && canvas.GetComponentInParent<Main>(true) == null)
                 panels.Add(canvas);
         if (ui >= 0)
-            actors.HideCanvasesAlso(panels, ui);
+            ReplayActors.MoveCanvases(panels, ui);
     }
 
     // ---- The replay camera's render ------------------------------------------------------------
@@ -280,7 +305,6 @@ public partial class CameraReplay : MonoBehaviour
             return;
         actors.SetReplayView(false);
         actors.SkinThisFrame(false);
-        actors.HidePanels(false);
         if (!screenLit && displaying && targetMat != null)
         {
             targetMat.SetFloat(OnId, 1f);   // only now: before its first frame `view` holds the last replay

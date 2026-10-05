@@ -878,7 +878,6 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.ShowReplayIn(2f);
                         gameState = eGameState.InGame_BallHitLoop;
                     }
                     break;
@@ -895,6 +894,9 @@ public class Main : MonoBehaviour
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
                         gameState = eGameState.InGame_BallFielded_Loop;
+                        // The replay waits for the dead ball: filmed while the ball is in play, it
+                        // cost frames while the player was still watching the shot.
+                        CameraReplay.Instance.ShowReplayIn(1f);
 
                         // Reset once the ball is back with the bowler (ThrowBack).
                         StartCoroutine(WaitForReturnThenReset());
@@ -925,7 +927,7 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.ShowReplayIn(0f);
+                        CameraReplay.Instance.ShowReplayIn(1f);
                         gameState = eGameState.InGame_BallMissedLoop;
 
                         // Reset once the keeper has passed it back to the bowler (ThrowBack).
@@ -942,6 +944,7 @@ public class Main : MonoBehaviour
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
                         gameState = eGameState.InGame_BallPastBoundaryLoop;
+                        CameraReplay.Instance.ShowReplayIn(1f);
 
                         // Wait for '2' seconds and reset to Ready
                         StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
