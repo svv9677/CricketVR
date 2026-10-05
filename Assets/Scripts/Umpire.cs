@@ -3,8 +3,8 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// The umpire at the bowler's end. Built when the match scene loads (no scene change): the
-/// "David" character, which no fielder uses, in a black coat (a white one hid the ball coming out
-/// of the bowler's hand), dark trousers and a white wide-brimmed hat, standing on the fielders' idle. Before each ball he takes his place directly
+/// fielders' "David" character in a black coat (a white one hid the ball coming out
+/// of the bowler's hand), dark trousers and a black wide-brimmed hat, standing on the fielders' idle. Before each ball he takes his place directly
 /// behind the bowler's stumps, in line with them - further back for the quicks, close up to the
 /// spinners. The bowler comes in beside the stumps, not through them, so he passes the umpire
 /// (measured: no closer than ~0.5 m). His signals: UmpireSignals.
@@ -15,10 +15,12 @@ public class Umpire : MonoBehaviour
 {
     private const string MatchScene = "CricketVR";
     /// Behind the stumps for each kind of bowler.
-    private const float BackForPace = 2.4f, BackForSwing = 2.0f, BackForSpin = 1.3f;
+    /// Umpires stand back far enough to see the bowler's front foot at the crease and the ball
+    /// down the pitch: a little way back to the spinners, much further back to the quicks.
+    private const float BackForPace = 3.6f, BackForSwing = 3.0f, BackForSpin = 1.8f;
 
     private static readonly Color Coat = new Color(0.06f, 0.06f, 0.07f);
-    private static readonly Color Hat = new Color(0.95f, 0.95f, 0.92f);
+    private static readonly Color Hat = new Color(0.06f, 0.06f, 0.07f);   // black too: nothing white behind the ball
     private static readonly Color Trousers = new Color(0.1f, 0.11f, 0.16f);
     private static readonly Color Shoes = new Color(0.05f, 0.05f, 0.05f);
 
@@ -77,12 +79,12 @@ public class Umpire : MonoBehaviour
         Shader lit = Shader.Find("Universal Render Pipeline/Lit");
         if (head == null || lit == null)
             return;
-        var white = new Material(lit) { name = "Umpire Hat" };
-        white.SetColor("_BaseColor", Hat);
+        var hat = new Material(lit) { name = "Umpire Hat" };
+        hat.SetColor("_BaseColor", Hat);
         float top = TopOfHead(animator, head);
         // Worn, not perched: the brim at the brow, a low rounded crown over the top of the head.
-        Part(PrimitiveType.Cylinder, head, white, new Vector3(0.36f, 0.005f, 0.36f), top - 0.085f);    // brim
-        Part(PrimitiveType.Sphere, head, white, new Vector3(0.21f, 0.15f, 0.23f), top - 0.045f);       // crown
+        Part(PrimitiveType.Cylinder, head, hat, new Vector3(0.36f, 0.005f, 0.36f), top - 0.085f);    // brim
+        Part(PrimitiveType.Sphere, head, hat, new Vector3(0.21f, 0.15f, 0.23f), top - 0.045f);       // crown
     }
 
     /// Height of the top of the head (hair included) above the head bone, from the skinned mesh

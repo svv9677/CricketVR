@@ -26,10 +26,33 @@ public class NextBallMenu : MonoBehaviour
     private bool shown;
     private bool registered;
     private Bowler shownBowler;
+    private bool shownNewOver;
+    private TMP_Text header;
 
     private void Start()
     {
         panel.SetActive(false);
+        FindHeaderAndBowlButton();
+    }
+
+    /// The card's small heading ("Bowler") and the big button, from the prefab's layout: the
+    /// heading becomes "Next over" between overs, the button "Next ball".
+    private void FindHeaderAndBowlButton()
+    {
+        Transform card = bowlerLabel != null ? bowlerLabel.transform.parent.parent : null;
+        if (card == null)
+            return;
+        foreach (Transform child in card)
+        {
+            if (header == null && child.TryGetComponent(out TMP_Text text))
+                header = text;
+            if (child.name.StartsWith("Bowl"))
+            {
+                TMP_Text label = child.GetComponentInChildren<TMP_Text>(true);
+                if (label != null)
+                    label.text = "Next ball  <size=75%>(A)</size>";
+            }
+        }
     }
 
     private void Update()
@@ -45,13 +68,25 @@ public class NextBallMenu : MonoBehaviour
             UpdateBowler(inst.theHUD);
     }
 
-    /// Only when the bowler changes: no string building per frame.
+    /// Only when the bowler or the over changes: no string building per frame. Before the first
+    /// ball of an over the card says so - "Next over" - with who is coming on and how he bowls.
     private void UpdateBowler(HUD hud)
     {
-        if (bowlerLabel == null || hud == null || hud.CurrentBowler == null || hud.CurrentBowler == shownBowler)
+        if (bowlerLabel == null || hud == null || hud.CurrentBowler == null)
+            return;
+        bool newOver = hud.Balls == 0;
+        if (hud.CurrentBowler == shownBowler && newOver == shownNewOver)
             return;
         shownBowler = hud.CurrentBowler;
-        bowlerLabel.text = $"{shownBowler.Name}  <color=#98A2B3>{UIFormat.BowlerType(shownBowler.Type)}</color>";
+        shownNewOver = newOver;
+        string type = UIFormat.BowlerType(shownBowler.Type);
+        // Every bowling action in the game is right-arm, over the wicket (the run-ups come in on
+        // the stumps' left as he sees them, AnimatedBowler).
+        bowlerLabel.text = newOver
+            ? $"{shownBowler.Name}  <color=#98A2B3>{type}</color>\n<size=55%><color=#98A2B3>Right-arm, over the wicket</color></size>"
+            : $"{shownBowler.Name}  <color=#98A2B3>{type}</color>";
+        if (header != null)
+            header.text = !newOver ? "BOWLER" : hud.Overs == 0 ? "<color=#3B82F6>FIRST OVER</color>" : "<color=#3B82F6>NEXT OVER</color>";
     }
 
     private void Show()

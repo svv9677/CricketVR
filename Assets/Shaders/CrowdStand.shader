@@ -42,6 +42,12 @@ Shader "CricketVR/CrowdStand"
         _WaveHeight     ("Wave Height (m)", Range(0, 2))            = 0.75
         _WaveRowLag     ("Wave Row Lag (radians)", Range(0, 1))     = 0.15
 
+        [Header(No White Shirts)]
+        // White shirts in the stands hid the ball against them. Bright, colourless pixels (linear
+        // brightness above _WhiteFrom, little difference between channels) are recoloured to _WhiteTo.
+        _WhiteFrom      ("White From (linear)", Range(0, 1))         = 0.4
+        _WhiteTo        ("White Becomes", Color)                     = (0.03, 0.03, 0.035, 1)
+
         [Header(Night Camera Flashes)]
         _FlashStrength  ("Flash Strength", Range(0, 4))             = 0
         _FlashColor     ("Flash Colour", Color)                     = (1,1,1,1)
@@ -112,6 +118,8 @@ Shader "CricketVR/CrowdStand"
                 float  _KeyTolerance;
                 float  _KeySoftness;
                 float4 _FlashColor;
+                float  _WhiteFrom;
+                float4 _WhiteTo;
                 float  _BobAmplitude;
                 float  _BobFrequency;
                 float  _IdleVariety;
@@ -212,6 +220,14 @@ Shader "CricketVR/CrowdStand"
 
                 half4 albedo = raw * _BaseColor;
                 albedo.a = edge;
+
+                // No white shirts: they hid the ball against the stands. Skin and coloured clothes
+                // keep their colour (they are not grey), only the bright greys and whites go dark.
+                half brightest = max(raw.r, max(raw.g, raw.b));
+                half spread = brightest - min(raw.r, min(raw.g, raw.b));
+                half whiteness = smoothstep(_WhiteFrom, _WhiteFrom + 0.15, brightest) *
+                                 (1.0 - smoothstep(0.05, 0.14, spread));
+                albedo.rgb = lerp(albedo.rgb, _WhiteTo.rgb, whiteness);
 
                 // Occasional camera flashes, one person at a time. A cheer (_CrowdFlash) fires many
                 // more at once and a little brighter. Free when both strengths are 0 (e.g. daytime).
