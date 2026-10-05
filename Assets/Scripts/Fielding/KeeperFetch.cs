@@ -237,10 +237,35 @@ public partial class KeeperCatcher
         body.rightFootTarget = feet.Right;
     }
 
+    /// A skier he is under: still in the air off the bat. He waited for it to bounce, gloves down
+    /// for a pick-up, and never caught it on the full.
+    private const float CatchReach = 1.6f, InTheAirAbove = 0.35f;
+
+    private static bool InTheAir(Vector3 ball) =>
+        Main.Instance.gameState == eGameState.InGame_BallHitLoop && !Main.Instance.theBallScript.bounced &&
+        ball.y > InTheAirAbove;
+
+    /// Up to the ball as it comes down, both gloves facing it, to take it on the full.
+    private void CatchInTheAir(Vector3 ball)
+    {
+        Vector3 incoming = Main.Instance.theBallRigidBody.linearVelocity;
+        body.minCrouch = 0f;
+        body.leftHandShare = 1f;
+        body.handTarget = ball;
+        body.palmFacing = incoming.sqrMagnitude > 0.01f ? -incoming.normalized : Vector3.zero;
+        float d = new Vector2(ball.x - bodyRoot.position.x, ball.z - bodyRoot.position.z).magnitude;
+        body.weight = d < CatchReach ? 1f : 0f;
+    }
+
     /// Both gloves down to the ball as he gets to it: palms toward each other to scoop it.
     private void ReachForLooseBall()
     {
         Vector3 ball = Main.Instance.theBall.transform.position;
+        if (InTheAir(ball))
+        {
+            CatchInTheAir(ball);
+            return;
+        }
         Vector3 hands = bodyRoot.position + bodyRoot.forward * 0.45f;
         float d = new Vector2(ball.x - hands.x, ball.z - hands.z).magnitude;
         body.minCrouch = 0f;
