@@ -25,6 +25,8 @@ public class FielderLook : MonoBehaviour
     private HumanPoseHandler from, to;
     private HumanPose pose;
     private LimbMatch[] limbs;
+    private Transform sourceHips, copyHips;
+    private Vector3 hipOffset;      // the copy's hips from the original's at rest, in the original's frame
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
@@ -87,6 +89,10 @@ public class FielderLook : MonoBehaviour
             LimbMatch.Make(animator, lookAnimator, HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, HumanBodyBones.LeftFoot, lift),
             LimbMatch.Make(animator, lookAnimator, HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.RightFoot, lift),
         };
+        sourceHips = animator.GetBoneTransform(HumanBodyBones.Hips);
+        copyHips = lookAnimator.GetBoneTransform(HumanBodyBones.Hips);
+        if (sourceHips != null && copyHips != null)
+            hipOffset = Quaternion.Inverse(transform.rotation) * (copyHips.position - sourceHips.position);
         MoveHeadKit(animator, lookAnimator);
         LateUpdate();
     }
@@ -130,6 +136,12 @@ public class FielderLook : MonoBehaviour
             source.cullingMode = AnimatorCullingMode.AlwaysAnimate;
         from.GetHumanPose(ref pose);
         to.SetHumanPose(ref pose);
+        // The pose carries his position as a fraction of his body size and does not undo the
+        // keeper's 1.11 body scale: the copy fell behind him by 11% of however far he had moved
+        // (0.8 m after a run to a ball), and its hands and feet, kept on his gloves and boots,
+        // stretched to reach. Placed straight on his hips instead, as far from them as at rest.
+        if (sourceHips != null && copyHips != null)
+            look.position += sourceHips.position + transform.rotation * hipOffset - copyHips.position;
         if (limbs != null)
             foreach (LimbMatch limb in limbs)
                 limb?.Solve();
