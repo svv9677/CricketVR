@@ -238,6 +238,9 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             myAnimator.CrossFadeInFixedTime("0 Idle", 0.12f);
     }
 
+    private bool? drawnByCopyCache;
+    private bool drawnByCopy => drawnByCopyCache ??= GetComponent<FielderLook>() != null;
+
     private void Update()
     {
         Move();
@@ -427,10 +430,12 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
     }
 
     /// A fielder behind the camera is culled, and a culled animator does not move the hands, so
-    /// the ball could never reach them: keep him animating while he is in the play.
+    /// the ball could never reach them: keep him animating while he is in the play. Never culled
+    /// at all when he is drawn through a copy (FielderLook - the bowler fielding): his own body is
+    /// hidden, so he is never "seen", and culled he froze and never bowled again.
     private void KeepAnimating(bool inPlay)
     {
-        AnimatorCullingMode mode = inPlay || holdingBall ? AnimatorCullingMode.AlwaysAnimate : AnimatorCullingMode.CullUpdateTransforms;
+        AnimatorCullingMode mode = inPlay || holdingBall || drawnByCopy ? AnimatorCullingMode.AlwaysAnimate : AnimatorCullingMode.CullUpdateTransforms;
         if (myAnimator.cullingMode != mode)
             myAnimator.cullingMode = mode;
     }

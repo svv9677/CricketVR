@@ -103,6 +103,12 @@ public class FielderLook : MonoBehaviour
     {
         if (look == null || from == null)
             return;
+        // Every frame, not once: the bowler fielding a hit is an AnimatedFielder for the rest of
+        // the ball, and its KeepAnimating sets "cull when unseen" whenever he is out of the play.
+        // With his own body hidden he is never seen, so his skeleton froze in whatever pose it was
+        // in, his run-up never played and the next ball was never bowled (headset, after a hit).
+        if (source.cullingMode != AnimatorCullingMode.AlwaysAnimate)
+            source.cullingMode = AnimatorCullingMode.AlwaysAnimate;
         from.GetHumanPose(ref pose);
         to.SetHumanPose(ref pose);
     }
