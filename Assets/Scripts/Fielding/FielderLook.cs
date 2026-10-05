@@ -7,9 +7,10 @@ using UnityEngine.SceneManagement;
 /// different Mixamo body) keep their own skeletons - their ragdolls, reach, footwork and bowling
 /// animations are built and tuned on those - but are drawn as the fielders' "David": a copy of
 /// that model takes their pose every frame through the humanoid muscle space (HumanPoseHandler),
-/// and their own body meshes are hidden. What they wear (the keeper's gloves, pads and helmet)
-/// moves onto the copy's matching bones: left on his own, the helmet sat 7 cm above the copy's
-/// head (the two bodies' necks differ).
+/// and their own body meshes are hidden. The copy's arms and legs are then bent onto the
+/// original's hands and feet (LimbMatch), so the gloves and pads on the original - and the ball
+/// in his hands - fit the copy, and its feet stand on the ground. A helmet moves onto the copy's
+/// head: left on the original's, it sat 7 cm above the copy's (the two necks differ).
 ///
 /// Built when the match scene loads, before any Start, so the replay (ReplayActors) records the
 /// copy as a player and the original only for what it still shows.
@@ -23,6 +24,7 @@ public class FielderLook : MonoBehaviour
     private Transform look;
     private HumanPoseHandler from, to;
     private HumanPose pose;
+    private LimbMatch[] limbs;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
@@ -69,21 +71,38 @@ public class FielderLook : MonoBehaviour
         look.localScale = Vector3.one * (animator.humanScale * transform.localScale.x / Mathf.Max(0.1f, lookAnimator.humanScale));
         from = new HumanPoseHandler(animator.avatar, animator.transform);
         to = new HumanPoseHandler(lookAnimator.avatar, look);
+        // Still in their bind poses, both standing: how much higher the copy's ankles are.
+        Vector3 lift = Vector3.up * Mathf.Max(0f, AnkleHeight(lookAnimator, look) - AnkleHeight(animator, transform));
         foreach (SkinnedMeshRenderer skin in GetComponentsInChildren<SkinnedMeshRenderer>())
             skin.enabled = false;   // the body
         // With its body hidden the original counts as unseen, and the bowler's Animator (culled
         // when unseen) stopped posing him: he stood in his bind pose, and the copy with him.
         animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        from.GetHumanPose(ref pose);
+        to.SetHumanPose(ref pose);         // both in the same pose now: measure the hands' and feet' turns
+        limbs = new[]
+        {
+            LimbMatch.Make(animator, lookAnimator, HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand, Vector3.zero),
+            LimbMatch.Make(animator, lookAnimator, HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm, HumanBodyBones.RightHand, Vector3.zero),
+            LimbMatch.Make(animator, lookAnimator, HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, HumanBodyBones.LeftFoot, lift),
+            LimbMatch.Make(animator, lookAnimator, HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.RightFoot, lift),
+        };
+        MoveHeadKit(animator, lookAnimator);
         LateUpdate();
-        MoveKit(animator, lookAnimator);   // both in the same pose now
     }
 
-    /// The kit (mesh renderers hung on the original's bones) onto the same bones of the copy,
-    /// keeping where it is now.
-    private static void MoveKit(Animator from, Animator to)
+    private static float AnkleHeight(Animator a, Transform root)
+    {
+        Transform foot = a.GetBoneTransform(HumanBodyBones.LeftFoot);
+        return foot != null ? foot.position.y - root.position.y : 0f;
+    }
+
+    /// A helmet (a mesh hung on the original's head or neck) onto the copy's head, keeping where
+    /// it is now. Gloves and pads stay on the original: the copy's hands and feet are put on his.
+    private static void MoveHeadKit(Animator from, Animator to)
     {
         var bones = new Dictionary<Transform, Transform>();
-        for (HumanBodyBones b = 0; b < HumanBodyBones.LastBone; b++)
+        foreach (HumanBodyBones b in new[] { HumanBodyBones.Head, HumanBodyBones.Neck })
         {
             Transform s = from.GetBoneTransform(b), d = to.GetBoneTransform(b);
             if (s != null && d != null)
@@ -111,6 +130,9 @@ public class FielderLook : MonoBehaviour
             source.cullingMode = AnimatorCullingMode.AlwaysAnimate;
         from.GetHumanPose(ref pose);
         to.SetHumanPose(ref pose);
+        if (limbs != null)
+            foreach (LimbMatch limb in limbs)
+                limb?.Solve();
     }
 
     private void OnDestroy()
