@@ -33,9 +33,6 @@ public partial class CameraReplay : MonoBehaviour
     [Tooltip("Seconds of the bowler's run-up shown before the release.")]
     [SerializeField]
     private float leadIn = 1.2f;
-    [Tooltip("Seconds after the shot the replay runs on for, at most (the rest of a long chase is cut).")]
-    [SerializeField]
-    private float afterShot = 4f;
     [Tooltip("Seconds the last frame holds before the replay loops.")]
     [SerializeField]
     private float loopPause = 1f;
@@ -46,6 +43,7 @@ public partial class CameraReplay : MonoBehaviour
     private Camera myCamera;
     private BroadcastCamera broadcast;
     private ReplayOverlay overlay;
+    private ReplayBallTrail trail;
     private ShotRecorder recorder;
     private ReplayActors actors;
     private bool othersHidden;
@@ -55,6 +53,8 @@ public partial class CameraReplay : MonoBehaviour
 
     private bool pending;
     private float showAt;
+    private System.Func<bool> waitFor;      // ShowReplayWhen: the moment the play is over
+    private float waitUntil, waitThen;
     private bool displaying;
     private bool screenLit;
     private ShotRecording shot;
@@ -99,15 +99,33 @@ public partial class CameraReplay : MonoBehaviour
 
     // ---- The game's calls ----------------------------------------------------------------------
 
-    /// The ball is dead: show the replay `delay` seconds from now.
-    public void ShowReplayIn(float delay)
+    /// The ball is dead: show the replay `delay` seconds from now - it runs up to then. A later
+    /// call replaces one still waiting (a wide that beats the keeper is played on, then fielded).
+    public void ShowReplayIn(float delay) => ShowReplayWhen(null, delay, 0f);
+
+    /// Show the replay `delay` seconds after `done` comes true (the keeper has the wide; the six
+    /// has come down), or after `maxWait` if it never does.
+    public void ShowReplayWhen(System.Func<bool> done, float delay, float maxWait)
     {
-        if (pending || displaying)
+        if (displaying)
             return;
-        pending = true;
-        showAt = Time.time + delay;
+        waitFor = done;
+        waitThen = delay;
+        waitUntil = Time.time + maxWait;
+        pending = false;
         if (recorder == null)
             recorder = ShotRecorder.Instance;
+        if (recorder != null)
+            recorder.RecordAtLeastUntil(Time.time + maxWait + delay);   // whenever it comes, it is recorded
+        if (done == null)
+            Schedule(delay);
+    }
+
+    private void Schedule(float delay)
+    {
+        waitFor = null;
+        pending = true;
+        showAt = Time.time + delay;
         if (recorder != null)
             recorder.RecordAtLeastUntil(showAt);
     }
@@ -116,6 +134,7 @@ public partial class CameraReplay : MonoBehaviour
     public void ResetForNextBall()
     {
         pending = false;
+        waitFor = null;
         StopDisplaying();
     }
 
@@ -136,6 +155,8 @@ public partial class CameraReplay : MonoBehaviour
     {
         if (!warmed && WarmUp())
             return;
+        if (waitFor != null && (waitFor() || Time.time >= waitUntil))
+            Schedule(waitThen);
         if (pending && Time.time >= showAt)
         {
             pending = false;
@@ -146,6 +167,7 @@ public partial class CameraReplay : MonoBehaviour
         {
             actors.Apply(shot, playTime);
             broadcast.Apply();
+            trail?.Apply(shot, playTime, shot.ReleaseTime, myCamera);
             actors.SkinThisFrame(true);
         }
         if (myCamera.enabled != film)
@@ -162,6 +184,7 @@ public partial class CameraReplay : MonoBehaviour
         if (recorder == null || recorder.Actors == null)
             return false;
         actors = recorder.Actors;
+        trail = new ReplayBallTrail(Main.Instance, actors.BallStandIn);
         HideOthersOnce();
         broadcast.Apply();
         actors.SkinThisFrame(true);
@@ -179,10 +202,9 @@ public partial class CameraReplay : MonoBehaviour
         if (actors == null || shot == null || !shot.Released || shot.Count < 2)
             return;
         HideOthersOnce();
-        // From the bowler's last strides to a few seconds after the shot (or the ball going by).
+        // From the bowler's last strides to the end of the play (ShowReplayWhen).
         playFrom = Mathf.Max(0f, shot.ReleaseTime - leadIn);
-        float shotAt = shot.HasContact ? shot.ContactTime : shot.ReleaseTime + 0.8f;
-        playTo = Mathf.Min(shot.Duration, showAt - shot.StartedAt, shotAt + afterShot);
+        playTo = Mathf.Min(shot.Duration, showAt - shot.StartedAt);
         if (playTo <= playFrom)
             return;
         Restart();
@@ -295,8 +317,10 @@ public partial class CameraReplay : MonoBehaviour
 
     private void BeginCamera(ScriptableRenderContext context, Camera camera)
     {
-        if (camera == myCamera && actors != null)
-            actors.SetReplayView(true);
+        if (camera != myCamera || actors == null)
+            return;
+        actors.SetReplayView(true);
+        trail?.Show(displaying);
     }
 
     private void EndCamera(ScriptableRenderContext context, Camera camera)
@@ -305,6 +329,7 @@ public partial class CameraReplay : MonoBehaviour
             return;
         actors.SetReplayView(false);
         actors.SkinThisFrame(false);
+        trail?.Show(false);
         if (!screenLit && displaying && targetMat != null)
         {
             targetMat.SetFloat(OnId, 1f);   // only now: before its first frame `view` holds the last replay

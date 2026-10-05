@@ -34,6 +34,8 @@ public sealed class ReplayActors
     public int Rotations => wholeLive.Count + boneLive.Count;
     public int Positions => wholeLive.Count + pointLive.Count;
     public int Renderers => stand.Count;
+    /// The ball's stand-in (ReplayBallTrail sizes it for the camera).
+    public Transform BallStandIn => ballStand;
 
     /// Builds the stand-ins for the scene's actors. Run once, at the start.
     public static ReplayActors Build(Main main)

@@ -895,8 +895,9 @@ public class Main : MonoBehaviour
                         // For now, switch to next state
                         gameState = eGameState.InGame_BallFielded_Loop;
                         // The replay waits for the dead ball: filmed while the ball is in play, it
-                        // cost frames while the player was still watching the shot.
-                        CameraReplay.Instance.ShowReplayIn(1f);
+                        // cost frames while the player was still watching the shot. It shows the
+                        // fielder gathering it, two seconds on.
+                        CameraReplay.Instance.ShowReplayIn(2f);
 
                         // Reset once the ball is back with the bowler (ThrowBack).
                         StartCoroutine(WaitForReturnThenReset());
@@ -911,7 +912,7 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.ShowReplayIn(1f);
+                        CameraReplay.Instance.ShowReplayIn(2f);
                         gameState = eGameState.InGame_BowledLoop;
 
                         // Wait for '2' seconds and reset to Ready
@@ -927,7 +928,9 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.ShowReplayIn(1f);
+                        // A miss or a wide is called before the keeper has it: the replay runs on to
+                        // his take (the ball still in his gloves), and two seconds after.
+                        CameraReplay.Instance.ShowReplayWhen(() => theBallRigidBody.isKinematic, 2f, 6f);
                         gameState = eGameState.InGame_BallMissedLoop;
 
                         // Reset once the keeper has passed it back to the bowler (ThrowBack).
@@ -944,7 +947,14 @@ public class Main : MonoBehaviour
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
                         gameState = eGameState.InGame_BallPastBoundaryLoop;
-                        CameraReplay.Instance.ShowReplayIn(1f);
+                        // A four: two seconds past the rope. A six: on until it comes down in the
+                        // crowd (or is out of the camera's sight), then a second more.
+                        if (theBallScript.bounced)
+                            CameraReplay.Instance.ShowReplayIn(2f);
+                        else
+                            CameraReplay.Instance.ShowReplayWhen(() => theBall.transform.position.y < 1.5f ||
+                                theBallRigidBody.linearVelocity.sqrMagnitude < 9f ||          // came down in the stands
+                                new Vector2(theBall.transform.position.x, theBall.transform.position.z).magnitude > 110f, 1f, 4f);
 
                         // Wait for '2' seconds and reset to Ready
                         StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
