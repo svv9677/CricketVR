@@ -72,6 +72,10 @@ public class AnimatedFielderManagement : MonoBehaviour
             if (capsule != null)
                 boundaryRadius = capsule.radius * Main.Instance.theBoundaryCollider.transform.lossyScale.x;
         }
+        // Takes near the rope count only once the fielder is settled inside it (CatchJudge).
+        CatchJudge.Boundary = boundaryRadius;
+        if (GetComponent<CatchJudge>() == null)
+            gameObject.AddComponent<CatchJudge>();
     }
 
     private void OnDestroy()
@@ -401,6 +405,9 @@ public class AnimatedFielderManagement : MonoBehaviour
         foreach (AnimatedFielder other in AnimatedFielder.All)
             if (other != fielder)
                 other.CallOff();
+        // Near the rope it is not fielded until he is settled wholly inside it (CatchJudge).
+        if (CatchJudge.Begin(fielder, name))
+            return;
         inst.currentFielderName = name;
         inst.gameState = eGameState.InGame_BallFielded;
     }
