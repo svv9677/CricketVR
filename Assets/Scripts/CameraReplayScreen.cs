@@ -24,7 +24,7 @@ public partial class CameraReplay
 
     /// The player's choice: screen in front (true) or at home in the stadium (false). While a
     /// ball is live the screen goes home regardless, so it never blocks the delivery or the
-    /// shot, and comes back once the ball is dead.
+    /// shot; it comes in front when a replay is on it.
     public bool ScreenInFront => preferFront;
     /// Raised when ScreenInFront changes.
     public event System.Action ScreenMoved;
@@ -122,7 +122,9 @@ public partial class CameraReplay
         if (screen == null)
             return;
         bool live = mainForScreen != null && LiveBall(mainForScreen.gameState);
-        bool want = preferFront && !live;
+        // In front only with a replay on it: brought up at the dead ball, it sat there black until
+        // the play had finished recording (two seconds and more).
+        bool want = preferFront && !live && displaying && screenLit;
         if (want == atFront)
             return;
         if (want)

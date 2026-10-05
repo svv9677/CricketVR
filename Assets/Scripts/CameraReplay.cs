@@ -147,6 +147,7 @@ public partial class CameraReplay : MonoBehaviour
         if (targetMat != null)
             targetMat.SetFloat(OnId, 0f);
         overlay?.Hide();
+        UpdateScreenPlacement();
     }
 
     // ---- Playback ------------------------------------------------------------------------------
@@ -167,7 +168,7 @@ public partial class CameraReplay : MonoBehaviour
         {
             actors.Apply(shot, playTime);
             broadcast.Apply();
-            trail?.Apply(shot, playTime, shot.ReleaseTime, myCamera);
+            trail?.Apply(shot, playTime, shot.ReleaseTime, shot.HasContact ? shot.ContactTime : float.MaxValue, myCamera);
             actors.SkinThisFrame(true);
         }
         if (myCamera.enabled != film)
@@ -184,7 +185,7 @@ public partial class CameraReplay : MonoBehaviour
         if (recorder == null || recorder.Actors == null)
             return false;
         actors = recorder.Actors;
-        trail = new ReplayBallTrail(Main.Instance, actors.BallStandIn);
+        trail = new ReplayBallTrail(Main.Instance);
         HideOthersOnce();
         broadcast.Apply();
         actors.SkinThisFrame(true);
@@ -334,6 +335,7 @@ public partial class CameraReplay : MonoBehaviour
         {
             targetMat.SetFloat(OnId, 1f);   // only now: before its first frame `view` holds the last replay
             screenLit = true;
+            UpdateScreenPlacement();        // and only now in front of the player, if he wants it there
         }
     }
 }

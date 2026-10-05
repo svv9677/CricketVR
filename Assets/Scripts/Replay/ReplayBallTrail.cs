@@ -1,32 +1,28 @@
 using UnityEngine;
 
 /// <summary>
-/// The ball's trail in the replay, and a ball that can be seen in it. The live ball's trail is a
+/// The ball's trail in the replay, as broadcast replays draw it. The live ball's trail is a
 /// TrailRenderer, which only draws where the live ball has been; the replay's ball is a stand-in
 /// posed from the recording, so its trail is drawn from the recording too: the last
 /// `TrailSeconds` of its path, in the live trail's material and colours.
 ///
-/// Zoomed out to follow a shot, a 7 cm ball and its trail are under a pixel of the replay's
-/// picture and the eye loses it. Both are kept at least a few pixels across for the camera
-/// filming them - true size when it is tight on the pitch, bigger only when it is wide.
+/// None until the ball leaves the bowler's hand; a fine line through the delivery; once it is
+/// hit, a trail kept a few pixels wide for the camera filming it, so a ball under a pixel when
+/// the shot is wide can still be followed by its trail. The ball itself stays its true size.
 /// Seen by the replay camera alone (Show, around its render).
 /// </summary>
 public sealed class ReplayBallTrail
 {
     private const int Points = 24;
     private const float TrailSeconds = 0.35f;
-    private const float TrailPixels = 3f, BallPixels = 5f;
+    private const float TrailPixels = 3f, DeliveryWidth = 0.5f;
 
     private readonly LineRenderer line;
     private readonly Vector3[] buffer = new Vector3[Points];
-    private readonly Transform ball;
-    private readonly Vector3 ballScale;
     private readonly float ballDiameter, trueWidth;
 
-    public ReplayBallTrail(Main main, Transform ballStandIn)
+    public ReplayBallTrail(Main main)
     {
-        ball = ballStandIn;
-        ballScale = ballStandIn != null ? ballStandIn.localScale : Vector3.one;
         Renderer live = main != null && main.theBall != null ? main.theBall.GetComponent<MeshRenderer>() : null;
         ballDiameter = live != null ? Mathf.Max(0.02f, live.bounds.size.x) : 0.072f;
         TrailRenderer liveTrail = main != null && main.theBall != null ? main.theBall.GetComponent<TrailRenderer>() : null;
@@ -57,9 +53,15 @@ public sealed class ReplayBallTrail
         line.forceRenderingOff = true;
     }
 
-    /// The trail up to `time` (never from before `from`, the release), sized for `camera`.
-    public void Apply(ShotRecording shot, float time, float from, Camera camera)
+    /// The trail up to `time`, from no earlier than `from` (the release), sized for `camera`:
+    /// fine before `hitAt`, at least a few pixels after it.
+    public void Apply(ShotRecording shot, float time, float from, float hitAt, Camera camera)
     {
+        if (time <= from)
+        {
+            line.widthMultiplier = 0f;     // still in the bowler's hand
+            return;
+        }
         float start = Mathf.Max(from, time - TrailSeconds);
         for (int i = 0; i < Points; i++)
             buffer[i] = shot.BallAt(Mathf.Lerp(start, time, i / (float)(Points - 1)));
@@ -68,9 +70,7 @@ public sealed class ReplayBallTrail
         float distance = Vector3.Distance(camera.transform.position, buffer[Points - 1]);
         float metresPerPixel = 2f * distance * Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad) /
                                Mathf.Max(1, camera.pixelHeight);
-        line.widthMultiplier = Mathf.Max(trueWidth, TrailPixels * metresPerPixel);
-        if (ball != null)
-            ball.localScale = ballScale * Mathf.Max(1f, BallPixels * metresPerPixel / ballDiameter);
+        line.widthMultiplier = time < hitAt ? trueWidth * DeliveryWidth : Mathf.Max(trueWidth, TrailPixels * metresPerPixel);
     }
 
     public void Show(bool on) => line.forceRenderingOff = !on;
