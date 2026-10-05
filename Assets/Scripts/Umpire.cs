@@ -3,8 +3,8 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// The umpire at the bowler's end. Built when the match scene loads (no scene change): the
-/// "David" character, which no fielder uses, in a white coat, dark trousers and a white
-/// wide-brimmed hat, standing on the fielders' idle. Before each ball he takes his place directly
+/// "David" character, which no fielder uses, in a black coat (a white one hid the ball coming out
+/// of the bowler's hand), dark trousers and a white wide-brimmed hat, standing on the fielders' idle. Before each ball he takes his place directly
 /// behind the bowler's stumps, in line with them - further back for the quicks, close up to the
 /// spinners. The bowler comes in beside the stumps, not through them, so he passes the umpire
 /// (measured: no closer than ~0.5 m). His signals: UmpireSignals.
@@ -17,7 +17,8 @@ public class Umpire : MonoBehaviour
     /// Behind the stumps for each kind of bowler.
     private const float BackForPace = 2.4f, BackForSwing = 2.0f, BackForSpin = 1.3f;
 
-    private static readonly Color Coat = new Color(0.95f, 0.95f, 0.92f);
+    private static readonly Color Coat = new Color(0.06f, 0.06f, 0.07f);
+    private static readonly Color Hat = new Color(0.95f, 0.95f, 0.92f);
     private static readonly Color Trousers = new Color(0.1f, 0.11f, 0.16f);
     private static readonly Color Shoes = new Color(0.05f, 0.05f, 0.05f);
 
@@ -77,20 +78,35 @@ public class Umpire : MonoBehaviour
         if (head == null || lit == null)
             return;
         var white = new Material(lit) { name = "Umpire Hat" };
-        white.SetColor("_BaseColor", Coat);
+        white.SetColor("_BaseColor", Hat);
         float top = TopOfHead(animator, head);
-        Part(PrimitiveType.Cylinder, head, white, new Vector3(0.34f, 0.006f, 0.34f), top + 0.01f);     // brim
-        Part(PrimitiveType.Cylinder, head, white, new Vector3(0.19f, 0.045f, 0.19f), top + 0.05f);     // crown
+        // Worn, not perched: the brim at the brow, a low rounded crown over the top of the head.
+        Part(PrimitiveType.Cylinder, head, white, new Vector3(0.36f, 0.005f, 0.36f), top - 0.085f);    // brim
+        Part(PrimitiveType.Sphere, head, white, new Vector3(0.21f, 0.15f, 0.23f), top - 0.045f);       // crown
     }
 
-    /// Height of the top of the head above the head bone, from the head's skinned bounds.
+    /// Height of the top of the head (hair included) above the head bone, from the skinned mesh
+    /// itself: the renderers' bounds are padded, and a hat set on them floated above the head.
     private static float TopOfHead(Animator animator, Transform head)
     {
-        float top = head.position.y + 0.15f;
+        float top = float.NegativeInfinity;
+        var baked = new Mesh();
         foreach (SkinnedMeshRenderer skin in animator.GetComponentsInChildren<SkinnedMeshRenderer>())
-            if (skin.name.Contains("Body") || skin.name.Contains("Hair"))
-                top = Mathf.Max(top, Mathf.Min(skin.bounds.max.y, head.position.y + 0.25f));
-        return top - head.position.y;
+        {
+            if (!skin.name.Contains("Body") && !skin.name.Contains("Hair"))
+                continue;
+            skin.BakeMesh(baked, true);     // scale applied: only the position and turn to add
+            Vector3 at = skin.transform.position;
+            Quaternion turn = skin.transform.rotation;
+            foreach (Vector3 v in baked.vertices)
+            {
+                Vector3 w = at + turn * v;
+                if (Vector2.Distance(new Vector2(w.x, w.z), new Vector2(head.position.x, head.position.z)) < 0.2f)
+                    top = Mathf.Max(top, w.y);
+            }
+        }
+        Destroy(baked);
+        return float.IsNegativeInfinity(top) ? 0.17f : top - head.position.y;
     }
 
     private static void Part(PrimitiveType shape, Transform head, Material material, Vector3 size, float up)
