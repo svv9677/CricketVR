@@ -68,11 +68,16 @@ public class AnimatedBowler : MonoBehaviour
     private void Awake()
     {
         configs = new AFInfoData();
-        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.6f), new Vector3(0f, 90f, 0f), 2, 4.5f, 1, 3));
-        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.5f), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
-        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.5f), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
-        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x), 0f, 2.2f), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
-        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x), 0f, 2.2f), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
+        // Marks moved so the front foot lands on the popping crease (x -9.14: toes just over it,
+        // heel behind) close in to the stumps. Measured from the old marks, front toe at release:
+        // pace and spin x -9.39, swing -9.20..-9.33 (one run to the next), all at z 0.75-0.8, 0.65 m
+        // wide of the stumps. Hence forward 0.29 / 0.17 m and 0.28 m across.
+        const float PaceIn = 0.29f, SwingIn = 0.17f, SpinIn = 0.29f, Across = 0.28f;
+        configs.data.Add(new AFInfo(new Vector3(-9f - (6f * transform.localScale.x) + PaceIn, 0f, 2.6f - Across), new Vector3(0f, 90f, 0f), 2, 4.5f, 1, 3));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x) + SwingIn, 0f, 2.3f - Across), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x) + SwingIn, 0f, 2.3f - Across), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x) + SpinIn, 0f, 2f - Across), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x) + SpinIn, 0f, 2f - Across), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
         myBowlers = new AFInfoData();
     }
 
