@@ -18,14 +18,17 @@ using UnityEngine.SceneManagement;
 public static class PitchLines
 {
     private const string MatchScene = "CricketVR";
-    private const float Crease = 0.06f, Edge = 0.03f, Lift = 0.012f;
+    private const float Crease = 0.06f, Edge = 0.03f;
+    /// Above the surface under them: creases over the edge lines where they cross, both just
+    /// clear of the turf so they lie on it rather than float (they sat 2.7 cm up before).
+    private const float CreaseLift = 0.004f, EdgeLift = 0.002f;
     /// The far end's creases across the pitch, seen from the batter's end. A line across the turf
     /// 20 m away, from eye height, is foreshortened ~12 times: a 6 cm crease drew under a third of
     /// a pixel and vanished, and 0.2 m was still about one pixel on a Quest 2. 0.3 m reads as a line
     /// there; return creases, seen along their length, need no help.
     private const float FarCrease = 0.3f;
     private const float BowlingCreaseHalf = 1.32f, PoppingHalf = 1.83f, PoppingOut = 1.22f;
-    private const float ReturnZ = 1.32f, ReturnBack = 2.44f, WideZ = 0.89f, WideLength = 0.6f, PitchHalf = 1.525f;
+    private const float ReturnZ = 1.32f, ReturnBack = 2.44f, WideZ = 0.89f, PitchHalf = 1.525f;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
@@ -47,7 +50,11 @@ public static class PitchLines
         Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
         if (battingEnd == null || bowlingEnd == null || unlit == null)
             return;
-        float y = (markings != null ? markings.transform.position.y : 0f) + Lift;
+        // The texture's lines are replaced, not doubled - first, so the lines below are laid on the
+        // pitch, not on that texture's plane 1.5 cm above it. Its collider stays.
+        if (markings != null && markings.TryGetComponent(out MeshRenderer old))
+            old.enabled = false;
+        float y = 0f;   // placeholder: every vertex is dropped onto the surface below it (OnSurface)
         float a = battingEnd.transform.position.x, b = bowlingEnd.transform.position.x;
 
         var white = new List<Vector3>();
@@ -70,9 +77,6 @@ public static class PitchLines
         var renderer = go.GetComponent<MeshRenderer>();
         renderer.sharedMaterials = new[] { lines, edges };
         renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        // The texture's lines are replaced, not doubled. Its collider (the bounce surface) stays.
-        if (markings != null && markings.TryGetComponent(out MeshRenderer old))
-            old.enabled = false;
     }
 
     /// One end's creases, at stumps x = `stumps`, the pitch running toward `inward` (+1 or -1);
@@ -87,7 +91,9 @@ public static class PitchLines
         foreach (float side in new[] { -1f, 1f })
         {
             Strip(q, new Vector3(popping, y, side * ReturnZ), new Vector3(popping - inward * ReturnBack, y, side * ReturnZ), Crease);
-            Strip(q, new Vector3(popping, y, side * WideZ), new Vector3(popping + inward * WideLength, y, side * WideZ), Crease);
+            // The wide guidelines run back from the popping crease to the stumps' line, like the
+            // return creases - not out into the pitch.
+            Strip(q, new Vector3(popping, y, side * WideZ), new Vector3(stumps, y, side * WideZ), Crease);
         }
     }
 
@@ -103,8 +109,9 @@ public static class PitchLines
 
     private static Mesh Combine(List<Vector3> white, List<Vector3> edge)
     {
-        var vertices = new List<Vector3>(white);
-        vertices.AddRange(edge);
+        var vertices = new List<Vector3>(white.Count + edge.Count);
+        foreach (Vector3 v in white) vertices.Add(OnSurface(v, CreaseLift));
+        foreach (Vector3 v in edge) vertices.Add(OnSurface(v, EdgeLift));
         var mesh = new Mesh { name = "Pitch Lines" };
         mesh.SetVertices(vertices);
         mesh.subMeshCount = 2;
@@ -116,6 +123,19 @@ public static class PitchLines
         mesh.normals = normals;
         mesh.RecalculateBounds();
         return mesh;
+    }
+
+    /// `v` dropped onto whatever is under it (the pitch, or the grass past its edge), `lift` above.
+    private static Vector3 OnSurface(Vector3 v, float lift)
+    {
+        var from = new Vector3(v.x, 5f, v.z);
+        float best = float.NegativeInfinity;
+        foreach (RaycastHit hit in Physics.RaycastAll(from, Vector3.down, 10f, ~0, QueryTriggerInteraction.Ignore))
+            if (hit.collider.CompareTag("Ground") && hit.collider.GetComponent<Renderer>() != null &&
+                hit.collider.GetComponent<Renderer>().enabled && hit.point.y > best)
+                best = hit.point.y;
+        v.y = (float.IsNegativeInfinity(best) ? 0f : best) + lift;
+        return v;
     }
 
     private static int[] Quads(int start, int count)
