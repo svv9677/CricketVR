@@ -19,7 +19,9 @@ public sealed class ShotRecording
         public Vector3 ball;
         public Vector3 batPosition;
         public Quaternion batRotation;
-    }   // 40 bytes
+        public Vector3 headPosition;        // the batter's head (the headset), world
+        public Quaternion headRotation;
+    }   // 68 bytes
 
     private readonly Sample[] samples;
     private int first;
@@ -101,6 +103,20 @@ public sealed class ShotRecording
         ball = Vector3.LerpUnclamped(a.ball, b.ball, f);
         batPosition = Vector3.LerpUnclamped(a.batPosition, b.batPosition, f);
         batRotation = Quaternion.Slerp(a.batRotation, b.batRotation, f);
+    }
+
+    /// The batter's head at `time`; false when no head was tracked (the nets, no headset).
+    public bool Head(float time, out Vector3 position, out Quaternion rotation)
+    {
+        position = Vector3.zero;
+        rotation = Quaternion.identity;
+        if (Count == 0 || this[0].headRotation.w == 0f && this[0].headRotation.x == 0f && this[0].headRotation.y == 0f && this[0].headRotation.z == 0f)
+            return false;
+        Locate(time, out int i, out float f);
+        Sample a = this[i], b = this[i + 1 < Count ? i + 1 : i];
+        position = Vector3.LerpUnclamped(a.headPosition, b.headPosition, f);
+        rotation = Quaternion.Slerp(a.headRotation, b.headRotation, f);
+        return true;
     }
 
     public Vector3 BallAt(float time)

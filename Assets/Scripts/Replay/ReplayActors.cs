@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 /// <summary>
 /// Everything that moves in the big-screen replay: the players (bowler, fielders, keeper), the
@@ -28,7 +29,10 @@ public sealed class ReplayActors
     private bool[] liveWasOff;
     private GameObject stage;
     private Transform ballStand, batStand;
+    private Transform headStand;        // the batter's helmet, posed from the recorded head
     private bool viewing;
+    /// From the headset's eye to the middle of the head: back and a little up.
+    private static readonly Vector3 EyeToHeadCentre = new Vector3(0f, 0.02f, -0.08f);
 
     public int Players { get; private set; }
     public int Rotations => wholeLive.Count + boneLive.Count;
@@ -64,7 +68,63 @@ public sealed class ReplayActors
             AddWhole(prop, skip);
         ballStand = main.theBall != null ? AddFree(main.theBall.transform, skip) : null;
         batStand = main.theBat != null ? AddFree(main.theBat.transform, skip) : null;
+        headStand = AddBatterHelmet();
         Players = players.Count;
+    }
+
+    /// A helmet for the batter's head in the replay: the keeper's own helmet mesh and materials,
+    /// turned to face the way the head does and centred on it. Not in the live game: the batter
+    /// plays without one, and it is shown only to the replay camera (as every stand-in is).
+    private Transform AddBatterHelmet()
+    {
+        MeshFilter source = null;
+        foreach (MeshFilter filter in Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None))
+            if (filter.transform.parent != null && filter.transform.parent.name == "Helmet" && filter.sharedMesh != null &&
+                !filter.transform.IsChildOf(stage.transform))     // the live one, not a stand-in's copy of it
+            {
+                source = filter;
+                break;
+            }
+        var liveRenderer = source != null ? source.GetComponent<MeshRenderer>() : null;
+        if (liveRenderer == null)
+            return null;
+        Transform helmet = source.transform;
+        // Which way the helmet faces, from the keeper facing the batter; and where its middle is.
+        Animator animator = helmet.GetComponentInParent<Animator>();
+        Vector3 facing = animator != null ? Vector3.ProjectOnPlane(animator.transform.forward, Vector3.up) : Vector3.right;
+        Quaternion toFace = Quaternion.Inverse(Quaternion.LookRotation(facing.sqrMagnitude > 1e-4f ? facing : Vector3.right, Vector3.up));
+        Quaternion relative = toFace * helmet.rotation;
+        Vector3 centre = helmet.InverseTransformPoint(liveRenderer.bounds.center);
+
+        var parent = new GameObject("Batter Helmet").transform;
+        parent.SetParent(stage.transform, false);
+        var piece = new GameObject("Helmet").transform;
+        piece.SetParent(parent, false);
+        piece.localRotation = relative;
+        piece.localScale = helmet.lossyScale;
+        piece.localPosition = -(relative * Vector3.Scale(centre, helmet.lossyScale));
+        piece.gameObject.AddComponent<MeshFilter>().sharedMesh = source.sharedMesh;
+        var copy = piece.gameObject.AddComponent<MeshRenderer>();
+        copy.sharedMaterials = liveRenderer.sharedMaterials;
+        copy.shadowCastingMode = ShadowCastingMode.Off;
+        copy.forceRenderingOff = true;
+        stand.Add(copy);        // shown and hidden with the other stand-ins (SetReplayView)
+
+        // A head in it: the helmet alone is a dome and a grille floating apart.
+        var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        Object.Destroy(head.GetComponent<Collider>());
+        head.name = "Head";
+        head.transform.SetParent(parent, false);
+        head.transform.localPosition = new Vector3(0f, -0.035f, 0.005f);
+        head.transform.localScale = new Vector3(0.165f, 0.21f, 0.19f);
+        var skin = head.GetComponent<MeshRenderer>();
+        var skinMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "Batter Head" };
+        skinMaterial.SetColor("_BaseColor", new Color(0.5f, 0.34f, 0.25f));
+        skin.sharedMaterial = skinMaterial;
+        skin.shadowCastingMode = ShadowCastingMode.Off;
+        skin.forceRenderingOff = true;
+        stand.Add(skin);
+        return parent;
     }
 
     private void AddPlayer(Animator player, HashSet<Transform> skip)
@@ -194,6 +254,8 @@ public sealed class ReplayActors
         shot.Evaluate(time, out Vector3 ball, out Vector3 batPosition, out Quaternion batRotation);
         if (ballStand != null) ballStand.localPosition = ball;
         if (batStand != null) batStand.SetLocalPositionAndRotation(batPosition, batRotation);
+        if (headStand != null && shot.Head(time, out Vector3 head, out Quaternion look))
+            headStand.SetPositionAndRotation(head + look * EyeToHeadCentre, look);
 
         PoseTrack poses = shot.Poses;
         if (poses == null || poses.Rotations != Rotations || !poses.Locate(shot.SinceBegin(time), out int a, out int b, out float f))

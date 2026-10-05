@@ -206,11 +206,15 @@ public class ShotRecorder : MonoBehaviour
 
         float now = Time.time - startTime;
         Transform bat = main.theBat.transform;
+        Camera eye = Camera.main;
         var sample = new ShotRecording.Sample
         {
             ball = main.theBall.transform.position,
             batPosition = bat.position,
             batRotation = bat.rotation,
+            // The head the batter plays the ball with: shown in the replay as a helmet.
+            headPosition = eye != null ? eye.transform.position : Vector3.zero,
+            headRotation = eye != null ? eye.transform.rotation : new Quaternion(0f, 0f, 0f, 0f),
         };
         if (!Record(now, sample) || !Pose(now))
         {
@@ -242,6 +246,9 @@ public class ShotRecorder : MonoBehaviour
                     ball = Vector3.LerpUnclamped(previous.ball, sample.ball, f),
                     batPosition = Vector3.LerpUnclamped(previous.batPosition, sample.batPosition, f),
                     batRotation = Quaternion.Slerp(previous.batRotation, sample.batRotation, f),
+                    headPosition = Vector3.LerpUnclamped(previous.headPosition, sample.headPosition, f),
+                    headRotation = sample.headRotation.w == 0f && sample.headRotation.x == 0f && sample.headRotation.y == 0f && sample.headRotation.z == 0f
+                        ? sample.headRotation : Quaternion.Slerp(previous.headRotation, sample.headRotation, f),
                 });
                 if (!added)
                     return false;
