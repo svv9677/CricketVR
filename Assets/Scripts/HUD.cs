@@ -6,6 +6,7 @@ public class Batsman
 {
     public string Name;
     public int Runs;
+    public int Balls;   // faced (HUDStats)
 
     public Batsman(string name, int runs=0)
     {
@@ -18,6 +19,7 @@ public class Bowler
 {
     public string Name;
     public eSwingType Type;
+    public int Balls, Conceded, Wickets;   // HUDStats
 
     public Bowler(string name, eSwingType typ = eSwingType.None)
     {
@@ -26,7 +28,7 @@ public class Bowler
     }
 }
 
-public class HUD : MonoBehaviour
+public partial class HUD : MonoBehaviour
 {
     [SerializeField]
     protected TMPro.TextMeshProUGUI txtScore;
@@ -92,6 +94,7 @@ public class HUD : MonoBehaviour
             HUD.Instance = this;
 
         Main.Instance.onGameStateChanged += HandleGameState;
+        Main.Instance.onGameStateChanged += AnnounceBall;   // after HandleGameState has scored it
         Bat.ShotStruck += ShowShot;
 
         Reset();
@@ -147,7 +150,10 @@ public class HUD : MonoBehaviour
     {
         Bat.ShotStruck -= ShowShot;
         if (Main.Instance != null)
+        {
             Main.Instance.onGameStateChanged -= HandleGameState;
+            Main.Instance.onGameStateChanged -= AnnounceBall;
+        }
     }
 
     // Update is called once per frame
@@ -249,6 +255,7 @@ public class HUD : MonoBehaviour
     /// added to that wide ("3wd"). Extras go to the team, never to the batter.
     void AddExtras(int runs)
     {
+        CreditExtras(runs);
         Runs += runs;
         if (runs % 2 == 1)
             SwitchBatsmen();
@@ -266,6 +273,7 @@ public class HUD : MonoBehaviour
     // Note: -1 runs is a wicket
     void AddRuns(int runs)
     {
+        Credit(runs);
         switch(runs)
         {
             // Current batsman is out
@@ -491,9 +499,9 @@ public class HUD : MonoBehaviour
         // "6.8571429" - far too long for the scoreboard's bracketed field.
         txtRunRate.text = RunRate.ToString("F2");
         txtBatsman1.text = CurrentBatsman.Name;
-        txtBatsman1Score.text = CurrentBatsman.Runs.ToString();
+        txtBatsman1Score.text = RunsAndBalls(CurrentBatsman);
         txtBatsman2.text = CurrentRunner.Name;
-        txtBatsman2Score.text = CurrentRunner.Runs.ToString();
+        txtBatsman2Score.text = RunsAndBalls(CurrentRunner);
 
         txtOvers.text = Overs.ToString() + "." + Balls.ToString() + " (" + TotalOvers.ToString() + ")";
         txtBowler.text = CurrentBowler.Name;
