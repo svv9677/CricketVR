@@ -23,6 +23,9 @@ public class NextBallMenu : MonoBehaviour
     [Tooltip("Shows the current bowler, e.g. \"Bumrah  Inswing\".")]
     [SerializeField] private TextMeshProUGUI bowlerLabel;
 
+    /// The card itself (OverBreak copies it for the next-over announcement).
+    public GameObject Panel => panel;
+
     private bool shown;
     private bool registered;
     private Bowler shownBowler;
@@ -58,8 +61,9 @@ public class NextBallMenu : MonoBehaviour
     private void Update()
     {
         Main inst = Main.Instance;
+        // Not while the next-over card is up: that comes first (OverBreak).
         bool want = inst != null && inst.gameState == eGameState.InGame_Ready &&
-                    !inst.SettingsOpen && !inst.CalibratingGrip;
+                    !inst.SettingsOpen && !inst.CalibratingGrip && !OverBreak.Showing;
         if (want && !shown)
             Show();
         else if (!want && shown)
@@ -74,7 +78,7 @@ public class NextBallMenu : MonoBehaviour
     {
         if (bowlerLabel == null || hud == null || hud.CurrentBowler == null)
             return;
-        bool newOver = hud.Balls == 0;
+        bool newOver = hud.Balls == 0 && hud.Overs == 0;     // the match's first over; later overs are announced by OverBreak
         if (hud.CurrentBowler == shownBowler && newOver == shownNewOver)
             return;
         shownBowler = hud.CurrentBowler;
@@ -86,7 +90,7 @@ public class NextBallMenu : MonoBehaviour
             ? $"{shownBowler.Name}  <color=#98A2B3>{type}</color>\n<size=55%><color=#98A2B3>Right-arm, over the wicket</color></size>"
             : $"{shownBowler.Name}  <color=#98A2B3>{type}</color>";
         if (header != null)
-            header.text = !newOver ? "BOWLER" : hud.Overs == 0 ? "<color=#3B82F6>FIRST OVER</color>" : "<color=#3B82F6>NEXT OVER</color>";
+            header.text = newOver ? "<color=#3B82F6>FIRST OVER</color>" : "BOWLER";
     }
 
     private void Show()
