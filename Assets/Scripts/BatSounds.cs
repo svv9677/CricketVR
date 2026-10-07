@@ -1,41 +1,39 @@
 using UnityEngine;
 
 /// <summary>
-/// The sound of the contact, so the player can hear what they hit without looking.
+/// The sound of the contact, so the player can hear what they hit without looking: three sounds,
+/// nothing else.
 ///
-/// Real recordings (Assets/Sounds/Bat/Real/, all CC0 - sources and licenses in SOURCES.md there),
-/// in five kinds: middled, good, edge, toe and handle. The contact kinds share them: a thin edge
-/// is the edge played quieter and higher, the back of the bat the toe's thud, the shoulder the
-/// handle's dead knock. The synthesised set these replace (Tools/synth_bat_sounds.py) never
-/// sounded like wood.
+///   * middled - crisp and resounding: a bright crack, then the bat's own ring (~600 Hz) for
+///     about half a second;
+///   * good    - dense and flat: a broadband thump with no ring, gone in ~100 ms;
+///   * edge    - sharp and quick: a bright tick, ~50 ms. Every mishit uses it (thick and thin
+///     edges, the toe, the back, the shoulder and the handle).
 ///
-/// Each kind has a few takes, one picked at random and detuned slightly so no two shots sound
-/// identical. Loudness and brightness follow the closing speed along the contact normal - how
-/// hard ball and bat actually met - not the exit speed, so a hard swing that only clips an edge
-/// is still quiet. Played from one pooled 3D source, the Impact Voice child of the
-/// bat, moved to where the ball met the blade for each hit: no objects made per hit
-/// (PlayClipAtPoint makes and destroys one each time).
+/// Built from two real cricket recordings (CC0, Assets/Sounds/Bat/SOURCES.md): the crack from a
+/// nets session, the wood's body and ring from a willow bat with a real ball. Loudness follows
+/// the closing speed along the contact normal - how hard ball and bat actually met - not the exit
+/// speed, so a hard swing that only clips an edge is still quiet. Played from one pooled 3D
+/// source, the Impact Voice child of the bat, moved to where the ball met the blade for each hit:
+/// no objects made per hit (PlayClipAtPoint makes and destroys one each time).
 /// </summary>
 public class BatSounds : MonoBehaviour
 {
     [Tooltip("The Impact Voice child (AudioSource + AudioLowPassFilter), moved to each contact.")]
     [SerializeField] private AudioSource voice;
 
-    [SerializeField] private AudioClip[] middled;
-    [SerializeField] private AudioClip[] good;
-    [SerializeField] private AudioClip[] edge;
-    [SerializeField] private AudioClip[] toe;
-    [SerializeField] private AudioClip[] handle;
+    [SerializeField] private AudioClip middled;
+    [SerializeField] private AudioClip good;
+    [SerializeField] private AudioClip edge;
 
     /// Closing speed (m/s) at which a contact plays at full volume (a dead-bat block is ~5-10, a
-    /// full drive 30+), and how loud the softest one is. Louder and quicker to full volume than
-    /// before (45 m/s, 0.25): a firm shot should crack.
+    /// full drive 30+), and how loud the softest one is.
     private const float FullVolumeImpact = 35f;
     private const float MinVolume = 0.4f;
 
-    /// Low-pass corner (Hz) for the softest contact and for a full-blooded one: a dead-bat block
-    /// is dull as well as quiet, a hard strike is bright.
-    private const float SoftCorner = 3500f, HardCorner = 22000f;
+    /// Low-pass corner (Hz) for the softest contact and for a full-blooded one. High even for a
+    /// soft one: a dull soft shot took the crispness out of the sounds.
+    private const float SoftCorner = 9000f, HardCorner = 22000f;
 
     private AudioSource source;
     private AudioLowPassFilter tone;
@@ -65,84 +63,28 @@ public class BatSounds : MonoBehaviour
     /// with the follow-through for the fraction of a second the sound lasts.
     public void Play(BatContact.ContactKind kind, float impactSpeed, Vector3 contactPoint)
     {
-        Voice(kind, out AudioClip[] takes, out float pitch, out float volume);
-        if (takes == null || takes.Length == 0 || source == null)
+        AudioClip clip = ClipFor(kind, out float volume);
+        if (clip == null || source == null)
             return;
         if (source.transform != transform)
             source.transform.position = contactPoint;
-        AudioClip clip = takes[Random.Range(0, takes.Length)];
-        if (clip == null)
-            return;
         float loud = Mathf.Clamp01(impactSpeed / FullVolumeImpact);
-        // A harder strike rings a touch higher, as a struck plank does.
-        source.pitch = pitch * Random.Range(0.97f, 1.03f) * Mathf.Lerp(0.96f, 1.04f, loud);
+        // The same sound each time apart from a hair of pitch, so it is the same shot you hear.
+        source.pitch = Random.Range(0.98f, 1.02f);
         // Corner swept on a log scale, the way the ear hears pitch.
         tone.cutoffFrequency = SoftCorner * Mathf.Pow(HardCorner / SoftCorner, Mathf.Sqrt(loud));
-        source.PlayOneShot(clip, volume * Mathf.Lerp(MinVolume, 1f, Mathf.Sqrt(loud)) * Random.Range(0.92f, 1f));
+        source.PlayOneShot(clip, volume * Mathf.Lerp(MinVolume, 1f, Mathf.Sqrt(loud)));
     }
 
-    /// The bat coming down on the ground (Bat's ground check): a deep knock where it touched,
-    /// louder the harder it lands. Speed is how fast the bat was coming down, m/s.
-    public void PlayGround(Vector3 point, float speed)
+    private AudioClip ClipFor(BatContact.ContactKind kind, out float volume)
     {
-        if (ground == null || source == null)
-            return;
-        float loud = Mathf.Clamp01(speed / GroundFullSpeed);
-        if (source.transform != transform)
-            source.transform.position = point;
-        // One sound, every time: the deep knock, louder (and a touch brighter) the harder it lands.
-        source.pitch = 0.85f;
-        tone.cutoffFrequency = Mathf.Lerp(900f, 1600f, loud);
-        source.PlayOneShot(ground, Mathf.Lerp(0.35f, 1f, Mathf.Sqrt(loud)));
-    }
-
-    /// The bat on the ground: the deepest recording in the set (handle_1: spectral centroid 640 Hz,
-    /// over half its energy below 400 Hz). Picking among the toe takes, as it did, sometimes played
-    /// toe_2 (centroid 4.8 kHz) - a hollow, bright knock.
-    [SerializeField] private AudioClip ground;
-
-    /// Coming down this fast (m/s) is as loud as a knock on the ground gets.
-    private const float GroundFullSpeed = 4f;
-
-    /// Which recordings a contact uses, and how it is played.
-    private void Voice(BatContact.ContactKind kind, out AudioClip[] takes, out float pitch, out float volume)
-    {
-        pitch = 1f;
         volume = 1f;
         switch (kind)
         {
-            case BatContact.ContactKind.Middled: takes = middled; break;
-            case BatContact.ContactKind.Good: takes = good; break;
-            case BatContact.ContactKind.ThickEdge: takes = edge; break;
-            case BatContact.ContactKind.ThinEdge: takes = edge; pitch = 1.15f; volume = 0.55f; break;
-            case BatContact.ContactKind.Toe: takes = toe; break;
-            case BatContact.ContactKind.Back: takes = toe; pitch = 1.05f; volume = 0.8f; break;
-            case BatContact.ContactKind.Shoulder: takes = handle; pitch = 1.08f; break;
-            default: takes = handle; break;
+            case BatContact.ContactKind.Middled: return middled;
+            case BatContact.ContactKind.Good: return good;
+            case BatContact.ContactKind.ThinEdge: volume = 0.7f; return edge;   // a snick is lighter than a thick edge
+            default: return edge;       // thick edge, toe, back, shoulder, handle
         }
     }
-
-#if UNITY_EDITOR
-    /// Fill the takes from Assets/Sounds/Bat/Real/<kind>_<n>.wav.
-    [ContextMenu("Load takes from Assets/Sounds/Bat/Real")]
-    public void LoadTakes()
-    {
-        middled = Load("middled"); good = Load("good"); edge = Load("edge"); toe = Load("toe"); handle = Load("handle");
-        ground = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Bat/Real/handle_1.wav");
-        UnityEditor.EditorUtility.SetDirty(this);
-    }
-
-    private static AudioClip[] Load(string kind)
-    {
-        var clips = new System.Collections.Generic.List<AudioClip>();
-        foreach (string guid in UnityEditor.AssetDatabase.FindAssets(kind + "_ t:AudioClip", new[] { "Assets/Sounds/Bat/Real" }))
-        {
-            string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-            if (System.IO.Path.GetFileNameWithoutExtension(path).StartsWith(kind + "_"))
-                clips.Add(UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>(path));
-        }
-        clips.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
-        return clips.ToArray();
-    }
-#endif
 }

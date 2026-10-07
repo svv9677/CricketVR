@@ -155,7 +155,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a27298715d0f4879a84885a256fdcae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  audioClip: {fileID: 8300000, guid: 3393a69671fe345eb9f5709b44266067, type: 3}
+  audioClip: {fileID: 0}
   myParticles: {fileID: 0}
   fresh: 0
   bounced: 0

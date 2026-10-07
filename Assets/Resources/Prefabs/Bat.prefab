@@ -225,27 +225,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BatSounds
   voice: {fileID: 6925984149972812557}
-  middled:
-  - {fileID: 8300000, guid: 4763a13114aa742a890394f8904cd17a, type: 3}
-  - {fileID: 8300000, guid: 39c95f53f402b4230b7b25fbf2f55258, type: 3}
-  good:
-  - {fileID: 8300000, guid: f6fd5ebcec8b24cb28c0ecf35f8fa409, type: 3}
-  - {fileID: 8300000, guid: 4693f044099dd4b5cb91b10d470da28a, type: 3}
-  edge:
-  - {fileID: 8300000, guid: 16af75865c6084a8db43e0335e7a6580, type: 3}
-  - {fileID: 8300000, guid: fbe0713b3ef744bfb97bf5dd2362cd76, type: 3}
-  - {fileID: 8300000, guid: 588df1e5ca0764299b8cd4e0d5486425, type: 3}
-  - {fileID: 8300000, guid: 02395874655214f4ab85317c2e3f3263, type: 3}
-  toe:
-  - {fileID: 8300000, guid: 3d388f809443d41839bc0f4297f02748, type: 3}
-  - {fileID: 8300000, guid: f99caf60e60524644990535d3145d9c1, type: 3}
-  - {fileID: 8300000, guid: 882664975925b48268b985eac24d8c56, type: 3}
-  handle:
-  - {fileID: 8300000, guid: c82f17229eb184405ba369551cc8d4c0, type: 3}
-  - {fileID: 8300000, guid: 737f1fe8a04e643ab893984e549054a1, type: 3}
-  - {fileID: 8300000, guid: 3633abf2a5bae4a3387b07e826098b33, type: 3}
-  - {fileID: 8300000, guid: 840f5a2b2dc734013b7fcc648353b4d7, type: 3}
-  ground: {fileID: 8300000, guid: c82f17229eb184405ba369551cc8d4c0, type: 3}
+  middled: {fileID: 8300000, guid: 93bfb5b0cf9644d0dbd6e0da95cdd4a7, type: 3}
+  good: {fileID: 8300000, guid: 3ada25e8dd1b14f6082360fb61ddde91, type: 3}
+  edge: {fileID: 8300000, guid: af2e39e8f0f0e4387a85f44afa1238a6, type: 3}
 --- !u!1 &830166405201575435
 GameObject:
   m_ObjectHideFlags: 0
