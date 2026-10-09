@@ -148,16 +148,26 @@ def good():
     x = softclip(norm(x), 2.2)                                            # dense: peaks pushed down into the body
     return fade(norm(x), 0.3, 40)
 
+def shift(x, rate):
+    """Play x back at `rate` (<1 = lower and longer): pitch and time move together, like slowing a tape."""
+    n = int(len(x) / rate)
+    return np.interp(np.arange(n) * rate, np.arange(len(x)), x)
+
 def middled():
-    top = crack_bright[: int(0.06 * SR)]
-    top = fade(norm(top + 0.25 * hp(top, 3500), -2), 0.3, 14)
-    body = bp(body_a[: int(0.30 * SR)], 380, 1500)                       # cut before the next tap in the recording
-    body = fade(body, 0.3, 90)
-    ring = modes([(603, -15, 400), (1190, -24, 260), (1325, -29, 220), (1880, -30, 180)], 560, 5)   # spaced wide: close modes beat like a tremolo
-    x = mix((top, 1.0), (norm(body, -19), 0.8), (ring, 1.0), n=int(0.56 * SR))
-    x = fdn_reverb(x)                                                    # a hall around the crack: the tail is what resounds
-    x = compress(x, -30, 2.0, 0.4, 200)
-    return fade(norm(x), 0.3, 500)
+    # Deep: the crack and the wood's body are played back slower (about 4-5 semitones down), the
+    # ring sits near 330 Hz rather than 600, and a low thump is added under it.
+    top = shift(crack_bright[: int(0.06 * SR)], 0.80)
+    top = fade(norm(top + 0.18 * hp(top, 2600), -2), 0.3, 18)
+    body = shift(bp(body_a[: int(0.30 * SR)], 380, 1500), 0.68)
+    body = fade(bp(body, 150, 1100), 0.3, 110)
+    thump = lp(shift(body_a[: int(0.12 * SR)], 0.55), 260)
+    thump = thump * decay_env(len(thump), 70)
+    ring = modes([(335, -12, 520), (655, -21, 350), (985, -28, 260), (1330, -33, 200)], 760, 5)   # spaced wide: close modes beat like a tremolo
+    x = mix((top, 0.9), (norm(body, -17), 0.8), (norm(thump, -9), 0.7), (ring, 1.0), n=int(0.76 * SR))
+    x = lp(x, 9000, 2)                                                   # less air: the crack is dark, not hissy
+    x = fdn_reverb(x, rt60_lo=0.8, rt60_hi=0.25, wet_db=-15.0, tail_s=0.7)   # a small room: a little bloom, not a hall
+    x = compress(x, -30, 2.0, 0.4, 160)
+    return fade(norm(x), 0.3, 300)
 
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "."
