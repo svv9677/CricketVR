@@ -71,6 +71,40 @@ def reverb(x, rt60_ms, wet, lo=300, hi=6000, seed=1):
     out = np.zeros(len(x) + n - 1); out[: len(x)] += x; out += wet * wetsig
     return out
 
+def fdn_reverb(x, rt60_lo=1.3, rt60_hi=0.45, wet_db=-9.0, predelay_ms=14, tail_s=1.3):
+    """A real-sounding hall: pre-delay, early reflections, then an 8-line feedback delay network
+    (Hadamard mixing) whose highs die faster than its lows - the dry sound is left untouched."""
+    n = len(x) + int(tail_s * SR)
+    src = np.zeros(n); src[: len(x)] = x
+    pre = int(predelay_ms / 1000 * SR)
+    # early reflections: a few discrete bounces off near walls, each darker and quieter
+    er = np.zeros(n)
+    for ms, g in [(11, 0.50), (17, 0.42), (23, -0.36), (31, 0.30), (41, -0.26), (53, 0.20), (67, -0.16)]:
+        k = int(ms / 1000 * SR)
+        er[k:] += g * lp(src, 6500 - ms * 40, 2)[: n - k]
+    delays = np.array([1103, 1423, 1759, 1999, 2339, 2647, 2957, 3253])            # ~25-74 ms, mutually prime
+    H = np.array([[1]])
+    for _ in range(3): H = np.block([[H, H], [H, -H]])
+    H = H / np.sqrt(8)
+    g_lo = 10 ** (-3 * delays / SR / rt60_lo)
+    g_hi = 10 ** (-3 * delays / SR / rt60_hi)
+    k = (1 - g_hi / g_lo) / (1 + g_hi / g_lo)                                      # per-line damping so highs decay faster
+    bufs = [np.zeros(d) for d in delays]; idx = np.zeros(8, dtype=int); lpstate = np.zeros(8)
+    out = np.zeros(n)
+    inp = np.zeros(n); inp[pre:] = src[: n - pre]
+    for i in range(n):
+        taps = np.array([bufs[j][idx[j]] for j in range(8)])
+        out[i] = taps.sum() * 0.35
+        mixed = H @ taps
+        for j in range(8):
+            lpstate[j] = (1 - k[j]) * (g_lo[j] * mixed[j]) + k[j] * lpstate[j]
+            bufs[j][idx[j]] = lpstate[j] + inp[i] * 0.5
+            idx[j] = (idx[j] + 1) % delays[j]
+    wet = hp(out + er * 0.6, 120, 2)
+    # level by energy: the whole reverb carries `wet_db` of the dry sound's energy
+    wetgain = np.sqrt(10 ** (wet_db / 10) * (src ** 2).sum() / ((wet ** 2).sum() + 1e-12))
+    return src + wet * wetgain
+
 def modes(freqs_db_ms, length_ms, t0_ms=0):
     out = np.zeros(int(length_ms / 1000 * SR)); t = np.arange(len(out)) / SR
     for f, db, decay_ms in freqs_db_ms:
@@ -121,9 +155,9 @@ def middled():
     body = fade(body, 0.3, 90)
     ring = modes([(603, -15, 400), (1190, -24, 260), (1325, -29, 220), (1880, -30, 180)], 560, 5)   # spaced wide: close modes beat like a tremolo
     x = mix((top, 1.0), (norm(body, -19), 0.8), (ring, 1.0), n=int(0.56 * SR))
-    x = reverb(x, 170, 0.5)[: int(0.56 * SR)]
-    x = compress(x, -28, 2.2, 0.4, 150)
-    return fade(norm(x), 0.3, 150)
+    x = fdn_reverb(x)                                                    # a hall around the crack: the tail is what resounds
+    x = compress(x, -30, 2.0, 0.4, 200)
+    return fade(norm(x), 0.3, 500)
 
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "."

@@ -6,7 +6,7 @@ Exactly three sounds are used (BatSounds.cs): `edge.wav`, `good.wav`, `middled.w
 |---|---|---|---|
 | edge.wav | sharp, quick | A real cricket strike from a nets session, high-passed at 1.8 kHz so only the bright click is left, with a little 3-7 kHz presence. | 55 ms |
 | good.wav | dense, flat | A real cricket strike (broader one) with its decay gated so only the hit is left, plus the willow bat's low-mid body (250-1400 Hz) with the bat's 600 Hz note taken out, then compressed and soft-clipped so it is thick and has no ring. | 140 ms |
-| middled.wav | crisp, resounding | A bright real cricket crack on top, the willow bat's body under it, and the bat's own resonance (its ~600 Hz mode and the upper modes measured in the willow-bat recording) ringing on, with a short dark room. Resonances are spaced apart so they do not beat like a tremolo. | 560 ms |
+| middled.wav | crisp, resounding | A bright real cricket crack on top, the willow bat's body under it, and the bat's own resonance (its ~600 Hz mode and the upper modes measured in the willow-bat recording) ringing on, all inside a hall: 14 ms pre-delay, early reflections, then an 8-line feedback delay network (low end rings ~1.3 s, highs ~0.45 s). The dry crack is untouched. Resonances are spaced apart so they do not beat like a tremolo. | 1860 ms |
 
 ## Source recordings (both CC0 1.0: no attribution needed)
 
