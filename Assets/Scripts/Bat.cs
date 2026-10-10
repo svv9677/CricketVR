@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class Bat : MonoBehaviour
+public partial class Bat : MonoBehaviour
 {
     [SerializeField]
     protected Transform controllerParent;
@@ -146,7 +146,9 @@ public class Bat : MonoBehaviour
             return;
         }
         float scale = transform.lossyScale.x;
-        float widthMultiplier = originalSize.x > 0f ? batCollider.size.x / originalSize.x : 1f;
+        // Straight from the difficulty: reading it back off the trigger collider's size depended on
+        // this Start having recorded originalSize before Main resized it.
+        float widthMultiplier = inst.BatWidthMultiplier;
         BatContact.Blade blade = geometry.Blade;
 
         // The bat turns about the hand holding it.
@@ -173,7 +175,7 @@ public class Bat : MonoBehaviour
         Vector3 batPointVelocity = swingVelocity * BatContact.SwingScale(inst.BatAmplifier);
 
         Vector3 incoming = ball.linearVelocity;
-        BatContact.Result result = BatContact.Respond(hit, blade, scale, incoming, batPointVelocity, ball.mass);
+        BatContact.Result result = BatContact.Respond(hit, blade, scale, incoming, batPointVelocity, ball.mass, widthMultiplier);
         if (result.velocity == incoming)
             return; // grazed, already separating
         Vector3 outgoing = result.velocity;
@@ -193,6 +195,13 @@ public class Bat : MonoBehaviour
         OnBallHit(inst, incoming, outgoing, swingVelocity.magnitude, result);
     }
 
+    /// Closing speed (m/s) at which the bat's jolt is at full strength (most firm shots), and the
+    /// strength of the gentlest contact; how long the gentlest and the hardest last (s). The
+    /// strength is capped at 1, so a harder hit has to be felt as a longer jolt too: at 0.5-1.0
+    /// strength over 0.07-0.22 s, most hits were weaker than the old flat 0.7+ (0.72 at 5 m/s,
+    /// 0.82 at 10 against 0.8 and 0.9) - more varied, but not stronger.
+    private const float HapticFullImpact = 20f, HapticMin = 0.75f, HapticShort = 0.08f, HapticLong = 0.3f;
+
     private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeed, BatContact.Result result)
     {
         hasHitBall = true;
@@ -202,7 +211,7 @@ public class Bat : MonoBehaviour
         if (sounds == null)
             sounds = GetComponent<BatSounds>();
         if (sounds != null)
-            sounds.Play(result.kind, result.impactSpeed);
+            sounds.Play(result.kind, result.impactSpeed, inst.theBall.transform.position);
 
         ShotStruck?.Invoke(new ShotInfo
         {
@@ -214,13 +223,16 @@ public class Bat : MonoBehaviour
             edge = result.edge,
         });
 
-        // Haptics follow the contact too: a middle is a firm short thump, an edge or the toe a
-        // longer, weaker buzz - the sting a mistimed shot sends up the handle.
+        // Haptics follow the contact too, both hands (both are on the handle), and scale with how
+        // hard it was hit: a nudge is a short buzz, a full-blooded strike a full-strength jolt that
+        // lasts. A mishit (edge, toe, shoulder) rings on longer - the sting up the handle.
         bool clean = result.kind == BatContact.ContactKind.Middled || result.kind == BatContact.ContactKind.Good;
-        float strength = Mathf.Clamp01(0.35f + result.impactSpeed / 40f);
-        XRInput.SendHaptics(attachParent == leftHandParent, clean ? strength : strength * 0.6f, clean ? 0.06f : 0.16f);
+        float hard = Mathf.Clamp01(result.impactSpeed / HapticFullImpact);
+        float strength = Mathf.Lerp(HapticMin, 1f, Mathf.Sqrt(hard));
+        float duration = Mathf.Lerp(HapticShort, HapticLong, hard) + (clean ? 0f : 0.12f);
+        XRInput.SendHaptics(true, strength, duration);
+        XRInput.SendHaptics(false, strength, duration);
         ShotDistance.Instance.RecordHit(inst.theBall.transform.position);
-        CameraReplay.Instance.setViewSetting(1, 1f);
         if (SceneManager.GetActiveScene().name == "Nets")
             StartCoroutine(AutomaticReset(2f));
     }
@@ -305,30 +317,37 @@ public class Bat : MonoBehaviour
         // If all set, and grabbing, update the transforms
         if (grabbable && grabbing)
         {
-            Vector3 destPos = attachParent.TransformPoint(Vector3.zero); // Replace with any local offset on hand, if needed
-            Quaternion destRot = attachParent.rotation * Quaternion.identity; // Replace with any local rotation on hand
-
-            Vector3 grabOffsetPosition;
-            Quaternion grabOffsetRotation;
-            if (attachParent == rightHandParent)
-            {
-                grabOffsetPosition = rightGrabOffsetPosition;
-                grabOffsetRotation = Quaternion.Euler(rightGrabOffsetEuler);
-            }
-            else
-            {
-                grabOffsetPosition = leftGrabOffsetPosition;
-                grabOffsetRotation = Quaternion.Euler(leftGrabOffsetEuler);
-            }
-
-            Vector3 finalPos = destPos + destRot * grabOffsetPosition;
-            Quaternion finalRot = destRot * grabOffsetRotation;
-
+            HeldPose(out Vector3 finalPos, out Quaternion finalRot);
             myRigidBody.transform.position = finalPos;
             myRigidBody.transform.rotation = finalRot;
+            CheckGroundTap();
         }
 
         CheckForContact();
+    }
+
+    /// Where the bat is with the hand holding it where attachParent is now.
+    private void HeldPose(out Vector3 position, out Quaternion rotation)
+    {
+        Vector3 destPos = attachParent.TransformPoint(Vector3.zero); // Replace with any local offset on hand, if needed
+        Quaternion destRot = attachParent.rotation * Quaternion.identity; // Replace with any local rotation on hand
+
+        Vector3 grabOffsetPosition;
+        Quaternion grabOffsetRotation;
+        if (attachParent == rightHandParent)
+        {
+            grabOffsetPosition = rightGrabOffsetPosition;
+            grabOffsetRotation = Quaternion.Euler(rightGrabOffsetEuler);
+        }
+        else
+        {
+            grabOffsetPosition = leftGrabOffsetPosition;
+            grabOffsetRotation = Quaternion.Euler(leftGrabOffsetEuler);
+        }
+
+        position = destPos + destRot * grabOffsetPosition;
+        rotation = destRot * grabOffsetRotation;
+        KeepAboveGround(destPos, ref position, ref rotation);
     }
 
 }

@@ -63,18 +63,40 @@ public class AnimatedFielderManagement : MonoBehaviour
         if (keeper != null)
             team.Add(keeper);
         Main.Instance.onGameStateChanged += HandleGameState;
+        // Once the ball is dead it goes back to the bowler via the keeper (ThrowBack).
+        if (GetComponent<ThrowBack>() == null)
+            gameObject.AddComponent<ThrowBack>();
         if (Main.Instance.theBoundaryCollider != null)
         {
             var capsule = Main.Instance.theBoundaryCollider.GetComponent<CapsuleCollider>();
             if (capsule != null)
                 boundaryRadius = capsule.radius * Main.Instance.theBoundaryCollider.transform.lossyScale.x;
         }
+        // Takes near the rope count only once the fielder is settled inside it (CatchJudge).
+        CatchJudge.Boundary = boundaryRadius;
+        if (GetComponent<CatchJudge>() == null)
+            gameObject.AddComponent<CatchJudge>();
     }
 
     private void OnDestroy()
     {
         if (Main.Instance != null)
             Main.Instance.onGameStateChanged -= HandleGameState;
+    }
+
+    /// A player joining the field for this ball - the bowler once he has delivered it
+    /// (BowlerFielding) - and leaving it again.
+    public void Join(IFielder f)
+    {
+        if (!team.Contains(f))
+            team.Add(f);
+    }
+
+    public void Leave(IFielder f)
+    {
+        team.Remove(f);
+        if (caller == f)
+            caller = null;
     }
 
     private void HandleGameState()
@@ -89,6 +111,12 @@ public class AnimatedFielderManagement : MonoBehaviour
         }
         else if (state != eGameState.InGame_BallHitLoop)
         {
+            // It is taken, over the rope, or the play is over: call everyone else off. The man
+            // backing up the chase kept running on behind the one who had caught it.
+            if (tracking)
+                foreach (AnimatedFielder f in AnimatedFielder.All)
+                    if (!f.HoldingBall)
+                        f.CallOff();
             tracking = false;
             path.Clear();
         }
@@ -153,7 +181,7 @@ public class AnimatedFielderManagement : MonoBehaviour
         IFielder backup = Backup(first, firstIndex, out Vector3 backupPoint);
         foreach (IFielder f in team)
         {
-            if (f == first) f.SetTarget(ShortOf(f, firstPoint));
+            if (f == first) f.SetTarget(InLine(f, firstPoint, firstIndex >= 0 ? path[firstIndex].velocity : Vector3.zero));
             else if (f == backup) f.SetTarget(ShortOf(f, backupPoint));
             else f.Stop();
         }
@@ -283,6 +311,18 @@ public class AnimatedFielderManagement : MonoBehaviour
     /// in front of the body, where the hands work. Closer than that - the ball at his feet or
     /// beside him - he steps back off it to the same distance: standing on it, the body could not
     /// bend down far enough to get the hands under it.
+    /// Where the caller stands: in the ball's line, StopShort past the meeting point along its
+    /// travel, so it comes straight to him and arrives in front - body behind the ball, as a fielder
+    /// is taught. Stopping short along his own run (ShortOf) left a ground ball passing beside him,
+    /// and he chased it with his hands on the grass. A ball barely moving: ShortOf.
+    private static Vector3 InLine(IFielder f, Vector3 point, Vector3 ballVelocity)
+    {
+        Vector3 along = new Vector3(ballVelocity.x, 0f, ballVelocity.z);
+        if (along.sqrMagnitude < 1f)
+            return ShortOf(f, point);
+        return point + along.normalized * StopShort;
+    }
+
     private static Vector3 ShortOf(IFielder f, Vector3 point)
     {
         Vector3 at = f.Position;
@@ -337,6 +377,9 @@ public class AnimatedFielderManagement : MonoBehaviour
         Main inst = Main.Instance;
         if (!tracking || inst.theBallRigidBody.isKinematic || inst.gameState != eGameState.InGame_BallHitLoop)
             return false;
+        // Over the rope it is a boundary, whoever touches it (BoundaryCollider calls it).
+        if (BoundaryCollider.Beyond(inst.theBallRigidBody.position))
+            return false;
         tracking = false;
         Take(fielder, fielder.name);
         return true;
@@ -358,6 +401,13 @@ public class AnimatedFielderManagement : MonoBehaviour
         inst.theBallScript.myParticles.enabled = false;
         if (fielder != null)
             fielder.TakeBall();
+        // Everyone else stops chasing: it is in someone's hands.
+        foreach (AnimatedFielder other in AnimatedFielder.All)
+            if (other != fielder)
+                other.CallOff();
+        // Near the rope it is not fielded until he is settled wholly inside it (CatchJudge).
+        if (CatchJudge.Begin(fielder, name))
+            return;
         inst.currentFielderName = name;
         inst.gameState = eGameState.InGame_BallFielded;
     }

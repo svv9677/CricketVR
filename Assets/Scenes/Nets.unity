@@ -12006,12 +12006,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bb380e6ad1b364c8ca70c2ec57137521, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1 &629055821 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4644603753444507371, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-    type: 3}
-  m_PrefabInstance: {fileID: 7405092095619500676}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &654163941
 GameObject:
   m_ObjectHideFlags: 0
@@ -12080,7 +12074,6 @@ MonoBehaviour:
   theKeeper: {fileID: 2089100961}
   theStadium: {fileID: 0}
   theBoundaryCollider: {fileID: 0}
-  BowlingMachineFace: {fileID: 629055821}
   NightMaterial: {fileID: 2100000, guid: b95594ffeaf238c46a8d575dcd72705a, type: 2}
   DayMaterial: {fileID: 2100000, guid: 799432b58386306488cfd7a19e7ff4d7, type: 2}
   theNightLights: {fileID: 1712308633}
@@ -30516,11 +30509,11 @@ PrefabInstance:
       objectReference: {fileID: 1537914173}
     - target: {fileID: 942000609, guid: 4318f7f22038244f99f443d58b561153, type: 3}
       propertyPath: rightGrabOffsetPosition.y
-      value: 0.09
+      value: 0.0733
       objectReference: {fileID: 0}
     - target: {fileID: 942000609, guid: 4318f7f22038244f99f443d58b561153, type: 3}
       propertyPath: rightGrabOffsetPosition.z
-      value: 0.2
+      value: 0.1763
       objectReference: {fileID: 0}
     - target: {fileID: 942000609, guid: 4318f7f22038244f99f443d58b561153, type: 3}
       propertyPath: rightGrabOffsetRotation.w
@@ -39109,46 +39102,6 @@ PrefabInstance:
         type: 3}
       propertyPath: m_IsActive
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -10.37
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 90
-      objectReference: {fileID: 0}
-    - target: {fileID: 1682824841114221477, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 3403105785464008900, guid: 6bafa47b98b1a45bd929f0fb78dde81e,
         type: 3}

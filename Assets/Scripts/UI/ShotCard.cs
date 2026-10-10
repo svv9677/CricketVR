@@ -42,10 +42,55 @@ public class ShotCard : MonoBehaviour
     private eBattingStyle placedFor = eBattingStyle.None;
     private readonly StringBuilder builder = new StringBuilder(32);
 
+    private TMP_Text scorecard;
+
     private void Awake()
     {
         Instance = this;
+        BuildScorecard();
         Clear();
+    }
+
+    /// The batters and the bowler, under the score, built here so the prefab needs no rebuild: a
+    /// divider like the one above the score, then one line per player in the recent-balls style.
+    private void BuildScorecard()
+    {
+        if (panel == null || recent == null)
+            return;
+        Transform divider = panel.transform.Find("Divider");
+        if (divider != null)
+            Instantiate(divider.gameObject, panel.transform).name = "Scorecard Divider";
+        GameObject go = Instantiate(recent.gameObject, panel.transform);
+        go.name = "Scorecard";
+        scorecard = go.GetComponent<TMP_Text>();
+        scorecard.fontSize = 22f;
+        scorecard.alignment = TextAlignmentOptions.TopLeft;
+        scorecard.richText = true;
+        var layout = go.GetComponent<UnityEngine.UI.LayoutElement>();
+        if (layout != null)
+            layout.preferredHeight = 128f;
+    }
+
+    /// Batters' runs (balls) and strike rate, the bowler's figures and the run rate.
+    private void SetScorecard()
+    {
+        HUD hud = HUD.Instance;
+        if (scorecard == null || hud == null || hud.CurrentBatsman == null)
+            return;
+        builder.Clear();
+        AppendBatter(hud.CurrentBatsman, true);
+        AppendBatter(hud.CurrentRunner, false);
+        builder.Append("<color=#98A2B3>Bowler</color>  ").Append(hud.CurrentBowler.Name)
+               .Append("<pos=62%>").Append(HUD.Figures(hud.CurrentBowler)).Append('\n');
+        builder.Append("<color=#98A2B3>Run rate</color>  ").Append(hud.RunRate.ToString("F2"));
+        scorecard.text = builder.ToString();
+    }
+
+    private void AppendBatter(Batsman b, bool striker)
+    {
+        builder.Append("<color=#F3F5F8>").Append(b.Name).Append(striker ? "*" : "").Append("</color>")
+               .Append("<pos=48%>").Append(HUD.RunsAndBalls(b))
+               .Append("<pos=74%><color=#98A2B3>SR</color> ").Append(HUD.StrikeRate(b)).Append('\n');
     }
 
     private void OnDestroy()
@@ -60,6 +105,11 @@ public class ShotCard : MonoBehaviour
         eBattingStyle style = main != null ? main.BattingStyle : eBattingStyle.RightHanded;
         if (style != placedFor)
             Place(style);
+        // Only between balls, alongside the next-ball options: while a ball is being bowled or
+        // is in play it is in the way.
+        bool between = main == null || main.gameState == eGameState.InGame_Ready;
+        if (panel.activeSelf != between)
+            panel.SetActive(between);
     }
 
     private void Place(eBattingStyle style)
@@ -112,6 +162,8 @@ public class ShotCard : MonoBehaviour
         Set(overs, $"{completedOvers}.{balls} ov");
         if (recent == null)
             return;
+        // Built from the same builder below, so first.
+        SetScorecard();
         builder.Clear();
         int count = bowled != null ? bowled.Count : 0;
         for (int i = Mathf.Max(0, count - RecentBallCount); i < count; i++)

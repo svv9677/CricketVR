@@ -23,20 +23,47 @@ public class NextBallMenu : MonoBehaviour
     [Tooltip("Shows the current bowler, e.g. \"Bumrah  Inswing\".")]
     [SerializeField] private TextMeshProUGUI bowlerLabel;
 
+    /// The card itself (OverBreak copies it for the next-over announcement).
+    public GameObject Panel => panel;
+
     private bool shown;
     private bool registered;
     private Bowler shownBowler;
+    private bool shownNewOver;
+    private TMP_Text header;
 
     private void Start()
     {
         panel.SetActive(false);
+        FindHeaderAndBowlButton();
+    }
+
+    /// The card's small heading ("Bowler") and the big button, from the prefab's layout: the
+    /// heading becomes "Next over" between overs, the button "Next ball".
+    private void FindHeaderAndBowlButton()
+    {
+        Transform card = bowlerLabel != null ? bowlerLabel.transform.parent.parent : null;
+        if (card == null)
+            return;
+        foreach (Transform child in card)
+        {
+            if (header == null && child.TryGetComponent(out TMP_Text text))
+                header = text;
+            if (child.name.StartsWith("Bowl"))
+            {
+                TMP_Text label = child.GetComponentInChildren<TMP_Text>(true);
+                if (label != null)
+                    label.text = "Next ball  <size=75%>(A)</size>";
+            }
+        }
     }
 
     private void Update()
     {
         Main inst = Main.Instance;
+        // Not while the next-over card is up: that comes first (OverBreak).
         bool want = inst != null && inst.gameState == eGameState.InGame_Ready &&
-                    !inst.SettingsOpen && !inst.CalibratingGrip;
+                    !inst.SettingsOpen && !inst.CalibratingGrip && !OverBreak.Showing;
         if (want && !shown)
             Show();
         else if (!want && shown)
@@ -45,13 +72,25 @@ public class NextBallMenu : MonoBehaviour
             UpdateBowler(inst.theHUD);
     }
 
-    /// Only when the bowler changes: no string building per frame.
+    /// Only when the bowler or the over changes: no string building per frame. Before the first
+    /// ball of an over the card says so - "Next over" - with who is coming on and how he bowls.
     private void UpdateBowler(HUD hud)
     {
-        if (bowlerLabel == null || hud == null || hud.CurrentBowler == null || hud.CurrentBowler == shownBowler)
+        if (bowlerLabel == null || hud == null || hud.CurrentBowler == null)
+            return;
+        bool newOver = hud.Balls == 0 && hud.Overs == 0;     // the match's first over; later overs are announced by OverBreak
+        if (hud.CurrentBowler == shownBowler && newOver == shownNewOver)
             return;
         shownBowler = hud.CurrentBowler;
-        bowlerLabel.text = $"{shownBowler.Name}  <color=#98A2B3>{UIFormat.BowlerType(shownBowler.Type)}</color>";
+        shownNewOver = newOver;
+        string type = UIFormat.BowlerType(shownBowler.Type);
+        // Every bowling action in the game is right-arm, over the wicket (the run-ups come in on
+        // the stumps' left as he sees them, AnimatedBowler).
+        bowlerLabel.text = newOver
+            ? $"{shownBowler.Name}  <color=#98A2B3>{type}</color>\n<size=55%><color=#98A2B3>Right-arm, over the wicket</color></size>"
+            : $"{shownBowler.Name}  <color=#98A2B3>{type}</color>";
+        if (header != null)
+            header.text = newOver ? "<color=#3B82F6>FIRST OVER</color>" : "BOWLER";
     }
 
     private void Show()
@@ -61,13 +100,21 @@ public class NextBallMenu : MonoBehaviour
             OpenXRMenuInputModule.RegisterPanel(panel);
             registered = true;
         }
-        Transform head = Camera.main.transform;
-        Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
-        if (forward.sqrMagnitude < 1e-4f) forward = Vector3.left;
-        forward.Normalize();
-        // Canvas text faces -Z, so point +Z away from the player; tilt it up toward the eyes.
-        panel.transform.SetPositionAndRotation(head.position + forward * Distance + Vector3.down * BelowEyes,
-                                               Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(20f, 0f, 0f));
+        // Its fixed spot in front of the player (MenuLayout); in a scene without one, ahead of the gaze.
+        if (MenuLayout.TryGet(MenuLayout.NextBall, out Vector3 spot, out Quaternion facing))
+        {
+            panel.transform.SetPositionAndRotation(spot, facing);
+        }
+        else
+        {
+            Transform head = Camera.main.transform;
+            Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
+            if (forward.sqrMagnitude < 1e-4f) forward = Vector3.left;
+            forward.Normalize();
+            // Canvas text faces -Z, so point +Z away from the player; tilt it up toward the eyes.
+            panel.transform.SetPositionAndRotation(head.position + forward * Distance + Vector3.down * BelowEyes,
+                                                   Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(20f, 0f, 0f));
+        }
         // Moved by hand before (grip): open where it was left instead.
         GrabbablePanel grab = GetComponent<GrabbablePanel>();
         if (grab != null)

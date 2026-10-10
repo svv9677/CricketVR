@@ -1,88 +1,66 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// The replay on the big screen. Records the last few seconds of a delivery from the replay
-/// camera and loops them on the screen after the ball is dead.
+/// The replay on the big screen. Nothing is filmed while the ball is live: ShotRecorder records
+/// the delivery once, as data - the ball, the bat, every player's bones, the stumps - the same
+/// recording the holographic ShotReplay plays. Once the ball is dead, the replay rebuilds the
+/// delivery on stand-ins (ReplayActors) standing in the real stadium, and the replay camera
+/// films them into `view`, which the screen shows: a live in-game render at the full resolution
+/// of `view`, never a stored, compressed frame.
 ///
-/// Built for the Quest's GPU, with nothing created at runtime:
-///   * the camera is disabled and renders only while recording, once per CaptureInterval, into
-///     the pre-made RenderTexture `view` (it used to render the whole stadium - with its own shadow
-///     pass - every frame, into a texture nothing showed);
-///   * each captured frame is copied into a slice of the pre-made Texture2DArray asset `frames`
-///     (it used to allocate a new Texture2D for every captured frame);
-///   * the screen's material (CricketVR/ReplayScreen) shows one slice via _Slice, -1 = off.
+/// For the Quest:
+///   * while the ball is live, the replay costs a few hundred transform reads every other frame;
+///     the old one rendered the whole stadium a second time ~16 times a second during the
+///     delivery and the shot, and copied every frame into a 64-slice texture array (75 MB);
+///   * the camera renders only while the replay plays, `renderRate` times a second, and not at
+///     all through the pause between loops (the screen keeps the last frame);
+///   * the stand-ins are visible to the replay camera alone, and the live players are hidden from
+///     it only for the length of its render (ReplayActors.SetReplayView).
 /// </summary>
-public class CameraReplay : MonoBehaviour
+public partial class CameraReplay : MonoBehaviour
 {
     public static CameraReplay Instance = null;
 
     [SerializeField]
     private Material targetMat;
-    [Tooltip("What the replay camera renders into (a RenderTexture asset).")]
+    [Tooltip("What the replay camera renders into and the screen shows (a RenderTexture asset).")]
     [SerializeField]
     private RenderTexture view;
-    [Tooltip("Recorded frames: a Texture2DArray RenderTexture asset, same size as `view`.")]
+    [Tooltip("Replay frames rendered per second while the replay plays. The camera is off otherwise.")]
     [SerializeField]
-    private RenderTexture frames;
+    private float renderRate = 30f;
+    [Tooltip("Seconds of the bowler's run-up shown before the release.")]
     [SerializeField]
-    private float captureInterval = 0.06f;
+    private float leadIn = 1.2f;
+    [Tooltip("Seconds the last frame holds before the replay loops.")]
+    [SerializeField]
+    private float loopPause = 1f;
+
+    private static readonly int ViewId = Shader.PropertyToID("_View");
+    private static readonly int OnId = Shader.PropertyToID("_On");
 
     private Camera myCamera;
-    private int frameCount;
+    private BroadcastCamera broadcast;
+    private ReplayOverlay overlay;
+    private ReplayBallTrail trail;
+    private ShotRecorder recorder;
+    private ReplayActors actors;
+    private bool othersHidden;
+    private bool warmed;
+    private Renderer screenRenderer;
+    private readonly Plane[] eyePlanes = new Plane[6];
 
-    [HideInInspector]
-    public bool record;
-    [HideInInspector]
-    public bool display;
+    private bool pending;
+    private float showAt;
+    private System.Func<bool> waitFor;      // ShowReplayWhen: the moment the play is over
+    private float waitUntil, waitThen;
+    private bool displaying;
+    private bool screenLit;
+    private ShotRecording shot;
+    private float playFrom, playTo, playTime, holdLeft, nextRender;
 
-    [HideInInspector]
-    public Coroutine startCapturing;
-    [HideInInspector]
-    public Coroutine startDisplaying;
-
-    private Vector3 startRot;
-    private Vector3 startPos;
-    private int viewSetting;
-
-    private static readonly int SliceId = Shader.PropertyToID("_Slice");
-    private static readonly int FramesId = Shader.PropertyToID("_Frames");
-
-    // ---- Screen placement: at home in the stadium, or brought in front of the player -----------
-    [Tooltip("The replay screen (the renderer using targetMat). Found by material if left empty.")]
-    [SerializeField]
-    private Transform screen;
-    [Tooltip("How far in front of the player's head the screen comes, in metres.")]
-    [SerializeField]
-    private float frontDistance = 3.5f;
-    [Tooltip("How far below eye level, in metres (0.3 m at 3.5 m is ~5 degrees down).")]
-    [SerializeField]
-    private float frontDrop = 0.3f;
-    [Tooltip("Screen width in front, in metres. 2.9 m at 3.5 m fills ~45 degrees.")]
-    [SerializeField]
-    private float frontWidth = 2.9f;
-    [SerializeField]
-    private float moveSeconds = 0.8f;
-
-    /// The player's choice: screen in front (true) or at home in the stadium (false). While a
-    /// ball is live the screen goes home regardless, so it never blocks the delivery or the
-    /// shot, and comes back once the ball is dead.
-    public bool ScreenInFront => preferFront;
-    /// Raised when ScreenInFront changes.
-    public event System.Action ScreenMoved;
-
-    private bool preferFront;
-    private bool atFront;
-    private bool frameCaptured;
-    private Vector3 homePosition;
-    private Quaternion homeRotation;
-    private Vector3 homeScale;
-    private Quaternion screenFrame;     // local frame: +Z = the face the player sees, +Y = up
-    private float homeWidth;
-    private Coroutine moving;
-    private Main mainForScreen;
+    public bool IsShowing => displaying;
 
     void Start()
     {
@@ -90,296 +68,274 @@ public class CameraReplay : MonoBehaviour
             CameraReplay.Instance = this;
         InitScreen();
         UseRuntimeMaterial();
+        screenRenderer = screen != null ? screen.GetComponent<Renderer>() : null;
 
-        viewSetting = 0;
-        startPos = transform.position;
-        startRot = transform.rotation.eulerAngles;
         myCamera = GetComponent<Camera>();
-        myCamera.enabled = false;               // renders only when a frame is captured
+        myCamera.enabled = false;               // on only for the frames a replay frame is filmed
         myCamera.targetTexture = view;
-        record = false;
-        display = false;
-        targetMat.SetTexture(FramesId, frames);
-        targetMat.SetFloat(SliceId, -1f);
-    }
-
-    private void Update()
-    {
-        if (viewSetting == 0)
+        myCamera.stereoTargetEye = StereoTargetEyeMask.None;
+        int ui = LayerMask.NameToLayer("UI");
+        if (ui >= 0)
+            myCamera.cullingMask &= ~(1 << ui);
+        broadcast = new BroadcastCamera(myCamera);
+        overlay = new ReplayOverlay(myCamera);
+        if (targetMat != null)
         {
-            transform.position = startPos;
-            transform.rotation = Quaternion.Euler(startRot);
-            myCamera.fieldOfView = 7f;
+            targetMat.SetTexture(ViewId, view);
+            targetMat.SetFloat(OnId, 0f);
         }
-        else if (viewSetting == 1)
-        {
-            transform.position = new Vector3(-14f, 1.78f, 0f);
-            transform.LookAt(Main.Instance.theBall.transform);
-            transform.rotation = Quaternion.Euler(new Vector3(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y, 0f));
-            myCamera.fieldOfView = 60f;
-        }
-    }
-
-    public void StartRecording(float delay)
-    {
-        if (startCapturing == null)
-            startCapturing = StartCoroutine(StartCapturing(delay));
-    }
-
-    private IEnumerator StartCapturing(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-
-        frameCount = 0;
-        record = true;
-        display = false;
-        var wait = new WaitForSeconds(captureInterval);
-        while (record)
-        {
-            Capture(frameCount % frames.volumeDepth);
-            frameCount++;
-            yield return wait;
-        }
-    }
-
-    private void Capture(int slice)
-    {
-        var request = new UniversalRenderPipeline.SingleCameraRequest { destination = view };
-        if (RenderPipeline.SupportsRenderRequest(myCamera, request))
-            RenderPipeline.SubmitRenderRequest(myCamera, request);
-        else
-            myCamera.Render();
-        Graphics.CopyTexture(view, 0, 0, frames, slice, 0);
-    }
-
-    public void StopRecording(float delay)
-    {
-        if (startDisplaying == null)
-        {
-            viewSetting = 0;
-            startDisplaying = StartCoroutine(StartDisplaying(delay));
-        }
-    }
-
-    private IEnumerator StartDisplaying(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-
-        record = false;
-        display = true;
-        // Only the most recent `volumeDepth` frames survive the ring; play them oldest first.
-        int count = Mathf.Min(frameCount, frames.volumeDepth);
-        int first = frameCount - count;
-        var wait = new WaitForSeconds(captureInterval);
-        while (display && count > 0)
-        {
-            for (int i = 0; i < count && display; i++)
-            {
-                targetMat.SetFloat(SliceId, (first + i) % frames.volumeDepth);
-                yield return wait;
-            }
-            if (display)
-                yield return new WaitForSeconds(1f);
-        }
-        targetMat.SetFloat(SliceId, -1f);
-    }
-
-    public void StopDisplaying()
-    {
-        display = false;
-        targetMat.SetFloat(SliceId, -1f);
-    }
-
-    public void setViewSetting(int setting, float delay = 0f)
-    {
-        if (delay == 0)
-            viewSetting = setting;
-        else
-            StartCoroutine(setViewSettingDelay(setting, delay));
-    }
-
-    private IEnumerator setViewSettingDelay(int setting, float delay = 0f)
-    {
-        yield return new WaitForSeconds(delay);
-        viewSetting = setting;
-    }
-
-    // ---- Screen placement ----------------------------------------------------------------------
-
-    /// Bring the replay screen in front of the player (true) or send it back to its home in the
-    /// stadium (false). Placed once, where the player is looking when it arrives - not
-    /// head-locked, which is uncomfortable in a headset.
-    public void SetScreenInFront(bool front)
-    {
-        if (preferFront == front)
-            return;
-        preferFront = front;
-        UpdateScreenPlacement();
-        ScreenMoved?.Invoke();
-    }
-
-    private void InitScreen()
-    {
-        if (screen == null && targetMat != null)
-        {
-            foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
-                if (r.sharedMaterial == targetMat) { screen = r.transform; break; }
-        }
-        if (screen != null)
-        {
-            homePosition = screen.position;
-            homeRotation = screen.rotation;
-            homeScale = screen.localScale;
-            var renderer = screen.GetComponent<Renderer>();
-            // A statically batched mesh is baked in place: moving its transform moves nothing.
-            if (renderer != null && renderer.isPartOfStaticBatch)
-                Debug.LogWarning("[CameraReplay] The replay screen is statically batched and cannot move - run Tools > CricketVR > Build Shot Replay.", screen);
-        }
-        mainForScreen = Main.Instance != null ? Main.Instance : FindFirstObjectByType<Main>();
-        if (mainForScreen != null)
-            mainForScreen.onGameStateChanged += UpdateScreenPlacement;
+        RenderPipelineManager.beginCameraRendering += BeginCamera;
+        RenderPipelineManager.endCameraRendering += EndCamera;
     }
 
     private void OnDestroy()
     {
-        if (mainForScreen != null)
-            mainForScreen.onGameStateChanged -= UpdateScreenPlacement;
-        if (runtimeMaterial != null)
-            Destroy(runtimeMaterial);
+        RenderPipelineManager.beginCameraRendering -= BeginCamera;
+        RenderPipelineManager.endCameraRendering -= EndCamera;
+        if (actors != null)
+            actors.SetReplayView(false);
+        ReleaseScreen();
     }
 
-    private Material runtimeMaterial;
+    // ---- The game's calls ----------------------------------------------------------------------
 
-    /// Play on a copy of the screen material. Writing _Slice / _Frames into targetMat itself
-    /// wrote into the ReplayDisplay.mat asset, so every play session left it changed in git.
-    private void UseRuntimeMaterial()
+    /// The ball is dead: show the replay `delay` seconds from now - it runs up to then. A later
+    /// call replaces one still waiting (a wide that beats the keeper is played on, then fielded).
+    public void ShowReplayIn(float delay) => ShowReplayWhen(null, delay, 0f);
+
+    /// Show the replay `delay` seconds after `done` comes true (the keeper has the wide; the six
+    /// has come down), or after `maxWait` if it never does.
+    public void ShowReplayWhen(System.Func<bool> done, float delay, float maxWait)
     {
-        if (targetMat == null)
+        if (displaying)
             return;
-        Material asset = targetMat;
-        runtimeMaterial = new Material(asset) { name = asset.name + " (runtime)" };
-        foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
-        {
-            if (r.sharedMaterial == asset)
-                r.sharedMaterial = runtimeMaterial;
-        }
-        targetMat = runtimeMaterial;
+        waitFor = done;
+        waitThen = delay;
+        waitUntil = Time.time + maxWait;
+        pending = false;
+        if (recorder == null)
+            recorder = ShotRecorder.Instance;
+        if (recorder != null)
+            recorder.RecordAtLeastUntil(Time.time + maxWait + delay);   // whenever it comes, it is recorded
+        if (done == null)
+            Schedule(delay);
     }
 
-    /// While a ball is live - being bowled, or struck and still in play - a screen 3.5 m in front
-    /// of the player would hide it.
-    private static bool LiveBall(eGameState state)
+    private void Schedule(float delay)
     {
-        switch (state)
-        {
-            case eGameState.InGame_SelectDelivery:
-            case eGameState.InGame_SelectDeliveryLoop:
-            case eGameState.InGame_DeliverBall:
-            case eGameState.InGame_DeliverBallLoop:
-            case eGameState.InGame_BallHit:
-            case eGameState.InGame_BallHitLoop:
-                return true;
-            default:
-                return false;
-        }
+        waitFor = null;
+        pending = true;
+        showAt = Time.time + delay;
+        if (recorder != null)
+            recorder.RecordAtLeastUntil(showAt);
     }
 
-    private void UpdateScreenPlacement()
+    /// The next ball: the screen off.
+    public void ResetForNextBall()
     {
-        if (screen == null)
+        pending = false;
+        waitFor = null;
+        StopDisplaying();
+    }
+
+    public void StopDisplaying()
+    {
+        displaying = false;
+        shot = null;
+        if (myCamera != null)
+            myCamera.enabled = false;
+        if (targetMat != null)
+            targetMat.SetFloat(OnId, 0f);
+        overlay?.Hide();
+        UpdateScreenPlacement();
+    }
+
+    // ---- Playback ------------------------------------------------------------------------------
+
+    private void LateUpdate()
+    {
+        if (!warmed && WarmUp())
             return;
-        bool live = mainForScreen != null && LiveBall(mainForScreen.gameState);
-        bool want = preferFront && !live;
-        if (want == atFront)
-            return;
-        if (want)
+        if (waitFor != null && (waitFor() || Time.time >= waitUntil))
+            Schedule(waitThen);
+        if (pending && Time.time >= showAt)
         {
-            if (!FrontPose(out Vector3 position, out Quaternion rotation, out Vector3 scale))
-                return;
-            MoveScreen(position, rotation, scale);
+            pending = false;
+            BeginDisplay();
         }
-        else
+        bool film = displaying && Advance(Time.deltaTime) && ScreenInView();
+        if (film)
         {
-            MoveScreen(homePosition, homeRotation, homeScale);
+            actors.Apply(shot, playTime);
+            broadcast.Apply();
+            trail?.Apply(shot, playTime, shot.ReleaseTime, shot.HasContact ? shot.ContactTime : float.MaxValue, myCamera);
+            actors.SkinThisFrame(true);
         }
-        atFront = want;
+        if (myCamera.enabled != film)
+            myCamera.enabled = film;
     }
 
-    /// 3.5 m ahead of the head along its level gaze, a little below the eyes, turned to face the
-    /// player the same way round it faces them at home, and scaled to `frontWidth`.
-    private bool FrontPose(out Vector3 position, out Quaternion rotation, out Vector3 scale)
+    /// One render at load, with the stand-ins in, the screen still dark: the shaders, the MSAA
+    /// target and the stand-ins' skinning are set up then, not in the frame the first replay
+    /// starts (on the headset, that first frame was a stall).
+    private bool WarmUp()
     {
-        position = homePosition;
-        rotation = homeRotation;
-        scale = homeScale;
-        Camera eye = Camera.main;
-        if (eye == null || eye == myCamera)
+        if (recorder == null)
+            recorder = ShotRecorder.Instance;
+        if (recorder == null || recorder.Actors == null)
             return false;
-        Transform head = eye.transform;
-        if (!frameCaptured)
-            CaptureScreenFrame(head.position);
-
-        Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
-        if (forward.sqrMagnitude < 1e-4f)
-            forward = Vector3.ProjectOnPlane(head.up, Vector3.up);   // looking straight down/up
-        forward = forward.sqrMagnitude > 1e-6f ? forward.normalized : Vector3.forward;
-
-        position = head.position + forward * frontDistance + Vector3.down * frontDrop;
-        Vector3 toViewer = head.position - position;
-        rotation = Quaternion.LookRotation(toViewer, Vector3.up) * Quaternion.Inverse(screenFrame);
-        scale = homeScale * (homeWidth > 1e-4f ? frontWidth / homeWidth : 1f);
+        actors = recorder.Actors;
+        trail = new ReplayBallTrail(Main.Instance);
+        HideOthersOnce();
+        broadcast.Apply();
+        actors.SkinThisFrame(true);
+        myCamera.enabled = true;
+        warmed = true;
         return true;
     }
 
-    /// Work out, from the mesh and its home pose, which local axis is the face the player sees
-    /// (the thinnest axis of a plane/quad, signed toward the player), which is up, and how wide
-    /// the screen is - so it keeps its orientation and aspect whatever mesh the scene uses.
-    private void CaptureScreenFrame(Vector3 viewer)
+    private void BeginDisplay()
     {
-        var filter = screen.GetComponent<MeshFilter>();
-        Vector3 size = filter != null && filter.sharedMesh != null ? filter.sharedMesh.bounds.size : new Vector3(1f, 1f, 0f);
-        int normal = size.x <= size.y && size.x <= size.z ? 0 : size.y <= size.z ? 1 : 2;
-
-        Vector3 frontLocal = Vector3.zero;
-        frontLocal[normal] = 1f;
-        if (Vector3.Dot(homeRotation * frontLocal, viewer - homePosition) < 0f)
-            frontLocal[normal] = -1f;
-
-        Vector3 upRaw = Quaternion.Inverse(homeRotation) * Vector3.up;
-        upRaw[normal] = 0f;
-        int up = normal == 0 ? (Mathf.Abs(upRaw.y) >= Mathf.Abs(upRaw.z) ? 1 : 2)
-               : normal == 1 ? (Mathf.Abs(upRaw.x) >= Mathf.Abs(upRaw.z) ? 0 : 2)
-               : (Mathf.Abs(upRaw.x) >= Mathf.Abs(upRaw.y) ? 0 : 1);
-        Vector3 upLocal = Vector3.zero;
-        upLocal[up] = upRaw[up] >= 0f ? 1f : -1f;
-
-        int across = 3 - normal - up;
-        homeWidth = Mathf.Abs(size[across] * screen.lossyScale[across]);
-        screenFrame = Quaternion.LookRotation(frontLocal, upLocal);
-        frameCaptured = true;
+        if (recorder == null)
+            recorder = ShotRecorder.Instance;
+        actors = recorder != null ? recorder.Actors : null;
+        shot = recorder != null ? recorder.Latest : null;
+        if (actors == null || shot == null || !shot.Released || shot.Count < 2)
+            return;
+        HideOthersOnce();
+        // From the bowler's last strides to the end of the play (ShowReplayWhen).
+        playFrom = Mathf.Max(0f, shot.ReleaseTime - leadIn);
+        playTo = Mathf.Min(shot.Duration, showAt - shot.StartedAt);
+        if (playTo <= playFrom)
+            return;
+        Restart();
+        nextRender = 0f;
+        screenLit = false;
+        displaying = true;
+        overlay.Show(ReleaseSpeedKmh(shot));
     }
 
-    private void MoveScreen(Vector3 position, Quaternion rotation, Vector3 scale)
+    private void Restart()
     {
-        if (moving != null)
-            StopCoroutine(moving);
-        moving = StartCoroutine(MovingScreen(position, rotation, scale));
+        playTime = playFrom;
+        holdLeft = 0f;
+        broadcast.Reset();
+        broadcast.Step(shot, playTime, 0f);
     }
 
-    private IEnumerator MovingScreen(Vector3 position, Quaternion rotation, Vector3 scale)
+    /// Moves the replay on by `dt`; true when this frame should be filmed.
+    private bool Advance(float dt)
     {
-        Vector3 fromPosition = screen.position;
-        Quaternion fromRotation = screen.rotation;
-        Vector3 fromScale = screen.localScale;
-        for (float t = 0f; t < 1f; t += Time.deltaTime / Mathf.Max(moveSeconds, 1e-3f))
+        if (holdLeft > 0f)
         {
-            float s = Mathf.SmoothStep(0f, 1f, t);
-            screen.SetPositionAndRotation(Vector3.Lerp(fromPosition, position, s), Quaternion.Slerp(fromRotation, rotation, s));
-            screen.localScale = Vector3.Lerp(fromScale, scale, s);
-            yield return null;
+            holdLeft -= dt;     // the screen keeps showing the last frame: nothing to render
+            if (holdLeft > 0f)
+                return false;
+            Restart();
+            return Paced();
         }
-        screen.SetPositionAndRotation(position, rotation);
-        screen.localScale = scale;
-        moving = null;
+        playTime = Mathf.Min(playTime + dt, playTo);
+        broadcast.Step(shot, playTime, dt);
+        if (playTime >= playTo)
+        {
+            holdLeft = Mathf.Max(loopPause, 1e-3f);
+            return true;        // the last frame, to hold
+        }
+        return Paced();
+    }
+
+    /// `renderRate` frames a second, give or take half a frame.
+    private bool Paced()
+    {
+        float interval = 1f / Mathf.Max(1f, renderRate);
+        if (Time.time < nextRender - 0.5f * Time.deltaTime)
+            return false;
+        nextRender += interval;
+        if (nextRender < Time.time)
+            nextRender = Time.time + interval;
+        return true;
+    }
+
+    /// No replay frames for a screen the player is not looking at: the replay plays on unseen
+    /// and is filmed again the moment it comes back into view.
+    private bool ScreenInView()
+    {
+        Camera eye = Camera.main;
+        if (screenRenderer == null || eye == null || eye == myCamera || !screenLit)
+            return true;
+        GeometryUtility.CalculateFrustumPlanes(eye, eyePlanes);
+        return GeometryUtility.TestPlanesAABB(eyePlanes, screenRenderer.bounds);
+    }
+
+    /// The delivery's speed just out of the hand, from the recorded ball.
+    private static float ReleaseSpeedKmh(ShotRecording shot)
+    {
+        float t = shot.ReleaseTime + 0.05f, dt = 0.1f;
+        if (t + dt > shot.Duration)
+            return 0f;
+        return (shot.BallAt(t + dt) - shot.BallAt(t)).magnitude / dt * UIFormat.KmhPerMps;
+    }
+
+    /// The replay camera must not see what is live now and has no place in the replay: the
+    /// screen itself (it would film its own picture), the hologram, the player's hands, the menu
+    /// pointer and the menus.
+    private void HideOthersOnce()
+    {
+        if (othersHidden)
+            return;
+        othersHidden = true;
+        if (screen != null)
+            actors.HideAlso(screen.GetComponentsInChildren<Renderer>(true));
+        if (ShotReplay.Instance != null)
+            actors.HideAlso(ShotReplay.Instance.GetComponentsInChildren<Renderer>(true));
+        // The live result over the stumps belongs to now, not to the ball being replayed.
+        BallResultText result = FindFirstObjectByType<BallResultText>();
+        if (result != null)
+            actors.HideAlso(result.GetComponentsInChildren<Renderer>(true));
+        // The hands, under the XR rig's own root - never a root that holds the game itself.
+        Camera eye = Camera.main;
+        if (eye != null && eye != myCamera && eye.transform.root.GetComponentInChildren<Main>(true) == null)
+            actors.HideAlso(eye.transform.root.GetComponentsInChildren<Renderer>(true));
+        foreach (LaserPointer pointer in FindObjectsByType<LaserPointer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            // The pointer and its dot, grouped under their own root (UIHelpers).
+            Transform group = pointer.transform.parent != null && pointer.transform.parent.parent == null
+                ? pointer.transform.parent : pointer.transform;
+            actors.HideAlso(group.GetComponentsInChildren<Renderer>(true));
+        }
+        // The player's menus and overlays: the world-space canvases outside the game's own root
+        // (the stadium's scorecard is inside it, and stays in the picture).
+        int ui = LayerMask.NameToLayer("UI");
+        var panels = new System.Collections.Generic.List<Canvas>();
+        foreach (Canvas canvas in FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (canvas.renderMode == RenderMode.WorldSpace && canvas.GetComponentInParent<Main>(true) == null)
+                panels.Add(canvas);
+        if (ui >= 0)
+            ReplayActors.MoveCanvases(panels, ui);
+    }
+
+    // ---- The replay camera's render ------------------------------------------------------------
+
+    private void BeginCamera(ScriptableRenderContext context, Camera camera)
+    {
+        if (camera != myCamera || actors == null)
+            return;
+        actors.SetReplayView(true);
+        trail?.Show(displaying);
+    }
+
+    private void EndCamera(ScriptableRenderContext context, Camera camera)
+    {
+        if (camera != myCamera || actors == null)
+            return;
+        actors.SetReplayView(false);
+        actors.SkinThisFrame(false);
+        trail?.Show(false);
+        if (!screenLit && displaying && targetMat != null)
+        {
+            targetMat.SetFloat(OnId, 1f);   // only now: before its first frame `view` holds the last replay
+            screenLit = true;
+            UpdateScreenPlacement();        // and only now in front of the player, if he wants it there
+        }
     }
 }

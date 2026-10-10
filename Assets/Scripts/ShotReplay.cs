@@ -3,7 +3,8 @@ using UnityEngine;
 /// <summary>
 /// The holographic shot replay: plays the last delivery (ShotRecorder) back as a ghost bat and
 /// ghost ball at their real positions in the world, so the player, standing at the crease, sees
-/// their own swing and the ball's flight from where they are now - at any speed, looping.
+/// their own swing and the ball's flight from where they are now - at any speed, looping. The
+/// same recording the big screen (CameraReplay) plays: each delivery is recorded once.
 ///
 /// Built for the Quest, with nothing created at runtime (Tools > CricketVR > Build Shot Replay
 /// makes the ghosts):
@@ -148,15 +149,16 @@ public class ShotReplay : MonoBehaviour
         if (!HasShot || ghosts == null)
             return;
         shot = recorder.Last;
+        // The recording starts in the run-up (for the big screen); the ghosts start at the release.
         if (shot.HasContact)
         {
-            startTime = Mathf.Max(0f, shot.ContactTime - leadIn);
+            startTime = Mathf.Max(shot.ReleaseTime, shot.ContactTime - leadIn);
             endTime = Mathf.Min(shot.Duration, shot.ContactTime + followThrough);
         }
         else
         {
-            startTime = 0f;
-            endTime = Mathf.Min(shot.Duration, leadIn + followThrough);
+            startTime = shot.ReleaseTime;
+            endTime = Mathf.Min(shot.Duration, shot.ReleaseTime + leadIn + followThrough);
         }
         time = startTime;
         holdLeft = 0f;

@@ -29,7 +29,9 @@ public class GripCalibrationPanel : MonoBehaviour
         panel.SetActive(false);
     }
 
-    public void Show(Vector3 position, Vector3 flatForward, bool flat)
+    /// Both bat shells are shown at once now, so the Upright | Flat control is hidden: only Lock
+    /// Grip and Cancel remain.
+    public void Show(Vector3 position, Vector3 flatForward)
     {
         if (!registered && OpenXRMenuInputModule.Instance != null)
         {
@@ -37,7 +39,12 @@ public class GripCalibrationPanel : MonoBehaviour
             registered = true;
         }
         panel.transform.SetPositionAndRotation(position, Quaternion.LookRotation(flatForward, Vector3.up) * Quaternion.Euler(15f, 0f, 0f));
-        ShowSelection(flat);
+        if (orientation != null)
+            orientation.gameObject.SetActive(false);
+        if (uprightButton != null)
+            uprightButton.gameObject.SetActive(false);
+        if (flatButton != null)
+            flatButton.gameObject.SetActive(false);
         panel.SetActive(true);
     }
 
@@ -55,9 +62,11 @@ public class GripCalibrationPanel : MonoBehaviour
 
     // ---- Button handlers (wired in the prefab) -------------------------------------------------
     private static BatGripCalibration Calibration => Main.Instance != null ? Main.Instance.GripCalibration : null;
-    public void OnOrientation(int index) => Calibration?.SetFlat(index == 1);
-    public void OnUpright() => Calibration?.SetFlat(false);
-    public void OnFlat() => Calibration?.SetFlat(true);
+    // Upright | Flat: both shells show at once now and these controls are hidden. The handlers stay
+    // because the prefab's buttons are wired to them.
+    public void OnOrientation(int index) { }
+    public void OnUpright() { }
+    public void OnFlat() { }
     public void OnLock() => Calibration?.Lock();
     public void OnCancel() => Calibration?.Cancel();
 }

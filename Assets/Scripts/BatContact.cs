@@ -21,8 +21,10 @@ using UnityEngine;
 ///     the other; the handle is dead;
 ///   * across the blade the blade twists about its long axis: 1/M += x^2 / I_twist, with I_twist
 ///     from the blade's real width and thickness, and e falls off toward the edges;
-///   * edges            the face bevels over the outer 20% of the width (normal tilts up to 50
-///     degrees sideways - a thick edge); a hit on the side of the blade is a thin edge;
+///   * edges            the long edges are rounded (EdgeRounding), so the normal turns from the face
+///     through 90 degrees onto the side as the contact moves out: a thick edge (met on the
+///     rounding) is turned off square, a thin edge (ball centre outside the blade) only deflected;
+///     friction is Coulomb-limited, so a light touch barely slows the ball;
 ///   * back / toe       weaker (e x0.7, e 0.2).
 /// Head on at the sweet spot this is v_out = q v_in + (1+q) v_bat with q ~ 0.24.
 /// </summary>
@@ -34,6 +36,13 @@ public static class BatContact
     public const int MaxSubsteps = 32;
     /// From the sweet spot toward the shoulder, the distance (m) over which a hit goes dead.
     public const float SweetSpotFalloff = 0.30f;
+    /// Radius (m) of the rounding where the face and the back turn into the side of the blade.
+    public const float EdgeRounding = 0.025f;
+    /// A face contact whose normal is turned at least this far (degrees) toward the side is an edge.
+    public const float ThickEdgeAngle = 12f;
+    /// Leather on willow: sliding friction, and the most of the slip it can take out (a solid
+    /// sphere stops slipping once it has lost 2/7 of it).
+    public const float Friction = 0.4f, RollGrip = 0.3f;
 
     /// The blade, in the bat's local units (see BatGeometry).
     public struct Blade
@@ -253,11 +262,17 @@ public static class BatContact
         return pivotVelocity + Vector3.Cross(omega, rot * ((localPoint - pivotLocal) * scale));
     }
 
+    /// <param name="widthMultiplier">The difficulty's bat width, as passed to Sweep. Easy and Medium
+    /// widen the blade for finding a hit; the response must read that wider blade too. It used to
+    /// measure from the real blade, so every hit on the added width counted as the very edge -
+    /// bevelled off sideways at quality 0, and weak, the twist taken at up to 4x the real offset.</param>
     public static Result Respond(Hit hit, Blade blade, float scale, Vector3 ballVelocity,
-                                 Vector3 batPointVelocity, float ballMass)
+                                 Vector3 batPointVelocity, float ballMass, float widthMultiplier = 1f)
     {
         Vector3 p = hit.localBat;
-        float lateral = Mathf.Clamp01(Mathf.Abs(p.x) / Mathf.Max(blade.halfWidth, 1e-5f));
+        float widen = Mathf.Max(1f, widthMultiplier);
+        // Across the face as a share of the (widened) half-width, and the same share of the real blade.
+        float lateral = Mathf.Clamp01(Mathf.Abs(p.x) / Mathf.Max(blade.halfWidth * widen, 1e-5f));
         float fromSweet = Mathf.Abs(p.z - blade.sweetZ) * scale;
         bool handle = p.z > blade.shoulderZ;
         // How far from the sweet spot the dead end is: the toe itself on that side (a real bat's
@@ -271,37 +286,40 @@ public static class BatContact
         // Twist about the long axis for an off-centre hit.
         float w = 2f * blade.halfWidth * scale, th = (blade.faceY - blade.backY) * scale;
         float twistInertia = BatMass * (w * w + th * th) / 12f;
-        float x = p.x * scale;
+        float x = p.x / widen * scale;
         float mass = 1f / (1f / longitudinalMass + x * x / twistInertia);
         e *= 1f - 0.35f * lateral * lateral;
 
-        // The touched surface decides the kind of contact. The geometric normal already rounds over
-        // the corners of the blade; on the face itself the outer 20% is bevelled as a real bat's
-        // edges are, which is what makes a thick edge fly off square.
+        // The touched surface decides the kind of contact. The long edges are rounded (EdgeNormal),
+        // so the normal turns smoothly from the face, over the edge, onto the side: the further
+        // out the ball is met, the more it is turned aside and the less it is pushed back.
         Vector3 localNormal = hit.localNormal;
         bool edge = false, thin = false, back = false, toeEnd = false;
-        if (localNormal.y > 0.95f)
-        {
-            float bevel = Mathf.Clamp01((lateral - 0.8f) / 0.2f);
-            localNormal = new Vector3(Mathf.Sign(p.x) * bevel * 1.19f, 1f, 0f).normalized;
-            edge = bevel > 0f;
-        }
-        else if (Mathf.Abs(localNormal.x) > 0.3f)
-        {
-            // Over the edge or on the side of the blade: a thin edge.
-            e = Mathf.Min(e, 0.3f);
-            mass = Mathf.Min(mass, 0.35f);
-            edge = thin = true;
-        }
-        else if (localNormal.y < -0.5f)
-        {
-            e *= 0.7f;   // the back of the bat
-            back = true;
-        }
-        else if (Mathf.Abs(localNormal.z) > 0.5f)
+        if (Mathf.Abs(localNormal.z) > 0.5f)
         {
             e = 0.2f;    // the toe
             toeEnd = true;
+        }
+        else
+        {
+            float halfWidth = blade.halfWidth * widen;
+            float ballRadius = BallFlight.Radius / scale;
+            Vector3 centre = p + localNormal * ballRadius;
+            localNormal = EdgeNormal(centre, blade, halfWidth, scale, ballRadius, localNormal);
+            // Thin: more than half the ball passed outside the blade, so it only clipped the edge.
+            // Thick: met on the rounding, square enough to be turned well off the face.
+            thin = Mathf.Abs(centre.x) > halfWidth;
+            edge = thin || Mathf.Abs(localNormal.x) > Mathf.Sin(ThickEdgeAngle * Mathf.Deg2Rad);
+            if (thin)
+            {
+                e = Mathf.Min(e, 0.3f);
+                mass = Mathf.Min(mass, 0.35f);
+            }
+            else if (localNormal.y < -0.5f)
+            {
+                e *= 0.7f;   // the back of the bat
+                back = true;
+            }
         }
 
         Vector3 normal = hit.rotation * localNormal;
@@ -309,7 +327,18 @@ public static class BatContact
         float un = Vector3.Dot(u, normal);
         Vector3 ut = u - un * normal;
         float share = mass / (ballMass + mass);
-        Vector3 change = un < 0f ? share * (-(1f + e) * un * normal - 0.3f * ut) : Vector3.zero;
+        Vector3 change = Vector3.zero;
+        if (un < 0f)
+        {
+            // Friction along the surface is at most Friction times the push it gets (Coulomb), and
+            // never more than takes the slip out of it (RollGrip). A flat 30% of the slip used to
+            // apply however light the touch: a feather edge lost ~40% of its pace and was dragged
+            // round with the swing instead of carrying on to the keeper.
+            float pushed = share * (1f + e) * -un;
+            float slip = ut.magnitude;
+            float grip = Mathf.Min(Friction * pushed, share * RollGrip * slip);
+            change = pushed * normal - (slip > 1e-6f ? ut / slip * grip : Vector3.zero);
+        }
         float quality = (1f - off) * (1f - lateral * lateral) * (handle ? 0.2f : 1f);
 
         return new Result
@@ -322,6 +351,36 @@ public static class BatContact
             kind = Classify(quality, handle, thin, edge, back, toeEnd || (p.z < blade.sweetZ && off > 0.55f), off > 0.55f),
             impactSpeed = Mathf.Max(0f, -un),
         };
+    }
+
+    /// <summary>
+    /// The surface normal a ball centred at `centre` (bat-local) meets on a blade whose long edges
+    /// are rounded with radius EdgeRounding: flat on the middle of the face, back and side, and on
+    /// the rounding the direction from the rounding's axis to the ball. It turns continuously from
+    /// 0 to 90 degrees as the contact moves out across the edge, so a thick edge is turned less than
+    /// a thin one - the sharp box corner used to jump from a 50 degree face bevel back to ~18.
+    ///
+    /// The sweep finds the first touch on the sharp-cornered box, whose corner stands proud of the
+    /// rounding, so the ball is met there too early and too far out on the face. The ball is taken
+    /// on into the face (its x across the blade kept) until it meets the rounding itself; read at
+    /// the box corner instead, a ball clipping the edge by 4 mm was turned 46 degrees, not ~15.
+    /// </summary>
+    public static Vector3 EdgeNormal(Vector3 centre, Blade blade, float halfWidth, float scale, float ballRadius, Vector3 flatNormal)
+    {
+        float rc = Mathf.Min(EdgeRounding / scale, halfWidth, 0.5f * (blade.faceY - blade.backY));
+        float innerX = halfWidth - rc;
+        float across = Mathf.Abs(centre.x) - innerX;
+        if (across <= 0f)
+            return flatNormal;
+        bool faceSide = centre.y >= 0.5f * (blade.faceY + blade.backY);
+        float axisY = faceSide ? blade.faceY - rc : blade.backY + rc;
+        float reach = ballRadius + rc;
+        // Beside the flat part of the side, not over a rounding - or clear of the rounding
+        // altogether: the side itself.
+        if ((faceSide ? centre.y < axisY : centre.y > axisY) || across >= reach)
+            return new Vector3(Mathf.Sign(centre.x), 0f, 0f);
+        float up = Mathf.Sqrt(reach * reach - across * across);
+        return new Vector3(Mathf.Sign(centre.x) * across, faceSide ? up : -up, 0f) / reach;
     }
 
     private static ContactKind Classify(float quality, bool handle, bool thin, bool edge, bool back, bool toe, bool offSweet)

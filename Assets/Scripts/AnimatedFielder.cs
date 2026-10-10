@@ -15,7 +15,7 @@ using UnityEngine;
 /// between the palms, the last few centimetres faded out over HoldSettle, and he stands up with it
 /// (the reach springs settle in ~0.4 s) and turns to the stumps.
 /// </summary>
-public class AnimatedFielder : MonoBehaviour, IFielder
+public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
 {
     // Serialized names kept so the scene's nine fielders stay wired up.
     [SerializeField]
@@ -40,12 +40,17 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     public const float BaseRunSpeed = 5f;
     public const float Acceleration = 10f;
     public const float TurnRate = 720f;
-    /// Forward speed baked into the run animation, used to keep the feet from sliding.
-    private const float AnimatedRunSpeed = 4f;
+    /// Forward speed baked into the run animation (Standard Run: 3.41 m/s at human scale 1,
+    /// measured with AnimationClip.averageSpeed), used to keep the feet from sliding. It was taken
+    /// as 4: the legs cycled 15% slow for the ground covered and the feet skated on every stride.
+    private const float RunClipSpeed = 3.41f;
+    private float AnimatedRunSpeed => RunClipSpeed * (myAnimator != null ? myAnimator.humanScale * myAnimator.transform.lossyScale.y : 1f);
 
     /// A moving ball is caught when it comes into the pocket between the palms - this close to the
     /// middle of the two hands - not merely near one of them.
-    public const float CatchPocket = 0.13f;
+    /// 0.13 caught a straight high catch only some runs: it passed the palms' middle at 0.13-0.16 m
+    /// (filmed and traced), in the hands but read as a miss, and he fumbled it.
+    public const float CatchPocket = 0.15f;
     /// A slow ball (a roller, one that has stopped) is scooped up by either hand from a little further.
     private const float SlowGatherDistance = 0.2f, SlowBall = 2f;
     /// Hands must be this far into the reach to take it: out and set, not still on the way.
@@ -58,12 +63,27 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     /// catch the hands go up sooner and further, out toward the ball: a fielder sets his hands
     /// early and meets it with his arms extended rather than grabbing at it as it arrives.
     private const float ReachStartTime = 1.1f, ReachFullTime = 0.35f;
-    private const float CatchStartTime = 1.6f, CatchFullTime = 0.5f, CatchOut = 0.25f;
+    /// Filmed from four sides, 1.6 s / 0.5 s / 0.25 m had him run in with both arms held straight
+    /// out in front for over a second and take it at full stretch, arms locked - "zombie arms".
+    /// A fielder runs with his arms free, brings the hands up late, and takes it in front of his
+    /// chest, elbows bent.
+    /// A catch: arms out this far along the ball's line to meet it, not at the chest - at 0.08 the
+    /// bowler took a head-high catch with his hands curled at his chest (filmed).
+    private const float CatchStartTime = 0.9f, CatchFullTime = 0.3f, CatchOut = 0.22f;
+    /// A ground ball: down and set early, waiting for it. Starting at 1.1 s and full at 0.35 s, a
+    /// 7-8 m/s roller arrived with the hands still ~0.5 m off the grass (filmed and traced) and
+    /// went under them.
+    /// Later now he snaps down to it (SnapDown): set from 1.8 s he stood folded over for 1.4 s
+    /// before the ball came (filmed), which no fielder does.
+    private const float GroundStartTime = 1.1f, GroundFullTime = 0.45f;
     /// Soft hands: on the take the hands ride back along the ball's line this far, this fast.
     private const float GiveDistance = 0.2f, GiveTime = 0.15f;
     /// Holding: ball in front of the chest (above the feet, in front of them), and the pause
     /// before turning to throw it in.
     private const float HoldHeight = 1.15f, HoldAhead = 0.32f, TurnAfter = 0.5f;
+    /// After the give, it goes into the right hand from this long on, over OneHandTime (s), held
+    /// RightHandOut (m) to the right of his middle.
+    private const float OneHandAfter = 0.1f, OneHandTime = 0.35f, RightHandOut = 0.12f;
 
     private Transform holdBallOffset;
     private HumanoidReach reach;
@@ -84,9 +104,24 @@ public class AnimatedFielder : MonoBehaviour, IFielder
 
     // ---- IFielder ------------------------------------------------------------------------------
     public Vector3 Position => transform.position;
-    public bool Available => isActiveAndEnabled && !holdingBall;
+    /// Free to be sent after the ball: not holding it, and not down from a dive (review: a fielder
+    /// lying on the grass after a spill was made the caller and everyone else stood off).
+    public bool Available => isActiveAndEnabled && !holdingBall && !diving;
     public bool IsKeeper => false;
     public string Name => name;
+
+    /// The bowler, fielding after his delivery (BowlerFielding): set up in code rather than placed
+    /// in the scene, and with no fielding position of his own - he fields from where he finished.
+    public bool IsBowler { get; private set; }
+
+    /// Call straight after AddComponent, before Start runs.
+    public void InitAsBowler(AnimatedFielderManagement management, Animator animator)
+    {
+        IsBowler = true;
+        animatedFielderManagementScript = management;
+        myAnimator = animator;
+        StartPosition = transform.position;
+    }
 
     void Start()
     {
@@ -103,7 +138,8 @@ public class AnimatedFielder : MonoBehaviour, IFielder
         }
         if (animatedFielderManagementScript == null)
             animatedFielderManagementScript = GetComponentInParent<AnimatedFielderManagement>();
-        StartPosition = Constants.fieldingPositions[Convert.ToInt32(gameObject.name[gameObject.name.Length - 1].ToString()) - 1];
+        if (!IsBowler)
+            StartPosition = Constants.fieldingPositions[Convert.ToInt32(gameObject.name[gameObject.name.Length - 1].ToString()) - 1];
         // Stand on the grass, not at y 0: the outfield is at -0.047, so the feet hovered 5 cm up
         // and the foot IK pinned them there.
         StartPosition.y = BallFlight.GroundY(StartPosition);
@@ -129,21 +165,39 @@ public class AnimatedFielder : MonoBehaviour, IFielder
     private void HandleGameState()
     {
         eGameState state = Main.Instance.gameState;
-        // A new delivery: drop the ball (Main parks it) and go back to the fielding position.
-        if (state == eGameState.InGame_SelectDelivery || state == eGameState.InGame_ResetToReadyLoop)
+        // Between balls he walks back to his fielding position (AnimatedFielderThrow). When the next
+        // ball starts, whatever he is doing - still relaying the last one, walking back, down from
+        // a dive - stops at once and he is on his mark in his ready pose: the new ball is on.
+        if (state == eGameState.InGame_ResetToReadyLoop)
+            WalkBackToStart();
+        else if (state == eGameState.InGame_SelectDelivery)
         {
-            if (state == eGameState.InGame_SelectDelivery)
-                holdingBall = false;
+            EndDive();
+            holdingBall = false;
+            ClearThrow();
+            walkingBack = false;
             ReturnToStart();
+            if (myAnimator != null)
+            {
+                myAnimator.speed = 1f;
+                myAnimator.Play("0 Idle", 0, 0f);
+            }
         }
     }
 
     public void ReturnToStart()
     {
+        EndDive();
         hasTarget = false;
+        reachingLow = false;
         speed = 0f;
-        transform.position = StartPosition;
-        transform.LookAt(new Vector3(0f, transform.position.y, 0f));
+        // The bowler stays where he is; BowlerFielding hands him back to his bowling for the next ball.
+        if (!IsBowler)
+        {
+            transform.position = StartPosition;
+            transform.LookAt(new Vector3(0f, transform.position.y, 0f));
+        }
+        headingVelocity = 0f;
         SetAnimation(0);
         if (reach != null && !holdingBall)
         {
@@ -158,6 +212,7 @@ public class AnimatedFielder : MonoBehaviour, IFielder
         point.y = transform.position.y;
         target = point;
         hasTarget = true;
+        walkingBack = false;   // sent after the ball: at a run, not the walk back
     }
 
     public void Stop()
@@ -183,6 +238,9 @@ public class AnimatedFielder : MonoBehaviour, IFielder
             myAnimator.CrossFadeInFixedTime("0 Idle", 0.12f);
     }
 
+    private bool? drawnByCopyCache;
+    private bool drawnByCopy => drawnByCopyCache ??= GetComponent<FielderLook>() != null;
+
     private void Update()
     {
         Move();
@@ -191,6 +249,12 @@ public class AnimatedFielder : MonoBehaviour, IFielder
 
     private void Move()
     {
+        // Diving for one out of reach (AnimatedFielderDive), down, or getting up.
+        if (UpdateDive())
+            return;
+        // Throwing it in, or a throw coming to him: he stands and faces it.
+        if (MoveForThrow())
+            return;
         if (!hasTarget)
         {
             speed = 0f;
@@ -202,6 +266,15 @@ public class AnimatedFielder : MonoBehaviour, IFielder
                 FaceTowards(Main.Instance.theBall.transform.position, 1f);
             return;
         }
+        // Down low for the ball, the feet stay set and he faces it. Running on with the hands down
+        // at the grass, the legs still striding, was a crawl (filmed: on all fours after a roller).
+        if (reachingLow)
+        {
+            speed = 0f;
+            SetAnimation(0);
+            FaceTowards(Main.Instance.theBall.transform.position, 1f);
+            return;
+        }
 
         Vector3 to = target - transform.position;
         to.y = 0f;
@@ -210,25 +283,59 @@ public class AnimatedFielder : MonoBehaviour, IFielder
         {
             speed = 0f;
             SetAnimation(0);
+            if (walkingBack)
+            {
+                // Home: face the batter again, ready for the next ball.
+                walkingBack = false;
+                hasTarget = false;
+                FaceTowards(Vector3.zero, 1f);
+                return;
+            }
             FaceTowards(Main.Instance.theBall.transform.position, 1f);
             return;
         }
 
-        // Accelerate to full speed, and ease off just in time to stop on the spot.
+        // Accelerate to full speed, and ease off just in time to stop on the spot. Walking back
+        // between balls, only a jog.
         float stopping = Mathf.Sqrt(2f * Acceleration * distance);
-        speed = Mathf.Min(RunSpeed, speed + Acceleration * Time.deltaTime, stopping);
+        speed = Mathf.Min(walkingBack ? JogSpeed : RunSpeed, speed + Acceleration * Time.deltaTime, stopping);
         Vector3 step = to / distance * Mathf.Min(distance, speed * Time.deltaTime);
         transform.position += step;
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(to), TurnRate * Time.deltaTime);
-        SetAnimation(1);
-        if (myAnimator != null)
-            myAnimator.speed = Mathf.Clamp(speed / AnimatedRunSpeed, 0.6f, 2f);
+        // Run facing the way he runs; settling into his spot, turn to face the ball and side-step
+        // in. He used to keep facing his run until he was on the spot, so a catch dropping in from
+        // behind (measured: ball 3.9 m behind and 2.7 m up) had his hands reaching back past his head.
+        Vector3 face = distance < SettleDistance ? Flat(Main.Instance.theBall.transform.position - transform.position) : to;
+        TurnToward(face, 1f);
+        // The run cycle only while he is actually running: settled under a catch he had a target a
+        // few centimetres away and ran on the spot (measured: run clip playing at speed 0).
+        bool running = speed > MinRunSpeed;
+        SetAnimation(running ? 1 : 0);
+        if (myAnimator != null && running)
+            myAnimator.speed = Mathf.Clamp(speed / AnimatedRunSpeed, MinRunAnim, 2.4f);
     }
+
+    /// Below this he stands rather than runs; the run cycle is never slowed below MinRunAnim. With
+    /// the cycle held at 0.6 down to 0.6 m/s, a fielder easing into his spot ran on the spot at
+    /// 2 m/s worth of strides - the feet slid.
+    private const float MinRunSpeed = 1.0f, MinRunAnim = 0.3f;
+    /// Reaching this low (hands below the knee), he stops to take it rather than running on.
+    private const float LowReach = 0.6f;
+    /// m/s of the ball's speed toward him above which he sets his feet and lets it come.
+    private const float ComingAtMe = 1f;
+    /// Seconds of a slow ball's travel the hands lead it by.
+    private const float SlowLead = 0.12f;
+    private bool reachingLow;
 
     /// Tell the body where the hands should be this frame (HumanoidReach applies it in the IK pass).
     private void UpdateReach()
     {
         if (reach == null || !reach.Ready)
+            return;
+        // Throwing (arms free for the throw) or taking a throw (hands to where it will arrive).
+        // Palms follow the arms unless a take below says which way they face.
+        reach.palmFacing = Vector3.zero;
+        reach.leftHandShare = 1f;   // both hands, unless the hold below has it in one
+        if (ReachForThrow() || ReachForDive())
             return;
         Main inst = Main.Instance;
         Vector3 ball = inst.theBall.transform.position;
@@ -239,16 +346,31 @@ public class AnimatedFielder : MonoBehaviour, IFielder
             float t = Time.time - heldSince;
             float give = Mathf.Clamp01(t / GiveTime);
             Vector3 back = takenAt + takenAlong * (GiveDistance * (1f - (1f - give) * (1f - give)));
-            Vector3 chest = transform.position + transform.up * HoldHeight + transform.forward * HoldAhead;
+            // Where his chest will be stood up: the reach solver unbends him toward it (a point in
+            // front of the chest as it is, tried instead, left him bent over for good - the solver
+            // only bends as far as it must, and that point never asks him to stand). While he is still
+            // bent over it lies above his back; HumanoidReach's body guard (HumanoidReachBody) keeps
+            // the hands out of the torso and on its front meanwhile, so they rise with him - without
+            // it they swept up through his chest (measured 12 cm in).
+            // Both hands take it and give with it; then it goes into the right (throwing) hand,
+            // carried in front of his right side, and the left lets go. Held in both all the way,
+            // palms facing across a point at the chest, the fingers pointed at each other and the
+            // hands laced through each other in front of him - "crossed over" (filmed).
+            float oneHand = Mathf.Clamp01((t - GiveTime - OneHandAfter) / OneHandTime);
+            oneHand = oneHand * oneHand * (3f - 2f * oneHand);
+            Vector3 chest = transform.position + transform.up * HoldHeight + transform.forward * HoldAhead +
+                            transform.right * (RightHandOut * oneHand);
             float up = Mathf.Clamp01((t - GiveTime) / 0.3f);
             reach.handTarget = Vector3.Lerp(back, chest, up * up * (3f - 2f * up));
             reach.weight = 1f;
             reach.handGap = 0.09f;
+            reach.leftHandShare = 1f - oneHand;
             reach.look = false;
             return;
         }
         bool live = !inst.theBallRigidBody.isKinematic &&
                     (inst.gameState == eGameState.InGame_BallHit || inst.gameState == eGameState.InGame_BallHitLoop);
+        reach.quickness = 1f;
         reach.look = live && (ball - transform.position).sqrMagnitude < 60f * 60f;
         reach.lookTarget = ball;
         reach.handGap = 0.1f;
@@ -264,45 +386,132 @@ public class AnimatedFielder : MonoBehaviour, IFielder
             bool catching = !inst.theBallScript.bounced && point.y > 0.5f;
             Vector3 incoming = inst.theBallRigidBody.linearVelocity;
             if (catching && incoming.sqrMagnitude > 0.01f)
+            {
                 point -= incoming.normalized * CatchOut;   // arms out to meet it
+                // Palms to the ball: fingers up above the chest, cupped below (HumanoidReach grip).
+                reach.palmFacing = -incoming.normalized;
+            }
             reach.handTarget = point;
+            bool ground = !catching && point.y - transform.position.y < LowReach;
             reach.weight = catching ? Mathf.InverseLerp(CatchStartTime, CatchFullTime, eta)
-                                    : Mathf.InverseLerp(ReachStartTime, ReachFullTime, eta);
+                         : ground ? Mathf.InverseLerp(GroundStartTime, GroundFullTime, eta) * GetDownAllowance(eta)
+                                  : Mathf.InverseLerp(ReachStartTime, ReachFullTime, eta);
+            // Close to it on the ground, he snaps down rather than easing (HumanoidReach.quickness).
+            reach.quickness = ground ? Mathf.Lerp(1f, SnapDown, Mathf.InverseLerp(0.9f, 0.4f, eta)) : 1f;
         }
         else if (live && inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall &&
-                 FlatDistance(ball, transform.position) < ReachRadius + HandsAhead)
+                 FlatDistance(ball, transform.position) < ReachRadius + HandsAhead && InFrontOfFeet(ball))
         {
             // A ball that has stopped (or all but) beside him: the prediction for it is a single
             // point already in the past by the time it is read, so PredictPass finds nothing and
             // he stood over it with his hands at his sides. Go down to the ball itself - a slow
             // one cannot drag the hands round the way a fast one did.
-            reach.handTarget = ball;
-            reach.weight = Mathf.InverseLerp(ReachRadius + HandsAhead, HandsAhead, FlatDistance(ball, transform.position));
+            // A little ahead of a rolling ball: the hands' spring trails its target, and at 2 m/s it
+            // left them ~0.17 m behind, just outside the scoop.
+            reach.handTarget = ball + Vector3.ClampMagnitude(inst.theBallRigidBody.linearVelocity * SlowLead, 0.25f);
+            // ...and only as he slows to it: run up upright, then bend - not down at the grass on the run.
+            reach.weight = Mathf.InverseLerp(ReachRadius + HandsAhead, HandsAhead, FlatDistance(ball, transform.position))
+                         * Mathf.InverseLerp(2.5f, 0.8f, speed);
         }
         else
         {
             reach.weight = 0f;
         }
+        // Set and let it come only while it IS coming. A ball that had stopped 0.77 m away left him
+        // frozen, reaching, 0.29 m short with his feet planted - the play never ended. A stopped,
+        // slow or departing ball he walks up to.
+        Vector3 toMe = transform.position - ball; toMe.y = 0f;
+        bool coming = toMe.sqrMagnitude > 1e-4f && Vector3.Dot(inst.theBallRigidBody.linearVelocity, toMe.normalized) > ComingAtMe;
+        // ...and only once he is on his mark in its line. Planting as soon as the hands started down
+        // stopped him short of the line: filmed, a ground ball 2.5 m to his side went past his
+        // outstretched hands and he chased it for 2 s.
+        reachingLow = coming && OnHisMark && reach.SmoothedWeight > 0.35f && reach.handTarget.y - transform.position.y < LowReach;
         KeepAnimating(live && (hasTarget || reach.weight > 0f));
     }
 
     /// A fielder behind the camera is culled, and a culled animator does not move the hands, so
-    /// the ball could never reach them: keep him animating while he is in the play.
+    /// the ball could never reach them: keep him animating while he is in the play. Never culled
+    /// at all when he is drawn through a copy (FielderLook - the bowler fielding): his own body is
+    /// hidden, so he is never "seen", and culled he froze and never bowled again.
     private void KeepAnimating(bool inPlay)
     {
-        AnimatorCullingMode mode = inPlay || holdingBall ? AnimatorCullingMode.AlwaysAnimate : AnimatorCullingMode.CullUpdateTransforms;
+        AnimatorCullingMode mode = inPlay || holdingBall || drawnByCopy ? AnimatorCullingMode.AlwaysAnimate : AnimatorCullingMode.CullUpdateTransforms;
         if (myAnimator.cullingMode != mode)
             myAnimator.cullingMode = mode;
     }
 
+    /// Within this of the ball's line he is in it: he plants and lets a ground ball come to him.
+    private const float LineTolerance = 0.35f;
+    /// In the ball's line, however far along it: a ball coming straight at him comes to him. His
+    /// mark itself moves toward him as he attacks the ball (the plan re-picks the meeting point), so
+    /// "on his mark" never held for a ball he ran in at - filmed, it went under his hands, half bent.
+    private bool OnHisMark => !hasTarget || OffTheLine() < LineTolerance;
+
+    /// Sideways distance from the ball's path along the ground.
+    private float OffTheLine()
+    {
+        Rigidbody rb = Main.Instance.theBallRigidBody;
+        Vector3 along = Flat(rb.linearVelocity);
+        if (along.sqrMagnitude < 0.25f)
+            return FlatDistance(transform.position, rb.position);
+        return Mathf.Abs(Vector3.Cross(along.normalized, Flat(transform.position - rb.position)).y);
+    }
+
+    /// How far down he may get for a ground ball: fully once he is in its line, nearly on his mark,
+    /// has slowed, or it is nearly on him; not sprinting across well short of it with time to
+    /// spare - bent to the grass at full stride is a crawl. Without the last, a ball 2.5 m to his
+    /// side held him upright until 0.37 s before it arrived (traced) and it went under his hands.
+    private float GetDownAllowance(float eta)
+    {
+        if (!hasTarget)
+            return 1f;
+        float inLine = Mathf.InverseLerp(1.2f, LineTolerance, OffTheLine());
+        float near = Mathf.InverseLerp(2f, 0.5f, FlatDistance(transform.position, target));
+        float slow = Mathf.InverseLerp(4f, 1.5f, speed);
+        float onHim = Mathf.InverseLerp(0.8f, 0.4f, eta);
+        return Mathf.Max(Mathf.Max(inLine, near), Mathf.Max(slow, onHim));
+    }
+
+    /// How much faster than his normal ease he gets down to a ground ball that is nearly on him.
+    private const float SnapDown = 1.8f;
+
     private static float FlatDistance(Vector3 a, Vector3 b) => new Vector2(a.x - b.x, a.z - b.z).magnitude;
+
+    /// A ball he can bend down for where he stands: in front of his feet, not under or beside
+    /// them. Anywhere else the plan walks him round to it first (ShortOf), upright.
+    private bool InFrontOfFeet(Vector3 ball)
+    {
+        Vector3 local = transform.InverseTransformPoint(ball);
+        return local.z > 0.25f && local.z < ReachRadius + HandsAhead && Mathf.Abs(local.x) < 0.5f;
+    }
+    private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
+    /// Within this of his spot he faces the ball rather than his run.
+    private const float SettleDistance = 2f;
 
     private void FaceTowards(Vector3 point, float rateScale)
     {
-        Vector3 to = point - transform.position;
-        to.y = 0f;
-        if (to.sqrMagnitude > 0.01f)
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(to), TurnRate * rateScale * Time.deltaTime);
+        TurnToward(Flat(point - transform.position), rateScale);
+    }
+
+    /// Seconds for the body's heading to settle onto a new direction.
+    private const float HeadingSmoothing = 0.15f;
+    private float headingVelocity;
+
+    /// Every frame the body turns toward one overall heading, eased rather than snapped. The plan
+    /// re-aims the run several times a second and each re-aim used to swing him straight onto the
+    /// new line at TurnRate, a visible jerk on top of the run cycle's own sway. The run clip's
+    /// body yaw is centred on this heading by its orientation offset (Standard Run.anim, +4.9
+    /// degrees, measured: the body ran 4.9 degrees right of the root before), so the animation
+    /// no longer steers him.
+    private void TurnToward(Vector3 direction, float rateScale)
+    {
+        if (direction.sqrMagnitude <= 0.01f)
+            return;
+        float current = transform.eulerAngles.y;
+        float wanted = Quaternion.LookRotation(direction).eulerAngles.y;
+        float yaw = Mathf.SmoothDampAngle(current, wanted, ref headingVelocity, HeadingSmoothing / Mathf.Max(0.1f, rateScale),
+                                          TurnRate * rateScale, Time.deltaTime);
+        transform.rotation = Quaternion.Euler(0f, yaw, 0f);
     }
 
     private void SetAnimation(int action)
@@ -322,8 +531,17 @@ public class AnimatedFielder : MonoBehaviour, IFielder
         Vector3 now = ball.position;
         if (holdingBall)
         {
-            if (reach != null && reach.Ready)
-                ball.position = reach.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
+            if (throwing)
+                ball.position = ThrowHandPoint;   // in the throwing hand through the wind-up
+            else if (reach != null && reach.Ready)
+            {
+                // In one glove while physics has him (FielderRagdoll.HeldBallPoint).
+                Vector3 held = ragdollDown && ragdoll != null ? ragdoll.HeldBallPoint(now)
+                             : reach.HoldPoint + ReachMath.Residual(holdOffset, Time.time - heldSince, HoldSettle);
+                // Never put the ball somewhere impossible (a body gone wrong under physics).
+                if (!float.IsNaN(held.x) && !float.IsNaN(held.y) && !float.IsNaN(held.z) && held.sqrMagnitude < 1e6f)
+                    ball.position = held;
+            }
             else
                 ball.position = holdBallOffset != null ? holdBallOffset.position : transform.position + Vector3.up;
         }
@@ -335,8 +553,15 @@ public class AnimatedFielder : MonoBehaviour, IFielder
             bool slow = inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall;
             bool inHands = slow ? reach.ClosestPalm(lastBall, now) <= SlowGatherDistance
                                 : ReachMath.SegmentDistance(lastBall, now, reach.HoldPoint) <= CatchPocket;
-            if (inHands)
-                animatedFielderManagementScript.Gather(this);   // -> Take -> TakeBall
+            // Not while he is down on the grass under physics: his reach is off then (review) -
+            // unless his arms are still going for it (FielderRagdoll.ReachFor, in the air).
+            if (inHands && Time.time >= diveSpilledUntil && (!ragdollDown || (ragdoll != null && ragdoll.Reaching)))
+            {
+                if (diving && !DiveTakeSticks())
+                    DiveSpill();   // a diving take only sometimes holds
+                else
+                    animatedFielderManagementScript.Gather(this);   // -> Take -> TakeBall
+            }
         }
         lastBall = holdingBall ? ball.position : now;
     }

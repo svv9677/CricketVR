@@ -132,6 +132,20 @@ public static class GameSettings
         }
     }
 
+    // ---- This session only ----------------------------------------------------------------------
+
+    public const float MinCameraHeight = -0.5f, MaxCameraHeight = 0.5f;
+
+    /// Metres added to the player's eye height, for a player shorter or taller than their
+    /// headset thinks, or sitting down. Not saved: it lasts until the game is closed, and every
+    /// session starts from the headset's own height. XRRigSetup applies it every frame.
+    public static float CameraHeight
+    {
+        get => cameraHeight;
+        set => cameraHeight = Mathf.Clamp(value, MinCameraHeight, MaxCameraHeight);
+    }
+    private static float cameraHeight;
+
     // ---- Persistence --------------------------------------------------------------------------
 
     private static void Load()

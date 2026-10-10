@@ -39,8 +39,10 @@ public static class Constants
     public const float BatColliderMultiplierHard = 1f;
 
     public static readonly Vector3 KeeperPositionSlow = new Vector3(11.6f, 0f, 0f);
-    public static readonly Vector3 KeeperPositionMedium = new Vector3(16f, 0f, 0f);
-    public static readonly Vector3 KeeperPositionFast = new Vector3(20f, 0f, 0f);
+    // Standing back further for the quicks (were 16 and 20): 10 m behind the stumps a 140 km/h
+    // bouncer reached him too fast to take.
+    public static readonly Vector3 KeeperPositionMedium = new Vector3(19f, 0f, 0f);
+    public static readonly Vector3 KeeperPositionFast = new Vector3(24f, 0f, 0f);
 
     public static readonly string[] CT_SwingPrefixes = { "none", "pace", "inSwing", "outSwing", "legSpin", "offSpin", "random" };
 
@@ -77,11 +79,14 @@ public static class Constants
     //   minSwn, maxSwn swing (spinners: drift) 0..1 of BallFlight.SwingCoefficientMax
     //   minTrn, maxTrn turn off the pitch, 0..1 of BallFlight.MaxTurnDegrees (6 deg);
     //                  seamers use a small +- range for seam movement.
-    public static readonly float[] paceCfg = { 7.8f, 8.6f, 0f, 9f, -0.08f, 0.35f, 0f, 0f, -0.04f, 0.04f };
-    public static readonly float[] inSwingCfg = { 6.9f, 7.8f, -2f, 9f, -0.05f, 0.30f, 0.3f, 0.9f, -0.03f, 0.03f };
-    public static readonly float[] outSwingCfg = { 6.9f, 7.8f, -2f, 9f, 0.05f, 0.40f, 0.3f, 0.9f, -0.03f, 0.03f };
-    public static readonly float[] legSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.10f, 0.30f, 0.1f, 0.3f, 0.3f, 0.6f };
-    public static readonly float[] offSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.10f, 0.25f, 0.1f, 0.3f, 0.25f, 0.5f };
+    // Swing 0.15-1.0 (was 0.3-0.9) and spin 0.15-0.85 / 0.1-0.8 (was 0.3-0.6 / 0.25-0.5), with
+    // more drift, so no two balls do quite the same; BowlingProfile.Vary adds the odd one that
+    // does not swing, the googly and the arm ball.
+    public static readonly float[] paceCfg = { 7.8f, 8.6f, 0f, 9f, -0.08f, 0.35f, 0f, 0f, -0.06f, 0.06f };
+    public static readonly float[] inSwingCfg = { 6.9f, 7.8f, -2f, 9f, -0.05f, 0.30f, 0.15f, 1.0f, -0.03f, 0.03f };
+    public static readonly float[] outSwingCfg = { 6.9f, 7.8f, -2f, 9f, 0.05f, 0.40f, 0.15f, 1.0f, -0.03f, 0.03f };
+    public static readonly float[] legSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.10f, 0.30f, 0.05f, 0.45f, 0.15f, 0.85f };
+    public static readonly float[] offSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.10f, 0.25f, 0.05f, 0.45f, 0.1f, 0.8f };
 
     /// The configs' speed "impulses" were tuned against a 0.2 kg ball. The ball is now a real
     /// 0.16 kg, so speeds are converted with this, not with the Rigidbody mass.

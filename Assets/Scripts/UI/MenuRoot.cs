@@ -81,6 +81,26 @@ public class MenuRoot : MonoBehaviour
         Apply();
     }
 
+    /// Open straight onto one screen - Settings from the between-balls menu - with nothing under
+    /// it, so its Back/Done closes the menu instead of landing on the pause card.
+    public void OpenAt(string screen)
+    {
+        // Open() without showing the root screen first: the pause card pauses the match on show.
+        if (!registered && OpenXRMenuInputModule.Instance != null && panel != null)
+        {
+            OpenXRMenuInputModule.RegisterPanel(panel);
+            registered = true;
+        }
+        HideCurrent();
+        Place();
+        stack.Reset(screen);
+        if (panel != null)
+            panel.SetActive(true);
+        if (backdrop != null && showBackdrop)
+            backdrop.Show();
+        Apply();
+    }
+
     public void Close()
     {
         HideCurrent();
@@ -182,6 +202,14 @@ public class MenuRoot : MonoBehaviour
     /// card, and moving only the card left the backdrop behind at the origin.
     private void Place()
     {
+        // Its fixed spot in front of the player, when the scene has a MenuLayout.
+        if (MenuLayout.TryGet(MenuLayout.Menu, out Vector3 spot, out Quaternion facing))
+        {
+            transform.SetPositionAndRotation(spot, facing);
+            if (TryGetComponent(out GrabbablePanel moved))
+                moved.Restore();
+            return;
+        }
         Camera head = Camera.main;
         if (head == null)
             return;

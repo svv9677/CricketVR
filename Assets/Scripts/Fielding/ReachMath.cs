@@ -118,14 +118,25 @@ public static class ReachMath
         (Shoulder(b, p) - new Vector2(forward, height)).sqrMagnitude <= b.armReach * b.armReach;
 
     /// Least-effort crouch + hinge + flex that brings a target (forward, height above the feet)
-    /// within arm's reach. Saturates at every limit when the target cannot be reached.
+    /// within arm's reach. Out of reach: the bend that gets the shoulders closest to it.
+    ///
+    /// Bending only ever lowers the shoulders. It used to return the fullest bend for any target it
+    /// could not reach - so a catch still out in front at head height folded the fielder double,
+    /// knees bent and head down, reaching up past his own head for it (seen in play). A target at or
+    /// above the standing shoulders gets no bend at all: the arms reach for it.
     public static Pose SolveSagittal(Body b, Limits l, float forward, float height)
     {
         if (InReach(b, default, forward, height))
             return default;
+        if (height >= Shoulder(b, default).y)
+            return default;
         float hi = l.MaxEffort;
         if (!InReach(b, PoseForEffort(hi, l), forward, height))
-            return PoseForEffort(hi, l);
+        {
+            // Too far to reach at all: bending is for getting low, not for leaning out after a ball
+            // his legs have yet to close on. Above the waist he stays up; below it, the nearest bend.
+            return height > b.hipHeight * 0.9f ? default : ClosestPose(b, l, forward, height);
+        }
         float lo = 0f;
         for (int i = 0; i < 18; i++)   // 2^-18 of the range: far below a millimetre
         {
@@ -133,6 +144,21 @@ public static class ReachMath
             if (InReach(b, PoseForEffort(mid, l), forward, height)) hi = mid; else lo = mid;
         }
         return PoseForEffort(hi, l);
+    }
+
+    /// For a target no bend reaches: the effort whose shoulders come nearest it (often none).
+    private static Pose ClosestPose(Body b, Limits l, float forward, float height)
+    {
+        const int steps = 24;
+        var target = new Vector2(forward, height);
+        float bestEffort = 0f, best = float.MaxValue;
+        for (int i = 0; i <= steps; i++)
+        {
+            float effort = l.MaxEffort * i / steps;
+            float d = (Shoulder(b, PoseForEffort(effort, l)) - target).sqrMagnitude;
+            if (d < best - 1e-6f) { best = d; bestEffort = effort; }
+        }
+        return PoseForEffort(bestEffort, l);
     }
 
     /// Full reach pose for a target in character space (x right, y up from the feet, z forward).
@@ -202,4 +228,22 @@ public static class ReachMath
 
     /// Height of a foot during a step, 0..1 of the step: a sine arc, zero at lift and plant.
     public static float StepArc(float t, float height) => Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI) * height;
+
+    /// How far over (degrees from upright) a diver is when he lands: on his side on the grass.
+    public const float DiveLanded = 88f;
+
+    /// A dive's roll at `s` (0..1 of the dive): over to `atCatch` by `catchPoint` - as far as the
+    /// take needs - then on down to the ground. Whatever the ball's height he ends on the grass:
+    /// capped at what the take needed, a high one left him stood at 45 degrees, stiff (filmed).
+    public static float DiveRoll(float s, float catchPoint, float atCatch)
+    {
+        s = Mathf.Clamp01(s);
+        if (s <= catchPoint)
+        {
+            float a = s / catchPoint;
+            return atCatch * a * a * (3f - 2f * a);
+        }
+        float b = (s - catchPoint) / (1f - catchPoint);
+        return Mathf.Lerp(atCatch, DiveLanded, b * b);
+    }
 }

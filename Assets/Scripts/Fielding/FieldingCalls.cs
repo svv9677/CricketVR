@@ -24,6 +24,6 @@ public static class FieldingCalls
         if (takes.Length == 0)
             return;
         // Rare - one call a shot - so a one-off source is fine. At head height, where a voice is.
-        AudioSource.PlayClipAtPoint(takes[Random.Range(0, takes.Length)], c.transform.position + Vector3.up * 1.6f, 1f);
+        GameAudio.PlayAt(takes[Random.Range(0, takes.Length)], c.transform.position + Vector3.up * 1.6f, GameAudio.Channel.Fielders);
     }
 }

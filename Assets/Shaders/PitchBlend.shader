@@ -11,6 +11,9 @@ Shader "CricketVR/PitchBlend"
         // Width (in 0..1 quad UV) of the alpha fade band on each edge.
         _FadeWidthX("Fade Width X (UV)", Range(0,0.5)) = 0.06
         _FadeWidthY("Fade Width Y (UV)", Range(0,0.5)) = 0.15
+        // Width (in 0..1 quad UV) of a fully clear band along each long edge, inside which the
+        // fade starts: the quad can be wider than the pitch, which then blends into the grass.
+        _InsetY("Clear Band Y (UV)", Range(0,0.5)) = 0.0
     }
 
     SubShader
@@ -69,6 +72,7 @@ Shader "CricketVR/PitchBlend"
                 float _Metallic;
                 float _FadeWidthX;
                 float _FadeWidthY;
+                float _InsetY;
             CBUFFER_END
 
             TEXTURE2D(_BaseMap);        SAMPLER(sampler_BaseMap);
@@ -128,7 +132,7 @@ Shader "CricketVR/PitchBlend"
                 float ex = min(uv.x, 1.0 - uv.x);
                 float ey = min(uv.y, 1.0 - uv.y);
                 float ax = (_FadeWidthX <= 1e-5) ? 1.0 : saturate(ex / _FadeWidthX);
-                float ay = (_FadeWidthY <= 1e-5) ? 1.0 : saturate(ey / _FadeWidthY);
+                float ay = (_FadeWidthY <= 1e-5) ? step(_InsetY, ey) : saturate((ey - _InsetY) / _FadeWidthY);
                 float a = min(ax, ay);
                 return smoothstep(0.0, 1.0, a);
             }

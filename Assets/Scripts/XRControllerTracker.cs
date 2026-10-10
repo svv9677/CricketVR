@@ -12,7 +12,14 @@ public class XRControllerTracker : MonoBehaviour
              "(Tools > CricketVR > Build UI Prefabs), not spawned at runtime.")]
     [SerializeField] private XRHandVisual visual;
 
-    void Update()
+    // Read in Update for the game, and again just before rendering (as the camera's
+    // TrackedPoseDriver does for the head) so the hands are drawn from as fresh a pose as the view.
+    private void OnEnable() => Application.onBeforeRender += Refresh;
+    private void OnDisable() => Application.onBeforeRender -= Refresh;
+
+    void Update() => Refresh();
+
+    public void Refresh()
     {
         var chars = (isLeftHand ? InputDeviceCharacteristics.Left : InputDeviceCharacteristics.Right)
                     | InputDeviceCharacteristics.Controller;

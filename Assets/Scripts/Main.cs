@@ -50,8 +50,6 @@ public class Main : MonoBehaviour
     [SerializeField]
     public GameObject theBoundaryCollider;
     [SerializeField]
-    protected GameObject BowlingMachineFace;
-    [SerializeField]
     protected Material NightMaterial;
     [SerializeField]
     protected Material DayMaterial;
@@ -101,7 +99,11 @@ public class Main : MonoBehaviour
 
     [Range(0f, 5f)]
     public float resetDelay = -100f;
-    private float _resetDelay = 2f;
+    private float _resetDelay = NextBallDelay;
+    /// Between balls. The ball is dead (fielded, bowled, missed, over the rope) -> DeadBallPause ->
+    /// reset -> resetDelay -> ready for the next ball. It was 2 s + 2 s (4 s after a boundary):
+    /// four to six seconds of nothing before Bowl could even be pressed.
+    public const float DeadBallPause = 1f, NextBallDelay = 0.75f, BoundaryDelay = 1.5f;
 
     [Range(0.5f, 2.5f)]
     public float fielderSpeed = -100f;
@@ -166,7 +168,6 @@ public class Main : MonoBehaviour
     private BatGripCalibration gripCalibration;
     private eGameState debugShownState = (eGameState)(-1);
     private BowlingParams debugShownConfig;
-    private Material SignalMaterial;
 
     // Console log parameters
     private const int HISTORY_MAX_LINES = 100;
@@ -192,10 +193,6 @@ public class Main : MonoBehaviour
         if(theStumps != null)
         {
             theStumpsScript = theStumps.GetComponent<Stumps>();
-        }
-        if(BowlingMachineFace != null)
-        {
-            SignalMaterial = BowlingMachineFace.GetComponent<Renderer>().material;
         }
         if(hudParent != null)
         {
@@ -248,7 +245,9 @@ public class Main : MonoBehaviour
         overlayVisible = GameSettings.OverlayVisible;
         _overlayVisible = !overlayVisible;   // so the first update shows or hides the overlay
         BatAmplifier = GameSettings.BatPower;
-        resetDelay = PlayerPrefs.GetFloat(Constants.PP_ResetDelay, _resetDelay);
+        // Not from PlayerPrefs any more: the slider that saved it is gone, and an old saved 2 s
+        // would have kept the slow gap between balls alive.
+        resetDelay = NextBallDelay;
         _resetDelay = -1000;
         fielderSpeed = GameSettings.FielderSpeed;
         _fielderSpeed = -1000;
@@ -273,6 +272,7 @@ public class Main : MonoBehaviour
         SetupXRControllers();
 
         GameSettings.Changed += ApplyGameSettings;
+        GameAudio.ApplyAll();
 
         initialized = true;
         gameState = eGameState.None;
@@ -366,6 +366,13 @@ public class Main : MonoBehaviour
             PlayerPrefs.Save();
         RefreshSettingsPanel();
     }
+    /// How much wider than the real blade a hit is found at this difficulty (BatContact).
+    public float BatWidthMultiplier => difficulty switch
+    {
+        eDifficulty.Easy => Constants.BatColliderMultiplierEasy,
+        eDifficulty.Medium => Constants.BatColliderMultiplierMedium,
+        _ => Constants.BatColliderMultiplierHard,
+    };
     public void onRadioEasy(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Easy); }
     public void onRadioMedium(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Medium); }
     public void onRadioHard(Toggle t) { if (t.isOn) SetDifficulty(eDifficulty.Hard); }
@@ -567,9 +574,11 @@ public class Main : MonoBehaviour
     /// Bowl the next ball (the A button, or "Next Ball" on the between-balls panel).
     public void StartNextBall()
     {
-        if (gameState != eGameState.InGame_Ready)
+        // Not through the next-over card: the bowler is announced first (OverBreak).
+        if (gameState != eGameState.InGame_Ready || OverBreak.Blocking)
             return;
         currentFielderName = "";
+        Extras.Clear();
 
         // Reset stumps - both ends
         foreach (Stumps stumps in FindObjectsByType<Stumps>(FindObjectsSortMode.None))
@@ -583,11 +592,19 @@ public class Main : MonoBehaviour
 
     public void OpenSettings()
     {
+        // The settings panel is a screen of the menu (MenuRoot) now, and MenuRoot keeps its
+        // screens switched off until it shows them: showing the panel directly left it inside an
+        // inactive parent, so nothing appeared.
+        if (MenuRoot.Instance != null)
+        {
+            MenuRoot.Instance.OpenAt("settings");
+            return;
+        }
         if (!menuToggle)
             ToggleUI(true);
     }
 
-    public bool SettingsOpen => menuToggle;
+    public bool SettingsOpen => menuToggle || (MenuRoot.Instance != null && MenuRoot.Instance.IsOpen);
     public bool CalibratingGrip => gripCalibration != null && gripCalibration.IsActive;
 
     public void onCalibrateGrip() { StartGripCalibration(false); }
@@ -698,8 +715,6 @@ public class Main : MonoBehaviour
             debugShownConfig = currentBowlingConfig;
             if (debugText != null)
                 debugText.text = "GameState: " + gameState + (currentBowlingConfig != null ? "\n" + currentBowlingConfig : "");
-            if (SignalMaterial != null)
-                SignalMaterial.color = gameState == eGameState.InGame_Ready ? Color.green : Color.red;
         }
 
         // Grip calibration owns A and B while it runs, so the A that locks the grip cannot also
@@ -743,10 +758,9 @@ public class Main : MonoBehaviour
                     {
                         // Get current bowler from Score keeper
                         currentBowlingConfig = bowlingProfileManager.GetProfile(theHUD.CurrentBowler.Type).GetRandomDelivery();
-                        CameraReplay.Instance.startCapturing = null;
-                        CameraReplay.Instance.startDisplaying = null;
-                        CameraReplay.Instance.StopDisplaying();
-                        CameraReplay.Instance.setViewSetting(0);
+                        // Each ball starts from the normal gap; a boundary or a keeper's miss sets its own.
+                        resetDelay = NextBallDelay;
+                        CameraReplay.Instance.ResetForNextBall();
                         ShotDistance.Instance.setText("");
                         BallSpeed.Instance.setText("");
                         // TODO: Move bowling machine
@@ -792,7 +806,8 @@ public class Main : MonoBehaviour
                         BallFlight.DeliveryEffects effects = currentBowlingConfig.Effects(offSign);
                         theBallScript.deliveryEffects = effects;
                         BallDelivery.Solution delivery = BallDelivery.Solve(
-                            releaseFrom, currentBowlingConfig.length, speedMps, targetLine, effects);
+                            releaseFrom, currentBowlingConfig.length, speedMps, targetLine, effects,
+                            currentBowlingConfig.overHead ? BallDelivery.OverHeadBouncerHeight : BallDelivery.MaxHeightAtStumps);
                         if (!string.IsNullOrEmpty(delivery.warnings))
                             Debug.LogWarning($"[Delivery] {delivery}");
                         else if (verboseStateLogging)
@@ -847,7 +862,6 @@ public class Main : MonoBehaviour
                         theBallScript.wide = false;
                         theBatScript.hasHitBall = false;
 
-                        CameraReplay.Instance.StartRecording(0f);
                         StartCoroutine(BallSpeed.Instance.updateBallSpeed());
                         gameState = eGameState.InGame_DeliverBallLoop;
                     }
@@ -865,7 +879,6 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.StopRecording(2f);
                         gameState = eGameState.InGame_BallHitLoop;
                     }
                     break;
@@ -882,9 +895,13 @@ public class Main : MonoBehaviour
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
                         gameState = eGameState.InGame_BallFielded_Loop;
+                        // The replay waits for the dead ball: filmed while the ball is in play, it
+                        // cost frames while the player was still watching the shot. It shows the
+                        // fielder gathering it, two seconds on.
+                        CameraReplay.Instance.ShowReplayIn(2f);
 
-                        // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                        // Reset once the ball is back with the bowler (ThrowBack).
+                        StartCoroutine(WaitForReturnThenReset());
                     }
                     break;
                 case eGameState.InGame_BallFielded_Loop:
@@ -896,11 +913,11 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.StopRecording(1f);
+                        CameraReplay.Instance.ShowReplayIn(2f);
                         gameState = eGameState.InGame_BowledLoop;
 
                         // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                        StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
                     }
                     break;
                 case eGameState.InGame_BowledLoop:
@@ -912,11 +929,13 @@ public class Main : MonoBehaviour
                     {
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
-                        CameraReplay.Instance.StopRecording(0f);
+                        // A miss or a wide is called before the keeper has it: the replay runs on to
+                        // his take (the ball still in his gloves), and two seconds after.
+                        CameraReplay.Instance.ShowReplayWhen(() => theBallRigidBody.isKinematic, 2f, 6f);
                         gameState = eGameState.InGame_BallMissedLoop;
 
-                        // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                        // Reset once the keeper has passed it back to the bowler (ThrowBack).
+                        StartCoroutine(WaitForReturnThenReset());
                     }
                     break;
                 case eGameState.InGame_BallMissedLoop:
@@ -929,9 +948,17 @@ public class Main : MonoBehaviour
                         // TODO: Add any special processing needed here
                         // For now, switch to next state
                         gameState = eGameState.InGame_BallPastBoundaryLoop;
+                        // A four: two seconds past the rope. A six: on until it comes down in the
+                        // crowd (or is out of the camera's sight), then a second more.
+                        if (theBallScript.bounced)
+                            CameraReplay.Instance.ShowReplayIn(2f);
+                        else
+                            CameraReplay.Instance.ShowReplayWhen(() => theBall.transform.position.y < 1.5f ||
+                                theBallRigidBody.linearVelocity.sqrMagnitude < 9f ||          // came down in the stands
+                                new Vector2(theBall.transform.position.x, theBall.transform.position.z).magnitude > 110f, 1f, 4f);
 
                         // Wait for '2' seconds and reset to Ready
-                        StartCoroutine(WaitAndSetGameState(2f, eGameState.InGame_ResetToReady));
+                        StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
                     }
                     break;
                 case eGameState.InGame_BallPastBoundaryLoop:
@@ -1040,6 +1067,33 @@ public class Main : MonoBehaviour
         // reset ball position to inside machine
         theBall.transform.position = new Vector3(-8.95f, 2.95f, 0f);
         theBallRigidBody.position = theBall.transform.position;
+    }
+
+    /// Longest the next ball waits for a missed ball to be in the keeper's gloves.
+    public const float MaxReturnWait = 10f;
+    /// A beat after the ball is in someone's hands before the next ball is set up.
+    public const float InHandsPause = 0.3f;
+
+    /// The dead-ball pause, then the next ball is offered as soon as someone has the ball in his
+    /// hands - the fielder who picked it up, or the keeper - while the throw in and the relay home
+    /// (ThrowBack) carry on behind. It used to wait for the keeper to receive the throw. The
+    /// fielders are not reset under the throw: walking back leaves anyone throwing, holding or
+    /// expecting the ball alone.
+    private IEnumerator WaitForReturnThenReset()
+    {
+        bool extrasBefore = Extras.InPlay;
+        yield return new WaitForSeconds(InHandsPause);
+        float giveUp = Time.time + MaxReturnWait;
+        // A missed ball still loose (not yet in the keeper's gloves): wait for him to have it, or
+        // for it to get past him and be played on for byes.
+        while (!theBallRigidBody.isKinematic && Time.time < giveUp && Extras.InPlay == extrasBefore)
+            yield return null;
+        // It got past the keeper meanwhile (a wide he missed) and is being played on for byes
+        // (Extras): that play ends the ball, not this wait. Resetting here cut a wide's byes off
+        // a second in, never scored (review).
+        if (Extras.InPlay && !extrasBefore)
+            yield break;
+        gameState = eGameState.InGame_ResetToReady;
     }
 
     public IEnumerator WaitAndSetGameState(float delay, eGameState state)

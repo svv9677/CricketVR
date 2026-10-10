@@ -31,6 +31,9 @@ public class Ball : MonoBehaviour
     [HideInInspector] public Vector3 lastPitchPoint = new Vector3(float.NaN, 0f, 0f);
     [HideInInspector] public float lastLineAtStumps = float.NaN;
     private Vector3 prevPosition;
+    /// Seconds of path the trail shows: bowled (0.12 s, ~4 m at 35 m/s) and after the hit. Was
+    /// 0.25 s throughout.
+    private const float DeliveryTrail = 0.12f, HitTrail = 0.3f;
 
     // Start is called before the first frame update
     void Start()
@@ -51,7 +54,9 @@ public class Ball : MonoBehaviour
            myParticles = GetComponent<TrailRenderer>();
 
         //If, ball comes to a stop by itself, BEFORE a shot, assume that it was a dead ball
-        if (bounced && myRigidBody.linearVelocity.magnitude < 0.1f && inst.gameState == eGameState.InGame_DeliverBallLoop)
+        // (It has pitched: `fresh` is cleared at the bounce. This tested `bounced`, which is only
+        // ever set after a hit, so a delivery that died short of the keeper hung the game.)
+        if (!fresh && !myRigidBody.isKinematic && myRigidBody.linearVelocity.magnitude < 0.1f && inst.gameState == eGameState.InGame_DeliverBallLoop)
         {
             inst.resetDelay = 0.5f;
             inst.gameState = eGameState.InGame_ResetToReady;
@@ -86,6 +91,13 @@ public class Ball : MonoBehaviour
         {
             myParticles.enabled = true;
         }
+        // Shorter while it is being bowled (a long streak coming at the batter gives the line away
+        // and clutters the view), normal-to-long once it is hit.
+        if (myParticles.enabled)
+        {
+            bool delivery = inst.gameState == eGameState.InGame_DeliverBall || inst.gameState == eGameState.InGame_DeliverBallLoop;
+            myParticles.time = delivery ? DeliveryTrail : HitTrail;
+        }
 
         Vector3 here = myRigidBody.position;
         if (inst.gameState == eGameState.InGame_DeliverBallLoop && float.IsNaN(lastLineAtStumps) &&
@@ -93,6 +105,13 @@ public class Ball : MonoBehaviour
         {
             float f = (BallDelivery.BatsmanStumpsX - prevPosition.x) / Mathf.Max(1e-5f, here.x - prevPosition.x);
             lastLineAtStumps = Mathf.Lerp(prevPosition.z, here.z, f);
+            // Over the batter's head at the stumps: a wide, called there like the side wides.
+            float heightAtStumps = Mathf.Lerp(prevPosition.y, here.y, f);
+            if (heightAtStumps - BallFlight.Radius > HeadTop())
+            {
+                wide = true;
+                inst.gameState = eGameState.InGame_BallMissed;
+            }
         }
         prevPosition = here;
 
@@ -126,6 +145,17 @@ public class Ball : MonoBehaviour
             myRigidBody.linearVelocity = Vector3.zero;
             myRigidBody.isKinematic = true;
         }
+    }
+
+    /// The top of the batter's head: the player's own eyes (the headset) plus the head above them.
+    /// A ball passing the stumps with all of it above this is wide.
+    private const float EyesToHeadTop = 0.12f, StandingEyes = 1.65f;
+
+    private static float HeadTop()
+    {
+        Camera eye = Camera.main;
+        float eyes = eye != null ? eye.transform.position.y : BallFlight.GroundY(new Vector3(BallDelivery.BatsmanStumpsX, 0f, 0f)) + StandingEyes;
+        return eyes + EyesToHeadTop;
     }
 
     public void PlayTrail()

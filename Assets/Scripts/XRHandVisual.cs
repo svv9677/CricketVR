@@ -62,10 +62,24 @@ public class XRHandVisual : MonoBehaviour
         SetTracked(false);
     }
 
+    private bool tracked, holdingBat;
+
+    /// Hide both hand models - in passthrough (grip calibration) the player sees their real hands.
+    public static bool HideAll;
+
     /// Hide the hand when its controller is not reporting a pose, so it does not hang in mid-air.
-    public void SetTracked(bool tracked)
+    public void SetTracked(bool isTracked)
     {
-        for (int i = 0; i < renderers.Length; i++) renderers[i].enabled = tracked;
+        tracked = isTracked;
+        ApplyVisibility();
+    }
+
+    /// The hand holding the bat is not drawn - only the bat is. The object, its animator and any
+    /// colliders stay live; only the renderers go off.
+    private void ApplyVisibility()
+    {
+        bool show = tracked && !holdingBat && !HideAll;
+        for (int i = 0; i < renderers.Length; i++) renderers[i].enabled = show;
     }
 
     private void Update()
@@ -77,8 +91,13 @@ public class XRHandVisual : MonoBehaviour
         device.TryGetFeatureValue(CommonUsages.trigger, out float trigger);
 
         Bat bat = Main.Instance != null ? Main.Instance.theBatScript : null;
-        bool holdingBat = bat != null && bat.gameObject.activeInHierarchy
+        bool nowHolding = bat != null && bat.gameObject.activeInHierarchy
             && bat.attachParent == (isLeftHand ? bat.leftHandParent : bat.rightHandParent);
+        if (nowHolding != holdingBat)
+        {
+            holdingBat = nowHolding;
+            ApplyVisibility();
+        }
 
         // The gestures come off the capacitive near-touch sensors: lifting the index finger clear
         // of the trigger points, lifting the thumb off the buttons gives a thumbs up. Never

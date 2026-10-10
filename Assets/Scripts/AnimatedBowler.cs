@@ -18,6 +18,7 @@ public class AnimatedBowler : MonoBehaviour
     private AnimatorStateInfo stateInfo;
 
     private Coroutine startBowling;
+    private Coroutine walkingBack;
     private bool hasRun_StartBowling;
 
     public AFInfoData myBowlers;
@@ -67,11 +68,16 @@ public class AnimatedBowler : MonoBehaviour
     private void Awake()
     {
         configs = new AFInfoData();
-        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.6f), new Vector3(0f, 90f, 0f), 2, 4.5f, 1, 3));
-        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.5f), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
-        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x), 0f, 2.5f), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
-        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x), 0f, 2.2f), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
-        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x), 0f, 2.2f), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
+        // Marks moved so the front foot lands on the popping crease (x -9.14: toes just over it,
+        // heel behind) close in to the stumps. Measured from the old marks, front toe at release:
+        // pace and spin x -9.39, swing -9.20..-9.33 (one run to the next), all at z 0.75-0.8, 0.65 m
+        // wide of the stumps. Hence forward 0.29 / 0.17 m and 0.28 m across.
+        const float PaceIn = 0.29f, SwingIn = 0.17f, SpinIn = 0.29f, Across = 0.28f;
+        configs.data.Add(new AFInfo(new Vector3(-9f - (6f * transform.localScale.x) + PaceIn, 0f, 2.6f - Across), new Vector3(0f, 90f, 0f), 2, 4.5f, 1, 3));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x) + SwingIn, 0f, 2.3f - Across), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (7f * transform.localScale.x) + SwingIn, 0f, 2.3f - Across), new Vector3(0f, 90f, 0f), 4, 4.5f, 0, 2));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x) + SpinIn, 0f, 2f - Across), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
+        configs.data.Add(new AFInfo(new Vector3(-9f - (5f * transform.localScale.x) + SpinIn, 0f, 2f - Across), new Vector3(0f, 90f, 0f), 3, 3f, 0, 0));
         myBowlers = new AFInfoData();
     }
 
@@ -88,6 +94,9 @@ public class AnimatedBowler : MonoBehaviour
         animator = GetComponent<Animator>();
 
         hasRun_StartBowling = false;
+        // After he has bowled he fields like anyone else (BowlerFielding).
+        if (GetComponent<BowlerFielding>() == null)
+            gameObject.AddComponent<BowlerFielding>();
     }
 
     private void Update()
@@ -96,8 +105,39 @@ public class AnimatedBowler : MonoBehaviour
     }
 
     // Update is called once per frame
+    /// Fielding after his delivery (BowlerFielding): his bowling code stands aside - no walk back
+    /// to his mark, no turning toward it - until the next ball hands him back.
+    public bool Fielding { get; private set; }
+
+    public void BeginFielding()
+    {
+        Fielding = true;
+        if (walkingBack != null)
+            StopCoroutine(walkingBack);
+        walkingBack = null;
+        glide = false;
+    }
+
+    public void EndFielding(RuntimeAnimatorController bowlingController)
+    {
+        Fielding = false;
+        // LateUpdate clears this between balls, but it stood aside the whole time he was fielding:
+        // left set from the last run-up, the next one never started and the game waited for a
+        // delivery that never came (played end to end: stuck on the second ball).
+        hasRun_StartBowling = false;
+        if (startBowling != null)
+            StopCoroutine(startBowling);
+        startBowling = null;
+        animator.runtimeAnimatorController = bowlingController;
+        animator.applyRootMotion = true;
+        animator.speed = 1f;
+        animator.SetInteger("Action", 0);
+    }
+
     void LateUpdate()
     {
+        if (Fielding)
+            return;
         Main inst = Main.Instance;
 
         // First, before anything below can fail: keep the ball on the hand. The old pin sat at the
@@ -110,15 +150,16 @@ public class AnimatedBowler : MonoBehaviour
             hasRun_StartBowling = false;
         }
 
-        if (inst.gameState == eGameState.InGame_SelectDelivery)
-        {
-            animator.Play("Idle");
-            animator.SetInteger("Action", 0);
-            glide = false;
-        }
-
         if (inst.gameState == eGameState.InGame_SelectDeliveryLoop)
         {
+            // The next ball: straight to his mark, whatever the last one left him doing. The run-up
+            // used to wait for Action 0, which only came when the walk back from the last ball got
+            // him home - ~11 s after the first ball of a session (traced: walking from x -7.6 to
+            // -24.5 before the jog began; run-ups 12.2 s against 4.6 s from the mark). It had a reset
+            // in the SelectDelivery state, but Main moves on from that state within its own Update,
+            // so this LateUpdate never saw it.
+            if (!hasRun_StartBowling && animator.GetInteger("Action") != 0)
+                ReturnToMark();
             if (!hasRun_StartBowling && animator.GetInteger("Action") == 0)
             {
                 transform.position = currentBowlerInfo.startPos;
@@ -146,7 +187,7 @@ public class AnimatedBowler : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (glide)
+        if (glide && !Fielding)
         {
             // Frames it takes for the transition from walk to idle to complete
             float totalFrames = 60f;
@@ -274,13 +315,46 @@ public class AnimatedBowler : MonoBehaviour
         Main.Instance.gameState = eGameState.InGame_DeliverBall;
 
         animator.SetInteger("Action", 0);
-        StartCoroutine(StartWalkingBack());
+        walkingBack = StartCoroutine(StartWalkingBack());
+    }
+
+    /// Stop walking back and stand on the mark, ready to run in. He is 20 m away up the pitch.
+    private void ReturnToMark()
+    {
+        if (walkingBack != null)
+            StopCoroutine(walkingBack);
+        walkingBack = null;
+        glide = false;
+        transform.position = currentBowlerInfo.startPos;
+        transform.rotation = Quaternion.Euler(currentBowlerInfo.startRot);
+        animator.Play("Idle");
+        animator.SetInteger("Action", 0);
+    }
+
+    /// Start the walk back to his mark now (ThrowBack: the keeper has the ball), rather than on
+    /// the timer after his delivery. Not during a run-up or delivery.
+    public void WalkBackToMark()
+    {
+        eGameState s = Main.Instance.gameState;
+        if (Fielding || s == eGameState.InGame_SelectDelivery || s == eGameState.InGame_SelectDeliveryLoop ||
+            s == eGameState.InGame_DeliverBall || s == eGameState.InGame_DeliverBallLoop)
+            return;
+        if (walkingBack != null)
+            StopCoroutine(walkingBack);
+        walkingBack = null;
+        if (Vector3.Distance(transform.position, currentBowlerInfo.startPos) > 1.7f)
+            animator.SetInteger("Action", -1);
     }
 
     IEnumerator StartWalkingBack()
     {
         yield return new WaitForSeconds(2f);
-        animator.SetInteger("Action", -1);
+        // Never into the next ball's run-up.
+        eGameState s = Main.Instance.gameState;
+        if (s != eGameState.InGame_SelectDelivery && s != eGameState.InGame_SelectDeliveryLoop &&
+            s != eGameState.InGame_DeliverBall && s != eGameState.InGame_DeliverBallLoop)
+            animator.SetInteger("Action", -1);
+        walkingBack = null;
     }
 
     public void ChangeJogRepeat(int amount)

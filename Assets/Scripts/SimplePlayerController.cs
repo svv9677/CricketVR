@@ -10,6 +10,11 @@ public class SimplePlayerController : MonoBehaviour
     private Transform _cameraTransform;
     private readonly List<UnityEngine.XR.InputDevice> _xrDevices = new List<UnityEngine.XR.InputDevice>();
 
+    /// Walking and turning on the thumbsticks. Off: the player stands still at the crease, where
+    /// XRRigSetup puts them (and puts them back on a recentre). Keyboard and mouse still work in
+    /// the Editor.
+    public static bool StickLocomotion = false;
+
     void Start()
     {
         _cc = GetComponent<CharacterController>();
@@ -47,11 +52,13 @@ public class SimplePlayerController : MonoBehaviour
         // --- XR thumbsticks (device) ---
         // Right controller stick → movement
         Vector2 rightStick = GetThumbstick(leftHand: false);
+        if (!StickLocomotion) rightStick = Vector2.zero;   // stationary at the crease (XRRigSetup)
         moveInput.x += rightStick.x;
         moveInput.z += rightStick.y;
 
         // Left controller stick → yaw rotation
         Vector2 leftStick = GetThumbstick(leftHand: true);
+        if (!StickLocomotion) leftStick = Vector2.zero;
         yawInput += leftStick.x;
 
         // --- Apply yaw rotation ---
