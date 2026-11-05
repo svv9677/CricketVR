@@ -10,6 +10,7 @@ using System.Text;
 public static class CareerSituationText
 {
     /// The situation's badge: SlotLine's FINAL pink, so a situation reads like the final's badge.
+    /// A copy of CareerHubScreen.Pink (this file stays free of the UI): change both together.
     private const string Badge = "#F43F8E";
 
     /// The card's body is wrapped to this many characters a line (CareerMatchCard's 640 px at 30 pt).

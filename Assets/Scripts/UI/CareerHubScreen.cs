@@ -23,6 +23,7 @@ public class CareerHubScreen : MenuScreen
 {
     /// The rating cells: RatingSet's seven, then the overall (laid out by CareerRatingsScreen).
     public const int Cells = RatingSet.Count + 1;
+    // Pink is also CareerSituationText.Badge (the situations' hub badge): change both together.
     private const string Muted = "#98A2B3", Good = "#22C55E", Pink = "#F43F8E", Bad = "#FF6B4A";
 
     [SerializeField] private TextMeshProUGUI playerName;
@@ -265,10 +266,11 @@ public class CareerHubScreen : MenuScreen
         (final ? $"<color={Pink}><b>FINAL</b></color>  ·  " : "") + $"You bat at {Mathf.Clamp(slot, 1, 11)}";
 
     /// The next match's slot line: the situation's (CareerSituationText.HubLine) when it has one,
-    /// else SlotLine - the final keeps its FINAL badge.
+    /// else SlotLine - the final keeps its FINAL badge. The situation's line says the preview's own
+    /// slot (the one the match bats him at, after PlanNext's clamp), not the saved `slot`.
     public static string NextSlotLine(MatchPlan preview, int slot, bool final)
     {
-        string line = preview != null ? CareerSituationText.HubLine(preview, slot) : "";
+        string line = preview != null ? CareerSituationText.HubLine(preview, preview.slot + 1) : "";
         return string.IsNullOrEmpty(line) ? SlotLine(slot, final) : line;
     }
 

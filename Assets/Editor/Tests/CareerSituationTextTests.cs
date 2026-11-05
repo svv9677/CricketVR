@@ -106,6 +106,16 @@ public class CareerSituationTextTests
     }
 
     [Test]
+    public void TheHubsSituationLine_SaysTheSlotThePlanBatsHimAt()
+    {
+        MatchPlan p = Plan(eSituation.Chase, false);
+        p.slot = 4;   // PlanNext clamped him to #5, whatever the saved slot says
+        Assert.AreEqual("CHASE  ·  165 to win  ·  You bat at 5", Plain(CareerHubScreen.NextSlotLine(p, 2, false)));
+        Assert.AreEqual(CareerHubScreen.SlotLine(2, false), CareerHubScreen.NextSlotLine(Plan(eSituation.Normal, false), 2, false),
+                        "no situation: the saved slot, as before");
+    }
+
+    [Test]
     public void ANormalMatch_SaysNothingNew()
     {
         foreach (bool batFirst in new[] { true, false })
