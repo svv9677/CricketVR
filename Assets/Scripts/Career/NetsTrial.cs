@@ -27,6 +27,13 @@ using UnityEngine.SceneManagement;
 ///
 /// Practice: no plan and no end; the normal bowling, every ball measured the same way. It ends when
 /// the player leaves through the pause menu.
+///
+/// A drill (NetsSession.Drill) is planned like the trial - its 12 balls, shuffled for the attempt
+/// (NetsDrillRun) - and each ball is also forced to its length band and line window
+/// (BowlingAttack.ForceShape). Its balls are stamped with the drill and the attempt and measured
+/// like any other (the ratings only measure: a drill ball counts the same as any ball). After the
+/// 12th the coach's score and verdict show on the result card, and the drill is recorded in the
+/// career once, however often the card is shown.
 /// </summary>
 public class NetsTrial : MonoBehaviour
 {
@@ -35,7 +42,9 @@ public class NetsTrial : MonoBehaviour
     private const float ContinueAfter = 20f, IgnoreAFor = 1f;
 
     private eNetsMode mode;
+    /// The planned session's balls (the trial's or a drill's); null in practice.
     private NetsTrialBall[] plan;
+    private NetsDrillRun drill;
     private NetsTrialCard ui;
     private Main main;
 
@@ -77,6 +86,8 @@ public class NetsTrial : MonoBehaviour
             plan = NetsTrialPlan.Make(NetsTrialPlan.SeedFor(p, CareerSaves.Active));
             finishPending = NetsSession.TrialIndex >= NetsSession.TrialBalls;
         }
+        else if (mode == eNetsMode.Drill)
+            StartDrill(p);
         BallFeed.Faced += OnFaced;
         feedSubscribed = true;
         ShowProgress();
@@ -90,11 +101,13 @@ public class NetsTrial : MonoBehaviour
         if (main != null)
             main.onGameStateChanged -= OnGameState;
         // A ball forced at SelectDelivery but not yet bowled must not carry into the next scene.
-        if (mode == eNetsMode.Trial)
+        if (plan != null)
         {
             BowlingAttack.ForceKind = null;
             BowlingAttack.ForceDelivery = null;
+            BowlingAttack.ForceShape = null;
         }
+        drill?.Dispose();
         // Left before the end: the pause menu's Main Menu ends the session (the hub opens on return;
         // the balls already measured stay in the career), a restart of the nets carries on with it
         // (NetsSession.Left decides when the next scene loads). A finished trial left before its card
@@ -147,12 +160,13 @@ public class NetsTrial : MonoBehaviour
         }
         if (s == eGameState.InGame_Ready)
         {
-            if (mode == eNetsMode.Trial)
+            if (plan != null)
                 BringOnPlannedBowler();
+            drill?.OnReady(NetsSession.TrialIndex);
             ShowProgress();
             ui.PlaceProgress();
         }
-        else if (s == eGameState.InGame_SelectDelivery && mode == eNetsMode.Trial && !finishPending)
+        else if (s == eGameState.InGame_SelectDelivery && plan != null && !finishPending)
         {
             // Again here, in case the bowler was changed on the next-ball card after Ready (the keeper
             // then moves now: HUD's own move for this ball has already run). BowlingAttack.Next reads
@@ -164,6 +178,7 @@ public class NetsTrial : MonoBehaviour
             NetsTrialBall b = Planned();
             BowlingAttack.ForceKind = b.kind;
             BowlingAttack.ForceDelivery = b.delivery;
+            BowlingAttack.ForceShape = drill?.ShapeAt(NetsSession.TrialIndex);   // null for the trial
         }
     }
 
@@ -177,14 +192,15 @@ public class NetsTrial : MonoBehaviour
             return;
         bool advances = Measure(p, r, mode);
         CareerSaves.SaveCurrent();
-        if (mode == eNetsMode.Trial)
+        if (plan != null)
         {
             if (advances)
             {
+                drill?.OnBall(r);
                 // The next ball's bowler comes on at InGame_Ready, not now: HUD may not have scored
                 // this ball yet, and would credit it to him.
                 NetsSession.TrialIndex++;
-                if (NetsSession.TrialIndex >= NetsSession.TrialBalls)
+                if (NetsSession.TrialIndex >= plan.Length)
                     finishPending = true;   // finished from Update, not inside whoever raised the ball
             }
         }
@@ -201,7 +217,13 @@ public class NetsTrial : MonoBehaviour
         finishedAt = Time.time;
         BowlingAttack.ForceKind = null;
         BowlingAttack.ForceDelivery = null;
+        BowlingAttack.ForceShape = null;
         CareerProfile p = CareerSaves.Current;
+        if (drill != null)
+        {
+            FinishDrill(p);
+            return;
+        }
         // Recorded once: a restart while the card was up finishes again, from the same balls.
         RatingSet ratings = p == null ? new RatingSet() : p.trialDone ? p.trialRatings.Clone() : RecordTrial(p);
         if (p != null)
@@ -213,19 +235,61 @@ public class NetsTrial : MonoBehaviour
         Debug.Log($"[NetsTrial] trial complete: overall {result.Overall:0} from {result.sample} balls");
     }
 
+    /// The drill's plan, from the run: the active slot, the drill and the attempt it began as (kept
+    /// across a restart, so the same balls in the same order). A drill with no balls (not one the
+    /// game has) is measured practice instead, rather than a session that ends before it starts.
+    private void StartDrill(CareerProfile p)
+    {
+        drill = new NetsDrillRun(p, CareerSaves.Active, NetsSession.Drill, NetsSession.DrillAttempt, transform);
+        if (drill.Plan.Length == 0)
+        {
+            Debug.LogWarning($"[NetsTrial] no balls for the {NetsSession.Drill} drill: measured practice instead");
+            drill.Dispose();
+            drill = null;
+            mode = eNetsMode.Practice;
+            return;
+        }
+        plan = drill.Plan;
+        finishPending = NetsSession.TrialIndex >= plan.Length;
+    }
+
+    /// The drill is over: scored and recorded in the career once (NetsDrillRun.Finish), saved, the
+    /// coach's result card shown.
+    private void FinishDrill(CareerProfile p)
+    {
+        DrillResult d = drill.Finish(p, CareerProgressMath.Today());
+        if (p != null)
+            CareerSaves.SaveCurrent();
+        drill.Dispose();
+        HoldInMenu();
+        ui.HideProgress();
+        ui.ShowResult(NetsTrialCard.Latin1(DrillText.Heading(d)), NetsTrialCard.Latin1(DrillText.ResultBody(drill.Def, d)), Continue);
+        Debug.Log($"[NetsTrial] {d.drill} drill complete: {d.score} from {d.balls} balls (attempt {d.attempt})");
+    }
+
     // ---- The bookkeeping (static and pure of the scene: NetsTrialTests checks it) ----------------
 
-    /// One faced ball into the career: stamped with where it was faced (the trial, or measured
-    /// practice in the nets), added (CareerProfile.Add keeps the window and the totals) and the ratings
-    /// recomputed from every kept ball. True when, in the trial, it moves the trial on.
-    public static bool Measure(CareerProfile p, BallRecord r, eNetsMode mode)
+    /// One faced ball into the career: stamped with where it was faced (the trial, a drill, or
+    /// measured practice in the nets), added (CareerProfile.Add keeps the window and the totals) and
+    /// the ratings recomputed from every kept ball. True when, in the trial or a drill, it moves the
+    /// planned session on. A drill ball also carries the drill and attempt (NetsSession's).
+    public static bool Measure(CareerProfile p, BallRecord r, eNetsMode mode) =>
+        Measure(p, r, mode, NetsSession.Drill, NetsSession.DrillAttempt);
+
+    /// Measure, with the drill and attempt given (the tests' way in; NetsSession's are the game's).
+    public static bool Measure(CareerProfile p, BallRecord r, eNetsMode mode, eDrill drillId, int attempt)
     {
         if (p == null || r == null)
             return false;
-        r.source = mode == eNetsMode.Trial ? eBallSource.Trial : eBallSource.Nets;
+        r.source = mode == eNetsMode.Trial ? eBallSource.Trial : mode == eNetsMode.Drill ? eBallSource.Drill : eBallSource.Nets;
+        if (mode == eNetsMode.Drill)
+        {
+            r.drill = drillId;
+            r.drillAttempt = attempt;
+        }
         p.Add(r);
         p.ratings = CareerRatings.Compute(p.balls);
-        return mode == eNetsMode.Trial && NetsTrialPlan.Advances(r);
+        return (mode == eNetsMode.Trial || mode == eNetsMode.Drill) && NetsTrialPlan.Advances(r);
     }
 
     /// The trial is done: its ratings become the career's starting ratings (kept apart as
@@ -295,7 +359,9 @@ public class NetsTrial : MonoBehaviour
 
     private void ShowProgress()
     {
-        if (mode == eNetsMode.Trial && plan != null)
+        if (drill != null)
+            ui.ShowProgress(NetsTrialCard.Latin1(drill.ProgressText(NetsSession.TrialIndex, CareerSaves.Current)));
+        else if (mode == eNetsMode.Trial && plan != null)
             ui.ShowProgress(NetsTrialCard.ProgressText(NetsSession.TrialIndex + 1, Planned().kind));
         else if (mode == eNetsMode.Practice)
             ui.ShowProgress(NetsTrialCard.PracticeText(practiceBalls));
