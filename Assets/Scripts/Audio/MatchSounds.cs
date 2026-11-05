@@ -71,8 +71,11 @@ public class MatchSounds : MonoBehaviour
         AnimatedFielder.DiveStarted += OnDive;
         Bail.KnockedOff += OnBail;
         HUD.BallScored += OnScored;
+        NoBalls.OnCalled += OnNoBall;
         if (main != null) main.onGameStateChanged += OnState;
     }
+
+    private void OnNoBall() => Haptics.Both(Haptics.DoubleTap);
 
     private void OnDestroy()
     {
@@ -81,6 +84,7 @@ public class MatchSounds : MonoBehaviour
         AnimatedFielder.DiveStarted -= OnDive;
         Bail.KnockedOff -= OnBail;
         HUD.BallScored -= OnScored;
+        NoBalls.OnCalled -= OnNoBall;
         if (main != null) main.onGameStateChanged -= OnState;
     }
 
@@ -232,9 +236,9 @@ public class MatchSounds : MonoBehaviour
     {
         switch (o.Signal)
         {
-            case UmpireSignal.Four: GameSfx.Play2D("crowd_four", GameAudio.Channel.Crowd, 0.75f); break;
-            case UmpireSignal.Six: GameSfx.Play2D("crowd_six", GameAudio.Channel.Crowd, 0.95f); break;
-            case UmpireSignal.Out: GameSfx.Play2D("crowd_wicket", GameAudio.Channel.Crowd, 0.95f); break;
+            case UmpireSignal.Four: GameSfx.Play2D("crowd_four", GameAudio.Channel.Crowd, 0.75f); Haptics.Both(Haptics.Four); break;
+            case UmpireSignal.Six: GameSfx.Play2D("crowd_six", GameAudio.Channel.Crowd, 0.95f); Haptics.Both(Haptics.Six); break;
+            case UmpireSignal.Out: GameSfx.Play2D("crowd_wicket", GameAudio.Channel.Crowd, 0.95f); Haptics.Both(Haptics.Wicket); break;
         }
     }
 
@@ -255,6 +259,10 @@ public class MatchSounds : MonoBehaviour
         if (p.x < BallDelivery.BatsmanStumpsX - 0.5f) return;
         oohDone = true;
         bool close = Mathf.Abs(p.z) < 0.4f && p.y < 1.3f;
+        // By a whisker past the bat: the faintest brush in the hands.
+        Collider blade = main.theBatScript.batCollider;
+        if (blade != null && blade.enabled && (blade.ClosestPoint(p) - p).sqrMagnitude < 0.25f * 0.25f)
+            Haptics.Both(Haptics.Brush);
         if (close && !main.theBallScript.wide && Random.value < 0.65f)
             GameSfx.Play2D("crowd_ooh", GameAudio.Channel.Crowd, 0.6f, Random.Range(0.97f, 1.04f));
     }
