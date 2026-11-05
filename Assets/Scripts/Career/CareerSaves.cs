@@ -137,9 +137,21 @@ public static class CareerSaves
         }
     }
 
-    /// Bring an older save up to CareerProfile.CurrentVersion (nothing to do yet: version 1).
+    /// Bring an older save up to CareerProfile.CurrentVersion. Version 1 had no career yet: it gets
+    /// the empty record book and inbox, and its first season is made when the hub first opens
+    /// (CareerProgress.EnsureSeason).
     private static CareerProfile Migrate(CareerProfile p)
     {
+        p.innings ??= new System.Collections.Generic.List<InningsRecord>();
+        p.stats ??= new CareerStats();
+        p.inbox ??= new System.Collections.Generic.List<CareerMessage>();
+        p.scoutReports ??= new System.Collections.Generic.List<float>();
+        p.unlocked ??= new System.Collections.Generic.List<string>();
+        if (p.battingSlot < 1 || p.battingSlot > 11) p.battingSlot = 7;
+        // JsonUtility gives an empty Season (not null) for a missing field: a season with no teams
+        // is no season.
+        if (p.season != null && (p.season.teams == null || p.season.teams.Count == 0))
+            p.season = null;
         p.look ??= new CareerAppearance();
         p.ratings ??= new RatingSet();
         p.trialRatings ??= new RatingSet();

@@ -73,13 +73,18 @@ public class CareerTotals
 
 /// <summary>
 /// One career, as saved in its slot (CareerSaves): who the player is, the balls measured (the most
-/// recent CareerProfile.MaxBalls), the ratings, and the totals. Later phases add the ladder, season,
-/// teams and records; bump `version` and migrate in CareerSaves.Load when the shape changes.
+/// recent CareerProfile.MaxBalls), the ratings, and the totals; since version 2 the career itself -
+/// the rung, the season and its league, the record book, the inbox. Bump `version` and migrate in
+/// CareerSaves.Migrate when the shape changes.
 /// </summary>
 [Serializable]
 public class CareerProfile
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
+    /// Innings kept in the record book (the stats keep everything).
+    public const int MaxInnings = 200;
+    /// Inbox messages kept.
+    public const int MaxMessages = 40;
     /// Balls kept for recomputing the ratings: the rating window plus some history.
     public const int MaxBalls = 400;
 
@@ -100,6 +105,47 @@ public class CareerProfile
 
     public List<BallRecord> balls = new List<BallRecord>();
     public CareerTotals totals = new CareerTotals();
+
+    // ---- The career itself (version 2) ------------------------------------------------------------
+
+    /// The rung the player is on, and his season there (its league, fixtures, table).
+    public eRung rung = eRung.Club;
+    public Season season;
+    /// Seasons finished, all rungs.
+    public int seasonsPlayed;
+    /// Where he bats in the order (1..11), as his side picked it for the next match.
+    public int battingSlot = 7;
+    /// Matches left out of the side still to sit out (phase 4).
+    public int benchedFor;
+    /// The record book: every innings, newest last (kept to MaxInnings).
+    public List<InningsRecord> innings = new List<InningsRecord>();
+    public CareerStats stats = new CareerStats();
+    public List<CareerMessage> inbox = new List<CareerMessage>();
+    /// Scouts' impressions this season toward the rung above, 0..1 each (phase 4).
+    public List<float> scoutReports = new List<float>();
+    /// Watch the partner bat from the non-striker's end (true), or skip to your next ball (phase 3).
+    public bool watchPartner = true;
+    /// Unlocked cosmetic ids (phase 7) and the ones in use.
+    public List<string> unlocked = new List<string>();
+    public string batFinish = "", kitTrim = "";
+    /// The international side has picked him (top rung) - caps.
+    public int caps;
+
+    public void AddInnings(InningsRecord r)
+    {
+        innings.Add(r);
+        while (innings.Count > MaxInnings)
+            innings.RemoveAt(0);
+    }
+
+    public void AddMessage(CareerMessage m)
+    {
+        inbox.Add(m);
+        while (inbox.Count > MaxMessages)
+            inbox.RemoveAt(0);
+    }
+
+    public int Unread => inbox.FindAll(m => !m.read).Count;
 
     /// Add a measured ball: trim to MaxBalls (oldest first) and add it to the totals.
     public void Add(BallRecord r)
