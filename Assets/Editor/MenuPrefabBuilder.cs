@@ -81,7 +81,9 @@ public static class MenuPrefabBuilder
         {
             BuildMatchSetup(panel.transform), BuildCustomise(panel.transform),
             CareerMenuBuilder.BuildSlots(panel.transform), CareerMenuBuilder.BuildCreatePlayer(panel.transform),
-            CareerMenuBuilder.BuildCreateLook(panel.transform), CareerMenuBuilder.BuildHub(panel.transform),
+            CareerMenuBuilder.BuildCreateLook(panel.transform), CareerMenuBuilder2.BuildHub(panel.transform),
+            CareerMenuBuilder2.BuildRatings(panel.transform), CareerMenuBuilder2.BuildSeason(panel.transform),
+            CareerMenuBuilder2.BuildResult(panel.transform),
             BuildResult(panel.transform),
         };
 

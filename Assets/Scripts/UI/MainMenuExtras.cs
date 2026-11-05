@@ -8,8 +8,9 @@ using UnityEngine;
 /// (overs, bowling, pitch, who bats first); buttons to Match Setup, Customise, Career and the last
 /// result; and the last match as a small scorecard - won or lost, both sides' scores. Coming home
 /// from a match, its result is shown straight away (MatchResultScreen); coming home from a career
-/// session in the nets, the career hub is (NetsSession.ReturnToHub). Built by Tools > CricketVR
-/// > Build Menu Prefabs.
+/// session in the nets, the career hub is (NetsSession.ReturnToHub); from a career match, its
+/// result over the hub (CareerMatchSession.ReturnToHub, CareerResultScreen). Built by Tools >
+/// CricketVR > Build Menu Prefabs.
 /// </summary>
 public class MainMenuExtras : MonoBehaviour
 {
@@ -31,6 +32,17 @@ public class MainMenuExtras : MonoBehaviour
         // flag is stale, so it is dropped here and cannot fire on a later, unrelated return.
         // A pending match result is put off, not discarded: it shows the next time this screen
         // opens.
+        // Back from a career match comes first of all: its result over the hub (the same rules
+        // for the flag as the nets').
+        if (CareerMatchSession.ReturnToHub)
+        {
+            if (CareerSaves.Current != null)
+            {
+                StartCoroutine(ShowCareerResult());
+                return;
+            }
+            CareerMatchSession.ReturnToHub = false;
+        }
         if (NetsSession.ReturnToHub)
         {
             if (CareerSaves.Current != null)
@@ -87,6 +99,22 @@ public class MainMenuExtras : MonoBehaviour
         NetsSession.ReturnToHub = false;
         Push("career");
         Push("careerHub");
+    }
+
+    /// The career match's result over the hub over the slots: Continue goes to the hub, Back from
+    /// there to the slots, then here. The career result is this match's scorecard, so a quick-match
+    /// result left pending by the same match is not shown after it, and a nets return asked for
+    /// earlier is met by the hub this opens.
+    private IEnumerator ShowCareerResult()
+    {
+        yield return null;
+        CareerMatchSession.ReturnToHub = false;
+        NetsSession.ReturnToHub = false;
+        if (MatchHistory.ResultPending)
+            MatchHistory.ResultPending = false;
+        Push("career");
+        Push("careerHub");
+        Push("careerResult");
     }
 
     private void Push(string name)

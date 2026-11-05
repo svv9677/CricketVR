@@ -12,7 +12,7 @@ using UnityEngine.UI;
 ///     Delete that asks first in the slot's own row.
 ///   * CreatePlayerScreen ("createPlayer") - the name, on an in-world QWERTY keyboard.
 ///   * CreateLookScreen ("createLook") - nation, batting hand, skin tone, kit colour, shirt number.
-///   * CareerHubScreen ("careerHub") - the player card, the ratings, the coach and the nets.
+///   * the career hub, ratings, season and match result screens - CareerMenuBuilder2.
 ///
 /// Here, unlike the rest of the menu, one handler serves many buttons (a slot, a key, a stepper's
 /// two arrows), so those buttons are wired with saved listeners that carry an argument - the slot
@@ -27,7 +27,6 @@ public static class CareerMenuBuilder
     private const float RandomWidth = 160f;
     private const float RowLabelWidth = 200f;
     private const float SwatchSize = 34f;
-    private const float FooterBackWidth = 180f;
 
     // ---- Slots ------------------------------------------------------------------------------------
 
@@ -231,124 +230,10 @@ public static class CareerMenuBuilder
         return row;
     }
 
-    // ---- Career hub -------------------------------------------------------------------------------
-
-    public static MenuScreen BuildHub(Transform parent)
-    {
-        Transform column = MenuPrefabBuilder.ScreenColumn(parent, "CareerHubScreen", out GameObject go);
-        CareerHubScreen screen = go.AddComponent<CareerHubScreen>();
-        MenuPrefabBuilder.SetScreenName(screen, "careerHub");
-        var so = new SerializedObject(screen);
-
-        PlayerCard(column, so);
-        UIControls.Divider(column);
-        TextMeshProUGUI banner = WorldPanelBuilder.Line(column, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text, 34f,
-                                                        TextAlignmentOptions.Center);
-        banner.gameObject.SetActive(false);
-        WorldPanelBuilder.Section(column, "Ratings");
-        RatingsGrid(column, so);
-        TextMeshProUGUI verdict = WorldPanelBuilder.Text(column, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text, 64f,
-                                                         TextAlignmentOptions.Left);
-        WorldPanelBuilder.Line(column, "Career matches arrive in the next update.", UIStyle.HintSize, FontStyles.Normal,
-                               UIStyle.TextMuted, 28f, TextAlignmentOptions.Center);
-
-        UIControls.Divider(column);
-        Transform actions = Row(column, UIStyle.Gap);
-        UIControls.ActionButton(actions, "Back", screen.OnBack, false, UIStyle.Control, FooterBackWidth);
-        Button primary = UIControls.ActionButton(actions, $"Take your nets trial · {NetsSession.TrialBalls} balls", screen.OnPrimary, true);
-        primary.colors = UIStyle.MenuColors(true);
-        // The trial's label is the longest on the card: let it shrink a little rather than clip.
-        TextMeshProUGUI primaryLabel = UIControls.LabelOf(primary);
-        primaryLabel.enableAutoSizing = true;
-        primaryLabel.fontSizeMin = UIStyle.HintSize;
-        primaryLabel.fontSizeMax = UIStyle.ButtonSize + 4f;
-
-        so.FindProperty("banner").objectReferenceValue = banner;
-        so.FindProperty("verdict").objectReferenceValue = verdict;
-        so.FindProperty("primary").objectReferenceValue = primary;
-        so.FindProperty("primaryLabel").objectReferenceValue = primaryLabel;
-        so.ApplyModifiedProperties();
-        return screen;
-    }
-
-    /// The kit-colour bar, the name over "#18 · Nation · hand", and the stage on the right.
-    private static void PlayerCard(Transform column, SerializedObject so)
-    {
-        Transform card = Row(column, UIStyle.Gap);
-        Image kitBar = Swatch(card, 12f, 92f, 2f);
-        Transform who = WorldPanelBuilder.Column(card, true, 2f);
-        who.GetComponent<LayoutElement>().preferredWidth = 0f;
-        TextMeshProUGUI name = WorldPanelBuilder.Line(who, "Player", UIStyle.TitleSize, FontStyles.Bold, UIStyle.Text, 56f,
-                                                      TextAlignmentOptions.Left);
-        TextMeshProUGUI detail = WorldPanelBuilder.Line(who, "", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.TextMuted, 30f,
-                                                        TextAlignmentOptions.Left);
-        Transform where = WorldPanelBuilder.FixedColumn(card, 200f, 2f);
-        TextMeshProUGUI stage = WorldPanelBuilder.Line(where, "Club cricket", UIStyle.LabelSize, FontStyles.Bold, UIStyle.AccentText,
-                                                       34f, TextAlignmentOptions.Right);
-        TextMeshProUGUI season = WorldPanelBuilder.Line(where, "Season 1", UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted,
-                                                        28f, TextAlignmentOptions.Right);
-
-        so.FindProperty("playerName").objectReferenceValue = name;
-        so.FindProperty("playerDetail").objectReferenceValue = detail;
-        so.FindProperty("kitBar").objectReferenceValue = kitBar;
-        so.FindProperty("stage").objectReferenceValue = stage;
-        so.FindProperty("season").objectReferenceValue = season;
-    }
-
-    /// Two columns of four: Timing, Power, vs Pace, vs Spin | Defence, Judgement, Temperament,
-    /// Overall - the cells in CareerHubScreen's order (RatingSet's, then the overall).
-    private static void RatingsGrid(Transform column, SerializedObject so)
-    {
-        Transform grid = WorldPanelBuilder.Column(column, false, UIStyle.SectionGap);
-        Transform left = WorldPanelBuilder.Column(grid, true, 10f);
-        Transform right = WorldPanelBuilder.Column(grid, true, 10f);
-        // Equal halves, whatever the labels' widths.
-        left.GetComponent<LayoutElement>().preferredWidth = 0f;
-        right.GetComponent<LayoutElement>().preferredWidth = 0f;
-
-        int cells = CareerHubScreen.Cells, half = (cells + 1) / 2;
-        SerializedProperty bars = so.FindProperty("bars");
-        SerializedProperty values = so.FindProperty("values");
-        bars.arraySize = cells;
-        values.arraySize = cells;
-        for (int i = 0; i < cells; i++)
-        {
-            bool overall = i >= RatingSet.Count;
-            string label = overall ? "Overall" : RatingSet.Names[i];
-            RatingCell(i < half ? left : right, label, overall, out Image bar, out TextMeshProUGUI value);
-            bars.GetArrayElementAtIndex(i).objectReferenceValue = bar;
-            values.GetArrayElementAtIndex(i).objectReferenceValue = value;
-        }
-    }
-
-    /// "Label ......... 54 Solid" over a thin bar whose fill CareerHubScreen sizes to rating / 99.
-    private static void RatingCell(Transform parent, string label, bool bold, out Image fill, out TextMeshProUGUI value)
-    {
-        Transform cell = WorldPanelBuilder.Column(parent, true, 6f);
-        Transform line = Row(cell, UIStyle.Unit);
-        WorldPanelBuilder.Line(line, label, UIStyle.LabelSize - 2f, bold ? FontStyles.Bold : FontStyles.Normal, UIStyle.Text,
-                               UIStyle.LabelRow, TextAlignmentOptions.Left);
-        value = WorldPanelBuilder.Line(line, "--", UIStyle.ValueSize - 2f, FontStyles.Normal, UIStyle.Text, UIStyle.LabelRow,
-                                       TextAlignmentOptions.Right, 170f);
-
-        var track = new GameObject("Bar", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-        track.transform.SetParent(cell, false);
-        LayoutElement layout = track.GetComponent<LayoutElement>();
-        layout.minHeight = layout.preferredHeight = 8f;
-        layout.flexibleWidth = 1f;
-        Image back = track.GetComponent<Image>();
-        UIStyle.PillImage(back, UIStyle.Track);
-        back.raycastTarget = false;
-        fill = WorldPanelBuilder.Overlay(track.transform, "Fill");
-        UIStyle.PillImage(fill, UIStyle.Accent);
-        fill.rectTransform.anchorMax = new Vector2(0f, 1f);
-        fill.enabled = false;
-    }
-
     // ---- Helpers ----------------------------------------------------------------------------------
 
     /// A row whose children keep their own widths (a flexible child takes what is left).
-    private static Transform Row(Transform parent, float spacing)
+    internal static Transform Row(Transform parent, float spacing)
     {
         Transform row = WorldPanelBuilder.Column(parent, false, spacing);
         WorldPanelBuilder.NoForceExpand(row);
@@ -357,7 +242,7 @@ public static class CareerMenuBuilder
 
     /// A colour disc or bar inside a faint ring, so the darkest kits still show on the dark card.
     /// Returns the inner image, whose colour the screen sets.
-    private static Image Swatch(Transform parent, float width, float height, float ring)
+    internal static Image Swatch(Transform parent, float width, float height, float ring)
     {
         var go = new GameObject("Swatch", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         go.transform.SetParent(parent, false);

@@ -1,32 +1,40 @@
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// The career hub for the active slot (CareerSaves.Current): the player card, the seven measured
-/// ratings and the overall in two columns (a bar, the number and its grade - or "--" while there
-/// are too few balls to say), the coach's one-line verdict, and the way into the nets: the 30-ball
-/// trial first, measured practice after it. The ratings only describe how the player bats; nothing
-/// here changes how the game plays. Coming back from the trial it says so once (NetsSession.
-/// TrialResult). Built by Tools > CricketVR > Build Menu Prefabs.
+/// The career hub for the active slot (CareerSaves.Current): a compact player card (the kit bar,
+/// the name, "#18 · India · Right-hand bat", the rung and season on the right), two chips - the
+/// measured overall and the form - and the next match of the season: who against, which round, the
+/// format and where the player bats. The primary button is the 30-ball nets trial until it is done
+/// (matches stay locked: the trial sets the ratings they start from), then Play match. Ratings,
+/// Season and the nets are a row below. The ratings only describe how the player bats; nothing here
+/// changes how the game plays. Coming back from the trial it says so once (NetsSession.TrialResult);
+/// coming back from a match, the result screen (CareerResultScreen) says how it went. Built by
+/// Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
 public class CareerHubScreen : MenuScreen
 {
-    /// The rating cells: RatingSet's seven, then the overall.
+    /// The rating cells: RatingSet's seven, then the overall (laid out by CareerRatingsScreen).
     public const int Cells = RatingSet.Count + 1;
-    private const string Muted = "#98A2B3", Good = "#22C55E";
+    private const string Muted = "#98A2B3", Good = "#22C55E", Pink = "#F43F8E";
 
     [SerializeField] private TextMeshProUGUI playerName;
     [SerializeField] private TextMeshProUGUI playerDetail;
     [SerializeField] private Image kitBar;
     [SerializeField] private TextMeshProUGUI stage;
     [SerializeField] private TextMeshProUGUI season;
+    [SerializeField] private TextMeshProUGUI overallChip;
+    [SerializeField] private TextMeshProUGUI formChip;
+    [SerializeField] private TextMeshProUGUI nextTitle;
+    [SerializeField] private TextMeshProUGUI nextDetail;
+    [SerializeField] private TextMeshProUGUI nextSlot;
     [SerializeField] private TextMeshProUGUI banner;
-    [SerializeField] private Image[] bars = new Image[0];
-    [SerializeField] private TextMeshProUGUI[] values = new TextMeshProUGUI[0];
-    [SerializeField] private TextMeshProUGUI verdict;
     [SerializeField] private Button primary;
     [SerializeField] private TextMeshProUGUI primaryLabel;
+    [SerializeField] private TextMeshProUGUI locked;
+    [SerializeField] private Button nets;
 
     private bool showedTrial;
 
@@ -38,7 +46,18 @@ public class CareerHubScreen : MenuScreen
         ForgetTrial();
     }
 
-    public override void OnShow() => Refresh();
+    /// A career made before matches existed (a version-1 save) or a new one has no season yet:
+    /// make it here, once, and save it, so the next match below is a real fixture.
+    public override void OnShow()
+    {
+        CareerProfile p = CareerSaves.Current;
+        if (p != null && p.season == null)
+        {
+            CareerProgress.EnsureSeason(p, new System.Random());
+            CareerSaves.SaveCurrent();
+        }
+        Refresh();
+    }
 
     public override void OnHide() => ForgetTrial();
 
@@ -55,25 +74,66 @@ public class CareerHubScreen : MenuScreen
     {
         CareerProfile p = CareerSaves.Current;
         if (primary != null) primary.interactable = p != null;
+        if (nets != null) nets.interactable = p != null && p.trialDone;
         if (p == null)
         {
             Set(playerName, "No career loaded");
             Set(playerDetail, "Pick a slot on the career screen.");
             if (banner != null) banner.gameObject.SetActive(false);
-            ShowRatings(new RatingSet());
-            Set(verdict, "");
+            Set(overallChip, OverallChip(RatingSet.Unknown));
+            Set(formChip, FormChip(RatingSet.Unknown));
+            ShowNext(null, null);
             return;
         }
         Set(playerName, p.name);
         Set(playerDetail, $"#{p.look.number}  ·  {Nations.Name(p.nation)}  ·  {p.HandName}");
         if (kitBar != null)
             kitBar.color = Appearance.KitColours[Mathf.Clamp(p.look.kit, 0, Appearance.KitColours.Length - 1)];
-        Set(stage, "Club cricket");
-        Set(season, "Season 1");
+        Set(stage, Ladder.Name(p.rung));
+        Set(season, $"Season {(p.season != null ? p.season.number : p.seasonsPlayed + 1)}");
+        Set(overallChip, OverallChip(p.ratings != null ? p.ratings.Overall : RatingSet.Unknown));
+        Set(formChip, FormChip(CareerProgress.Form(p)));
         ShowTrialBanner();
-        ShowRatings(p.ratings ?? new RatingSet());
-        Set(verdict, Verdict(p));
-        Set(primaryLabel, p.trialDone ? "Measured nets practice" : $"Take your nets trial · {NetsSession.TrialBalls} balls");
+        Fixture next = CareerProgress.NextFixture(p);
+        ShowNext(p, next);
+        ShowPrimary(p, next);
+    }
+
+    /// The trial until it is done (matches locked), then the next match, or the next season.
+    private void ShowPrimary(CareerProfile p, Fixture next)
+    {
+        bool seasonOver = next == null && p.season != null && p.season.finished;
+        if (locked != null) locked.gameObject.SetActive(!p.trialDone);
+        if (primary != null) primary.interactable = !p.trialDone || next != null || seasonOver;
+        if (!p.trialDone)
+            Set(primaryLabel, $"Take your nets trial · {NetsSession.TrialBalls} balls");
+        else if (next != null)
+            Set(primaryLabel, "Play match");
+        else
+            Set(primaryLabel, seasonOver ? "Start next season" : "No match to play");
+    }
+
+    private void ShowNext(CareerProfile p, Fixture next)
+    {
+        Season s = p?.season;
+        if (s == null)
+        {
+            Set(nextTitle, "No season yet");
+            Set(nextDetail, "");
+            Set(nextSlot, "");
+            return;
+        }
+        if (next == null)
+        {
+            Set(nextTitle, "Season complete");
+            int pos = LeagueBuilder.Table(s).FindIndex(t => t.id == s.yourTeam) + 1;
+            Set(nextDetail, pos > 0 ? $"{s.Yours?.name} finished {CareerResultScreen.Ordinal(pos)} of {s.teams.Count}." : "");
+            Set(nextSlot, "");
+            return;
+        }
+        Set(nextTitle, $"vs {TeamName(s, next.Opponent(s.yourTeam))}");
+        Set(nextDetail, NextDetail(next, Rounds(s), s.rung));
+        Set(nextSlot, SlotLine(p.battingSlot, next.final));
     }
 
     private void ShowTrialBanner()
@@ -91,53 +151,106 @@ public class CareerHubScreen : MenuScreen
             : $"<color={Good}>Trial complete.</color>  Keep batting and your ratings will fill in.";
     }
 
-    private void ShowRatings(RatingSet r)
-    {
-        for (int i = 0; i < Cells; i++)
-        {
-            float rating = i < RatingSet.Count ? r[i] : r.Overall;
-            bool known = RatingSet.Known(rating);
-            if (i < values.Length && values[i] != null)
-                values[i].text = known
-                    ? $"<b>{Mathf.RoundToInt(rating)}</b>  <size=20><color={Muted}>{CareerRatings.Grade(rating)}</color></size>"
-                    : $"<color={Muted}>--</color>";
-            if (i < bars.Length && bars[i] != null)
-            {
-                float t = known ? Mathf.Clamp01(rating / 99f) : 0f;
-                bars[i].enabled = t > 0f;
-                bars[i].rectTransform.anchorMax = new Vector2(t, 1f);
-            }
-        }
-    }
-
-    private static string Verdict(CareerProfile p)
-    {
-        string coach = CareerRatings.Verdict(p.ratings);
-        if (!string.IsNullOrEmpty(coach))
-            return $"<color={Muted}>Coach:</color>  {coach}";
-        return p.trialDone
-            ? $"<color={Muted}>Coach:</color>  Bat some more and I will tell you what I see."
-            : $"<color={Muted}>Coach:</color>  Show me {NetsSession.TrialBalls} balls in the nets and your ratings start from how you really bat.";
-    }
-
     private static void Set(TextMeshProUGUI text, string value)
     {
         if (text != null)
             text.text = value;
     }
 
+    // ---- Formatting (pure; CareerScreensTests) -----------------------------------------------------
+
+    /// "Overall 54 Solid", the number bold and the grade muted; "Overall --" while unmeasured.
+    public static string OverallChip(float overall) =>
+        RatingSet.Known(overall)
+            ? $"Overall  <b>{Round(overall)}</b>  <color={Muted}>{CareerRatings.Grade(overall)}</color>"
+            : $"Overall  <color={Muted}>--</color>";
+
+    /// "Form 61"; "Form --" before the first innings.
+    public static string FormChip(float form) =>
+        RatingSet.Known(form) ? $"Form  <b>{Round(form)}</b>" : $"Form  <color={Muted}>--</color>";
+
+    /// "Round 3 of 7 · 6 overs · Club ground · Afternoon", or "Final · 20 overs · Stadium · Night".
+    public static string NextDetail(Fixture f, int rounds, eRung rung)
+    {
+        string when = f.final ? "Final" : rounds > 0 ? $"Round {f.round} of {rounds}" : $"Round {f.round}";
+        return $"{when} · {Ladder.Overs(rung)} overs · {VenueName(Ladder.Venue(rung))} · {(f.night ? "Night" : "Afternoon")}";
+    }
+
+    /// "You bat at 7", with a pink FINAL badge in front for the final.
+    public static string SlotLine(int slot, bool final) =>
+        (final ? $"<color={Pink}><b>FINAL</b></color>  ·  " : "") + $"You bat at {Mathf.Clamp(slot, 1, 11)}";
+
+    public static string VenueName(eVenue v) => v == eVenue.Stadium ? "Stadium" : "Club ground";
+
+    /// The league rounds of a season (the final not counted): the highest round of its fixtures.
+    public static int Rounds(Season s)
+    {
+        int rounds = 0;
+        if (s?.fixtures != null)
+            foreach (Fixture f in s.fixtures)
+                if (!f.final && f.round > rounds)
+                    rounds = f.round;
+        return rounds;
+    }
+
+    /// A side's name by its id (the id itself if the side is not in the season).
+    public static string TeamName(Season s, string id)
+    {
+        Team t = s?.Team(id);
+        return t != null && !string.IsNullOrEmpty(t.name) ? t.name : id;
+    }
+
+    private static string Round(float v) => Mathf.RoundToInt(v).ToString(CultureInfo.InvariantCulture);
+
     // ---- Wired in the prefab ------------------------------------------------------------------
 
-    /// The trial until it is done, then measured practice.
+    /// The trial until it is done, then the next match (or, the season over, the next season).
     public void OnPrimary()
     {
         CareerProfile p = CareerSaves.Current;
         if (p == null)
             return;
         ForgetTrial();
-        if (p.trialDone)
-            NetsSession.BeginPractice();
-        else
+        if (!p.trialDone)
+        {
             NetsSession.BeginTrial();
+            return;
+        }
+        var rng = new System.Random();
+        if (CareerProgress.NextFixture(p) == null)
+        {
+            if (p.season != null && p.season.finished)
+            {
+                CareerProgress.EndSeason(p, rng);
+                CareerSaves.SaveCurrent();
+                Refresh();
+            }
+            return;
+        }
+        MatchPlan plan = CareerProgress.PlanNext(p, rng);
+        if (plan == null)
+            return;
+        CareerResultScreen.RememberBefore(p);
+        CareerMatchSession.Begin(plan);
+    }
+
+    public void OnRatings() => Push("careerRatings");
+
+    public void OnSeason() => Push("careerSeason");
+
+    private void Push(string screen)
+    {
+        if (Root != null)
+            Root.Push(screen);
+    }
+
+    /// Measured practice in the nets (after the trial; the button is off before it).
+    public void OnNets()
+    {
+        CareerProfile p = CareerSaves.Current;
+        if (p == null || !p.trialDone)
+            return;
+        ForgetTrial();
+        NetsSession.BeginPractice();
     }
 }
