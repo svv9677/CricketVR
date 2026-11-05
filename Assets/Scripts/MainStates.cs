@@ -114,8 +114,9 @@ public partial class Main
                 CameraReplay.Instance.ShowReplayIn(2f);
                 gameState = eGameState.InGame_BowledLoop;
 
-                // Wait for '2' seconds and reset to Ready
-                StartCoroutine(WaitAndSetGameState(DeadBallPause, eGameState.InGame_ResetToReady));
+                // Wait for '2' seconds and reset to Ready - longer for a wicket, while the bowling
+                // side celebrates (WicketMoment).
+                StartCoroutine(WaitAndSetGameState(DeadBallPause + (WicketMoment.Active ? WicketMoment.ExtraPause : 0f), eGameState.InGame_ResetToReady));
             }
             break;
         case eGameState.InGame_BowledLoop:
@@ -352,6 +353,9 @@ public partial class Main
         // a second in, never scored (review).
         if (Extras.InPlay && !extrasBefore)
             yield break;
+        // A catch: the bowling side celebrates before the next ball (WicketMoment).
+        if (WicketMoment.Active)
+            yield return new WaitForSeconds(WicketMoment.ExtraPause);
         gameState = eGameState.InGame_ResetToReady;
     }
 

@@ -289,11 +289,25 @@ public class FieldCaptain : MonoBehaviour
             layout.PushBack(MaxPushBack);
         layout.Adapt(MaxMoves, HotSector);
         Assign(fielders, layout.places, now);
+        current = layout;
         Label = !plans ? null : $"{plan.name}, {(aggression == FieldSets.Plan.Attack ? "attacking" : aggression == FieldSets.Plan.Defend ? "defensive" : "standard")}" +
                                 $"{(g.maxOutside == 2 ? " · powerplay" : "")}{(g.ringIn > 0f ? " · ring in" : "")}";
         if (HUD.Instance != null)
             HUD.Instance.UpdateUI();
         Debug.Log($"[FieldCaptain] {Label} field for a {(g.offSign > 0 ? "right" : "left")}-hander against {bowler}: {layout}");
+    }
+
+    private FieldPlan current;
+
+    /// The fielding position a fielder was set at ("Point", "Deep midwicket"), for the scorecard
+    /// ("c Point b Bumrah"); null if he is not in the current field.
+    public string PositionName(AnimatedFielder f)
+    {
+        if (current == null || f == null) return null;
+        for (int i = 0; i < current.places.Count && i < current.names.Count; i++)
+            if (Flat(current.places[i] - f.StartPosition) < 1f)
+                return current.names[i];
+        return null;
     }
 
     /// Fewest metres walked: each place goes to the nearest fielder still without one.

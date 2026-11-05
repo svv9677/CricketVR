@@ -256,6 +256,36 @@ public partial class HUD : MonoBehaviour
         BowledBalls.Add(runs == 0 ? "*" : $"{runs}b");
     }
 
+    /// The last wicket as the scorecard writes it: "Rohit c Point b Bumrah 34 (22)" (WicketMoment).
+    public string LastDismissal;
+
+    private string Dismissal(Batsman b)
+    {
+        Main inst = Main.Instance;
+        string bowler = CurrentBowler != null ? CurrentBowler.Name : "";
+        string how;
+        if (inst != null && inst.gameState == eGameState.InGame_Bowled)
+            how = $"b {bowler}";
+        else
+        {
+            string catcher = inst != null ? inst.currentFielderName : "";
+            if (catcher == "Bowler")
+                how = $"c & b {bowler}";
+            else if (catcher != null && catcher.Contains("Keeper"))
+                how = $"c wk b {bowler}";
+            else
+            {
+                string where = null;
+                FieldCaptain captain = FindFirstObjectByType<FieldCaptain>();
+                foreach (AnimatedFielder f in AnimatedFielder.All)
+                    if (f != null && f.name == catcher && captain != null)
+                        where = captain.PositionName(f);
+                how = where != null ? $"c {where} b {bowler}" : $"c b {bowler}";
+            }
+        }
+        return $"{b.Name} {how}  {b.Runs} ({b.Balls})";
+    }
+
     /// A no-ball (NoBalls): one run to the team (the bowler's), plus runs off the bat to the batter
     /// or byes to the team; a ball faced, not one of the over's six. "nb", "5nb" (four off it).
     /// Byes coming in after the ball was first scored add to the same entry.
@@ -308,6 +338,7 @@ public partial class HUD : MonoBehaviour
             case -1:
                 {
                     IncrementRuns(0);
+                    LastDismissal = Dismissal(CurrentBatsman);
                     IncrementWickets();
                     IncrementBalls();
 

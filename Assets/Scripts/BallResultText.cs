@@ -82,7 +82,9 @@ public class BallResultText : MonoBehaviour
 
     private void Show(BallOutcome outcome)
     {
-        text.text = outcome.Label;
+        // A wicket: the batter's scorecard line under it (HUD.LastDismissal).
+        string line = outcome.Signal == UmpireSignal.Out && HUD.Instance != null ? HUD.Instance.LastDismissal : null;
+        text.text = string.IsNullOrEmpty(line) ? outcome.Label : $"{outcome.Label}\n<size=38%><color=#E5E7EB>{line}</color></size>";
         text.color = outcome.Color;
         shownAt = Time.time;
         showing = true;
