@@ -326,6 +326,8 @@ public class CareerMatchTests
         Assert.AreEqual("You: 34 (22) - c Khan b Lee", CareerMatchLogic.CardNote(r));
         r.isOut = false;
         Assert.AreEqual("You: 34 (22) - not out", CareerMatchLogic.CardNote(r));
+        Assert.AreEqual("Lee to bowl the next over", CareerMatchLogic.NextOver("Lee"));
+        Assert.AreEqual("New over", CareerMatchLogic.NextOver(null));
     }
 
     [Test]
@@ -341,7 +343,7 @@ public class CareerMatchTests
     {
         var all = new List<string>
         {
-            CareerMatchLogic.AtTheOtherEnd, CareerMatchLogic.ComeIn(1, 1, 1), CareerMatchLogic.ScoreAfter(1, 1, 1),
+            CareerMatchLogic.AtTheOtherEnd, CareerMatchLogic.ComeIn(1, 1, 1), CareerMatchLogic.ScoreAfter(1, 1, 1), CareerMatchLogic.NextOver("A"),
             CareerMatchLogic.BatterText("A", 1, 1, true, "b B"), CareerMatchLogic.YourInnings(1, 1, false, null),
             CareerMatchLogic.CardNote(null), CareerMatchLogic.ResultText(new InningsCard(), new InningsCard { runs = 1 }, true, "A", "B", out _, out _),
         };

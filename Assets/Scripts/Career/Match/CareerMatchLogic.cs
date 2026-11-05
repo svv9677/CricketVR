@@ -355,6 +355,10 @@ public static class CareerMatchLogic
 
     public const string AtTheOtherEnd = "While you were at the other end";
 
+    /// "Lee to bowl the next over": the over a batch began, which nothing else announces.
+    public static string NextOver(string bowler) =>
+        string.IsNullOrEmpty(bowler) ? "New over" : $"{bowler} to bowl the next over";
+
     /// "Ravi 18 (11) - out c Khan b Lee", "Ravi 4 (3) - run out", "Ravi 22 (15) not out".
     public static string BatterText(string name, int runs, int balls, bool isOut, string how)
     {

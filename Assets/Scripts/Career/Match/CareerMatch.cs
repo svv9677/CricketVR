@@ -126,8 +126,8 @@ public class CareerMatch : MonoBehaviour
         MatchGate.Blocking = false;
         if (teamSet)
             ReplayOverlay.Team = oldTeam;
-        if (noteSet)
-            MatchFlow.CardNote = null;
+        if (noteSet)   // the note and no-history kept for MatchFlow's card: back to normal
+            { MatchFlow.CardNote = null; MatchFlow.KeepHistory = true; }
     }
 
     private void Update()
@@ -266,7 +266,7 @@ public class CareerMatch : MonoBehaviour
         var batch = new Batch();
         int simulated = SimulateBatch(hud, batch);
         bool over = InningsOver(hud);
-        if (over || simulated == 0)
+        if (simulated == 0)
         {
             Hold(false);
             if (over)
@@ -277,9 +277,13 @@ public class CareerMatch : MonoBehaviour
         Batsman partner = StrikerIsYou(hud) ? hud.CurrentRunner : null;
         if (partner != null && !partner.IsHuman && partner.Balls > 0 && !batch.fell.Contains(partner))
             lines.Add(CareerMatchLogic.BatterText(partner.Name, partner.Runs, partner.Balls, false, null));
+        // Simulated balls change no game state, so OverBreak never announces their new over: the card does.
+        if (!over && hud.Balls == 0 && Bowled(hud) > 0 && hud.CurrentBowler != null)
+            lines.Add(CareerMatchLogic.NextOver(hud.CurrentBowler.Name));
         string heading = batch.cameIn ? CareerMatchLogic.ComeIn(batch.inRuns, batch.inWickets, batch.inBalls) : CareerMatchLogic.AtTheOtherEnd;
+        // A batch that ended the innings still gets its card; the match is checked when it goes.
         ShowCard(heading, CareerMatchLogic.CatchUpBody(lines, hud.Runs, hud.Wickets, Bowled(hud)),
-                 batch.cameIn ? ComeInSeconds : CatchUpSeconds, false);
+                 batch.cameIn ? ComeInSeconds : CatchUpSeconds, over);
     }
 
     /// He is out: the rest of the innings at once, his innings and the total on the card, and the
@@ -414,14 +418,15 @@ public class CareerMatch : MonoBehaviour
         Hold(false);
         InningsCard theirs = CareerMatchSession.TheirInnings ?? plan.theirs ?? CareerMatchLogic.FromAI(ai, plan.opponentName);
         CareerMatchResult result = CareerMatchLogic.Build(state, plan, theirs, false);
-        string note = CareerMatchLogic.CardNote(result);
+        string note = NetsTrialCard.Latin1(CareerMatchLogic.CardNote(result));
         MatchFlow.CardNote = note;
         Debug.Log($"[CareerMatch] {result.yours?.Score} - {result.result}; {note}");
         CareerMatchSession.Finish(result);
-        // Finish clears MatchFlow's career overrides; the note is for the card MatchFlow is about to
-        // build, so it goes back if that took it too (and is cleared with this scene: OnDestroy).
+        // Finish clears MatchFlow's overrides, but the card it is about to build reads two: the note,
+        // and no history (no "watch the chase at home": he goes to the hub). Undone in OnDestroy.
         if (string.IsNullOrEmpty(MatchFlow.CardNote))
             MatchFlow.CardNote = note;
+        MatchFlow.KeepHistory = false;
         noteSet = true;
     }
 
@@ -437,7 +442,8 @@ public class CareerMatch : MonoBehaviour
             CareerMatchLogic.Complete(s, plan.bowling, plan.bowlers, fielders, rng);
         }
         int overs = s.totalBalls > 0 ? s.totalBalls / 6 : plan.overs;
-        InningsCard theirs = plan.batFirst ? CareerMatchSession.PlayTheirInnings(overs, s.runs + 1) : plan.theirs;
+        InningsCard theirs = plan.batFirst ? CareerMatchSession.PlayTheirInnings(overs, s.runs + 1)
+                                           : CareerMatchSession.TheirInnings ?? plan.theirs;
         CareerMatchResult result = CareerMatchLogic.Build(s, plan, theirs, true);
         Debug.Log($"[CareerMatch] left early: {result.yours?.Score} - {result.result}");
         CareerMatchSession.Finish(result);
@@ -476,12 +482,10 @@ public class CareerMatch : MonoBehaviour
     }
 
     private static int Bowled(HUD hud) => hud.Overs * 6 + hud.Balls;
-
     private static bool InningsOver(HUD hud) =>
         CareerMatchLogic.InningsDone(hud.Runs, hud.Wickets, Bowled(hud), hud.TotalOvers * 6, MatchFlow.Target);
 
     private static bool StrikerIsYou(HUD hud) => hud.CurrentBatsman != null && hud.CurrentBatsman.IsHuman;
-
     private static bool YouAtCrease(HUD hud) =>
         StrikerIsYou(hud) || (hud.CurrentRunner != null && hud.CurrentRunner.IsHuman);
 
