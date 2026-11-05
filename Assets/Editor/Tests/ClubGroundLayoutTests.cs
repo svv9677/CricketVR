@@ -105,6 +105,8 @@ public class ClubGroundLayoutTests
                 Assert.GreaterOrEqual(xz.magnitude, ClubGroundLayout.FenceRadius + 8f, what);
                 Assert.That(xz.magnitude, Is.InRange(ClubGroundLayout.TreeInner, ClubGroundLayout.TreeOuter), what);
                 Assert.IsFalse(ClubGroundLayout.InBowlersArm(xz), what + " behind the bowler's arm");
+                Assert.IsFalse(ClubGroundLayout.CanopyInBowlersArm(xz, ClubGroundLayout.CanopyRadius(trees[i].kind, trees[i].scale)),
+                               what + ": its crown reaches behind the bowler's arm");
                 foreach (ClubGroundLayout.Spot s in Spots())
                     Assert.IsFalse(ClubGroundLayout.Contains(s, xz, ClubGroundLayout.TreeClearance), what + " on " + s.name);
                 for (int j = i + 1; j < trees.Count; j++)
@@ -117,6 +119,17 @@ public class ClubGroundLayoutTests
             Assert.That(trees.FindAll(t => t.kind == ClubGroundLayout.Poplar).Count,
                         Is.InRange(4, ClubGroundLayout.PoplarTarget), $"seed {seed}: a row of poplars");
         }
+    }
+
+    [Test]
+    public void ACrownReachingIntoTheWedgeCountsEvenWhenItsTrunkIsClear()
+    {
+        // A trunk 14 degrees off the batter's line, 80 m out: clear itself, but a 5.2 m crown spans 3.7.
+        float b = 14f * Mathf.Deg2Rad;
+        Vector2 xz = ClubGroundLayout.XZ(ClubGroundLayout.BatterEye) + 80f * new Vector2(-Mathf.Cos(b), Mathf.Sin(b));
+        Assert.IsFalse(ClubGroundLayout.InBowlersArm(xz));
+        Assert.IsTrue(ClubGroundLayout.CanopyInBowlersArm(xz, ClubGroundLayout.CanopyRadius(ClubGroundLayout.Broadleaf, 1.3f)));
+        Assert.IsFalse(ClubGroundLayout.CanopyInBowlersArm(xz, ClubGroundLayout.CanopyRadius(ClubGroundLayout.Poplar, 1f)));
     }
 
     [Test]

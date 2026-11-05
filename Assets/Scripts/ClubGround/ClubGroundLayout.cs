@@ -211,6 +211,21 @@ public static class ClubGroundLayout
     /// poplars: a tall dark backdrop behind the white building, closer together (they are narrow)
     /// so they read as a row, not two strays.
     public const float PoplarArcDeg = 14f, PoplarSpacing = 6f;
+    /// Canopy radius at scale 1 by kind (broadleaf, poplar): the wedge rule keeps the whole crown
+    /// out, not just the trunk (a 5 m crown at 75 m spans 4 degrees). Tools/clubground's shadow
+    /// pools use the same radii; a tree mesh wider than this would reach into the wedge.
+    public const float CanopyBroadleaf = 4f, CanopyPoplar = 1.6f;
+
+    public static float CanopyRadius(int kind, float scale) => (kind == Poplar ? CanopyPoplar : CanopyBroadleaf) * scale;
+
+    /// Whether a crown of this radius round this trunk reaches into the bowler's-arm wedge.
+    public static bool CanopyInBowlersArm(Vector2 xz, float radius)
+    {
+        float from = FromEye(xz);
+        if (from - radius <= ArmWedgeFrom) return InBowlersArm(xz);
+        float half = Mathf.Asin(Mathf.Clamp01(radius / from)) * Mathf.Rad2Deg;
+        return OffLineDeg(xz) - half <= ArmWedgeDeg;
+    }
 
     /// The least distance allowed between two trunks of these kinds.
     public static float Spacing(int kindA, int kindB) => kindA == Poplar && kindB == Poplar ? PoplarSpacing : TreeSpacing;
@@ -240,8 +255,9 @@ public static class ClubGroundLayout
             float b = Next01(ref state) * 2f * Mathf.PI;
             float s = Next01(ref state);
             var xz = new Vector2(r * Mathf.Cos(b), r * Mathf.Sin(b));
-            if (BehindPavilion(xz) != (kind == Poplar) || !TreeAllowed(xz) || Crowded(trees, xz, kind)) continue;
             float scale = kind == Poplar ? Mathf.Lerp(0.9f, 1.2f, s) : Mathf.Lerp(0.8f, 1.3f, s);
+            if (BehindPavilion(xz) != (kind == Poplar) || !TreeAllowed(xz) || Crowded(trees, xz, kind)) continue;
+            if (CanopyInBowlersArm(xz, CanopyRadius(kind, scale))) continue;
             trees.Add(new TreeSpot { pos = new Vector3(xz.x, 0f, xz.y), scale = scale, kind = kind });
         }
     }
