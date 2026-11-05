@@ -25,7 +25,6 @@ public class AnimatedBowler : MonoBehaviour
     private AFInfo currentBowlerInfo;
 
     private bool glide;
-    private int myFrame;
     private Vector3 myPrevPos;
 
     /// <summary>
@@ -102,6 +101,7 @@ public class AnimatedBowler : MonoBehaviour
     private void Update()
     {
         stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        Glide();
     }
 
     // Update is called once per frame
@@ -185,20 +185,24 @@ public class AnimatedBowler : MonoBehaviour
         }
     }
 
-    private void FixedUpdate()
+    /// The last of the walk back onto his mark: this long, turning at most this fast. It was 60
+    /// physics steps at 3 degrees a step (0.6 s, 300 deg/s at 100 Hz), moved in FixedUpdate - so on
+    /// a 90 Hz display some frames moved him twice and others not at all: a visible stutter as he
+    /// settled. Now per rendered frame, by time.
+    private const float GlideTime = 0.6f, GlideTurnRate = 300f;
+    private float glideTime;
+
+    private void Glide()
     {
-        if (glide && !Fielding)
-        {
-            // Frames it takes for the transition from walk to idle to complete
-            float totalFrames = 60f;
-            myFrame++;
-            transform.position = myPrevPos + (new Vector3(currentBowlerInfo.startPos.x - myPrevPos.x, currentBowlerInfo.startPos.y - myPrevPos.y, currentBowlerInfo.startPos.z - myPrevPos.z) / totalFrames * myFrame);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.Euler(currentBowlerInfo.startRot), 3f);
-            if (myFrame == totalFrames)
-            {
-                glide = false;
-            }
-        }
+        if (!glide || Fielding)
+            return;
+        glideTime += Time.deltaTime;
+        float t = Mathf.Clamp01(glideTime / GlideTime);
+        transform.position = Vector3.Lerp(myPrevPos, currentBowlerInfo.startPos, t);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.Euler(currentBowlerInfo.startRot),
+                                                      GlideTurnRate * Time.deltaTime);
+        if (t >= 1f)
+            glide = false;
     }
 
     /// <summary>
@@ -386,7 +390,7 @@ public class AnimatedBowler : MonoBehaviour
             if (distance <= 1.7f)
             {
                 animator.SetInteger("Action", 0);
-                myFrame = 0;
+                glideTime = 0f;
                 myPrevPos = transform.position;
                 glide = true;
             }

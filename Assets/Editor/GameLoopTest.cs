@@ -70,7 +70,14 @@ public static class GameLoopTest
         switch (phase)
         {
             case 0:   // waiting for Ready, then start the ball as the A button does
-                if (s == eGameState.InGame_Ready)
+                if (OverBreak.Showing)
+                {
+                    // The next-over card waits for A: close it as the player would.
+                    var ob = Object.FindFirstObjectByType<OverBreak>();
+                    typeof(OverBreak).GetMethod("Close", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.Invoke(ob, null);
+                    phaseStart = Time.time;
+                }
+                else if (s == eGameState.InGame_Ready && !OverBreak.Blocking)
                 {
                     inst.StartNextBall();
                     Next(1, $"ball {balls + 1}: started");

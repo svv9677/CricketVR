@@ -574,8 +574,9 @@ public class Main : MonoBehaviour
     /// Bowl the next ball (the A button, or "Next Ball" on the between-balls panel).
     public void StartNextBall()
     {
-        // Not through the next-over card: the bowler is announced first (OverBreak).
-        if (gameState != eGameState.InGame_Ready || OverBreak.Blocking)
+        // Not through the next-over card: the bowler is announced first (OverBreak). And not once
+        // the match is over (MatchFlow).
+        if (gameState != eGameState.InGame_Ready || OverBreak.Blocking || MatchFlow.Over)
             return;
         currentFielderName = "";
         Extras.Clear();

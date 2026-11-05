@@ -498,6 +498,9 @@ public partial class HUD : MonoBehaviour
         // Two decimals. RunRate is runs/overs, so the raw ToString() gives things like
         // "6.8571429" - far too long for the scoreboard's bracketed field.
         txtRunRate.text = RunRate.ToString("F2");
+        // ...and where the match is (MatchFlow): "Need 23 off 14", "Over 3 of 5".
+        if (!string.IsNullOrEmpty(MatchFlow.Status))
+            txtRunRate.text += "  · " + MatchFlow.Status;
         txtBatsman1.text = CurrentBatsman.Name;
         txtBatsman1Score.text = RunsAndBalls(CurrentBatsman);
         txtBatsman2.text = CurrentRunner.Name;
@@ -506,6 +509,9 @@ public partial class HUD : MonoBehaviour
         txtOvers.text = Overs.ToString() + "." + Balls.ToString() + " (" + TotalOvers.ToString() + ")";
         txtBowler.text = CurrentBowler.Name;
         txtBowlerStyle.text = Constants.CT_SwingPrefixes[(int)CurrentBowler.Type];
+        // ...and the captain's plan for him (FieldCaptain): "Short-ball plan, attacking".
+        if (!string.IsNullOrEmpty(FieldCaptain.Label))
+            txtBowlerStyle.text += " · " + FieldCaptain.Label;
 
         if (ShotCard.Instance != null)
             ShotCard.Instance.SetScore(Runs, Wickets, Overs, Balls, BowledBalls);

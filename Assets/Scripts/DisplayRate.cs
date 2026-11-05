@@ -14,6 +14,13 @@ using UnityEngine.XR.OpenXR.Features.Meta;
 /// can: after settling, if the average frame over a few seconds misses 90, it drops back to 72
 /// for the rest of the session rather than stutter worse at a rate it cannot hold.
 ///
+/// The physics clock follows the display: one step a frame at 90 Hz, two at 72. It ran at 100 Hz
+/// against either, so most frames got one step and every ninth or tenth got two (at 90 Hz) or a
+/// third of them two (72 Hz): uneven motion for anything not interpolated, and a frame that costs
+/// twice the physics now and then - a dropped frame waiting to happen. Everything that integrates
+/// reads Time.fixedDeltaTime (BallFlight's predictions included), so aim and flight agree at any
+/// step.
+///
 /// Uses the Meta OpenXR display utilities (com.unity.xr.meta-openxr, the Meta Quest Display
 /// Utilities feature in Project Settings > XR Plug-in Management > OpenXR). No objects: a static
 /// hook on the frame, installed at startup.
@@ -63,6 +70,7 @@ public static class DisplayRate
                 return;
             }
             Debug.Log($"[DisplayRate] Requested {Wanted} Hz");
+            LockPhysics(Wanted);
             return;
         }
         float since = Time.realtimeSinceStartup - requestedAt;
@@ -78,11 +86,23 @@ public static class DisplayRate
         {
             display.TryRequestDisplayRefreshRate(Fallback);
             Debug.Log($"[DisplayRate] Averaged {fps:F0} fps at {Wanted} Hz; back to {Fallback} Hz");
+            LockPhysics(Fallback);
         }
         else
         {
             Debug.Log($"[DisplayRate] Holding {Wanted} Hz ({fps:F0} fps)");
         }
+    }
+
+    /// Physics steps no longer than this (s): 90 Hz is one step a frame, 72 Hz two (144 Hz).
+    private const float LongestStep = 0.0115f;
+
+    /// A whole number of physics steps per displayed frame.
+    private static void LockPhysics(float hz)
+    {
+        int perFrame = Mathf.Max(1, Mathf.CeilToInt(1f / (hz * LongestStep)));
+        Time.fixedDeltaTime = 1f / (hz * perFrame);
+        Debug.Log($"[DisplayRate] Physics at {hz * perFrame:F0} Hz ({perFrame} per frame)");
     }
 
     private static readonly List<XRDisplaySubsystem> displays = new List<XRDisplaySubsystem>();

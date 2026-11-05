@@ -63,7 +63,7 @@ public class NextBallMenu : MonoBehaviour
         Main inst = Main.Instance;
         // Not while the next-over card is up: that comes first (OverBreak).
         bool want = inst != null && inst.gameState == eGameState.InGame_Ready &&
-                    !inst.SettingsOpen && !inst.CalibratingGrip && !OverBreak.Showing;
+                    !inst.SettingsOpen && !inst.CalibratingGrip && !OverBreak.Showing && !MatchFlow.Over;
         if (want && !shown)
             Show();
         else if (!want && shown)

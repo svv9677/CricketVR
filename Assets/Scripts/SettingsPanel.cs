@@ -9,8 +9,8 @@ using UnityEngine.UI;
 /// Refresh whenever a setting changes, and the panel mirrors Main without re-firing its handlers.
 /// This component sits on the always-active root; the `panel` child shows and hides.
 ///
-/// Only what a player changes between balls is up front: batting hand, difficulty (bat width),
-/// bat power and grip; bowler type, speed, swing and turn ranges; fielder speed. The delivery line
+/// Only what a player changes between balls is up front: batting hand, difficulty (bat width)
+/// and grip (bat power is fixed: Constants.BatPowerFixed); bowler type, speed, swing and turn ranges; fielder speed. The delivery line
 /// and the debug overlay sit in a collapsed "Advanced" section.
 /// </summary>
 public partial class SettingsPanel : MonoBehaviour
@@ -36,7 +36,6 @@ public partial class SettingsPanel : MonoBehaviour
     public SegmentedControl hand;              // Left, Right
     public SegmentedControl difficultyLevel;   // Easy, Medium, Hard
     public TMP_Text difficultyHint;
-    public SliderRow batPowerSlider;
 
     [Header("Bowling")]
     public SegmentedControl bowler;            // UIFormat.BowlerTypes
@@ -77,8 +76,6 @@ public partial class SettingsPanel : MonoBehaviour
     public SliderRow fieldersVolume;
 
     private const float Distance = 1.45f;
-    /// Bat power snaps to "Realistic" within this much of it.
-    private const float SnapToRealistic = 3f;
     private bool registered;
 
     public GameObject Panel => panel;
@@ -187,7 +184,6 @@ public partial class SettingsPanel : MonoBehaviour
         if (difficultyLevel != null)
             difficultyLevel.SetValueWithoutNotify(Mathf.Clamp((int)GameSettings.Difficulty - 1, 0, 2));
         SetText(difficultyHint, DifficultyHint(GameSettings.Difficulty));
-        SetSlider(batPowerSlider, GameSettings.BatPower, UIFormat.BatPower(GameSettings.BatPower));
         SetSlider(fielderSpeedSlider, GameSettings.FielderSpeed, $"{GameSettings.FielderSpeed:0.0}×");
         if (overlayToggle != null)
             overlayToggle.SetIsOnWithoutNotify(GameSettings.OverlayVisible);
@@ -281,13 +277,6 @@ public partial class SettingsPanel : MonoBehaviour
     {
         GameSettings.Difficulty = (eDifficulty)(index + 1);
         Refresh();
-    }
-
-    public void OnBatPower(float v)
-    {
-        if (Mathf.Abs(v - Constants.BatPowerRealistic) <= SnapToRealistic)
-            v = Constants.BatPowerRealistic;
-        GameSettings.BatPower = v;
     }
 
     public void OnBowler(int index)

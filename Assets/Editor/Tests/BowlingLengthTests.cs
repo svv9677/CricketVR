@@ -8,7 +8,8 @@ using UnityEngine;
 /// failure reproduces exactly.
 ///
 /// What "good bowling" means here: every length band turns up, lengths spread from yorker to
-/// bouncer, and not one ball is a wide, a full toss, or over the batter's head.
+/// bouncer, never a full toss, and - with the default line range - the odd wide on both sides,
+/// as a real attack bowls (2026-11-03: there were none, which played too tight).
 /// Run: Window > General > Test Runner > EditMode > BowlingLengthTests.
 /// </summary>
 public class BowlingLengthTests
@@ -112,17 +113,31 @@ public class BowlingLengthTests
     }
 
     [Test]
-    public void EveryLineIsLegal([ValueSource(nameof(LineRanges))] float[] range)
+    public void EveryLineIsInsideTheSlider([ValueSource(nameof(LineRanges))] float[] range)
     {
         foreach (var type in AllTypes)
             foreach (var p in Sample(type, range[0], range[1], 16))
-            {
                 Assert.That(p.line, Is.InRange(DeliveryPicker.MaxLegLine, DeliveryPicker.MaxOffLine),
                             $"{type} line {p.line:F3} for sliders {range[0]}..{range[1]}");
-                // The whole ball well inside the off-side guideline, and touching leg stump at worst.
-                Assert.Less(p.line + BallRadius, OffWideLine - 0.2f);
-                Assert.Greater(p.line + BallRadius, -LegWideLine);
+    }
+
+    /// With the default (full) line range and no plan: wides each side, about one an over. A ball is wide once its edge reaches the wide box (WideCollider: the line
+    /// plus a ball's width).
+    [Test]
+    public void DefaultLinesBowlTheOddWide()
+    {
+        foreach (var cfg in new[] { Constants.paceCfg, Constants.outSwingCfg, Constants.legSpinCfg })
+        {
+            int off = 0, leg = 0;
+            foreach (var p in Sample(eSwingType.Pace, cfg[4], cfg[5], 19))
+            {
+                if (p.line + BallRadius > OffWideLine + 2f * BallRadius) off++;
+                if (-p.line + BallRadius > LegWideLine + 2f * BallRadius) leg++;
             }
+            // ~4% each side: about one wide an over between them.
+            Assert.That(off, Is.InRange(Samples * 3 / 100, Samples * 6 / 100), "off-side wides");
+            Assert.That(leg, Is.InRange(Samples * 3 / 100, Samples * 6 / 100), "leg-side wides");
+        }
     }
 
     [Test]

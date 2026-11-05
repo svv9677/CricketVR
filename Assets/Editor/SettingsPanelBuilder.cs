@@ -62,7 +62,7 @@ public static class SettingsPanelBuilder
         var matchOnly = new List<GameObject>();
 
         Transform home = Page(card, SettingsPanel.HomePage, pages, names);
-        Category(home, "Batting", "Hand, difficulty, bat power, grip", c.OnPageBatting);
+        Category(home, "Batting", "Hand, difficulty, grip", c.OnPageBatting);
         matchOnly.Add(Category(home, "Bowling", "Bowler, speed, swing, turn, line", c.OnPageBowling).gameObject);
         Category(home, "Fielding", "Fielder speed", c.OnPageFielding);
         Category(home, "Match", "Overs", c.OnPageMatch);
@@ -75,8 +75,7 @@ public static class SettingsPanelBuilder
         Transform difficulty = Group(batting);
         c.difficultyHint = UIControls.LabelLine(difficulty, "Difficulty", "", out _);
         c.difficultyLevel = UIControls.Segmented(difficulty, new[] { "Easy", "Medium", "Hard" }, c.OnDifficulty);
-        // 50%-150% of a real swing: BatContact.SwingScale clamps to exactly this.
-        c.batPowerSlider = UIControls.ValueSlider(batting, "Bat power", 38f, 112f, true, c.OnBatPower, Constants.BatPowerRealistic);
+        // No bat power slider: it is fixed at Constants.BatPowerFixed.
         Transform grip = InlineField(batting, "Grip");
         UIControls.ActionButton(grip, "Calibrate", c.OnCalibrateGrip, false);
         UIControls.ActionButton(grip, "Reset", c.OnResetGrip, false, UIStyle.Control, 140f);
@@ -92,7 +91,7 @@ public static class SettingsPanelBuilder
         c.speedRange = UIControls.Range(bowling, "Speed", 60f, 165f, 1f, c.OnSpeedRange);
         c.swingRange = UIControls.Range(bowling, "Swing", 0f, 1f, 0.05f, c.OnSwingRange);
         c.turnRange = UIControls.Range(bowling, "Turn", -0.1f, 1f, 0.01f, c.OnTurnRange);
-        c.lineRange = UIControls.Range(bowling, "Line at the stumps", -0.75f, 0.75f, 0.01f, c.OnLineRange);
+        c.lineRange = UIControls.Range(bowling, "Line at the stumps", -DeliveryPicker.LineLimit, DeliveryPicker.LineLimit, 0.01f, c.OnLineRange);
         UIControls.ActionButton(bowling, "Reset bowling", c.OnResetBowling, false);
 
         Transform fielding = Page(card, "fielding", pages, names);

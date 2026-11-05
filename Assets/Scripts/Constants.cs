@@ -74,19 +74,21 @@ public static class Constants
     //   minLen, maxLen world X the ball pitches at (batsman's stumps are at x 10.30)
     //   minZ, maxZ     LINE: where the ball passes the batsman's stumps, metres from middle
     //                  stump, off side positive (mirrored for a left-hander). Stumps span
-    //                  +-0.114; the off-side wide guideline is 0.889. Occasional wayward balls
-    //                  outside this range come from BowlingProfile.WaywardChance.
+    //                  +-0.114; the off-side wide guideline is 0.889. Every bowler defaults
+    //                  to the slider's full +-1.5 m (2026-11-03): DeliveryPicker.Channels then
+    //                  bowls mostly the corridor and the stumps, with the odd leave and wide.
+    //                  Narrowing the slider narrows the channels.
     //   minSwn, maxSwn swing (spinners: drift) 0..1 of BallFlight.SwingCoefficientMax
     //   minTrn, maxTrn turn off the pitch, 0..1 of BallFlight.MaxTurnDegrees (6 deg);
     //                  seamers use a small +- range for seam movement.
     // Swing 0.15-1.0 (was 0.3-0.9) and spin 0.15-0.85 / 0.1-0.8 (was 0.3-0.6 / 0.25-0.5), with
     // more drift, so no two balls do quite the same; BowlingProfile.Vary adds the odd one that
     // does not swing, the googly and the arm ball.
-    public static readonly float[] paceCfg = { 7.8f, 8.6f, 0f, 9f, -0.08f, 0.35f, 0f, 0f, -0.06f, 0.06f };
-    public static readonly float[] inSwingCfg = { 6.9f, 7.8f, -2f, 9f, -0.05f, 0.30f, 0.15f, 1.0f, -0.03f, 0.03f };
-    public static readonly float[] outSwingCfg = { 6.9f, 7.8f, -2f, 9f, 0.05f, 0.40f, 0.15f, 1.0f, -0.03f, 0.03f };
-    public static readonly float[] legSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.10f, 0.30f, 0.05f, 0.45f, 0.15f, 0.85f };
-    public static readonly float[] offSpinCfg = { 3.8f, 4.7f, 4f, 10f, -0.10f, 0.25f, 0.05f, 0.45f, 0.1f, 0.8f };
+    public static readonly float[] paceCfg = { 7.8f, 8.6f, 0f, 9f, -1.5f, 1.5f, 0f, 0f, -0.06f, 0.06f };
+    public static readonly float[] inSwingCfg = { 6.9f, 7.8f, -2f, 9f, -1.5f, 1.5f, 0.15f, 1.0f, -0.03f, 0.03f };
+    public static readonly float[] outSwingCfg = { 6.9f, 7.8f, -2f, 9f, -1.5f, 1.5f, 0.15f, 1.0f, -0.03f, 0.03f };
+    public static readonly float[] legSpinCfg = { 3.8f, 4.7f, 4f, 10f, -1.5f, 1.5f, 0.05f, 0.45f, 0.15f, 0.85f };
+    public static readonly float[] offSpinCfg = { 3.8f, 4.7f, 4f, 10f, -1.5f, 1.5f, 0.05f, 0.45f, 0.1f, 0.8f };
 
     /// The configs' speed "impulses" were tuned against a 0.2 kg ball. The ball is now a real
     /// 0.16 kg, so speeds are converted with this, not with the Rigidbody mass.
@@ -96,6 +98,9 @@ public static class Constants
 
     /// Main.BatAmplifier at which the bat behaves like a real one (the settings panel's "Realistic").
     public const float BatPowerRealistic = 75f;
+    /// The bat power every shot uses: 80% of a real swing, the old slider's "80%" (2026-11-03,
+    /// played as the best feel for batting). The slider is gone; this is not a setting.
+    public const float BatPowerFixed = 0.8f * BatPowerRealistic;
 
 
     //For testing(same ball every time)

@@ -191,8 +191,10 @@ public enum eLengthBand { Yorker, Full, GoodLength, BackOfALength, Short }
 /// batter can't tell whether to go forward or back - with enough full balls, yorkers, and short
 /// ones to keep them honest. Spinners pitch it up: a spinner dropping short gets cut away.
 ///
-/// Every pick is legal: it pitches before the popping crease (never a full toss, so never a
-/// beamer), and its line at the stumps is inside both wide lines by a wide margin.
+/// Every pick pitches before the popping crease (never a full toss, so never a beamer). The line
+/// is not always legal: a few go down the leg side or too wide outside off and are called wides
+/// at the stumps (WideCollider), as real bowlers' are - about one ball in twenty with the
+/// default (full) line range.
 /// </summary>
 public static class DeliveryPicker
 {
@@ -243,18 +245,27 @@ public static class DeliveryPicker
     };
 
     /// Stumps span +-0.114. The corridor - off stump to a bat's width outside it - is where good
-    /// bowlers live; some attack the stumps; a few drift onto leg stump but never past it.
+    /// bowlers live; some attack the stumps or leg stump; and some miss. The wide lines
+    /// (WideCollider) are the off-side guideline 0.889 m and the outside of leg stump 0.114 m,
+    /// each plus a ball's width, so "down leg" is part leg-side wides and "wide outside off" is
+    /// nearly all off-side wides. Wides by the weights below: ~4% off side, ~4% leg side - about
+    /// one an over between them - before a plan (BowlingPlans) moves them (2026-11-03: none at all
+    /// at first, then ~2.5% each side, both too few for the player). The order is the order of
+    /// BowlingPlan.lineWeights.
     public static readonly Channel[] Channels =
     {
-        new Channel( 0.10f,  0.50f, 0.55f),   // corridor of uncertainty
-        new Channel(-0.03f,  0.10f, 0.33f),   // at the stumps
-        new Channel(-0.10f, -0.03f, 0.12f),   // on leg stump
+        new Channel( 0.10f,  0.50f, 0.45f),   // corridor of uncertainty
+        new Channel(-0.03f,  0.10f, 0.26f),   // at the stumps
+        new Channel(-0.10f, -0.03f, 0.09f),   // on leg stump
+        new Channel( 0.50f,  0.90f, 0.08f),   // well outside off: a leave
+        new Channel(-0.50f, -0.13f, 0.045f),  // down the leg side, mostly wides
+        new Channel( 0.95f,  1.45f, 0.04f),   // wide outside off
     };
 
-    /// Hard limits on the line. Off-side wide guideline is 0.889 m; the leg-side wide line is the
-    /// outside of leg stump, 0.114 m. A ball centred at -0.10 still has its edge on the stump.
-    public const float MaxOffLine = 0.60f;
-    public const float MaxLegLine = -0.10f;
+    /// The line slider runs +-LineLimit (twice the old +-0.75 m) and the line never goes past it.
+    public const float LineLimit = 1.5f;
+    public const float MaxOffLine = LineLimit;
+    public const float MaxLegLine = -LineLimit;
 
     public static bool IsSpin(eSwingType t) => t == eSwingType.LegSpin || t == eSwingType.OffSpin;
 
@@ -263,10 +274,13 @@ public static class DeliveryPicker
     /// <param name="minLine">The profile's line range (the Z sliders), which narrows the channels.
     /// The legal window always wins over it.</param>
     /// <param name="rand01">Uniform random in [0, 1].</param>
-    public static Pick PickDelivery(eSwingType type, float minLine, float maxLine, System.Func<float> rand01)
+    /// <param name="plan">The bowler's plan (BowlingPlans), which re-weights the bands and the
+    /// line channels; null for plain bowling.</param>
+    public static Pick PickDelivery(eSwingType type, float minLine, float maxLine, System.Func<float> rand01,
+                                    BowlingPlan plan = null)
     {
         Band[] bands = BandsFor(type);
-        Band b = bands[PickIndex(bands.Length, i => bands[i].weight, rand01())];
+        Band b = bands[PickIndex(bands.Length, i => bands[i].weight * (plan != null ? plan.lengthWeights[i] : 1f), rand01())];
         float distance = Mathf.Lerp(b.minDistance, b.maxDistance, rand01());
         // Keep inside what BallDelivery will accept, so it never has to clamp (and move) the ball.
         float pitchX = Mathf.Clamp(BallDelivery.BatsmanStumpsX - distance, BallDelivery.MinPitchX,
@@ -276,11 +290,11 @@ public static class DeliveryPicker
             band = b.band,
             distance = BallDelivery.BatsmanStumpsX - pitchX,
             pitchX = pitchX,
-            line = PickLine(minLine, maxLine, rand01),
+            line = PickLine(minLine, maxLine, rand01, plan),
         };
     }
 
-    public static float PickLine(float minLine, float maxLine, System.Func<float> rand01)
+    public static float PickLine(float minLine, float maxLine, System.Func<float> rand01, BowlingPlan plan = null)
     {
         float lo = Mathf.Max(Mathf.Min(minLine, maxLine), MaxLegLine);
         float hi = Mathf.Min(Mathf.Max(minLine, maxLine), MaxOffLine);
@@ -291,7 +305,8 @@ public static class DeliveryPicker
             return lo;
 
         // Only channels the slider range overlaps can be chosen, each clipped to that range.
-        int c = PickIndex(Channels.Length, i => Overlap(Channels[i], lo, hi) > 0f ? Channels[i].weight : 0f, rand01());
+        int c = PickIndex(Channels.Length, i => Overlap(Channels[i], lo, hi) > 0f
+                                                    ? Channels[i].weight * (plan != null ? plan.lineWeights[i] : 1f) : 0f, rand01());
         if (c < 0)
             return Mathf.Lerp(lo, hi, rand01());
         float from = Mathf.Max(Channels[c].minLine, lo), to = Mathf.Min(Channels[c].maxLine, hi);
@@ -365,8 +380,9 @@ public class BowlingProfile
         maxPitchTurn = _maxPitchTurn;
     }
 
-    // Wayward deliveries (the old 5% off-side / 2% leg-side strays) are gone: the player wants
-    // every ball legal, so line and length now come only from DeliveryPicker's legal channels.
+    // Line and length come only from DeliveryPicker's channels - which, since 2026-11-03, include
+    // the odd ball down leg and wide outside off (the old WaywardChance strays were removed when
+    // every ball was meant to be legal; the player found that too tight to be real).
     // minLen / maxLen are kept for the constructor's column order but no longer drive the length:
     // the config ranges (pace x 0..9, spin x 4..10) cut off the bouncer and short-spinner bands,
     // and the length sliders that once edited them are disabled in Main.
@@ -378,14 +394,27 @@ public class BowlingProfile
         param.swingType = swingType;
         param.torqueX = 0f;
         param.speedX = Random.Range(minX, maxX);
+        // The captain's plan for this bowler (FieldCaptain), if it is his kind of plan: where it
+        // pitches, the line, and the pace - quicker darts, slower flight, the slower ball.
+        BowlingPlan plan = BowlingPlans.Fits(BowlingPlans.Active, swingType) ? BowlingPlans.Active : null;
+        // ...as this standard of attack bowls it (BowlingLevels: pace, movement, loose balls).
+        BowlingLevels.Level level = BowlingLevels.Current;
+        plan = BowlingLevels.Apply(plan, level);
+        param.speedX *= plan.speedScale * level.speed;
+        if (Random.value < plan.slowerChance)
+            param.speedX *= BowlingPlan.SlowerBy;
         // length is the world X it pitches at; speedZ is the LINE at the batsman's stumps, off side
         // positive (Main mirrors it for a left-hander). minZ / maxZ are the line sliders.
-        DeliveryPicker.Pick pick = DeliveryPicker.PickDelivery(swingType, minZ, maxZ, () => Random.value);
+        DeliveryPicker.Pick pick = DeliveryPicker.PickDelivery(swingType, minZ, maxZ, () => Random.value, plan);
         param.length = pick.pitchX;
         param.lengthBand = pick.band;
         param.speedZ = pick.line;
-        param.swing = Random.Range(minSwing, maxSwing);
-        param.pitchTurn = Random.Range(minPitchTurn, maxPitchTurn);
+        param.swing = Random.Range(minSwing, maxSwing) * level.movement;
+        // Off the pitch: the level's movement, and the pitch's (StadiumConditions) - a green one
+        // seams, a dusty one turns.
+        StadiumConditions.Pitch pitch = StadiumConditions.Current;
+        param.pitchTurn = Random.Range(minPitchTurn, maxPitchTurn) * level.movement *
+                          (DeliveryPicker.IsSpin(swingType) ? pitch.turnScale : pitch.seamScale);
         Vary(param);
         param.applySwing = true;
         param.applyPitchTurn = true;
