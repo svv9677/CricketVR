@@ -100,8 +100,7 @@ public class CareerScreen : MenuScreen
         for (int j = 0; j < slots.Length; j++)
             ShowConfirm(j, j == i);
         if (slots[i].question != null)
-            slots[i].question.text = $"Delete {profiles[i].name}'s career?\n" +
-                                     "<size=20><color=#98A2B3>Every ball and rating in it goes for good.</color></size>";
+            slots[i].question.text = $"Delete {profiles[i].name}'s career?";
     }
 
     public void OnConfirmDelete(int i)

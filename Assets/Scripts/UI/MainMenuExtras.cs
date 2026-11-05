@@ -25,16 +25,20 @@ public class MainMenuExtras : MonoBehaviour
     {
         Refresh();
         // Back from a career session in the nets: straight to the career hub, ahead of any match
-        // result. The flag is cleared either way, so it cannot fire later on an unrelated return
-        // to this screen.
+        // result. The flag is only cleared once the hub is actually pushed (ShowCareerHub): this
+        // screen can be switched on and off again while the menu sets itself up, which stops the
+        // coroutine, and the next OnEnable must still see the flag. With no career loaded the
+        // flag is stale, so it is dropped here and cannot fire on a later, unrelated return.
+        // A pending match result is put off, not discarded: it shows the next time this screen
+        // opens.
         if (NetsSession.ReturnToHub)
         {
-            NetsSession.ReturnToHub = false;
             if (CareerSaves.Current != null)
             {
                 StartCoroutine(ShowCareerHub());
                 return;
             }
+            NetsSession.ReturnToHub = false;
         }
         if (MatchHistory.ResultPending)
             StartCoroutine(ShowResult());
@@ -80,6 +84,7 @@ public class MainMenuExtras : MonoBehaviour
     private IEnumerator ShowCareerHub()
     {
         yield return null;
+        NetsSession.ReturnToHub = false;
         Push("career");
         Push("careerHub");
     }

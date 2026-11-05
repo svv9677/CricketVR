@@ -77,6 +77,11 @@ public static class CareerMenuBuilder
         Transform confirm = Row(tile, UIStyle.Unit);
         TextMeshProUGUI question = WorldPanelBuilder.Text(confirm, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text,
                                                           UIStyle.Control, TextAlignmentOptions.Left);
+        // A 16-letter name makes the question wider than the room left by the two buttons:
+        // shrink it to fit the row rather than spill out of the tile.
+        question.enableAutoSizing = true;
+        question.fontSizeMin = UIStyle.HintSize;
+        question.fontSizeMax = UIStyle.LabelSize - 2f;
         LayoutElement questionLayout = question.GetComponent<LayoutElement>();
         questionLayout.preferredWidth = 0f;
         questionLayout.flexibleWidth = 1f;
