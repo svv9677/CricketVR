@@ -128,17 +128,22 @@ public static class ClubGroundVenue
     /// The club's birdsong and breeze on the crowd's looping source, at the club's level, with no
     /// swell to speak of on a boundary (VenueRules.ClubCrowd). CrowdController has already started
     /// the stadium's clip (its Awake): the clip is swapped and played again here. Without an
-    /// ambience clip in the prefab the stadium's crowd plays on, at the club's level.
+    /// ambience clip in the prefab the crowd source is muted (both volumes 0, which
+    /// CrowdController lerps between every frame): a silent ground beats a stadium roar at a club.
     private static void CrowdAudio(Scene scene, ClubGround club, eCrowd crowd)
     {
         GameObject root = Root(scene, "Crowd");
         if (root == null || !root.TryGetComponent(out CrowdController controller))
             return;
+        if (club.Ambience == null)
+        {
+            Debug.LogWarning("[ClubGround] The prefab has no ambience clip; the crowd source is muted.");
+            controller.ambienceVolume = controller.cheerVolume = 0f;
+            return;
+        }
         VenueRules.CrowdAudio level = VenueRules.ClubCrowd(crowd);
         controller.ambienceVolume = level.ambience;
         controller.cheerVolume = level.cheer;
-        if (club.Ambience == null)
-            return;
         controller.cheerClip = club.Ambience;
         if (root.TryGetComponent(out AudioSource source))
         {
