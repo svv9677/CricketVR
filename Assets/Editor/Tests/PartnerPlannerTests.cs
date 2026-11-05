@@ -6,7 +6,8 @@ using UnityEngine;
 /// The partner's shot planner (PartnerIntent, PartnerField, PartnerShotPlanner), standalone - no
 /// scene, no PhysX. Fields are the bowling plans' own (BowlingPlans) placed on a 56 m ground with
 /// FieldSets.Place, plus the keeper and the bowler following through; deliveries come from
-/// BallDelivery.Solve. Every flight steps at 0.01 s (the project's fixed timestep) explicitly.
+/// BallDelivery.Solve. Every flight steps at 0.01 s (the project's fixed timestep) explicitly,
+/// Meet's included (PartnerShotPlanner.MeetStep, pinned for each test and put back).
 /// Run: Window > General > Test Runner > EditMode > PartnerPlannerTests.
 /// </summary>
 public class PartnerPlannerTests
@@ -14,19 +15,17 @@ public class PartnerPlannerTests
     private const float Dt = 0.01f;
     private readonly List<BallFlight.Sample> scratch = new List<BallFlight.Sample>(1024);
 
-    /// Mutation-checked 2026-11-05: the design's (exit + q incoming) / (1 + q) fails it.
-    [Test]
-    public void BatVelocityRoundTripsThroughBatContactsRule()
+    private float savedMeetStep;
+
+    [SetUp]
+    public void PinMeetStep()
     {
-        var rng = new System.Random(3);
-        for (int i = 0; i < 200; i++)
-        {
-            Vector3 vin = PartnerTestWorld.RandomVector(rng, 40f), exit = PartnerTestWorld.RandomVector(rng, 45f);
-            Vector3 bat = PartnerShotPlanner.BatVelocityFor(vin, exit);
-            Vector3 back = 0.24f * vin + 1.24f * bat;
-            Assert.LessOrEqual((back - exit).magnitude, 1e-4f, $"in {vin} exit {exit}");
-        }
+        savedMeetStep = PartnerShotPlanner.MeetStep;
+        PartnerShotPlanner.MeetStep = Dt;
     }
+
+    [TearDown]
+    public void RestoreMeetStep() => PartnerShotPlanner.MeetStep = savedMeetStep;
 
     [Test]
     public void MeetAgreesWithTheDeliverySolveAtTheStumps()
@@ -340,6 +339,34 @@ public class PartnerPlannerTests
             ShotDirection d = new ShotDirection { intent = 4, exitVelocity = atHead, valid = true };
             ShotPlan p = PartnerShotPlanner.Plan(d, PartnerTestWorld.Delivery(7.5f, 34f, 0.05f, default), f, 1f, rng, scratch);
             if (p.makesContact) Assert.GreaterOrEqual(p.predicted.closestToHuman, 0.8f);
+        }
+    }
+
+    /// The player's head right in front of the bat, so every turn of the shot passes within 0.8 m
+    /// of him: the four is given up for a push under him; and with his head as low as the ball,
+    /// where even the push comes near, the turn that passes furthest from him - never the shot as
+    /// aimed, and its prediction is the one for the exit actually played.
+    [Test]
+    public void AShotWithNoClearPathIsGivenUp()
+    {
+        var rng = new System.Random(71);
+        IncomingBall b = PartnerTestWorld.Delivery(7.5f, 34f, 0.05f, default);
+        FieldSnapshot nobody = PartnerTestWorld.Field(BowlingPlans.Yorkers.field, eSwingType.Pace, 1f, false);
+        var straight = new ShotDirection { intent = 4, exitVelocity = PartnerShotPlanner.ExitFor(0f, 0f, 30f, 1f), valid = true };
+        Vector3 contact = PartnerShotPlanner.Plan(straight, b, nobody, 1f, rng, scratch).contactPoint;
+        foreach (float headUp in new[] { 1.1f, 0f })
+        {
+            FieldSnapshot f = PartnerTestWorld.Field(BowlingPlans.Yorkers.field, eSwingType.Pace, 1f, true);
+            f.nonStrikerHead = contact + new Vector3(-1.2f, headUp, 0f);
+            Vector3 aimed = (f.nonStrikerHead - contact).normalized * 30f;
+            float aimedGap = PartnerField.Evaluate(contact, aimed, f, scratch).closestToHuman;
+            Assert.Less(aimedGap, 0.1f, "the test aims at him");
+            ShotPlan p = PartnerShotPlanner.Plan(new ShotDirection { intent = 4, exitVelocity = aimed, valid = true }, b, f, 1f, rng, scratch);
+            if (!p.makesContact) continue;
+            float gap = PartnerField.Evaluate(p.contactPoint, p.exitVelocity, f, scratch).closestToHuman;
+            Assert.AreEqual(gap, p.predicted.closestToHuman, 1e-3f, $"head +{headUp}: the prediction is the exit's");
+            Assert.Greater(gap, aimedGap + 0.3f, $"head +{headUp}: turned off him");
+            if (headUp > 0f) Assert.GreaterOrEqual(gap, PartnerShotPlanner.HumanClearance, "pushed under him");
         }
     }
 }

@@ -14,6 +14,18 @@ public class PartnerSwingTests
 {
     private const float Frame = 1f / 72f;
     private readonly List<BallFlight.Sample> scratch = new List<BallFlight.Sample>(1024);
+    private float savedMeetStep;
+
+    /// Meet at the project's fixed timestep, whatever the clock is (PartnerShotPlanner.MeetStep).
+    [SetUp]
+    public void PinMeetStep()
+    {
+        savedMeetStep = PartnerShotPlanner.MeetStep;
+        PartnerShotPlanner.MeetStep = 0.01f;
+    }
+
+    [TearDown]
+    public void RestoreMeetStep() => PartnerShotPlanner.MeetStep = savedMeetStep;
 
     private struct Case
     {
@@ -87,6 +99,59 @@ public class PartnerSwingTests
         }
     }
 
+    /// A metres blade (scale 1) like BallLedgerTests'; the game's own BatContact.Respond, met on
+    /// the sweet spot with the face along the exit - the contact the swing makes (PartnerSwing).
+    private static readonly BatContact.Blade Blade = new BatContact.Blade
+    {
+        toeZ = 0f, sweetZ = 0.18f, shoulderZ = 0.56f, halfWidth = 0.054f, faceY = 0.02f, backY = -0.04f,
+    };
+
+    private static Vector3 Respond(Vector3 incoming, Vector3 exit)
+    {
+        var hit = new BatContact.Hit
+        {
+            localBat = new Vector3(0f, Blade.faceY, Blade.sweetZ), localNormal = Vector3.up,
+            rotation = Quaternion.FromToRotation(Vector3.up, exit.normalized),
+        };
+        Vector3 bat = PartnerShotPlanner.BatVelocityFor(incoming, exit);
+        return BatContact.Respond(hit, Blade, 1f, incoming, bat, BallFlight.Mass).velocity;
+    }
+
+    /// Through the game's contact itself, not just the algebra. Head on, the whole exit comes out;
+    /// met obliquely (the ball coming down onto a face turned along a flat drive), the push off the
+    /// face still does, and only the part of the ball's own velocity along the face is left to
+    /// BatContact's friction - the face is along the exit (PartnerSwing), so nothing the bat's speed
+    /// could add there. Mutation-checked 2026-11-05: the plan's (exit - q incoming) / (1 + q) gives
+    /// -40 m/s for a -25 m/s drive and fails both halves.
+    [Test]
+    public void BatVelocityGivesTheExitThroughBatContact()
+    {
+        Vector3 vin = new Vector3(30f, -3f, 0.4f);
+        foreach (float speed in new[] { 10f, 18f, 25f, 32f, 40f })
+            foreach (float elevation in new[] { -6f, -2f, 8f })
+            {
+                Vector3 exit = PartnerShotPlanner.ExitFor(0f, elevation, speed, 1f), n = exit.normalized;
+                Vector3 headOn = Respond(-n * vin.magnitude, exit);
+                Assert.LessOrEqual((headOn - exit).magnitude, 0.05f * speed, $"head on: exit {exit} got {headOn}");
+                Vector3 got = Respond(vin, exit);
+                Assert.AreEqual(speed, Vector3.Dot(got, n), 0.05f * speed, $"off the face: exit {exit} got {got}");
+            }
+    }
+
+    [Test]
+    public void ExitForBatUndoesBatVelocityFor()
+    {
+        var rng = new System.Random(3);
+        for (int i = 0; i < 200; i++)
+        {
+            Vector3 vin = PartnerTestWorld.RandomVector(rng, 40f), exit = PartnerTestWorld.RandomVector(rng, 45f);
+            Vector3 back = PartnerShotPlanner.ExitForBat(vin, PartnerShotPlanner.BatVelocityFor(vin, exit));
+            Assert.LessOrEqual((back - exit).magnitude, 1e-4f, $"in {vin} exit {exit}");
+        }
+    }
+
+    /// Along it and at its speed (held to MinBatSpeed..MaxBatSpeed). Measured 2026-11-05: within
+    /// 2.1 degrees and 3% on every case.
     [Test]
     public void TheSweetSpotMovesAlongTheBatVelocityAtContact()
     {
@@ -94,7 +159,9 @@ public class PartnerSwingTests
         {
             if (c.plan.shot == PartnerShot.Leave) continue;
             Vector3 v = (Sweet(Pose(c, 0f)) - Sweet(Pose(c, -0.002f))) / 0.002f;
-            Assert.Less(Vector3.Angle(v, c.plan.batVelocity), 25f, c.name);
+            Assert.Less(Vector3.Angle(v, c.plan.batVelocity), 5f, c.name);
+            float speed = Mathf.Clamp(c.plan.batVelocity.magnitude, PartnerSwing.MinBatSpeed, PartnerSwing.MaxBatSpeed);
+            Assert.AreEqual(speed, v.magnitude, 0.05f * speed, $"{c.name}: speed");
         }
     }
 

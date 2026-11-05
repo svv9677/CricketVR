@@ -29,10 +29,14 @@ public static class PartnerField
     public const float Step = 0.02f, MaxTime = 14f;
     /// HUD's run bands: fielded within 2 s is a dot, 4.5 one, 7.5 two, 11 three, after that four.
     public static readonly float[] RunBands = { 2f, 4.5f, 7.5f, 11f };
-    /// The keeper (KeeperCatcher's private constants): his glove plane in front of him, how long a
-    /// deflection takes him to read, how far and fast he shuffles, the reach of the gloves where
-    /// they already are, and how much further a dive takes them.
+    /// The keeper, mirroring KeeperCatcher's private constants: his glove plane in front of him
+    /// (HandsAhead), how long a deflection takes him to read (ReactionTime), how far and fast he
+    /// shuffles (MaxShuffle, ShuffleSpeed).
     public const float KeeperHandsAhead = 0.5f, KeeperReaction = 0.22f, KeeperShuffle = 1.6f, KeeperShuffleSpeed = 3f;
+    /// An approximation, not KeeperCatcher's numbers: the reach of the gloves where they are before
+    /// he has read it, and how much further a dive takes them. The live keeper reaches further
+    /// (KeeperDive.cs: GloveReach 0.5, LungeReach 1.1, MaxDive 2.4 from his middle), so these are on
+    /// the safe side - a predicted catch behind is one he takes, though he takes some not predicted.
     public const float KeeperGlove = 0.45f, KeeperDive = 1.0f;
     /// closestToHuman when there is nobody at the other end.
     public const float NoHuman = 999f;

@@ -279,7 +279,7 @@ public static partial class PartnerSwing
         inward = SafeNormal(Vector3.ProjectOnPlane(inward, SafeNormal(flatIn, Vector3.right)), -fr.S);
         bool meant = p.shot == PartnerShot.PlayAndMiss || p.shot == PartnerShot.Edge;
         Vector3 target = k.ball + inward * (p.shot == PartnerShot.PlayAndMiss ? MissInside : p.shot == PartnerShot.Edge ? EdgeInside : 0f);
-        Vector3 intended = 1.24f * p.batVelocity + 0.24f * p.incoming;
+        Vector3 intended = PartnerShotPlanner.ExitForBat(p.incoming, p.batVelocity);
         Vector3 face = meant ? SafeNormal(intended, PartnerShotPlanner.IntendedDrive(fr.o).normalized)
                              : SafeNormal(p.exitVelocity, fr.F);
         Vector3 want = HandsAtContact(p.shot, k.hipsC, fr);

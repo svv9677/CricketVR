@@ -23,16 +23,21 @@ using UnityEngine;
 /// </summary>
 public static class PartnerShotPlanner
 {
-    /// BatContact's head-on rule: v_out = q v_in + (1 + q) v_bat.
+    /// BatContact's head-on rule at the sweet spot, as vectors: v_out = -q v_in + (1 + q) v_bat,
+    /// q ~ 0.24 (Respond with e 0.52, M 0.75 kg: v_out = (1 - k) v_in + k v_bat, k ~ 1.25). The
+    /// "q v_in" in BatContact's header is about speeds - the ball comes back the other way.
     public const float Restitution = 0.24f;
     /// The contact planes: a front-foot stride meets it this far in front of the stumps, a
     /// back-foot shot this far.
     public const float FrontContactBehind = 1.45f, BackContactBehind = 0.60f;
     public static float FrontContactX => BallDelivery.BatsmanStumpsX - FrontContactBehind;
     public static float BackContactX => BallDelivery.BatsmanStumpsX - BackContactBehind;
-    /// The live ball's step (ProjectSettings: fixed timestep 0.01 s), so Meet predicts the ball the
-    /// player sees; and the longest it follows a delivery.
-    public const float MeetStep = 0.01f, MeetTime = 3f;
+    /// Meet's step: 0 steps at the live physics step (Time.fixedDeltaTime, which DisplayRate sets
+    /// to 1/90 or 1/144 s on the headset), so Meet predicts the ball the player sees. Tests pin it
+    /// (0.01 s, the project's fixed timestep) and put it back.
+    public static float MeetStep = 0f;
+    /// The longest Meet follows a delivery.
+    public const float MeetTime = 3f;
     public const int MaxCandidates = PartnerDirectionSearch.MaxCandidates;
     public const float HumanClearance = 0.8f;
     /// A dot is a ball fielded inside this (HUD: 2 s), with room to spare.
@@ -46,8 +51,14 @@ public static class PartnerShotPlanner
 
     public static float SpeedCap(int intent) => intent == 6 ? 45f : intent == 4 ? 38f : 30f;
 
-    /// The bat's velocity that sends `incoming` away at `exit` (BatContact: v_out = q v_in + (1+q) v_bat, q = 0.24).
-    public static Vector3 BatVelocityFor(Vector3 incoming, Vector3 exit) => (exit - 0.24f * incoming) / 1.24f;
+    /// The bat's velocity that sends `incoming` away at `exit`: v_bat = (v_out + q v_in) / (1 + q)
+    /// (Restitution). Exact off the face; a ball met obliquely keeps some of its slide along the face
+    /// (BatContact's friction), which no bat speed along the exit could take out. Checked through
+    /// BatContact.Respond itself (PartnerSwingTests).
+    public static Vector3 BatVelocityFor(Vector3 incoming, Vector3 exit) => (exit + Restitution * incoming) / (1f + Restitution);
+
+    /// Where a bat moving at `batVelocity` sends `incoming` (BatVelocityFor's inverse).
+    public static Vector3 ExitForBat(Vector3 incoming, Vector3 batVelocity) => (1f + Restitution) * batVelocity - Restitution * incoming;
 
     /// A hit at this angle (FieldSets': 0 straight back, off side positive), elevation (degrees)
     /// and speed.
@@ -236,14 +247,17 @@ public static class PartnerShotPlanner
 
     /// The searched exit from the real contact: as it is if it still gives the intent, else nudged
     /// either way (at most three tries); never one that passes too near the player's head, which
-    /// is turned further off if it must.
+    /// is turned further off if it must. If every turn passes within HumanClearance of him, the shot
+    /// is given up for a push back down the ground (DeadBatPush); if even that comes near him, the
+    /// push or the turn, whichever passes further from him.
     private static Vector3 Revalidate(int intent, Vector3 contact, Vector3 exit, in FieldSnapshot f, List<BallFlight.Sample> s, out FieldResult result)
     {
         float[] turns = { 0f, NudgeDegrees, -NudgeDegrees, 2f * NudgeDegrees, 16f, -16f, 30f, -30f };
         bool human = PartnerField.HasHuman(f);
-        Vector3 clear = exit;
-        FieldResult clearResult = default;
+        Vector3 clear = exit, widest = exit;
+        FieldResult clearResult = default, widestResult = default;
         bool haveClear = false;
+        float widestGap = float.NegativeInfinity;
         for (int i = 0; i < turns.Length; i++)
         {
             Vector3 e = Quaternion.AngleAxis(turns[i], Vector3.up) * exit;
@@ -251,11 +265,23 @@ public static class PartnerShotPlanner
             bool safe = !human || a.result.closestToHuman >= HumanClearance;
             if (safe && i < 4 && Realises(intent, a, out _)) { result = a.result; return e; }
             if (safe && !haveClear) { haveClear = true; clear = e; clearResult = a.result; }
+            if (a.result.closestToHuman > widestGap) { widestGap = a.result.closestToHuman; widest = e; widestResult = a.result; }
             if (i >= 3 && haveClear) break;
         }
-        result = clearResult;
-        return clear;
+        if (!haveClear && human)
+        {
+            PartnerField.Assessment push = PartnerField.Assess(contact, DeadBatPush, f, s);
+            if (push.result.closestToHuman >= HumanClearance || push.result.closestToHuman > widestGap)
+            {
+                haveClear = true; clear = DeadBatPush; clearResult = push.result;
+            }
+        }
+        result = haveClear ? clearResult : widestResult;
+        return haveClear ? clear : widest;
     }
+
+    /// Straight back down the pitch along the ground, slowly (ExitFor(0, -4, 10): either hand).
+    private static Vector3 DeadBatPush => ExitFor(0f, -4f, 10f, 1f);
 
     private static ShotPlan Contact(ShotPlan p, PartnerShot shot, Vector3 exit, FieldResult pr, in FieldSnapshot f)
     {
@@ -320,6 +346,8 @@ public static class PartnerShotPlanner
     }
 
     /// An edge carried to the keeper or the slips: close to the incoming line, slower than it.
+    /// Deviation from the plan, which names only the keeper (keeperIndex): a catch by any fielder
+    /// in that cone is taken - the slips and gully stand there to catch exactly these.
     private static bool TryEdge(Vector3 contact, Vector3 incoming, in FieldSnapshot f, List<BallFlight.Sample> s, out Vector3 exit, out FieldResult result)
     {
         float[] fractions = { 0.7f, EdgeSpeedMin, EdgeSpeedMax };
