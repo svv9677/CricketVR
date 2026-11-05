@@ -95,7 +95,7 @@ public class MatchSounds : MonoBehaviour
         if (BowlerRepertoire.IsSpin(k))
             GameSfx.Play("breath", head.position, GameAudio.Channel.Fielders, 0.5f, Random.Range(0.95f, 1.05f), 1f, 40f);
         else
-            GameSfx.Play("grunt", head.position, GameAudio.Channel.Fielders, k == eBowlerKind.Fast ? 0.8f : 0.55f,
+            GameSfx.Play("grunt", head.position, GameAudio.Channel.Fielders, k == eBowlerKind.Fast ? 0.6f : 0.42f,
                          Random.Range(0.96f, 1.06f), 1.5f, 50f);
         whooshMin = float.MaxValue;
         whooshed = false;
@@ -149,6 +149,8 @@ public class MatchSounds : MonoBehaviour
             GameSfx.Play("dive", divePos, GameAudio.Channel.Fielders, 0.8f, Random.Range(0.92f, 1.05f), 1.5f, 50f);
         }
 
+        if (st == eGameState.InGame_DeliverBallLoop || st == eGameState.InGame_BallMissed)
+            Beaten();
         // Until it is past him: the ball is called missed before it reaches the player's head.
         if (!whooshed && (st == eGameState.InGame_DeliverBallLoop || st == eGameState.InGame_BallMissed ||
                           st == eGameState.InGame_BallMissedLoop))
@@ -238,11 +240,22 @@ public class MatchSounds : MonoBehaviour
 
     private void OnState()
     {
-        if (main.gameState != eGameState.InGame_BallMissed || main.theBallScript == null || main.theBallScript.wide)
-            return;
-        // Beaten, close to the off stump: "ooh".
-        float line = main.theBallScript.lastLineAtStumps;
-        if (!float.IsNaN(line) && Mathf.Abs(line) < 0.35f && Random.value < 0.6f)
-            GameSfx.Play2D("crowd_ooh", GameAudio.Channel.Crowd, 0.6f, Random.Range(0.95f, 1.05f));
+        if (main.gameState == eGameState.InGame_SelectDelivery)
+            oohDone = false;
+    }
+
+    private bool oohDone;
+
+    /// Beaten close to the stumps: "ooh!" - the moment the ball goes past the bat, not when the
+    /// ball is called missed (at the keeper: the ooh came late, 2026-11-05).
+    private void Beaten()
+    {
+        if (oohDone || main.theBatScript == null || main.theBatScript.hasHitBall) return;
+        Vector3 p = ball.position;
+        if (p.x < BallDelivery.BatsmanStumpsX - 0.5f) return;
+        oohDone = true;
+        bool close = Mathf.Abs(p.z) < 0.4f && p.y < 1.3f;
+        if (close && !main.theBallScript.wide && Random.value < 0.65f)
+            GameSfx.Play2D("crowd_ooh", GameAudio.Channel.Crowd, 0.6f, Random.Range(0.97f, 1.04f));
     }
 }

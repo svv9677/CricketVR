@@ -10,9 +10,9 @@ What it writes (every clip mono, 44.1 kHz, peak -1 dBFS unless said):
   step_grass_{1..6}   a footstep on the outfield: a real grass rustle over a soft heel thud
   step_pitch_{1..4}   on the hard pitch: a sharper, drier knock, little rustle
   stride_{1..2}       the delivery stride landing: a heavy pitch step
-  grunt_{1..6}        a quick bowler's effort at the release (exertion grunts)
+  grunt_{1..6}        a quick bowler's effort at the release (short jump/exertion grunts, ~0.2 s)
   throw_{1..4}        a fielder's short grunt on a hard throw
-  breath_{1..2}       a spinner's release: a short breath (the grunts, softened and filtered)
+  breath_{1..2}       a spinner's release: a short effort exhale
   glove_{1..3}        the ball into the keeper's gloves
   hands_{1..3}        into a fielder's hands (the glove takes, higher, lighter)
   bounce_pitch_{1..4} the ball pitching (real cricket-ball impacts from the nets recording)
@@ -21,7 +21,7 @@ What it writes (every clip mono, 44.1 kHz, peak -1 dBFS unless said):
   bails_{1..3}        bails clattering off and on to the ground
   boards_1            the ball into the advertising boards
   whoosh_{1..2}       a quick ball past the head
-  crowd_four_{1..2}, crowd_six_{1..2}, crowd_wicket_{1..2}, crowd_ooh_1, crowd_groan_1, crowd_sigh_1
+  crowd_four_{1..2}, crowd_six_{1..2}, crowd_wicket_{1..2}, crowd_ooh_{1..4}
 """
 import sys, wave
 import numpy as np
@@ -38,6 +38,17 @@ def bp(x, lo, hi, o=3): return sosfilt(butter(o, [lo, hi], "bp", fs=SR, output="
 def cut(x, t, ms, pre=0.004):
     s = max(int((t - pre) * SR), 0)
     return x[s: s + int(ms / 1000 * SR)].copy()
+
+def onset(x, t, win=1.0, below_peak_db=18):
+    """The start of the sound near t (s): the first 10 ms within `below_peak_db` of the loudest
+    10 ms in the next `win` seconds - so a clip starts on the sound, not on the air before it."""
+    s, e = max(int(t * SR), 0), min(int((t + win) * SR), len(x))
+    n = int(0.01 * SR)
+    rms = np.array([np.sqrt(np.mean(x[i:i + n] ** 2)) for i in range(s, e - n, n // 2)])
+    if len(rms) == 0: return t
+    thresh = rms.max() * 10 ** (-below_peak_db / 20)
+    k = int(np.argmax(rms >= thresh))
+    return (s + k * (n // 2)) / SR
 
 def env(n, tau_ms, attack_ms=0.0):
     t = np.arange(n) / SR
@@ -88,11 +99,14 @@ def thud(ms, f0, tau_ms):
 
 def main(out):
     run = load("run_grass.mp3"); walk = load("walk_grass.mp3")
-    effort = load("grunts_effort.mp3"); fight = load("grunts_fight.mp3")
+    jumps = [load(f"jump{i}.mp3") for i in (1, 2, 3)]
+    exertion = load("short_exertion.mp3"); attack = load("grunt_attack.mp3"); exhale = load("exhale.mp3")
+    vo = load("vogrunt3.mp3")
+    ooh_aah, oh_dis, reactions = load("ooh_aah.mp3"), load("oh_disappointed.mp3"), load("crowd_reactions.mp3")
     g1, g2 = load("glove1.mp3"), load("glove2.mp3")
     oro = load("oroboros.mp3"); tennis = load("tennis_grass.mp3"); wood = load("woodfoley.mp3")
     cheer1, cheer2, roar = load("cheer1.mp3"), load("cheer2.mp3"), load("roar.mp3")
-    excited, groan, sigh = load("excited.mp3"), load("groan.mp3"), load("sigh.mp3")
+    excited = load("excited.mp3")
 
     # Footsteps on grass: the rustle of real steps (de-noised by gating, high-passed) over a heel.
     rustles = [cut(run, t, 160) for t in (1.19, 1.60, 2.00)] + [cut(walk, t, 160) for t in (0.98, 1.33, 2.17)]
@@ -110,14 +124,20 @@ def main(out):
         grit = bp(rng.standard_normal(int(0.2 * SR)), 900, 4000) * env(int(0.2 * SR), 14)
         save(fade(mix(int(0.2 * SR), (norm(heel), 1.0), (norm(grit), 0.4)), 0.3, 40), f"{out}/stride_{i}.wav")
 
-    # The quick's effort at the release, and a fielder's on a throw.
-    for i, t in enumerate((0.21, 1.78, 3.10, 5.70, 8.82, 10.25), 1):
-        save(fade(gate(hp(cut(effort, t, 420), 120), 180, 90), 2, 80), f"{out}/grunt_{i}.wav")
-    for i, t in enumerate((0.58, 5.40, 9.14, 13.79), 1):
-        save(fade(gate(hp(cut(fight, t, 300), 120), 110, 60), 2, 60), f"{out}/throw_{i}.wav")
-    for i, t in enumerate((1.78, 8.82), 1):
-        b = lp(hp(cut(effort, t, 380), 300), 3000)
-        save(fade(gate(b, 120, 70), 25, 90), f"{out}/breath_{i}.wav", db=-8)
+    # The quick's effort at the release: short, sharp "huh"s - jump and exertion grunts, ~0.2 s,
+    # starting on the sound. (The first set, cut from long pained groans, sounded like moaning:
+    # 2026-11-05 "the groans are scary".)
+    efforts = [(jumps[0], 0.14), (jumps[2], 0.17), (exertion, 0.22), (exertion, 2.30), (attack, 0.40), (jumps[1], 0.23)]
+    for i, (src, t) in enumerate(efforts, 1):
+        g = cut(src, onset(src, t - 0.08, 0.3), 240, pre=0.002)
+        save(fade(gate(hp(g, 140), 90, 45), 1, 60), f"{out}/grunt_{i}.wav")
+    for i, (src, t) in enumerate([(jumps[0], 0.14), (jumps[1], 0.23), (jumps[2], 0.17), (vo, 0.45)], 1):
+        g = cut(src, onset(src, t - 0.08, 0.3), 200, pre=0.002)
+        save(fade(gate(hp(g, 160), 70, 40), 1, 50), f"{out}/throw_{i}.wav")
+    # A spinner's release: a short effort breath.
+    for i, t in enumerate((0.86, 3.67), 1):
+        b = lp(hp(cut(exhale, onset(exhale, t - 0.1, 0.4), 320, pre=0.002), 250), 4000)
+        save(fade(gate(b, 110, 60), 6, 80), f"{out}/breath_{i}.wav", db=-6)
 
     # Gloves and hands.
     keeper = [cut(g1, 0.23, 140), cut(g2, 1.09, 160)]
@@ -169,9 +189,13 @@ def main(out):
     save(fade(cut(excited, 0.4, 6500), 30, 1800), f"{out}/crowd_six_2.wav")
     save(fade(cut(excited, 7.2, 6000), 30, 1800), f"{out}/crowd_wicket_1.wav")
     save(fade(cut(excited, 22.3, 6000), 30, 1800), f"{out}/crowd_wicket_2.wav")
-    save(fade(cut(groan, 0.3, 1500), 30, 500), f"{out}/crowd_ooh_1.wav")
-    save(fade(cut(groan, 0.0, 3000), 30, 900), f"{out}/crowd_groan_1.wav")
-    save(fade(cut(sigh, 1.0, 4000), 80, 1500), f"{out}/crowd_sigh_1.wav")
+    # Beaten close to the stumps: "ooh!" - real crowds' oohs, starting on the sound so it comes
+    # with the moment, not after it.
+    for i, (src, t, ms) in enumerate([(ooh_aah, 0.1, 1900), (ooh_aah, 3.5, 1900), (oh_dis, 0.1, 1600),
+                                      (reactions, 13.4, 2200)], 1):
+        # Started near the top of the crowd's swell (8 dB under it): a crowd takes ~0.3 s to get
+        # going, and that rise is what made the ooh land late.
+        save(fade(cut(src, onset(src, t, 0.8, below_peak_db=8), ms, pre=0.04), 15, 600), f"{out}/crowd_ooh_{i}.wav")
 
 if __name__ == "__main__":
     main(sys.argv[1] if len(sys.argv) > 1 else ".")
