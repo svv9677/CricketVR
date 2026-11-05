@@ -70,6 +70,7 @@ public sealed class ReplayActors
         batStand = main.theBat != null ? AddFree(main.theBat.transform, skip) : null;
         headStand = AddBatterHelmet();
         Players = players.Count;
+        BuildChannelKeys();     // now, as the scene loaded: the same moment in every load of it
     }
 
     /// A helmet for the batter's head in the replay: the keeper's own helmet mesh and materials,
@@ -245,6 +246,76 @@ public sealed class ReplayActors
         foreach (Transform t in wholeLive) if (t == null) return false;
         foreach (Transform t in boneLive) if (t == null) return false;
         return true;
+    }
+
+    // ---- Channel keys (record clips) -----------------------------------------------------------
+
+    /// Each pose channel's name, in this layout's order (ClipRemap matches a saved clip's channels to
+    /// a later load of the scene by these, since FindObjectsByType gives the actors in no fixed
+    /// order): "W:" and the scene path of a whole object (a rotation and a position each), "B:" a
+    /// bone's (its rotation), "P:" a moving bone's (its position). Worked out once, as the stand-ins
+    /// are built, and kept.
+    public void ChannelKeys(List<string> rot, List<string> pos)
+    {
+        rot?.Clear();
+        rot?.AddRange(rotationKeys);
+        pos?.Clear();
+        pos?.AddRange(positionKeys);
+    }
+
+    private readonly List<string> rotationKeys = new List<string>(), positionKeys = new List<string>();
+
+    private void BuildChannelKeys()
+    {
+        var paths = new Dictionary<Transform, string>();
+        foreach (Transform t in wholeLive) rotationKeys.Add("W:" + PathKey(t, paths));
+        foreach (Transform t in boneLive) rotationKeys.Add("B:" + PathKey(t, paths));
+        foreach (Transform t in wholeLive) positionKeys.Add("W:" + PathKey(t, paths));
+        foreach (Transform t in pointLive) positionKeys.Add("P:" + PathKey(t, paths));
+    }
+
+    /// `t`'s path from its scene's root by names ("Fielders/AFielder[2]/Hips"), with "[k]" only where
+    /// siblings share a name: the k-th of them in sibling order. `memo` saves walking a parent twice.
+    public static string PathKey(Transform t, Dictionary<Transform, string> memo = null)
+    {
+        if (t == null)
+            return "";
+        if (memo != null && memo.TryGetValue(t, out string known))
+            return known;
+        string segment = t.name + Twin(t);
+        string key = t.parent == null ? segment : PathKey(t.parent, memo) + "/" + segment;
+        if (memo != null)
+            memo[t] = key;
+        return key;
+    }
+
+    /// "[k]" when `t` shares its name with a sibling (or another root of its scene), else "".
+    private static string Twin(Transform t)
+    {
+        int same = 0, k = 0;
+        string name = t.name;
+        if (t.parent != null)
+        {
+            Transform p = t.parent;
+            for (int i = 0; i < p.childCount; i++)
+            {
+                Transform c = p.GetChild(i);
+                if (c == t) k = same;
+                if (c.name == name) same++;
+            }
+        }
+        else
+        {
+            GameObject[] roots;
+            try { roots = t.gameObject.scene.GetRootGameObjects(); }
+            catch (System.Exception) { return ""; }     // not in a loaded scene
+            foreach (GameObject g in roots)
+            {
+                if (g.transform == t) k = same;
+                if (g.name == name) same++;
+            }
+        }
+        return same > 1 ? $"[{k}]" : "";
     }
 
     // ---- Playback ------------------------------------------------------------------------------

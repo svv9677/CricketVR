@@ -58,9 +58,12 @@ public partial class CameraReplay : MonoBehaviour
     private bool displaying;
     private bool screenLit;
     private ShotRecording shot;
+    private ShotRecording loaded;           // ShowRecording's clip, until the next ball
     private float playFrom, playTo, playTime, holdLeft, nextRender;
 
     public bool IsShowing => displaying;
+    /// Warmed up, with the stand-ins to pose: a clip can be shown (ShowRecording).
+    public bool Ready => warmed;
 
     void Start()
     {
@@ -130,9 +133,23 @@ public partial class CameraReplay : MonoBehaviour
             recorder.RecordAtLeastUntil(showAt);
     }
 
+    /// A saved record clip (ClipRemap; with poses) on the screen now, all of it, looping like any
+    /// replay until the next ball.
+    public void ShowRecording(ShotRecording recording)
+    {
+        if (recording == null)
+            return;
+        loaded = recording;
+        pending = false;
+        waitFor = null;
+        displaying = false;
+        BeginDisplay();
+    }
+
     /// The next ball: the screen off.
     public void ResetForNextBall()
     {
+        loaded = null;
         pending = false;
         waitFor = null;
         StopDisplaying();
@@ -199,13 +216,13 @@ public partial class CameraReplay : MonoBehaviour
         if (recorder == null)
             recorder = ShotRecorder.Instance;
         actors = recorder != null ? recorder.Actors : null;
-        shot = recorder != null ? recorder.Latest : null;
+        shot = loaded ?? (recorder != null ? recorder.Latest : null);
         if (actors == null || shot == null || !shot.Released || shot.Count < 2)
             return;
         HideOthersOnce();
         // From the bowler's last strides to the end of the play (ShowReplayWhen).
         playFrom = Mathf.Max(0f, shot.ReleaseTime - leadIn);
-        playTo = Mathf.Min(shot.Duration, showAt - shot.StartedAt);
+        playTo = loaded != null ? shot.Duration : Mathf.Min(shot.Duration, showAt - shot.StartedAt);
         if (playTo <= playFrom)
             return;
         Restart();

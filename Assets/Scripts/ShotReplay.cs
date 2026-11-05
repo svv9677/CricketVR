@@ -57,7 +57,10 @@ public class ShotReplay : MonoBehaviour
     [SerializeField]
     private float pulseSeconds = 0.35f;
 
-    public bool HasShot => recorder != null && recorder.Last != null && recorder.Last.Count > 1;
+    /// What Play plays: a saved record clip when one is loaded (the replay theatre), else the last
+    /// delivery.
+    public ShotRecording Source => loaded ?? (recorder != null ? recorder.Last : null);
+    public bool HasShot => Source != null && Source.Count > 1;
     public bool IsPlaying => playing;
     public bool IsPaused => playing && paused;
     public float Speed
@@ -75,6 +78,7 @@ public class ShotReplay : MonoBehaviour
     public event System.Action StateChanged;
 
     private ShotRecording shot;
+    private ShotRecording loaded;       // PlayRecording's clip, until the next delivery
     private bool playing;
     private bool paused;
     private float speed = 1f;
@@ -148,7 +152,7 @@ public class ShotReplay : MonoBehaviour
     {
         if (!HasShot || ghosts == null)
             return;
-        shot = recorder.Last;
+        shot = Source;
         // The recording starts in the run-up (for the big screen); the ghosts start at the release.
         if (shot.HasContact)
         {
@@ -168,6 +172,14 @@ public class ShotReplay : MonoBehaviour
         ghosts.SetActive(true);
         Apply();
         StateChanged?.Invoke();
+    }
+
+    /// Plays `recording` (a saved record clip, ClipRemap) in place of the last delivery, looping like
+    /// any replay, until the next delivery.
+    public void PlayRecording(ShotRecording recording)
+    {
+        loaded = recording;
+        Play();
     }
 
     public void Stop()
@@ -216,8 +228,12 @@ public class ShotReplay : MonoBehaviour
 
     private void OnGameStateChanged()
     {
-        // Ghosts flying about while a real ball is bowled would be confusing: clear them.
-        if (playing && main.gameState == eGameState.InGame_SelectDelivery)
+        // Ghosts flying about while a real ball is bowled would be confusing: clear them. A real
+        // ball is the one to replay from now on, not a loaded clip.
+        if (main.gameState != eGameState.InGame_SelectDelivery)
+            return;
+        loaded = null;
+        if (playing)
             Stop();
     }
 

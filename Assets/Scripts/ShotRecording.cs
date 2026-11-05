@@ -211,5 +211,10 @@ public sealed class PoseTrack
         return true;
     }
 
+    /// The `index`-th pose's time (oldest first), and the slot it is in: a record clip copies the
+    /// poses out in order (ClipCodec).
+    public float TimeAt(int index) => At(index);
+    public int SlotAt(int index) => (first + index) % times.Length;
+
     private float At(int index) => times[(first + index) % times.Length];
 }

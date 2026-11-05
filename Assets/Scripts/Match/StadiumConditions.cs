@@ -70,11 +70,12 @@ public static class StadiumConditions
             return;
         }
         ApplyPitch(Current);
-        // The ground: the career plan's, else the Quick Match setting. The club ground falls back to
-        // the stadium, as it is, when its prefab is not there (ClubGroundVenue logs it).
-        MatchVenue.Set(VenueRules.Resolve(CareerMatchSession.Active,
-                                          CareerMatchSession.Plan != null ? CareerMatchSession.Plan.venue : eVenue.Stadium,
-                                          MatchSetup.Venue));
+        // The ground: the career plan's (or, replaying a record, the record's: ReplayTheatre), else the
+        // Quick Match setting. The club ground falls back to the stadium, as it is, when its prefab is
+        // not there (ClubGroundVenue logs it).
+        eVenue planVenue = ReplayTheatre.Active ? ReplayTheatre.Venue
+                         : CareerMatchSession.Plan != null ? CareerMatchSession.Plan.venue : eVenue.Stadium;
+        MatchVenue.Set(VenueRules.Resolve(CareerMatchSession.Active || ReplayTheatre.Active, planVenue, MatchSetup.Venue));
         ClubGround club = MatchVenue.IsClub ? ClubGroundVenue.Dress(scene, MatchSetup.Crowd) : null;
         if (club == null) { MatchVenue.Set(eVenue.Stadium); ApplyCrowd(MatchSetup.Crowd); }
         StadiumLighting.SetGlowBanks(club != null ? club.GlowPoints() : null, VenueRules.GlowSize(MatchVenue.Current));
