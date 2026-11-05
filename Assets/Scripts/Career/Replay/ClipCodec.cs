@@ -159,12 +159,14 @@ public static class ClipCodec
     {
         if (c?.samples == null || c.samples.Length < 2)
             return null;
-        using var ms = new MemoryStream();
+        byte[] json = Encoding.UTF8.GetBytes(headerJson ?? "{}");
+        // Sized up front: a 3-4 MB clip grown by doubling leaves several big buffers for the Quest's GC.
+        int size = PackedSize(json.Length, c);
+        using var ms = new MemoryStream(size);
         using (var w = new BinaryWriter(ms, Encoding.UTF8, true))
         {
             w.Write(Magic);
             w.Write((ushort)Format);
-            byte[] json = Encoding.UTF8.GetBytes(headerJson ?? "{}");
             w.Write(json.Length);
             w.Write(json);
             w.Write(c.interval);
@@ -180,7 +182,34 @@ public static class ClipCodec
             foreach (Quaternion q in c.rotations) { w.Write(q.x); w.Write(q.y); w.Write(q.z); w.Write(q.w); }
             foreach (Vector3 p in c.positions) { w.Write(p.x); w.Write(p.y); w.Write(p.z); }
         }
-        return ms.ToArray();
+        // The size is exact, so the stream's own buffer is the clip: no copy.
+        return ms.Length == ms.Capacity ? ms.GetBuffer() : ms.ToArray();
+    }
+
+    /// The exact bytes Pack writes: magic, format, the header, interval, 68 bytes a sample, both
+    /// key blocks, then 4 bytes a pose time, 16 a rotation, 12 a position.
+    private static int PackedSize(int jsonBytes, SavedClip c)
+    {
+        long n = 4 + 2 + 4 + jsonBytes + 4 + 4 + (long)c.samples.Length * 68;
+        n += KeysSize(c.rotKeys) + KeysSize(c.posKeys);
+        n += 4 + (long)c.Poses * 4;
+        n += (c.rotations != null ? (long)c.rotations.Length * 16 : 0) + (c.positions != null ? (long)c.positions.Length * 12 : 0);
+        return (int)Math.Min(n, int.MaxValue);
+    }
+
+    /// A key block: its count, then each key as BinaryWriter writes a string (7-bit length, UTF-8).
+    private static long KeysSize(string[] keys)
+    {
+        long n = 4;
+        if (keys == null)
+            return n;
+        foreach (string k in keys)
+        {
+            int b = Encoding.UTF8.GetByteCount(k ?? "");
+            n += b;
+            for (uint v = (uint)b; ; v >>= 7) { n++; if (v < 0x80) break; }
+        }
+        return n;
     }
 
     private static void WriteSample(BinaryWriter w, ShotRecording.Sample s)
