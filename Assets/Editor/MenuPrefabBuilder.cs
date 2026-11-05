@@ -85,6 +85,7 @@ public static class MenuPrefabBuilder
             CareerMenuBuilder2.BuildRatings(panel.transform), CareerMenuBuilder2.BuildSeason(panel.transform),
             CareerMenuBuilder2.BuildResult(panel.transform),
             CareerMenuBuilder3.BuildInbox(panel.transform), CareerMenuBuilder3.BuildMessage(panel.transform),
+            CareerDrillsMenuBuilder.BuildDrills(panel.transform),
             BuildResult(panel.transform),
         };
 

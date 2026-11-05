@@ -342,13 +342,13 @@ public class CareerHubScreen : MenuScreen
             Root.Push(screen);
     }
 
-    /// Measured practice in the nets (after the trial; the button is off before it).
+    /// The nets: measured practice and the drills (CareerDrillsScreen; after the trial, the button is off before it).
     public void OnNets()
     {
         CareerProfile p = CareerSaves.Current;
         if (p == null || !p.trialDone)
             return;
         ForgetTrial();
-        NetsSession.BeginPractice();
+        Push("careerDrills");
     }
 }
