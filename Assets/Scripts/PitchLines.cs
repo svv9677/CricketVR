@@ -16,11 +16,19 @@ using UnityEngine.SceneManagement;
 /// the width of the pitch reads at a glance. And at each end the batters' guard marks: a short
 /// line back from the popping crease toward the stumps in line with each of leg, middle and off
 /// stump, where a batter scratches the guard they take. One mesh, one unlit material: one draw call.
+///
+/// Built in the match scene and in the nets (Scenes): the nets scene is the match scene's pitch
+/// with practice nets round it, the same Pitch Markings texture under the same stumps, so without
+/// the lines it showed that blurred texture again.
 /// </summary>
 public static class PitchLines
 {
-    private const string MatchScene = "CricketVR";
-    private const float Crease = 0.06f, Edge = 0.03f;
+    /// The scenes the lines are built in: the match, and the practice nets.
+    public static readonly string[] Scenes = { "CricketVR", "Nets" };
+    /// Half the pitch's width to the middle of each edge line (the Laws' 3.05 m pitch), and the
+    /// edge lines' width: ClubPitchSurface lays the club's prepared strip to just outside them.
+    public const float PitchHalf = 1.525f, EdgeWidth = 0.03f;
+    private const float Crease = 0.06f, Edge = EdgeWidth;
     /// Above the surface under them: creases over the edge lines where they cross, both just
     /// clear of the turf so they lie on it rather than float (they sat 2.7 cm up before).
     private const float CreaseLift = 0.004f, EdgeLift = 0.002f;
@@ -30,7 +38,7 @@ public static class PitchLines
     /// there; return creases, seen along their length, need no help.
     private const float FarCrease = 0.3f;
     private const float BowlingCreaseHalf = 1.32f, PoppingHalf = 1.83f, PoppingOut = 1.22f;
-    private const float ReturnZ = 1.32f, ReturnBack = 2.44f, WideZ = 0.89f, PitchHalf = 1.525f;
+    private const float ReturnZ = 1.32f, ReturnBack = 2.44f, WideZ = 0.89f;
     /// Guard marks: in line with each stump (the stumps' centres, as placed in the scene: 9.525 cm
     /// apart), this long back from the popping crease and this wide - narrower than a crease, so
     /// they read as scratched marks, not more creases.
@@ -47,9 +55,12 @@ public static class PitchLines
 
     private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
 
+    /// Whether the lines are built in the scene of this name.
+    public static bool BuildsIn(string sceneName) => System.Array.IndexOf(Scenes, sceneName) >= 0;
+
     private static void Build(Scene scene)
     {
-        if (scene.name != MatchScene || GameObject.Find("Pitch Lines") != null)
+        if (!BuildsIn(scene.name) || GameObject.Find("Pitch Lines") != null)
             return;
         GameObject battingEnd = GameObject.Find("Main/Stumps_BattingEnd");
         GameObject bowlingEnd = GameObject.Find("Main/Stumps_BowlingEnd");

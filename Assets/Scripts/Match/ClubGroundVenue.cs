@@ -23,6 +23,8 @@ using UnityEngine.SceneManagement;
 ///   * ReflectionProbe_Pitch: its baked cubemap is of the stands. Off, reflections come from the sky.
 ///   * Main/Pitch leaves its lightmaps: they were baked with the stands blocking the sky, and the
 ///     club's outfield is lit in realtime, so the pitch's edge would show as a seam.
+///   * Main/Pitch/Pitch Base gets the club's edge (ClubPitchSurface): a neat 3.05 m strip on its
+///     edge lines instead of the stadium's metre-wide frayed fade, which at the club fell on grass.
 /// The replay screen gets ClubReplayScreen: no screen in the sky, the replay comes to the player.
 /// </summary>
 public static class ClubGroundVenue
@@ -43,6 +45,7 @@ public static class ClubGroundVenue
         HideDisplays(scene);
         SwitchOffProbe(scene);
         UnbakePitch(scene);
+        PrepareStrip(scene);
         CrowdAudio(scene, club, crowd);
         GuardReplayScreen(scene);
         club.SetClubName(VenueRules.ClubName(CareerMatchSession.Active, CareerMatchSession.Plan?.yourTeamName));
@@ -123,6 +126,16 @@ public static class ClubGroundVenue
             return;
         foreach (MeshRenderer r in pitch.GetComponentsInChildren<MeshRenderer>(true))
             r.lightmapIndex = -1;
+    }
+
+    /// The club's neat strip on the pitch quad (ClubPitchSurface); logged if the quad or its blend
+    /// material is not there, and the pitch is then left as the stadium has it.
+    private static void PrepareStrip(Scene scene)
+    {
+        Transform t = Child(scene, "Main", "Pitch/Pitch Base");
+        Renderer r = t != null ? t.GetComponent<Renderer>() : null;
+        if (!ClubPitchSurface.Apply(r))
+            Debug.LogWarning("[ClubGround] Main/Pitch/Pitch Base has no PitchBlend material: the pitch keeps the stadium's edge.");
     }
 
     /// The club's birdsong and breeze on the crowd's looping source, at the club's level, with no

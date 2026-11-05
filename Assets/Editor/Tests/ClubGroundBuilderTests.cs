@@ -146,26 +146,13 @@ public class ClubGroundBuilderTests
         Assert.Less(p.Spectators[0].TriangleCount / 2, quads / 2, "an empty ground is under half full");
     }
 
-    /// The board's six rows at 118% (ClubScoreboardFigures) must fit the plate at the size the
-    /// builder gives both texts: at a fixed size an overflow spills off the plate.
-    [Test]
-    public void ScoreboardRowsFitThePlate()
-    {
-        ClubParts p = Build();
-        Assert.AreEqual(6, ClubBuildings.ScoreboardRows);
-        Assert.AreEqual(1.18f, ClubBuildings.ScoreboardLineHeight, 1e-4f);
-        float size = ClubBuildings.RowsFontSize(p.Figures.rect.y, ClubBuildings.ScoreboardRows, ClubBuildings.ScoreboardLineHeight);
-        float metresPerUnit = size / 86f * 0.1f;   // LiberationSans SDF: point size 86, scale 1
-        float block = (77.85f + 18.22f + 5 * 98.89f * 1.18f) * metresPerUnit;
-        Assert.LessOrEqual(block, p.Figures.rect.y, "six rows fit the plate");
-        Assert.Greater(block, 0.9f * p.Figures.rect.y, "and nearly fill it");
-    }
+    // The score hut's board (it was six rows of text sized to fit the plate): ClubScoreboardBoardTests.
 
     [Test]
     public void TextsFaceTheBatterAndPylonHeadsAreTheGlowPoints()
     {
         ClubParts p = Build();
-        foreach (ClubLabel l in new[] { p.Figures, p.ClubName })
+        foreach (ClubLabel l in new[] { p.Figures, p.ScoreHeader, p.ClubName })
         {
             Vector3 to = ClubGroundLayout.BatterEye - l.pos;
             to.y = 0f;

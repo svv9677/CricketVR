@@ -2,18 +2,23 @@ using UnityEngine;
 using static ClubMeshKit;
 
 /// <summary>
-/// Everything round the boundary: the white picket fence at FenceRadius with its gate in front
-/// of the pavilion and its 72 colliders, the rope at RopeRadius, the inner-circle markers, the
-/// benches, the roller, the flagpole, both sightscreens and the four floodlight pylons.
+/// Everything round the boundary: the picket fence at FenceRadius with its gate in front of the
+/// pavilion and its 72 colliders, the rope at RopeRadius, the inner-circle markers, the benches,
+/// the roller, the flagpole, both sightscreens and the four floodlight pylons.
 ///
 /// The fence is one alpha-to-coverage band (club_picket.png repeating along it), not 400 picket
 /// boxes: about 500 triangles, and at 58 m the edges stay smooth under 4x MSAA. Everything else goes
-/// into the structures batch.
+/// into the structures batch. The fence is stained natural wood, not painted white: the colour is
+/// in club_picket.png (build_textures.py's STAIN), so the fence material is unchanged. The gate and
+/// its posts are the atlas's boards (GateWood), the nearest brown the structures batch has, so the
+/// gate needs no material of its own.
 /// </summary>
 public static class ClubFence
 {
     /// The gap the gate fills, in metres of fence.
     public const float GateWidth = 3f;
+    /// The gate's timber: the veranda boards' brown, beside the fence's stain.
+    public const ClubCell GateWood = ClubCell.VerandaBoards;
     /// One repeat of club_picket.png (1024 x 128 px) along the fence: eight fence-heights, so its
     /// pixels stay square.
     public static float PicketRepeat => 8f * ClubGroundLayout.FenceHeight;
@@ -35,7 +40,7 @@ public static class ClubFence
         Vector3 b = new Vector3(Mathf.Cos(gateBearing + half) * r, g, Mathf.Sin(gateBearing + half) * r);
         Frame w = Frame.World;
         foreach (Vector3 post in new[] { a, b })
-            Box(p.Structures, w, post + Vector3.up * 0.55f, new Vector3(0.12f, 1.1f, 0.12f), ClubCell.WhitePaint);
+            Box(p.Structures, w, post + Vector3.up * 0.55f, new Vector3(0.12f, 1.1f, 0.12f), GateWood);
         Vector3 mid = (a + b) * 0.5f;
         GateLeaf(p.Structures, a, mid, h);
         GateLeaf(p.Structures, b, mid, h);
@@ -62,10 +67,10 @@ public static class ClubFence
     {
         Frame w = Frame.World;
         foreach (float y in new[] { 0.15f, 0.36f, 0.57f, 0.78f, h - 0.04f })
-            Beam(md, w, hinge + Vector3.up * y, latch + Vector3.up * y, 0.05f, ClubCell.WhitePaint);
-        Beam(md, w, hinge, hinge + Vector3.up * h, 0.07f, ClubCell.WhitePaint);
-        Beam(md, w, latch, latch + Vector3.up * h, 0.06f, ClubCell.WhitePaint);
-        Beam(md, w, hinge + Vector3.up * 0.15f, latch + Vector3.up * (h - 0.04f), 0.05f, ClubCell.WhitePaint);
+            Beam(md, w, hinge + Vector3.up * y, latch + Vector3.up * y, 0.05f, GateWood);
+        Beam(md, w, hinge, hinge + Vector3.up * h, 0.07f, GateWood);
+        Beam(md, w, latch, latch + Vector3.up * h, 0.06f, GateWood);
+        Beam(md, w, hinge + Vector3.up * 0.15f, latch + Vector3.up * (h - 0.04f), 0.05f, GateWood);
     }
 
     /// White discs round the inner circle, which is the Law's oval: FieldSets.RingRadius from the

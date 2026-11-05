@@ -1,20 +1,24 @@
+using System.Globalization;
+using System.Text;
+
 /// <summary>
 /// What the club's score hut shows, as a value: compared each poll so the board's text is only
 /// rebuilt when a figure changes (ClubScoreboard), and tested without a scene.
 ///
-/// Batter A is the one with the lower batting order index, so the two rows keep their places as
+/// Batter A is the one with the lower batting order index, so the two groups keep their places as
 /// the strike changes and only the star moves, as on a real board. A batting number is index + 1;
-/// 0 means nobody (the row is blank).
+/// 0 means nobody (the group is blank). lastWkt is the total when the last wicket fell; it shows
+/// only once a wicket is down.
 /// </summary>
 public struct BoardState : System.IEquatable<BoardState>
 {
-    public int runs, wkts, overs, balls, target, batANo, batARuns, batBNo, batBRuns;
+    public int runs, wkts, overs, balls, target, batANo, batARuns, batBNo, batBRuns, lastWkt;
     public bool aOnStrike;
 
     public bool Equals(BoardState o) =>
         runs == o.runs && wkts == o.wkts && overs == o.overs && balls == o.balls && target == o.target &&
         batANo == o.batANo && batARuns == o.batARuns && batBNo == o.batBNo && batBRuns == o.batBRuns &&
-        aOnStrike == o.aOnStrike;
+        lastWkt == o.lastWkt && aOnStrike == o.aOnStrike;
 
     public override bool Equals(object obj) => obj is BoardState o && Equals(o);
 
@@ -25,6 +29,7 @@ public struct BoardState : System.IEquatable<BoardState>
             int h = runs;
             h = h * 31 + wkts; h = h * 31 + overs; h = h * 31 + balls; h = h * 31 + target;
             h = h * 31 + batANo; h = h * 31 + batARuns; h = h * 31 + batBNo; h = h * 31 + batBRuns;
+            h = h * 31 + lastWkt;
             return h * 2 + (aOnStrike ? 1 : 0);
         }
     }
@@ -34,28 +39,32 @@ public struct BoardState : System.IEquatable<BoardState>
 }
 
 /// <summary>
-/// The score hut's figures as one TextMeshPro rich-text string, in rows matching Labels (a second,
-/// static TMP object over the same rect): TOTAL, WKTS, OVERS ("6" at the end of an over, "6.3"
-/// during one), TARGET (blank when there is none) and the two batters ("4  34*", the star on the
-/// striker). One string, so the board costs one text mesh however many figures change.
+/// The score hut's labels and figures as one TextMeshPro rich-text string, every figure on its tin
+/// (ClubScoreboardLayout): TOTAL, WICKETS, OVERS ("15" and a dot and "2" during an over, the dot
+/// and the ball tin blank at the end of one); each batter's number and runs, the star on the
+/// striker; LAST WKT; TARGET and NEED (blank unless chasing). One string on one TMP, so the
+/// whole board but its header is a single draw however many figures change.
 /// </summary>
 public static class ClubScoreboardFigures
 {
-    /// Where the figures start across the board, and the row spacing both texts share.
-    public const string FiguresAt = "56%", LineHeight = "118%";
     public const int MaxWickets = 10;
+    /// The board's paint: cream figures and labels on the dark tins and green plate, and the
+    /// batters' numbers in near-black on their light tins.
+    public const string Cream = "#F2EEDC", Ink = "#1E1C18";
 
-    /// The board's painted labels, row for row with Compose.
-    public const string Labels = "<line-height=" + LineHeight + ">TOTAL\nWKTS\nOVERS\nTARGET\nBAT\nBAT";
-
-    /// strikerIndex / otherIndex index HUD.Batsmen (-1 = none); the runs are each batter's.
     public static BoardState From(int runs, int wkts, int overs, int balls, int target, int strikerIndex, int strikerRuns,
-                                  int otherIndex, int otherRuns)
+                                  int otherIndex, int otherRuns) =>
+        From(runs, wkts, overs, balls, target, strikerIndex, strikerRuns, otherIndex, otherRuns, 0);
+
+    /// strikerIndex / otherIndex index HUD.Batsmen (-1 = none); the runs are each batter's;
+    /// lastWicket is the total at the fall of the last wicket (LastWicket).
+    public static BoardState From(int runs, int wkts, int overs, int balls, int target, int strikerIndex, int strikerRuns,
+                                  int otherIndex, int otherRuns, int lastWicket)
     {
         var s = new BoardState
         {
             runs = runs, wkts = wkts < 0 ? 0 : wkts > MaxWickets ? MaxWickets : wkts, overs = overs, balls = balls,
-            target = target,
+            target = target, lastWkt = lastWicket,
         };
         bool striker = strikerIndex >= 0, other = otherIndex >= 0 && otherIndex != strikerIndex;
         if (striker && other)
@@ -78,25 +87,97 @@ public static class ClubScoreboardFigures
         return s;
     }
 
-    /// "6" at the end of an over, "6.3" during one.
-    public static string Overs(int overs, int balls) => balls > 0 ? overs + "." + balls : overs.ToString();
+    /// The total at the fall of the last wicket, poll to poll: the total now when the wickets went
+    /// up since the last poll (a wicket ball's runs count: they are in the total when it falls),
+    /// nothing (0) when they went back to none (a new innings), else as it was.
+    public static int LastWicket(int wktsBefore, int lastBefore, int wkts, int runs) =>
+        wkts > wktsBefore ? runs : wkts == 0 ? 0 : lastBefore;
 
-    /// "4  34*": batting number, runs, the star if on strike. Blank for nobody.
-    public static string Batter(int no, int runs, bool onStrike) =>
-        no <= 0 ? "" : no + "  " + runs + (onStrike ? "*" : "");
-
-    public static string Compose(BoardState s)
+    /// What each slot shows ("" for a blank tin), in ClubScoreboardLayout.Slot order. A figure too
+    /// long for its tins shows its tins' largest (999 on three).
+    public static string[] Figures(BoardState s)
     {
-        // B has a batter only when both are in, and then one of them is on strike: no star on A means B.
-        bool bOnStrike = !s.aOnStrike && s.batBNo > 0;
-        return "<line-height=" + LineHeight + ">" +
-               Row(s.runs.ToString()) + "\n" +
-               Row(s.wkts.ToString()) + "\n" +
-               Row(Overs(s.overs, s.balls)) + "\n" +
-               Row(s.target > 0 ? s.target.ToString() : "") + "\n" +
-               Row(Batter(s.batANo, s.batARuns, s.aOnStrike)) + "\n" +
-               Row(Batter(s.batBNo, s.batBRuns, bOnStrike));
+        bool bOnStrike = !s.aOnStrike && s.batBNo > 0;   // both in, and A not on strike: B is
+        bool chasing = s.target > 0;
+        var f = new string[System.Enum.GetValues(typeof(ClubScoreboardLayout.Slot)).Length];
+        Put(f, ClubScoreboardLayout.Slot.Total, s.runs);
+        Put(f, ClubScoreboardLayout.Slot.Wickets, s.wkts);
+        Put(f, ClubScoreboardLayout.Slot.Overs, s.overs);
+        Put(f, ClubScoreboardLayout.Slot.Balls, s.balls, s.balls > 0);
+        Put(f, ClubScoreboardLayout.Slot.BatANo, s.batANo, s.batANo > 0);
+        Put(f, ClubScoreboardLayout.Slot.BatARuns, s.batARuns, s.batANo > 0);
+        f[(int)ClubScoreboardLayout.Slot.BatAStar] = s.batANo > 0 && s.aOnStrike ? "*" : "";
+        Put(f, ClubScoreboardLayout.Slot.BatBNo, s.batBNo, s.batBNo > 0);
+        Put(f, ClubScoreboardLayout.Slot.BatBRuns, s.batBRuns, s.batBNo > 0);
+        f[(int)ClubScoreboardLayout.Slot.BatBStar] = bOnStrike ? "*" : "";
+        Put(f, ClubScoreboardLayout.Slot.LastWicket, s.lastWkt, s.wkts > 0);
+        Put(f, ClubScoreboardLayout.Slot.Target, s.target, chasing);
+        Put(f, ClubScoreboardLayout.Slot.Need, System.Math.Max(0, s.target - s.runs), chasing);
+        return f;
     }
 
-    private static string Row(string figure) => "<pos=" + FiguresAt + ">" + figure;
+    static void Put(string[] f, ClubScoreboardLayout.Slot slot, int value, bool shown = true)
+    {
+        int cells = ClubScoreboardLayout.Find(slot).cells, max = 1;
+        for (int i = 0; i < cells; i++) max *= 10;
+        f[(int)slot] = shown ? System.Math.Max(0, System.Math.Min(value, max - 1)).ToString(CultureInfo.InvariantCulture) : "";
+    }
+
+    /// A length on the board in TMP's world-space "pixels" (a tag value without a unit is 0.1 m).
+    public static string Px(float metres) => Num(metres * 10f);
+
+    /// A tag value as TMP parses it (invariant culture: a comma would end the number).
+    public static string Num(float v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+
+    /// The board's text: per band, a line of labels and a line of figures, each line's baseline
+    /// spaced from the last by a line-height tag (fixed, in metres: the font's own spacing never
+    /// enters), so line n sits on ClubScoreboardLayout.Baselines()[n] when the text's first
+    /// baseline is on the first (the builder anchors it so: BaselineLeft, the rect centred on it).
+    public static string Compose(BoardState s)
+    {
+        string[] figures = Figures(s);
+        float[] baselines = ClubScoreboardLayout.Baselines();
+        var sb = new StringBuilder(640);
+        for (int row = 0; row < ClubScoreboardLayout.Rows.Length; row++)
+        {
+            LabelLine(sb, row, Step(baselines, 2 * row));
+            sb.Append('\n');
+            FigureLine(sb, row, figures, s.balls > 0, Step(baselines, 2 * row + 1));
+            if (row + 1 < ClubScoreboardLayout.Rows.Length) sb.Append('\n');
+        }
+        return sb.ToString();
+    }
+
+    static float Step(float[] baselines, int line) => line + 1 < baselines.Length ? baselines[line + 1] - baselines[line] : 0f;
+
+    static void LabelLine(StringBuilder sb, int row, float lineHeight)
+    {
+        sb.Append("<line-height=").Append(Px(lineHeight)).Append("><size=")
+          .Append(Num(ClubScoreboardLayout.LabelSize)).Append("><mspace=").Append(Px(ClubScoreboardLayout.LabelCell)).Append('>');
+        foreach (ClubScoreboardLayout.Label l in ClubScoreboardLayout.Labels)
+            if (l.row == row)
+                sb.Append("<pos=").Append(Px(l.centre - ClubScoreboardLayout.LabelWidth(l.text) * 0.5f)).Append('>').Append(l.text);
+    }
+
+    static void FigureLine(StringBuilder sb, int row, string[] figures, bool dot, float lineHeight)
+    {
+        ClubScoreboardLayout.Row r = ClubScoreboardLayout.Rows[row];
+        sb.Append("<line-height=").Append(Px(lineHeight)).Append("><size=").Append(Num(r.digitSize)).Append('>');
+        foreach (ClubScoreboardLayout.Field f in ClubScoreboardLayout.Fields)
+        {
+            if (f.row != row) continue;
+            string text = figures[(int)f.slot];
+            if (text.Length == 0) continue;
+            float cell = ClubScoreboardLayout.CellWidth(f);
+            if (f.tin == ClubScoreboardLayout.Tin.Light) sb.Append("<color=").Append(Ink).Append('>');
+            sb.Append("<mspace=").Append(Px(cell)).Append('>');
+            // Right-aligned in the field, each digit placed on its own cell.
+            for (int i = 0; i < text.Length; i++)
+                sb.Append("<pos=").Append(Px(f.left + (f.cells - text.Length + i) * cell)).Append('>').Append(text[i]);
+            if (f.tin == ClubScoreboardLayout.Tin.Light) sb.Append("</color>");
+        }
+        if (row == 0 && dot)
+            sb.Append("<mspace=").Append(Px(ClubScoreboardLayout.DotWidth)).Append("><pos=")
+              .Append(Px(ClubScoreboardLayout.DotLeft)).Append(">.");
+    }
 }

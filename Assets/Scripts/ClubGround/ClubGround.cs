@@ -71,10 +71,13 @@ public class ClubGround : MonoBehaviour
         return points.ToArray();
     }
 
+    /// The club's name on the pavilion, and across the top of the score hut's board (the home side).
     public void SetClubName(string name)
     {
         if (clubName != null)
             clubName.text = name ?? "";
+        if (scoreboard != null)
+            scoreboard.SetHomeName(name);
     }
 
     public void SetNight(bool night)

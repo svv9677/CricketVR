@@ -16,7 +16,8 @@ How each texture maps (the builder, Assets/Editor/ClubGround, must use the same)
                         u0 = (i % 4 * 512 + 8) / 2048, v0 = 1 - (i // 4 * 512 + 504) / 2048, size 496 / 2048.
                         Metres one cell covers: CELL_METRES below. The cells are drawn in
                         atlas_cells.py (apart, to keep each file small).
-  club_picket.png       7.2 m of fence, 0.9 m high (square pixels), tiles along u: 32 pickets on 2 rails.
+  club_picket.png       7.2 m of fence, 0.9 m high (square pixels), tiles along u: 32 pickets on 2 rails,
+                        stained wood brown (STAIN), not painted white.
   club_horizon.png      tiles along u; v = 0 at HorizonBottom (-4 m), v = 1 at the top (+21 m), so the
                         ground line is v = 0.16. The bottom 15% is solid.
   club_flag.png         hoist (the pole side) at u = 0.
@@ -177,13 +178,17 @@ def stripes(g, rng, R):
 
 def worn_square(g, rng):
     """The square: the strip of pitches across the middle, shorter and paler, each 3.05 m strip worn
-    differently (the pitch quad's soft edges blend into it), and the bowler's run-up."""
+    differently, and the bowler's run-up. The strips are laid out from the pitch in play (strip 0,
+    |z| < 1.525 m, under the pitch quad), so every strip edge runs along an edge line. Laid from
+    z = -10 they put a boundary 0.85 m inside one edge line and 2.2 m outside the other, and a
+    well-worn strip beside the pitch on one side only: the pitch read wider on that side, its edge
+    line on grass on the other. The pitch's neighbours are the least worn (resting), so the
+    prepared strip's edge (ClubPitchSurface) stands out against turf on both sides alike."""
     X, Z = g.X, g.Z
     edge = 0.35 * noise(X.shape, 14, rng)
     sq = sstep(0.0, 0.8, 13 - np.abs(X) + edge) * sstep(0.0, 0.8, 10 - np.abs(Z) + edge)
-    strip = np.floor((Z + 10) / 3.05).astype(int) % 7
-    wear = np.array([0.35, 0.55, 0.4, 0.9, 0.5, 0.3, 0.45], np.float32)[strip]
-    wear = np.where(np.abs(Z) < 1.6, 1.0, wear)
+    strip = np.floor((Z + 1.525) / 3.05).astype(int)       # -4 .. 3 across the square, 0 in play
+    wear = np.array([0.3, 0.45, 0.5, 0.28, 1.0, 0.3, 0.55, 0.4], np.float32)[np.clip(strip + 4, 0, 7)]
     runup = sstep(1.4, 0.4, np.abs(Z) + edge * 0.5) * sstep(-30, -14, X) * sstep(-12, -13.5, X)
     return np.clip(sq * wear * (0.75 + 0.25 * noise(X.shape, 6, rng)) + 0.4 * runup, 0, 1)
 
@@ -283,16 +288,33 @@ def picket(path, rng):
     x = np.arange(W)[None, :]
     yb = (H - 1 - np.arange(H))[:, None] / H
     dx = ((x % pitch) - pitch / 2) / half
+    # The shared stream is drawn exactly as when the fence was white (the tint, then the two noises),
+    # so the horizon and the flag after it come out the same; the wood's grain has its own generator.
     tint = 1 + 0.025 * rng.standard_normal(n)[(x // pitch).astype(int) % n]
     shade = (1 - 0.10 * np.clip(dx, 0, 1) ** 3 + 0.03 * np.clip(-dx, 0, 1)) * tint
     shade = shade * (1 + 0.03 * noise((H, W), 0.8, rng, (6, 0.3))) * (0.86 + 0.14 * sstep(0, 0.14, yb))
-    face = WHITE * shade[..., None]
-    face = mixc(face, lin((120, 128, 92)), 0.35 * (1 - sstep(0.0, 0.07, yb)))   # grass-splashed foot
-    rail = WHITE * 0.62 * (1 + 0.04 * noise((H, W), 2, rng))[..., None]
+    rail_n = noise((H, W), 2, rng)
+    face = stained_wood(np.random.default_rng(72), (H, W), n, (x // pitch).astype(int), vertical=True) * shade[..., None]
+    face = mixc(face, lin((96, 104, 70)), 0.3 * (1 - sstep(0.0, 0.07, yb)))      # grass-splashed foot
+    rail = stained_wood(np.random.default_rng(73), (H, W), 2, (yb > 0.5).astype(int), vertical=False)
+    rail = rail * (0.7 * (1 + 0.04 * rail_n))[..., None]                          # behind the pickets
     rgb = mixc(rail, face, np.clip(a_p / np.maximum(np.maximum(a_p, a_r), 1e-6), 0, 1))
     alpha = np.maximum(a_p, a_r)
-    rgb = np.where(alpha[..., None] > 0.01, rgb, WHITE * 0.85)    # no dark fringe as it mips
+    rgb = np.where(alpha[..., None] > 0.01, rgb, STAIN * 0.85)    # no pale fringe as it mips
     save(path, rgb, alpha)
+
+# The fence's stain: a mid oak-brown preservative over sawn softwood, sRGB ~(124, 86, 54) on average.
+STAIN, STAIN_DARK = lin((128, 90, 57)), lin((92, 60, 36))
+
+def stained_wood(rng, shape, boards, which, vertical):
+    """Stained timber: grain streaks along each board (vertical pickets, or horizontal rails), the
+    stain soaked darker in the grain's late wood and patchier board to board. `which` gives each
+    texel's board index (0 .. boards-1)."""
+    along = (8, 0.3) if vertical else (0.3, 8)
+    grain = np.clip(0.5 + 0.35 * noise(shape, 1.0, rng, along) + 0.2 * noise(shape, 2.5, rng, along), 0, 1)
+    board = 1 + 0.06 * rng.standard_normal(boards)[np.broadcast_to(which, shape) % boards]
+    blotch = 1 + 0.05 * noise(shape, 12, rng)
+    return mixc(STAIN, STAIN_DARK, 0.55 * grain) * (board * blotch)[..., None]
 
 def crowns(W, H, rng, count, base, hmin, hmax, rmin, rmax, poplar=0.0):
     """A treeline as a skyline: round crowns (a few tall narrow poplars) merged into one canopy over a

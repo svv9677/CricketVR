@@ -9,14 +9,15 @@ using static ClubMeshKit;
 /// Pavilion: a white weatherboard block on a brick plinth under a pitched tiled roof, a clock
 /// cupola on the ridge, a green name board for the club, and a veranda along the front: boarded
 /// deck, white posts and rails, a green lean-to roof, deckchairs. Score hut: the same walls with
-/// a black score plate across its face, where ClubScoreboard's text goes.
+/// the scoreboard across its face (ClubScoreboardBoard: a green board of tins in a white frame,
+/// where ClubScoreboard's texts go).
 /// </summary>
 public static class ClubBuildings
 {
     const float PavilionWall = 4.5f, PavilionPlinth = 0.6f, PavilionPitch = 35f, PavilionEave = 0.4f;
     /// Veranda deck height, and its lean-to roof at the posts and at the wall.
     const float Deck = 0.45f, VerandaFront = 2.95f, VerandaWall = 3.35f;
-    const float HutWall = 4.2f, HutPlinth = 0.5f, HutPitch = 30f, HutEave = 0.3f;
+    const float HutPlinth = 0.5f, HutPitch = 30f, HutEave = 0.3f;
     /// The board the club's name is lettered on, above the veranda roof (seen over it from the crease).
     const float BoardBottom = 3.45f, BoardTop = 4.2f;
 
@@ -169,24 +170,17 @@ public static class ClubBuildings
 
     // ---- Score hut -------------------------------------------------------------------------------
 
-    /// The score hut. Its plate is 8.8 x 3 m (the walls are 4.2 m, not 3, to give the plate that
-    /// height): the six rows of ClubScoreboardFigures fit it at a TMP size of about 3.5, figures
-    /// about 0.24 m tall (ClubGroundBuilder sizes both texts to the box).
+    /// The score hut: the same walls as the pavilion, tall enough (ClubScoreboardBoard.WallHeight,
+    /// 5.2 m) for the 9 x 4.4 m board across its front, whose tins and texts ClubScoreboardBoard
+    /// lays out from ClubScoreboardLayout.
     public static void ScoreHut(ClubParts p, Frame fr, Vector2 footprint)
     {
         float w = footprint.x, d = footprint.y, back = -d * 0.5f, front = d * 0.5f;
         MeshData md = p.Structures;
-        Walls(md, fr, w, back, front, HutWall, HutPlinth);
-        float ridge = GableRoof(md, fr, w, back, front, HutWall, HutPitch, HutEave, ClubCell.RoofTile);
-        const float PlateBottom = 0.85f, PlateTop = 3.85f, PlateHalf = 4.4f;
-        float cy = (PlateBottom + PlateTop) * 0.5f;
-        Box(md, fr, new Vector3(0f, cy, front + 0.04f), new Vector3(PlateHalf * 2f + 0.2f, PlateTop - PlateBottom + 0.2f, 0.08f), ClubCell.WhitePaint);
-        Panel(md, fr, new Vector3(0f, 0f, front + 0.081f), Vector3.left, Vector3.up, -PlateHalf, PlateHalf, PlateBottom, PlateTop, ClubCell.ScorePlate);
-        p.Figures = new ClubLabel
-        {
-            pos = fr.P(0f, cy, front + 0.1f), facing = fr.f,
-            rect = new Vector2(PlateHalf * 2f - 0.3f, PlateTop - PlateBottom - 0.15f),
-        };
+        float wall = ClubScoreboardBoard.WallHeight;
+        Walls(md, fr, w, back, front, wall, HutPlinth);
+        float ridge = GableRoof(md, fr, w, back, front, wall, HutPitch, HutEave, ClubCell.RoofTile);
+        ClubScoreboardBoard.Build(p, fr, front);
         Panel(md, fr, new Vector3(w * 0.5f + 0.02f, 0f, 0f), Vector3.forward, Vector3.up, -0.5f, 0.5f, 0f, 2.1f, ClubCell.GreenPaint);
         Window(p, fr, new Vector3(0f, 0f, back - 0.02f), Vector3.right, 0f, 1.3f, 1.2f, 1.2f);
         Window(p, fr, new Vector3(-w * 0.5f - 0.02f, 0f, 0f), Vector3.back, 0f, 1.3f, 1.2f, 1.2f);
@@ -195,24 +189,6 @@ public static class ClubBuildings
             name = "Club Score Hut Collider", centre = fr.P(0f, ridge * 0.5f, 0f), yawDeg = fr.YawDeg,
             size = new Vector3(w, ridge, d),
         });
-    }
-
-    /// The score hut's rows (ClubScoreboardFigures.Labels, row for row with Compose) and their
-    /// spacing (its LineHeight, 118%).
-    public static int ScoreboardRows => ClubScoreboardFigures.Labels.Split('\n').Length;
-    public static float ScoreboardLineHeight =>
-        float.Parse(ClubScoreboardFigures.LineHeight.TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture) / 100f;
-
-    /// The largest TMP font size whose `rows` lines, `lineHeight` apart (a fraction of the font's
-    /// line height, as a line-height % tag sets it), fit `boxHeight` metres: the first line's ascent,
-    /// the steps between lines, the last line's descent. A world-space TextMeshPro draws a font
-    /// unit at fontSize / pointSize * scale * 0.1 m (TMP_Text's non-orthographic scale). 3% spare.
-    /// The face numbers default to LiberationSans SDF's (the font the builder uses).
-    public static float RowsFontSize(float boxHeight, int rows, float lineHeight, float ascent = 77.85f,
-                                     float descent = -18.22f, float line = 98.89f, float point = 86f, float scale = 1f)
-    {
-        float units = ascent - descent + (rows - 1) * line * lineHeight;
-        return 0.97f * boxHeight * point * 10f / (units * scale);
     }
 
     // ---- Shared shapes ----------------------------------------------------------------------------
