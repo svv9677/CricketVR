@@ -168,11 +168,12 @@ public partial class Bat : MonoBehaviour
         // all errors that grow with swing speed, which is where shots went the wrong way.
         Vector3 swingVelocity = BatContact.PointVelocity(hit.localBat, scale, previousPosition, previousRotation,
                                                          transform.position, transform.rotation, dt, pivotLocal, hit.t);
-        // The settings "Bat power" (75 = realistic) scales the swing, not the result, and only a
-        // little: a harder swing hits further, while the ball's own pace still rebounds by the real
-        // amount. It used to multiply the outgoing velocity, which also multiplied the ball's pace -
-        // a ramp off a 17 km/h bat left at 172 km/h from a 143 km/h delivery.
-        Vector3 batPointVelocity = swingVelocity * BatContact.SwingScale(inst.BatAmplifier);
+        // Bat power scales the swing, not the result: a harder swing hits further, while the ball's
+        // own pace still rebounds by the real amount. It used to multiply the outgoing velocity,
+        // which also multiplied the ball's pace - a ramp off a 17 km/h bat left at 172 km/h from a
+        // 143 km/h delivery. Fixed at 80% of a real swing (Constants.BatPowerFixed); it was a
+        // slider, and 80% was the setting that played best.
+        Vector3 batPointVelocity = swingVelocity * BatContact.SwingScale(Constants.BatPowerFixed);
 
         Vector3 incoming = ball.linearVelocity;
         BatContact.Result result = BatContact.Respond(hit, blade, scale, incoming, batPointVelocity, ball.mass, widthMultiplier);

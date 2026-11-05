@@ -228,6 +228,22 @@ MonoBehaviour:
   middled: {fileID: 8300000, guid: 93bfb5b0cf9644d0dbd6e0da95cdd4a7, type: 3}
   good: {fileID: 8300000, guid: 3ada25e8dd1b14f6082360fb61ddde91, type: 3}
   edge: {fileID: 8300000, guid: af2e39e8f0f0e4387a85f44afa1238a6, type: 3}
+  ground: {fileID: 8300000, guid: 570f032f1fa64a1ea82817572bbdb6a8, type: 3}
+  middledTakes:
+  - {fileID: 8300000, guid: 3998230c47bee408188b857446378991, type: 3}
+  - {fileID: 8300000, guid: 3e9e810dc74c44b1da1de14c7a768b09, type: 3}
+  - {fileID: 8300000, guid: d449bf817c244494ebb7093ce75e7db4, type: 3}
+  - {fileID: 8300000, guid: 9e6d301f44b2c473cb07045e081ced33, type: 3}
+  goodTakes:
+  - {fileID: 8300000, guid: 84335649c1ebc4cd4a2b914f9e2a4b67, type: 3}
+  - {fileID: 8300000, guid: a98fd998956af4fb08522cd31256a427, type: 3}
+  - {fileID: 8300000, guid: b18edbc3f49874bc29c6ab7deb1d6699, type: 3}
+  - {fileID: 8300000, guid: 38dc65c93a2354540a423c168cd09b82, type: 3}
+  edgeTakes:
+  - {fileID: 8300000, guid: b63d04197763a422ca583d2c2f8b7404, type: 3}
+  - {fileID: 8300000, guid: ede60d71a2ab8401692f3fbffc6dfc10, type: 3}
+  - {fileID: 8300000, guid: 016cba5575cd247e59017cd8e314a002, type: 3}
+  - {fileID: 8300000, guid: 3242f7a901a144ef49b58729dc22468b, type: 3}
 --- !u!1 &830166405201575435
 GameObject:
   m_ObjectHideFlags: 0

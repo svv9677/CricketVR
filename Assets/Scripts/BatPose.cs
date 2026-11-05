@@ -11,8 +11,8 @@ using UnityEngine;
 /// is not interpolated either - on a kinematic body posed by hand, interpolation drew it from the
 /// last two physics steps instead, behind the hand and beating against the display rate.)
 ///
-/// The ground. The bat never goes into it: when any corner of the bat would be below the ground,
-/// the bat is turned about the hand until it rests on the surface - it stays in the hand, it just
+/// The ground. Touching down is a knock, heard and felt. The bat never goes into it: when any
+/// corner of the bat would be below the ground, the bat is turned about the hand until it rests on the surface - it stays in the hand, it just
 /// stops at the ground the way a real bat does. Only if the hand itself is at the ground does the
 /// bat slide up instead. Applied to the simulated pose as well, so the ball meets the bat where
 /// it is drawn.
@@ -21,7 +21,6 @@ public partial class Bat
 {
     /// Resting just on the surface, not in it.
     private const float GroundClearance = 0.005f;
-    private const int GroundPasses = 4;
 
     private Vector3[] localCorners;
 
@@ -45,12 +44,16 @@ public partial class Bat
     /// than this coming down makes no sound; not again for this long.
     private const float TouchBand = 0.01f, MinTapSpeed = 0.25f, TapGap = 0.15f;
     private float groundDepth, groundGap = 1f, lastGap = 1f, nextTap;
+    /// Where the lowest corner meets the ground: where the knock is heard.
+    private Vector3 groundPoint;
     private bool onGround;
 
     /// After the simulated pose each frame (LateUpdate): touching down is a knock.
     private void CheckGroundTap()
     {
-        bool touching = groundDepth > 0f || groundGap < TouchBand;
+        // Twice the band to let go once down, so a bat resting on the ground with a trembling hand
+        // does not count as touching down again and again.
+        bool touching = groundDepth > 0f || groundGap < (onGround ? 2f * TouchBand : TouchBand);
         if (touching && !onGround && Time.time >= nextTap)
         {
             // How fast it came down: the gap it closed this frame, plus how far it tried to go in.
@@ -58,6 +61,11 @@ public partial class Bat
             if (speed >= MinTapSpeed)
             {
                 nextTap = Time.time + TapGap;
+                // Heard where it touched, louder the harder it comes down (BatSounds.PlayGround).
+                if (sounds == null)
+                    sounds = GetComponent<BatSounds>();
+                if (sounds != null)
+                    sounds.PlayGround(groundPoint, speed);
                 // Felt in the hand, harder and longer the harder it comes down.
                 float hard = Mathf.Clamp01(speed / 4f);
                 XRInput.SendHaptics(attachParent == leftHandParent, Mathf.Lerp(0.35f, 1f, hard), Mathf.Lerp(0.04f, 0.12f, hard));
@@ -67,7 +75,22 @@ public partial class Bat
         lastGap = groundGap;
     }
 
-    /// Turn the bat about the hand (pivot) until no corner of it is below the ground.
+    /// The most the ground can turn the bat away from the hand's pose, radians; whatever is still
+    /// in the ground past it is lifted out instead.
+    private const float MaxGroundTilt = 85f * Mathf.Deg2Rad;
+    /// How much the bat's face decides which way it tips when it is pushed straight down (its
+    /// long axis near vertical): the toe goes back, away from the face, as in a stance.
+    private const float FaceBias = 0.2f;
+
+    /// Turn the bat about the hand (pivot), toward where it already leans, by the least angle that
+    /// keeps every corner of it out of the ground; lift it if turning cannot.
+    ///
+    /// One turn, about one axis, solved exactly. It was: find the deepest corner, swing it up
+    /// about the hand along its own direction, repeat four times. Each corner's swing had its own
+    /// axis, so as the bat twisted or the hand trembled the "deepest" corner swapped between toe
+    /// and edge, toe and face, and the bat jumped between their answers - the jitter when the bat
+    /// was held against the ground. Here the axis comes from the bat's lean, which changes
+    /// smoothly, and the angle is the largest any corner needs, which does too.
     private void KeepAboveGround(Vector3 pivot, ref Vector3 position, ref Quaternion rotation)
     {
         groundDepth = 0f;
@@ -80,38 +103,63 @@ public partial class Bat
         {
             Vector3 p = position + rotation * Vector3.Scale(scale, local);
             float gap = p.y - BallFlight.GroundY(p) - GroundClearance;
-            if (gap < groundGap) groundGap = gap;
+            if (gap < groundGap) { groundGap = gap; groundPoint = new Vector3(p.x, BallFlight.GroundY(p), p.z); }
         }
         groundDepth = Mathf.Max(0f, -groundGap);
-        for (int pass = 0; pass < GroundPasses; pass++)
+        if (groundGap >= 0f)
+            return;
+
+        Vector3 axis = TiltAxis(rotation);
+        float angle = 0f;
+        if (axis != Vector3.zero)
         {
-            // The deepest corner, by how far it is under the ground beneath it.
-            Vector3 deepest = Vector3.zero;
-            float depth = 0f;
             foreach (Vector3 local in localCorners)
             {
                 Vector3 p = position + rotation * Vector3.Scale(scale, local);
-                float d = BallFlight.GroundY(p) + GroundClearance - p.y;
-                if (d > depth) { depth = d; deepest = p; }
+                Vector3 r = p - pivot;
+                // Height (above the hand) this corner has to reach, and its height as the bat
+                // turns by phi about the axis: r.y cos(phi) + s sin(phi) = R cos(phi - alpha).
+                float need = BallFlight.GroundY(p) + GroundClearance - pivot.y;
+                if (r.y >= need)
+                    continue;
+                float s = Vector3.Cross(axis, r).y;
+                float R = Mathf.Sqrt(r.y * r.y + s * s);
+                float alpha = Mathf.Atan2(s, r.y);
+                if (R <= need || alpha <= 0f)
+                    continue;   // turning this way cannot raise it enough: it is lifted (below)
+                angle = Mathf.Max(angle, alpha - Mathf.Acos(Mathf.Clamp(need / R, -1f, 1f)));
             }
-            if (depth <= 0f)
-                return;
-
-            // Raise that corner by `depth`, swinging it about the hand at the same distance.
-            Vector3 r = deepest - pivot;
-            float length = r.magnitude;
-            Vector3 flat = new Vector3(r.x, 0f, r.z);
-            float wantY = r.y + depth;
-            if (length < 1e-4f || flat.sqrMagnitude < 1e-8f || wantY >= length)
+            angle = Mathf.Min(angle, MaxGroundTilt);
+            if (angle > 0f)
             {
-                position.y += depth;   // the hand is at the ground itself: lift the whole bat
-                continue;
+                Quaternion turn = Quaternion.AngleAxis(angle * Mathf.Rad2Deg, axis);
+                position = pivot + turn * (position - pivot);
+                rotation = turn * rotation;
             }
-            Vector3 raised = flat.normalized * Mathf.Sqrt(length * length - wantY * wantY) + Vector3.up * wantY;
-            Quaternion turn = Quaternion.FromToRotation(r, raised);
-            position = pivot + turn * (position - pivot);
-            rotation = turn * rotation;
         }
+
+        // Whatever turning left in the ground (the hand at the ground, or the toe now over the
+        // lower outfield past the pitch's edge): lift the whole bat out by it.
+        float depth = 0f;
+        foreach (Vector3 local in localCorners)
+        {
+            Vector3 p = position + rotation * Vector3.Scale(scale, local);
+            depth = Mathf.Max(depth, BallFlight.GroundY(p) + GroundClearance - p.y);
+        }
+        position.y += depth;
+    }
+
+    /// The horizontal axis the bat turns about to come up off the ground: across the direction it
+    /// leans (toe away from the hand), so turning about it swings the toe up and out along that
+    /// lean. Pushed straight down, the face decides (FaceBias) so the axis never flips.
+    private static Vector3 TiltAxis(Quaternion rotation)
+    {
+        Vector3 toward = rotation * Vector3.back;   // handle to toe: the toe is the bat's lowest local Z
+        Vector3 face = rotation * Vector3.up;       // the flat face is +Y (BatGeometry)
+        Vector3 lean = new Vector3(toward.x, 0f, toward.z) - FaceBias * new Vector3(face.x, 0f, face.z).normalized;
+        if (lean.sqrMagnitude < 1e-8f)
+            return Vector3.zero;
+        return Vector3.Cross(lean.normalized, Vector3.up);
     }
 
     /// The bat mesh's bounding-box corners, in the bat's unscaled local space.

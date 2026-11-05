@@ -1,6 +1,22 @@
 # Bat contact sounds: three clips, and where they come from
 
-Exactly three sounds are used (BatSounds.cs): `edge.wav`, `good.wav`, `middled.wav`.
+## Current set (2026-11-05): four takes of each kind
+
+BatSounds plays `middled_1..4`, `good_1..4` and `edge_1..4` (`*Takes` on the Bat prefab), picked at random and never the same take twice running. They come from `Tools/bat_sounds/build_variants.py`, which uses every clean strike in the nets recording (4.76, 13.23, 24.92, 31.14 s) and four hard taps of the close-miked willow (22.68, 12.27, 8.42, 17.88 s). They are much less processed than the set below: no pitch shift, no synthesised ring, no reverb.
+
+| Kind | What it is | Length |
+|---|---|---|
+| middled_N | The real nets crack (gated at 30 ms: 4.76 has the ball thudding into the net 80 ms on), over the willow's own body and ~600 Hz ring at its real pitch, ringing out over ~350 ms. One faint echo off the stands (180-225 ms, -24 dB), because an open ground has no room. | 0.60-0.65 s |
+| good_N | The same cracks, gated tighter, with the willow's 600/730 Hz ring notched out: a solid, dead knock. | 120 ms |
+| edge_N | The crack's top only (high-passed at 2 kHz), plus a faint high wood tick. | 60 ms |
+
+Every take is soft-limited to the old clip's loudness for its kind (RMS of the first 40 ms: middled -12, good -14.5, edge -17 dBFS), peaking at -1 dBFS, so a pick never jumps in level. **Still not auditioned by a person**: chosen by measurement (envelope, brightness, flatness, ring, second-hit check). Tune the numbers in `build_variants.py` if one is off.
+
+Other cricket-bat recordings on Freesound were checked on 2026-11-05: the rest are CC BY-NC (DanielRousseau 366780, Robinhood76 76951, Sound-Art-UK 835231, Elsje_ 655759), so they can't go in a game that might be sold; one CC0 match clip (lithium11 345692) has been taken down.
+
+## The older set: the single clips, still the fallback
+
+Exactly three sounds were used (BatSounds.cs): `edge.wav`, `good.wav`, `middled.wav`. They stay as the fallback when a `*Takes` list is empty.
 
 | Clip | Wanted | What it is | Length |
 |---|---|---|---|

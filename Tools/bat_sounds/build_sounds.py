@@ -1,9 +1,9 @@
-"""Rebuilds Assets/Sounds/Bat/{edge,good,middled}.wav from two real cricket recordings (CC0).
+"""Rebuilds Assets/Sounds/Bat/{edge,good,middled,ground}.wav from two real cricket recordings (CC0).
 
 Needs numpy, scipy and ffmpeg, and the two source previews next to this script:
   curl -sLo oroboros.mp3 https://cdn.freesound.org/previews/141/141249_2051721-hq.mp3
   curl -sLo gh0sty.mp3   https://cdn.freesound.org/previews/594/594342_12596088-hq.mp3
-Run:  python3 build_sounds.py <output folder>      (see Assets/Sounds/Bat/SOURCES.md)
+Run:  python3 build_sounds.py <output folder> [names...]   (see Assets/Sounds/Bat/SOURCES.md)
 """
 import sys, wave
 import numpy as np
@@ -169,8 +169,23 @@ def middled():
     x = compress(x, -30, 2.0, 0.4, 160)
     return fade(norm(x), 0.3, 300)
 
+def ground():
+    # The bat knocking the pitch: wood on hard, dry turf. Dull and short - the willow's body taken
+    # down a few semitones and darkened, a low thud under it, and no ring at all (the turf damps
+    # it), so it can never be mistaken for a hit. ~90 ms.
+    body = shift(bp(body_b[: int(0.12 * SR)], 200, 1600), 0.78)
+    body = body - bp(body, 420, 560, 2) * 0.9                            # the bat's note (600 Hz, shifted) out
+    body = lp(body, 1100) * decay_env(len(body), 16)
+    thud = lp(shift(body_b[: int(0.10 * SR)], 0.5), 220) * decay_env(int(0.10 / 0.5 * SR), 22)
+    x = mix((norm(body, -3), 1.0), (norm(thud, -6), 0.8), n=int(0.09 * SR))
+    x = compress(x, -24, 3, 0.8, 30)
+    return fade(norm(x), 1.0, 35)                                        # a soft, not a sharp, front
+
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "."
-    for name, fn in [("edge", edge), ("good", good), ("middled", middled)]:
+    names = sys.argv[2:] or ["edge", "good", "middled", "ground"]
+    for name, fn in [("edge", edge), ("good", good), ("middled", middled), ("ground", ground)]:
+        if name not in names:
+            continue
         save(fn(), f"{out}/{name}.wav")
         print("wrote", name)

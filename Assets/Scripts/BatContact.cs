@@ -81,7 +81,7 @@ public static class BatContact
         public float impactSpeed;
     }
 
-    /// The "Bat power" setting (75 = realistic) as a multiplier on the swing velocity, held to
+    /// Bat power (75 = realistic; Constants.BatPowerFixed is what play uses) as a multiplier on the swing velocity, held to
     /// +-50% so it can only nudge a real swing, never manufacture pace the bat did not have.
     public static float SwingScale(float batPower) => Mathf.Clamp(batPower / 75f, 0.5f, 1.5f);
 
