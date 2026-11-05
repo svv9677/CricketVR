@@ -50,10 +50,11 @@ public static class CareerProgressMath
     private static float Clamp01(float v) => v < 0f ? 0f : v > 1f ? 1f : v;
 
     /// One innings toward form, 0..1: mostly the runs against the rung's par, some for the strike
-    /// rate, and a little for still being there at the end.
+    /// rate, and a little for still being there at the end. A game rain cut asks for fewer runs, in
+    /// proportion to its overs (CareerSituations.ParScale; 1 for a full game).
     public static float InningsScore(InningsRecord r)
     {
-        float runs = Clamp01(r.runs / ParRuns(r.rung)) * 0.75f;
+        float runs = Clamp01(r.runs / (ParRuns(r.rung) * CareerSituations.ParScale(r))) * 0.75f;
         float rate = Clamp01(r.StrikeRate / ParStrikeRate(r.rung)) * 0.15f;
         return runs + rate + (r.isOut ? 0f : 0.1f);
     }
@@ -156,7 +157,7 @@ public static class CareerProgressMath
             return winner + " won";
         if (firstWon)
         {
-            int by = Math.Max(1, first.runs - second.runs);
+            int by = Math.Max(1, CareerSituationMath.Par(first, second) - second.runs);   // a rain-revised target
             return $"{winner} won by {by} run{(by == 1 ? "" : "s")}";
         }
         int wk = Math.Max(1, 10 - second.wickets);

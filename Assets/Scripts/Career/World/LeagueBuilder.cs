@@ -40,6 +40,7 @@ public static class LeagueBuilder
         GiveKits(s.teams, kept, rng);
         s.fixtures = RoundRobin(s.teams, rung, rng);
         Scouting.MarkScouts(s, rng);      // the games a scout (at International, the selectors) watches
+        CareerSituations.Deal(s);         // phase 7: the chase, rain and rescue (seeded from the season, not rng)
         return s;
     }
 
@@ -338,7 +339,8 @@ public static class LeagueBuilder
 
     /// Put a played fixture's result into both sides' table rows (2 points a win, 1 a tie), and
     /// the result into the fixture (played, the scores, the winner's id, the result line). The side
-    /// that chased is the one whose card has a target. Net run rate counts an all-out innings as
+    /// that chased is the one whose card has a target; a chase rain cut (its card revised) is won by
+    /// passing the revised target. Net run rate counts an all-out innings as
     /// its full overs, as the real game does. A final goes into the fixture but not the table; a
     /// tied final goes to the side that lost fewer wickets, then to the home side (top of the table).
     /// Call it once for each fixture.
@@ -349,8 +351,10 @@ public static class LeagueBuilder
         f.played = true;
         f.homeScore = ScoreText(home);
         f.awayScore = ScoreText(away);
-        bool tied = home.runs == away.runs;
-        bool homeWon = home.runs > away.runs;
+        // A chase rain cut is judged against its revised target (CareerSituationMath.Par).
+        CareerSituationMath.Judged(home, away, out int homeRuns, out int awayRuns);
+        bool tied = homeRuns == awayRuns;
+        bool homeWon = homeRuns > awayRuns;
         if (tied && f.final)
         {
             homeWon = home.wickets <= away.wickets;
@@ -391,7 +395,7 @@ public static class LeagueBuilder
             int left = 10 - w.wickets, balls = Math.Max(0, w.overs * 6 - w.balls);
             return $"{winner} won by {left} wicket{(left == 1 ? "" : "s")} ({balls} ball{(balls == 1 ? "" : "s")} left)";
         }
-        int by = w.runs - l.runs;
+        int by = CareerSituationMath.Par(w, l) - l.runs;   // short of a revised target, by that
         return $"{winner} won by {by} run{(by == 1 ? "" : "s")}";
     }
 
@@ -433,6 +437,7 @@ public static class LeagueBuilder
         {
             round = last + 1, home = table[0].id, away = table[1].id, final = true,
             night = Ladder.NightChance(s.rung) >= 0.5f, pitch = ePitch.Flat, scout = true,
+            situation = eSituation.Final,
         });
         return true;
     }

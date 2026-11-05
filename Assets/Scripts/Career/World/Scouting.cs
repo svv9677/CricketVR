@@ -54,14 +54,18 @@ public static class Scouting
     /// What a scout made of an innings at `rung` (the rung it was played at), 0..1: mostly the
     /// innings he saw (runs against the rung's par, the strike rate, not out), then the measured
     /// ratings against Bar(rung), then form. An innings he never got to bat in shows him nothing.
+    /// The match's situation (phase 7, ScoutLens) changes what he looks for, never what was measured.
     public static float Impression(InningsRecord r, eRung rung, RatingSet ratings, float form)
     {
+        ScoutLens lens = ScoutLens.For(r, rung);
         float innings = 0f;
         if (r != null && r.batted)
         {
-            float runs = Clamp01(r.runs / (1.5f * CareerProgressMath.ParRuns(rung))) * 0.7f;
-            float rate = Clamp01(r.StrikeRate / CareerProgressMath.ParStrikeRate(rung)) * 0.2f;
-            innings = runs + rate + (r.isOut ? 0f : 0.1f);
+            float runs = Clamp01(r.runs / lens.runsPar) * lens.runsWeight;
+            float rate = Clamp01(r.StrikeRate / lens.ratePar) * lens.rateWeight;
+            innings = runs + rate + (r.isOut ? 0f : lens.NotOutBonus(r));
+            if (lens.situation != eSituation.Normal)
+                innings = Clamp01(innings);   // a normal innings tops out at 1 already, and stays as it was
         }
         else if (r != null && !r.leftOut)
             innings = 0.3f;               // did not bat: neither good nor bad
@@ -69,18 +73,74 @@ public static class Scouting
         float overall = ratings != null ? ratings.Overall : RatingSet.Unknown;
         float rated = RatingSet.Known(overall) ? Clamp01(0.5f + (overall - Bar(rung)) / 30f) : 0.3f;
         float formed = RatingSet.Known(form) ? Clamp01(form / 99f) : 0.4f;
-        return Clamp01(InningsWeight * innings + RatingsWeight * rated + FormWeight * formed);
+        return Clamp01(lens.inningsWeight * innings + lens.ratingsWeight * rated + lens.formWeight * formed);
     }
 
-    /// "34* off 22 balls against Old Mill CC" / "no innings against Old Mill CC".
+    /// What a scout looks for in an innings, by the match's situation (phase 7). Normal is the
+    /// phase 4 rule unchanged. A chase asks for the rate the chase needed and rewards seeing it home;
+    /// rain asks for fewer runs, a little quicker; a rescue asks for fewer runs and rewards still being
+    /// there over the rate; the final weighs the innings itself more.
+    private struct ScoutLens
+    {
+        public eSituation situation;
+        public float runsPar, ratePar, runsWeight, rateWeight, notOut, notOutInWin;
+        public float inningsWeight, ratingsWeight, formWeight;
+
+        public float NotOutBonus(InningsRecord r) => r.won ? notOutInWin : notOut;
+
+        public static ScoutLens For(InningsRecord r, eRung rung)
+        {
+            var l = new ScoutLens
+            {
+                situation = r?.situation ?? eSituation.Normal,
+                runsPar = 1.5f * CareerProgressMath.ParRuns(rung), ratePar = CareerProgressMath.ParStrikeRate(rung),
+                runsWeight = 0.7f, rateWeight = 0.2f, notOut = 0.1f, notOutInWin = 0.1f,
+                inningsWeight = InningsWeight, ratingsWeight = RatingsWeight, formWeight = FormWeight,
+            };
+            switch (l.situation)
+            {
+                case eSituation.Chase:
+                    if (r.target > 0 && r.overs > 0)
+                        l.ratePar = Math.Max(l.ratePar, 100f * r.target / (r.overs * 6f));   // the asking rate
+                    l.notOutInWin = 0.25f;
+                    break;
+                case eSituation.RainShortened:
+                    l.runsPar *= CareerSituations.ParScale(r, rung);
+                    l.ratePar *= 1.1f;
+                    break;
+                case eSituation.Rescue:
+                    l.runsPar *= 0.8f;
+                    l.runsWeight = 0.65f; l.rateWeight = 0.1f;
+                    l.notOut = l.notOutInWin = 0.25f;
+                    break;
+                case eSituation.Final:
+                    l.inningsWeight = 0.7f; l.ratingsWeight = 0.2f; l.formWeight = 0.1f;
+                    break;
+            }
+            return l;
+        }
+    }
+
+    /// "34* off 22 balls against Old Mill CC" / "no innings against Old Mill CC", and where it was
+    /// played when the match asked something more ("... in the chase").
     public static string ScoreText(InningsRecord r)
     {
         if (r == null)
             return "the match";
-        string against = string.IsNullOrEmpty(r.opponent) ? "" : " against " + r.opponent;
+        string against = (string.IsNullOrEmpty(r.opponent) ? "" : " against " + r.opponent) + Phrase(r.situation);
         return r.batted ? $"{r.runs}{(r.isOut ? "" : "*")} off {r.balls} ball{(r.balls == 1 ? "" : "s")}{against}"
                         : "no innings" + against;
     }
+
+    /// " in the chase", " in the rain-shortened game", " after the collapse", " in the final"; "" when normal.
+    private static string Phrase(eSituation s) => s switch
+    {
+        eSituation.Chase => " in the chase",
+        eSituation.RainShortened => " in the rain-shortened game",
+        eSituation.Rescue => " after the collapse",
+        eSituation.Final => " in the final",
+        _ => "",
+    };
 
     /// The scout's note after watching an innings (`from`: the rung he is from; at the top, the
     /// selectors). Latin-1.
