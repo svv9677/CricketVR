@@ -27,6 +27,8 @@ public class OverBreak : MonoBehaviour
 
     private GameObject card;
     private TMP_Text heading, body;
+    // The next-ball card's layout was not one BuildCard knows: no next-over card this scene.
+    private bool unbuildable;
     private Vector3 baseScale;
     /// An announcement, bigger than the next-ball card it is copied from.
     private const float Bigger = 1.3f;
@@ -110,7 +112,7 @@ public class OverBreak : MonoBehaviour
             return;
         string type = BowlerRepertoire.KindName(hud.CurrentBowler.Kind);
         // Every bowling action in the game is right-arm, over the wicket.
-        body.text = $"<b>{hud.CurrentBowler.Name}</b>  <color=#98A2B3>{type}</color>\n" +
+        body.text = $"<b>{hud.CurrentBowler.Name}</b>\n<size=70%><color=#98A2B3>{type}</color></size>\n" +
                     "<size=70%><color=#98A2B3>Right-arm, over the wicket</color></size>\n\n" +
                     $"<size=60%><color=#98A2B3>Over {hud.Overs} complete   {hud.Runs}/{hud.Wickets}</color></size>";
         Place();
@@ -153,6 +155,8 @@ public class OverBreak : MonoBehaviour
     {
         if (card != null)
             return true;
+        if (unbuildable)
+            return false;
         NextBallMenu menu = FindFirstObjectByType<NextBallMenu>(FindObjectsInactive.Include);
         if (menu == null || menu.Panel == null)
             return false;
@@ -164,39 +168,63 @@ public class OverBreak : MonoBehaviour
         if (replay != null)
             Destroy(replay.gameObject);
         Transform play = card.transform.Find("Play");
-        if (play == null)
+        // The bowler's line: the copy of the card's own (it sits on its own line in the Play card,
+        // with Change bowler, Settings and Bat grip in a row below it).
+        Transform label = menu.BowlerLabel != null ? Twin(menu.BowlerLabel.transform, menu.Panel.transform, card.transform) : null;
+        if (play == null || label == null)
+        {
+            // Not a card we know how to dress: never show it half-built (or try again each over).
+            Destroy(card);
+            card = null;
+            unbuildable = true;
             return false;
-        Transform labelRow = null;
+        }
         for (int i = play.childCount - 1; i >= 0; i--)
         {
             Transform child = play.GetChild(i);
+            if (child == label)
+                continue;
             if (child.name.StartsWith("Bowl"))
                 WireNextButton(child);
             else if (child.GetComponent<TMP_Text>() != null)
                 heading = child.GetComponent<TMP_Text>();
-            else if (labelRow == null && child.GetComponentInChildren<TMP_Text>(true) != null && child.GetComponentInChildren<Button>(true) != null &&
-                     child.GetComponentInChildren<Button>(true).name == "Change")
-                labelRow = child;
             else
-                Destroy(child.gameObject);      // Settings / Bat grip
+                Destroy(child.gameObject);      // Change bowler / Settings / Bat grip
         }
-        if (labelRow != null)
-        {
-            // The bowler's name and type: its own text, the Change button gone.
-            foreach (Button b in labelRow.GetComponentsInChildren<Button>(true))
-                Destroy(b.gameObject);
-            body = labelRow.GetComponentInChildren<TMP_Text>(true);
-            body.enableWordWrapping = false;
-            body.alignment = TextAlignmentOptions.TopLeft;
-            body.fontSize = 36f;
-            var layout = body.GetComponent<LayoutElement>();
-            if (layout != null)
-                layout.preferredHeight = 150f;
-        }
+        body = label.GetComponent<TMP_Text>();
+        // Its own lines (the card's is one line, cut off with an ellipsis): a long name wraps
+        // rather than taking the rest of the card with it.
+        body.textWrappingMode = TextWrappingModes.Normal;
+        body.overflowMode = TextOverflowModes.Overflow;
+        body.alignment = TextAlignmentOptions.TopLeft;
+        body.fontSize = 36f;
+        var layout = body.GetComponent<LayoutElement>();
+        if (layout != null)
+            layout.preferredHeight = 175f;
         if (heading != null)
             heading.text = "<color=#3B82F6>NEXT OVER</color>";
         OpenXRMenuInputModule.RegisterPanel(card);
-        return body != null;
+        return true;
+    }
+
+    /// The transform in `copy` at the same child-index path that `t` has under `original`.
+    private static Transform Twin(Transform t, Transform original, Transform copy)
+    {
+        var path = new System.Collections.Generic.List<int>();
+        for (Transform x = t; x != original; x = x.parent)
+        {
+            if (x == null)
+                return null;
+            path.Add(x.GetSiblingIndex());
+        }
+        Transform at = copy;
+        for (int i = path.Count - 1; i >= 0; i--)
+        {
+            if (path[i] >= at.childCount)
+                return null;
+            at = at.GetChild(path[i]);
+        }
+        return at;
     }
 
     private void WireNextButton(Transform bowl)

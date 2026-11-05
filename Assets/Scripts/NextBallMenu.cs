@@ -27,6 +27,8 @@ public class NextBallMenu : MonoBehaviour
 
     /// The card itself (OverBreak copies it for the next-over announcement).
     public GameObject Panel => panel;
+    /// The bowler's line on the card (OverBreak finds its copy to announce the next bowler).
+    public TextMeshProUGUI BowlerLabel => bowlerLabel;
 
     private bool shown;
     private bool registered;
