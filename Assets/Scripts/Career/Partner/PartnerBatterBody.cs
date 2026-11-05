@@ -25,12 +25,22 @@ public class PartnerBatterBody : MonoBehaviour
     public const float ElbowHintWeight = 0.5f;
     /// Feet turned to their targets this much (the humanoid foot goal's frame is the body's).
     public const float FootRotationWeight = 0.8f;
+    /// The feet turn this share of the hips' turn through the shot (the back foot pivots, the
+    /// front stays more or less planted).
+    public const float FootYawShare = 0.5f;
     /// Look-at: overall, body, head, eyes, clamp (Animator.SetLookAtWeight's five weights).
     public const float LookWeight = 1f, LookBody = 0.15f, LookHead = 0.9f, LookEyes = 1f, LookClamp = 0.6f;
     /// The fingers closed this far round the handle (0 open .. 1 a fist: the handle is thick).
     public const float GripCurl = 0.8f;
     /// The wrist rolls at most this far (degrees) to bring the thumb down the handle.
     public const float MaxWristRoll = 100f;
+    /// The handle sits in the palm, not on the hand's centre line: the knuckles are aimed this far
+    /// to the back of the hand from the handle's middle (about the handle's radius and half a palm).
+    public const float PalmOffset = 0.02f;
+    /// A finger's three joints bent this far (degrees) in a full fist, root to tip (as Celebration's hand)...
+    public const float RootBend = 70f, MiddleBend = 95f, TipBend = 65f;
+    /// ...and the thumb this share of a finger's bend.
+    public const float ThumbBendShare = 0.5f;
 
     private static readonly HumanBodyBones[] RightRoots = { HumanBodyBones.RightThumbProximal, HumanBodyBones.RightIndexProximal, HumanBodyBones.RightMiddleProximal, HumanBodyBones.RightRingProximal, HumanBodyBones.RightLittleProximal };
     private static readonly HumanBodyBones[] LeftRoots = { HumanBodyBones.LeftThumbProximal, HumanBodyBones.LeftIndexProximal, HumanBodyBones.LeftMiddleProximal, HumanBodyBones.LeftRingProximal, HumanBodyBones.LeftLittleProximal };
@@ -39,7 +49,11 @@ public class PartnerBatterBody : MonoBehaviour
     private Transform lHand, rHand, lShoulder, rShoulder;
     private readonly Transform[,] lFingers = new Transform[5, 3], rFingers = new Transform[5, 3];
     private float lCurl = 1f, rCurl = 1f;
+    private Vector3 lPalm = Vector3.forward, rPalm = Vector3.forward;
     private bool calibrated;
+    // Whether each hand held the bat last frame: a hand that lets go opens again (the rig maps
+    // few finger joints, so the Animator does not straighten the rest).
+    private bool lHeld, rHeld;
 
     private SwingPose pose;
     private bool hasPose;
@@ -96,13 +110,17 @@ public class PartnerBatterBody : MonoBehaviour
         if (!hasPose || animator == null)
             return;
         // The hips: from where the idle has them to the pose's, turned with the shot, bent over the bat.
+        // hipsYaw is the way his hips face (world, 0 = +z: SwingPose); his root faces his stance,
+        // so the turn is the difference.
         Vector3 rest = transform.position + Vector3.up * StandingHipsY;
+        float turn = Mathf.DeltaAngle(transform.eulerAngles.y, pose.hipsYaw);
         animator.bodyPosition += pose.hips - rest;
-        animator.bodyRotation = Quaternion.AngleAxis(pose.hipsYaw, Vector3.up) *
+        animator.bodyRotation = Quaternion.AngleAxis(turn, Vector3.up) *
                                 Quaternion.AngleAxis(lean, transform.right) * animator.bodyRotation;
 
-        Foot(AvatarIKGoal.LeftFoot, pose.leftFoot, Quaternion.AngleAxis(pose.hipsYaw * 0.5f, Vector3.up) * leftFootTurn);
-        Foot(AvatarIKGoal.RightFoot, pose.rightFoot, Quaternion.AngleAxis(pose.hipsYaw * 0.5f, Vector3.up) * rightFootTurn);
+        Quaternion feetTurn = Quaternion.AngleAxis(turn * FootYawShare, Vector3.up);
+        Foot(AvatarIKGoal.LeftFoot, pose.leftFoot, feetTurn * leftFootTurn);
+        Foot(AvatarIKGoal.RightFoot, pose.rightFoot, feetTurn * rightFootTurn);
 
         Vector3 axis = pose.batRotation * Vector3.forward;
         lHolds = rHolds = false;
@@ -164,28 +182,29 @@ public class PartnerBatterBody : MonoBehaviour
             return;
         if (!calibrated)
         {
-            Celebration.Calibrate(lHand, lFingers, out lCurl, out _);
-            Celebration.Calibrate(rHand, rFingers, out rCurl, out _);
+            Celebration.Calibrate(lHand, lFingers, out lCurl, out lPalm);
+            Celebration.Calibrate(rHand, rFingers, out rCurl, out rPalm);
             calibrated = true;
         }
         Vector3 axis = pose.batRotation * Vector3.forward;
-        if (lHolds) Wrap(lHand, lFingers, lCurl, lGrip, axis);
-        if (rHolds) Wrap(rHand, rFingers, rCurl, rGrip, axis);
+        if (lHolds) Wrap(lHand, lFingers, lCurl, lPalm, lGrip, axis);
+        else if (lHeld) Curl(lFingers, lCurl, 0f);
+        if (rHolds) Wrap(rHand, rFingers, rCurl, rPalm, rGrip, axis);
+        else if (rHeld) Curl(rFingers, rCurl, 0f);
+        lHeld = lHolds;
+        rHeld = rHolds;
     }
 
     /// The hand round the handle: knuckles across it, the thumb rolled down it toward the blade,
-    /// the fingers closed. The wrist stays where the IK put it.
-    private static void Wrap(Transform hand, Transform[,] fingers, float curlSign, Vector3 grip, Vector3 axis)
+    /// the knuckles then moved off the handle's middle to the back of the hand (the handle in the
+    /// palm), the fingers closed. The wrist stays where the IK put it.
+    private static void Wrap(Transform hand, Transform[,] fingers, float curlSign, Vector3 palmLocal, Vector3 grip, Vector3 axis)
     {
         Transform knuckle = fingers[2, 0] != null ? fingers[2, 0] : fingers[1, 0];
         if (hand == null || knuckle == null)
             return;
-        Vector3 across = Vector3.ProjectOnPlane(grip - hand.position, axis);
-        Vector3 now = knuckle.position - hand.position;
-        if (across.sqrMagnitude < 1e-6f || now.sqrMagnitude < 1e-8f)
+        if (!AimKnuckles(hand, knuckle, grip, axis, out Vector3 across))
             return;
-        across.Normalize();
-        hand.rotation = Quaternion.FromToRotation(now, across) * hand.rotation;
         Transform thumb = fingers[0, 0];
         if (thumb != null)
         {
@@ -196,10 +215,25 @@ public class PartnerBatterBody : MonoBehaviour
                 hand.rotation = Quaternion.AngleAxis(roll, across) * hand.rotation;
             }
         }
+        // The palm faces the handle now: aim the knuckles that much to the back of the hand.
+        Vector3 palm = hand.TransformDirection(palmLocal);
+        AimKnuckles(hand, knuckle, grip - palm * PalmOffset, axis, out _);
         Curl(fingers, curlSign, GripCurl);
     }
 
-    /// Each finger's joints bent to `curl` (as Celebration's hand: the thumb half as far).
+    /// The hand turned so its knuckles point at `at` across the handle (square to its axis).
+    private static bool AimKnuckles(Transform hand, Transform knuckle, Vector3 at, Vector3 axis, out Vector3 across)
+    {
+        across = Vector3.ProjectOnPlane(at - hand.position, axis);
+        Vector3 now = knuckle.position - hand.position;
+        if (across.sqrMagnitude < 1e-6f || now.sqrMagnitude < 1e-8f)
+            return false;
+        across.Normalize();
+        hand.rotation = Quaternion.FromToRotation(now, across) * hand.rotation;
+        return true;
+    }
+
+    /// Each finger's joints bent to `curl` (0 open .. 1 a fist; as Celebration's hand).
     private static void Curl(Transform[,] fingers, float curlSign, float curl)
     {
         for (int f = 0; f < 5; f++)
@@ -208,7 +242,7 @@ public class PartnerBatterBody : MonoBehaviour
                 Transform b = fingers[f, j];
                 if (b == null) continue;
                 Vector3 e = b.localEulerAngles;
-                float bend = curlSign * curl * (j == 0 ? 70f : j == 1 ? 95f : 65f) * (f == 0 ? 0.5f : 1f);
+                float bend = curlSign * curl * (j == 0 ? RootBend : j == 1 ? MiddleBend : TipBend) * (f == 0 ? ThumbBendShare : 1f);
                 b.localRotation = Quaternion.Euler(bend, e.y, e.z);
             }
     }
@@ -257,9 +291,12 @@ public static class PartnerStance
     public const float NonStrikerZ = -1.3f;
     /// His feet this far either side of the middle.
     public const float NonStrikerFeet = 0.14f;
-    /// The bat grounded this far in front of him and out to his right (away from the pitch),
-    /// leaning back to his right hand on the top of the handle (degrees).
-    public const float NonStrikerBatAhead = 0.28f, NonStrikerBatOut = 0.24f, NonStrikerBatLean = 12f;
+    /// The bat grounded this far in front of him (its toe still behind the popping crease, 0.17
+    /// in front of his middle) and out to his right (away from the pitch), leaning back to his
+    /// right hand on the top of the handle (degrees).
+    public const float NonStrikerBatAhead = 0.12f, NonStrikerBatOut = 0.24f, NonStrikerBatLean = 12f;
+    /// Backing up he faces down the pitch, toward the striker: +x, 90 degrees in SwingPose.hipsYaw's terms.
+    public const float NonStrikerYaw = 90f;
     /// Where he watches from backing up: the striker.
     public static readonly Vector3 LookAtStriker = new Vector3(BallDelivery.BatsmanStumpsX - 0.8f, 1.5f, 0f);
 
@@ -325,6 +362,14 @@ public static class PartnerStance
     public static Vector3 StanceHips(float offSign, float standingHipsY) =>
         new Vector3(HipsX, standingHipsY - Crouch, -HipsAcross * offSign);
 
+    /// His head's z at guard before it is measured: over his hips, bent toward the off side by Lean.
+    public static float StanceHeadZ(float offSign, float standingHipsY, float standingHeadY) =>
+        StanceHips(offSign, standingHipsY).z + offSign * (standingHeadY - standingHipsY) * Mathf.Sin(Lean * Mathf.Deg2Rad);
+
+    /// The way he faces at guard in SwingPose.hipsYaw's terms (degrees about up, 0 = +z): side-on,
+    /// toward the off side - 0 for a right-hander, 180 for a left-hander.
+    public static float StrikerYaw(float offSign) => offSign > 0f ? 0f : 180f;
+
     /// At guard he faces the off side, side-on to the bowler.
     public static Quaternion StrikerFacing(float offSign) => Quaternion.LookRotation(new Vector3(0f, 0f, offSign), Vector3.up);
     /// Backing up he faces down the pitch.
@@ -352,6 +397,7 @@ public static class PartnerStance
         var p = new SwingPose
         {
             hips = hips,
+            hipsYaw = StrikerYaw(offSign),
             leftFoot = offSign > 0f ? front : back,
             rightFoot = offSign > 0f ? back : front,
             look = LookAtBowler,
@@ -370,6 +416,7 @@ public static class PartnerStance
         var p = new SwingPose
         {
             hips = new Vector3(NonStrikerX, standingHipsY, NonStrikerZ),
+            hipsYaw = NonStrikerYaw,
             leftFoot = new Vector3(NonStrikerX, AnkleHeight, NonStrikerZ) - right * NonStrikerFeet,
             rightFoot = new Vector3(NonStrikerX, AnkleHeight, NonStrikerZ) + right * NonStrikerFeet,
             look = LookAtStriker,
@@ -397,13 +444,27 @@ public static class PartnerStance
         return q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w > 0.5f;
     }
 
+    /// A swing's pose with anything it left out (zero) taken from where it can be: the hands from
+    /// the bat and the grip, the feet and the hips (with their turn) from the rest pose. A part
+    /// left at the world origin would pull his limbs to the middle of the ground.
+    public static void Complete(ref SwingPose p, in BatGrip g, in SwingPose rest)
+    {
+        if (Unset(p.topHand)) p.topHand = p.batPosition + p.batRotation * (g.topHandLocal * g.scale);
+        if (Unset(p.bottomHand)) p.bottomHand = p.batPosition + p.batRotation * (g.bottomHandLocal * g.scale);
+        if (Unset(p.leftFoot)) p.leftFoot = rest.leftFoot;
+        if (Unset(p.rightFoot)) p.rightFoot = rest.rightFoot;
+        if (Unset(p.hips)) { p.hips = rest.hips; p.hipsYaw = rest.hipsYaw; }
+    }
+
+    private static bool Unset(Vector3 v) => v.sqrMagnitude < 1e-8f;
+
     /// From one pose toward another by `k` (0..1): BackToStance's ease.
     public static SwingPose Blend(in SwingPose a, in SwingPose b, float k) => new SwingPose
     {
         batPosition = Vector3.Lerp(a.batPosition, b.batPosition, k),
         batRotation = Quaternion.Slerp(a.batRotation, b.batRotation, k),
         hips = Vector3.Lerp(a.hips, b.hips, k),
-        hipsYaw = Mathf.Lerp(a.hipsYaw, b.hipsYaw, k),
+        hipsYaw = Mathf.LerpAngle(a.hipsYaw, b.hipsYaw, k),
         leftFoot = Vector3.Lerp(a.leftFoot, b.leftFoot, k),
         rightFoot = Vector3.Lerp(a.rightFoot, b.rightFoot, k),
         look = Vector3.Lerp(a.look, b.look, k),

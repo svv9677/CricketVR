@@ -184,9 +184,10 @@ public class PartnerBatter : MonoBehaviour
         StanceHips = PartnerStance.StanceHips(OffSign, body.StandingHipsY);
         if (!sampled)
         {
-            // Until his head is sampled at guard: standing head height less the crouch.
+            // Until his head is sampled at guard: standing head height less the crouch, and his
+            // head's z bent over the bat (StanceZ is always his head's z, never his hips').
             StanceHeadTopY = body.StandingHeadY - PartnerStance.Crouch + HeadTopAboveBone;
-            StanceZ = StanceHips.z;
+            StanceZ = PartnerStance.StanceHeadZ(OffSign, body.StandingHipsY, body.StandingHeadY);
         }
         transform.SetPositionAndRotation(new Vector3(StanceHips.x, 0f, StanceHips.z), PartnerStance.StrikerFacing(OffSign));
         PartnerStance.StanceFeetTurn(OffSign, out Quaternion left, out Quaternion right);
@@ -261,7 +262,11 @@ public class PartnerBatter : MonoBehaviour
             // Scaled time, as the ball's: a slowed game slows the swing with it.
             float t = Mathf.Min(Time.time - contactAt, SwingHold);
             SwingPose p = PartnerSwing.Pose(plan, Grip, OffSign, StanceHips, t);
-            target = PartnerStance.Valid(p) ? p : rest;
+            if (PartnerStance.Valid(p))
+            {
+                PartnerStance.Complete(ref p, Grip, rest);
+                target = p;
+            }
         }
         else if (easing)
         {
@@ -330,6 +335,10 @@ public static class PartnerKit
     public const float GloveSize = 0.10f, GloveForward = 0.04f;
     /// No head mesh to measure: the top of the head above the head bone.
     public const float DefaultHeadTop = 0.17f;
+    /// The top of his head is the highest vertex within this distance (across the ground) of his head bone.
+    public const float HeadSearchRadius = 0.2f;
+    /// His trousers are his shirt's colour darkened by this much toward black.
+    public const float TrouserShade = 0.3f;
 
     private static readonly Color Metal = new Color(0.55f, 0.57f, 0.6f);
     private static readonly Color Whites = new Color(0.93f, 0.93f, 0.9f);
@@ -357,7 +366,7 @@ public static class PartnerKit
     /// Shirt and trousers in his side's colour, as the umpire is dressed (Umpire.Dress).
     private static void Clothes(Animator a, Color kit)
     {
-        Color trousers = Color.Lerp(kit, Color.black, 0.3f);
+        Color trousers = Color.Lerp(kit, Color.black, TrouserShade);
         foreach (SkinnedMeshRenderer skin in a.GetComponentsInChildren<SkinnedMeshRenderer>())
         {
             string n = skin.name;
@@ -453,7 +462,7 @@ public static class PartnerKit
             foreach (Vector3 v in baked.vertices)
             {
                 Vector3 w = at + turn * v;
-                if (Vector2.Distance(new Vector2(w.x, w.z), new Vector2(head.position.x, head.position.z)) < 0.2f)
+                if (Vector2.Distance(new Vector2(w.x, w.z), new Vector2(head.position.x, head.position.z)) < HeadSearchRadius)
                     top = Mathf.Max(top, w.y);
             }
         }

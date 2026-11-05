@@ -100,7 +100,45 @@ public class PartnerBatterTests
         Assert.Less(toe.z, -1f, "his bat too");
         Assert.Less(p.topHand.z, -1f, "and his hand");
         Assert.Less(Mathf.Abs(p.hips.x - BallDelivery.BowlerStumpsX), BallDelivery.PoppingCreaseDistance, "inside his crease");
+        Assert.Less(toe.x, BallDelivery.BowlerStumpsX + BallDelivery.PoppingCreaseDistance, "his bat grounded inside his crease too");
         Assert.Greater(p.topHand.y, 0.6f, "hand on the top of the handle");
+        Assert.AreEqual(90f, PartnerStance.NonStrikerFacing.eulerAngles.y, 1e-3f, "facing +x is NonStrikerYaw");
+        Assert.AreEqual(PartnerStance.NonStrikerYaw, p.hipsYaw, 1e-5f, "his hips face the way he stands");
+    }
+
+    [Test]
+    public void Guard_HipsFaceTheWayHeStands([Values(1f, -1f)] float offSign)
+    {
+        SwingPose p = PartnerStance.Stance(grip, offSign, StandingHips);
+        float facing = PartnerStance.StrikerFacing(offSign).eulerAngles.y;
+        Assert.AreEqual(0f, Mathf.DeltaAngle(facing, p.hipsYaw), 1e-3f, "no turn at rest (hipsYaw is world, 0 = +z)");
+    }
+
+    [Test]
+    public void Guard_HeadEstimate_BentTowardTheOffSide([Values(1f, -1f)] float offSign)
+    {
+        float hipsZ = PartnerStance.StanceHips(offSign, StandingHips).z;
+        float headZ = PartnerStance.StanceHeadZ(offSign, StandingHips, 1.6f);
+        Assert.Greater((headZ - hipsZ) * offSign, 0.1f, "the head is over the bat, off-side of the hips");
+        Assert.Less(Mathf.Abs(headZ), Mathf.Abs(hipsZ), "and nearer middle stump than his hips");
+    }
+
+    [Test]
+    public void Complete_FillsWhatTheSwingLeftOut()
+    {
+        SwingPose rest = PartnerStance.Stance(grip, 1f, StandingHips);
+        var p = new SwingPose { batPosition = new Vector3(9f, 0.5f, 0.2f), batRotation = Quaternion.Euler(30f, 10f, 0f) };
+        PartnerStance.Complete(ref p, grip, rest);
+        Assert.AreEqual(0f, (p.topHand - (p.batPosition + p.batRotation * (grip.topHandLocal * grip.scale))).magnitude, 1e-4f, "top hand on the bat");
+        Assert.AreEqual(0f, (p.bottomHand - (p.batPosition + p.batRotation * (grip.bottomHandLocal * grip.scale))).magnitude, 1e-4f, "bottom hand on the bat");
+        Assert.AreEqual(0f, (p.leftFoot - rest.leftFoot).magnitude, 1e-5f);
+        Assert.AreEqual(0f, (p.rightFoot - rest.rightFoot).magnitude, 1e-5f);
+        Assert.AreEqual(0f, (p.hips - rest.hips).magnitude, 1e-5f);
+
+        var given = new SwingPose { batRotation = Quaternion.identity, topHand = Vector3.one, hips = new Vector3(9f, 0.8f, -0.3f), hipsYaw = -40f };
+        PartnerStance.Complete(ref given, grip, rest);
+        Assert.AreEqual(Vector3.one, given.topHand, "what the swing gave is kept");
+        Assert.AreEqual(-40f, given.hipsYaw, 1e-5f);
     }
 
     [Test]
