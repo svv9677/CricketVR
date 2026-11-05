@@ -46,12 +46,13 @@ public class NextBallMenu : MonoBehaviour
     /// heading becomes "Next over" between overs, the button "Next ball".
     private void FindHeaderAndBowlButton()
     {
-        Transform card = bowlerLabel != null ? bowlerLabel.transform.parent.parent : null;
+        // The bowler's line sits directly in the Play card, after its "Bowler" heading.
+        Transform card = bowlerLabel != null ? bowlerLabel.transform.parent : null;
         if (card == null)
             return;
         foreach (Transform child in card)
         {
-            if (header == null && child.TryGetComponent(out TMP_Text text))
+            if (header == null && child != bowlerLabel.transform && child.TryGetComponent(out TMP_Text text))
                 header = text;
             if (child.name.StartsWith("Bowl"))
             {

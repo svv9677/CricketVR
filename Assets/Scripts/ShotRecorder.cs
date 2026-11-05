@@ -165,6 +165,7 @@ public class ShotRecorder : MonoBehaviour
     {
         startTime = Time.time;
         current.Clear(startTime);
+        current.PartnerBall = Striker.IsPartner;    // the strike is settled by the run-up
         stopAt = float.MaxValue;
         keepUntil = 0f;
         nextTick = 0f;

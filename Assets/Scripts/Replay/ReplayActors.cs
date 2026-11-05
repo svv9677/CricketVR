@@ -29,6 +29,7 @@ public sealed class ReplayActors
     private bool[] liveWasOff;
     private GameObject stage;
     private Transform ballStand, batStand;
+    private Vector3 batStandScale = Vector3.one;
     private Transform headStand;        // the batter's helmet, posed from the recorded head
     private bool viewing;
     /// From the headset's eye to the middle of the head: back and a little up.
@@ -68,6 +69,8 @@ public sealed class ReplayActors
             AddWhole(prop, skip);
         ballStand = main.theBall != null ? AddFree(main.theBall.transform, skip) : null;
         batStand = main.theBat != null ? AddFree(main.theBat.transform, skip) : null;
+        if (batStand != null)
+            batStandScale = batStand.localScale;
         headStand = AddBatterHelmet();
         Players = players.Count;
         BuildChannelKeys();     // now, as the scene loaded: the same moment in every load of it
@@ -325,7 +328,13 @@ public sealed class ReplayActors
     {
         shot.Evaluate(time, out Vector3 ball, out Vector3 batPosition, out Quaternion batRotation);
         if (ballStand != null) ballStand.localPosition = ball;
-        if (batStand != null) batStand.SetLocalPositionAndRotation(batPosition, batRotation);
+        if (batStand != null)
+        {
+            // A partner's ball: his own bat is a posed prop below; the player's (in its locker
+            // finish) would be drawn over it in his hands.
+            batStand.localScale = shot.PartnerBall ? Vector3.zero : batStandScale;
+            batStand.SetLocalPositionAndRotation(batPosition, batRotation);
+        }
         if (headStand != null && shot.Head(time, out Vector3 head, out Quaternion look))
             headStand.SetPositionAndRotation(head + look * EyeToHeadCentre, look);
 

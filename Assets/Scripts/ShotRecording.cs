@@ -41,6 +41,9 @@ public sealed class ShotRecording
     public bool HasContact;
     public float ContactTime;
     public Vector3 ContactPoint;    // where the ball was when the bat struck it
+    /// A career partner faced it: his own bat is posed with the players, so the big screen
+    /// leaves the player's bat stand-in out (ReplayActors.Apply).
+    public bool PartnerBall;
 
     public ShotRecording(int capacity, float interval, PoseTrack poses)
     {
@@ -63,6 +66,7 @@ public sealed class ShotRecording
         HasContact = false;
         ContactTime = 0f;
         ContactPoint = Vector3.zero;
+        PartnerBall = false;
         Poses?.Clear();
     }
 
