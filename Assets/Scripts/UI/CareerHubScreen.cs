@@ -15,8 +15,9 @@ using UnityEngine.UI;
 /// trial it says so once (NetsSession.TrialResult); coming back from a match, the result screen
 /// (CareerResultScreen) says how it went. Phase 4 adds the Inbox (with the unread count), a line
 /// when an offer is waiting, "A Pro League scout is watching" on a scouted next match, and - left
-/// out of the side - Sim the match in place of Play match. Built by Tools > CricketVR > Build Menu
-/// Prefabs.
+/// out of the side - Sim the match in place of Play match. Phase 7: a fixture with a situation
+/// (rain, a chase, a collapse) says so on the next-match tile, from the very plan Play match makes.
+/// Built by Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
 public class CareerHubScreen : MenuScreen
 {
@@ -202,8 +203,19 @@ public class CareerHubScreen : MenuScreen
             return;
         }
         Set(nextTitle, $"vs {TeamName(s, next.Opponent(s.yourTeam))}");
-        Set(nextDetail, NextDetail(next, Rounds(s), s.rung));
-        Set(nextSlot, CareerProgress.LeftOutNext(p) ? LeftOutLine(p.benchedFor) : SlotLine(p.battingSlot, next.final));
+        MatchPlan preview = SituationPreview(p, next);
+        Set(nextDetail, NextDetail(next, Rounds(s), s.rung, preview != null ? preview.overs : 0));
+        Set(nextSlot, CareerProgress.LeftOutNext(p) ? LeftOutLine(p.benchedFor) : NextSlotLine(preview, p.battingSlot, next.final));
+    }
+
+    /// Phase 7: the plan a situation match will be played with - the same one Play match makes
+    /// (CareerSituations.PlanRng) - so the tile can say what it asks ("124 to win off 14"). Null for
+    /// a Normal fixture, or one he sits out.
+    private static MatchPlan SituationPreview(CareerProfile p, Fixture next)
+    {
+        if (next == null || CareerSituations.Of(next) == eSituation.Normal || CareerProgress.LeftOutNext(p))
+            return null;
+        return CareerProgress.PlanNext(p, CareerSituations.PlanRng(p));
     }
 
     private void ShowTrialBanner()
@@ -240,15 +252,25 @@ public class CareerHubScreen : MenuScreen
         RatingSet.Known(form) ? $"Form  <b>{Round(form)}</b>" : $"Form  <color={Muted}>--</color>";
 
     /// "Round 3 of 7 · 6 overs · Club ground · Afternoon", or "Final · 20 overs · Stadium · Night".
-    public static string NextDetail(Fixture f, int rounds, eRung rung)
+    /// `overs` is the match's own when rain cut it (0: the format's).
+    public static string NextDetail(Fixture f, int rounds, eRung rung, int overs = 0)
     {
         string when = f.final ? "Final" : rounds > 0 ? $"Round {f.round} of {rounds}" : $"Round {f.round}";
-        return $"{when} · {Ladder.Overs(rung)} overs · {VenueName(Ladder.Venue(rung))} · {(f.night ? "Night" : "Afternoon")}";
+        int o = overs > 0 ? overs : Ladder.Overs(rung);
+        return $"{when} · {o} overs · {VenueName(Ladder.Venue(rung))} · {(f.night ? "Night" : "Afternoon")}";
     }
 
     /// "You bat at 7", with a pink FINAL badge in front for the final.
     public static string SlotLine(int slot, bool final) =>
         (final ? $"<color={Pink}><b>FINAL</b></color>  ·  " : "") + $"You bat at {Mathf.Clamp(slot, 1, 11)}";
+
+    /// The next match's slot line: the situation's (CareerSituationText.HubLine) when it has one,
+    /// else SlotLine - the final keeps its FINAL badge.
+    public static string NextSlotLine(MatchPlan preview, int slot, bool final)
+    {
+        string line = preview != null ? CareerSituationText.HubLine(preview, slot) : "";
+        return string.IsNullOrEmpty(line) ? SlotLine(slot, final) : line;
+    }
 
     public static string VenueName(eVenue v) => v == eVenue.Stadium ? "Stadium" : "Club ground";
 
@@ -331,7 +353,9 @@ public class CareerHubScreen : MenuScreen
             SimLeftOut(p, rng);
             return;
         }
-        MatchPlan plan = CareerProgress.PlanNext(p, rng);
+        // The fixture's own rng (the toss, their innings, the situation), so the match is the one the
+        // tile previewed; `rng` stays for the new season and the match he sits out.
+        MatchPlan plan = CareerProgress.PlanNext(p, CareerSituations.PlanRng(p));
         if (plan == null)
             return;
         CareerResultScreen.RememberBefore(p);

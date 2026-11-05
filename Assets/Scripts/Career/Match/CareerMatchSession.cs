@@ -93,6 +93,8 @@ public static class CareerMatchSession
         MatchFlow.AIInningsOverride = PlayTheirs;
         MatchFlow.OpponentName = string.IsNullOrEmpty(Plan.opponentName) ? "AI" : Plan.opponentName;
         MatchFlow.YourName = string.IsNullOrEmpty(Plan.yourTeamName) ? "You" : Plan.yourTeamName;
+        // Phase 7: a chase cut by rain has the revised target on the scoreboard and at the end (0: none).
+        MatchFlow.TargetOverride = Plan.batFirst ? 0 : Plan.revisedTarget;
     }
 
     /// MatchFlow asking for the other side's innings: with no target it is their first innings (we

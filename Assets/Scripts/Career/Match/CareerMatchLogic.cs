@@ -282,6 +282,8 @@ public static partial class CareerMatchLogic
     public static CareerMatchResult Build(MatchState s, MatchPlan plan, InningsCard theirs, bool abandoned)
     {
         InningsCard yours = Card(s, plan?.yourTeamName);
+        // Phase 7: a chase cut by rain - the card says so, and the result reads its revised par.
+        yours.revised = plan != null && !plan.batFirst && plan.revisedTarget > 0;
         var r = new CareerMatchResult { yours = yours, theirs = theirs, abandoned = abandoned };
         MatchBatter you = s.You;
         if (you != null)
@@ -298,6 +300,8 @@ public static partial class CareerMatchLogic
     }
 
     /// "Harbour CC won by 12 runs" / "Rivertown won by 4 wickets (7 balls left)" / "Match tied".
+    /// The chaser has to pass par (CareerSituationMath.Par): the setter's runs, or the revised
+    /// target - 1 when rain cut the chase, whose balls left then count from its own overs.
     public static string ResultText(InningsCard yours, InningsCard theirs, bool batFirst, string yourName, string theirName,
                                     out bool won, out bool tied)
     {
@@ -306,19 +310,21 @@ public static partial class CareerMatchLogic
             return "";
         InningsCard first = batFirst ? yours : theirs, second = batFirst ? theirs : yours;
         string firstName = Name(batFirst ? yourName : theirName, first), secondName = Name(batFirst ? theirName : yourName, second);
-        if (second.runs == first.runs)
+        int par = CareerSituationMath.Par(first, second);
+        if (second.runs == par)
         {
             tied = true;
             return "Match tied";
         }
-        bool secondWon = second.runs > first.runs;
+        bool secondWon = second.runs > par;
         won = secondWon != batFirst;
         if (secondWon)
         {
-            int wkts = Math.Max(0, 10 - second.wickets), left = Math.Max(0, Math.Max(second.overs, first.overs) * 6 - second.balls);
+            int overs = second.revised ? second.overs : Math.Max(second.overs, first.overs);
+            int wkts = Math.Max(0, 10 - second.wickets), left = Math.Max(0, overs * 6 - second.balls);
             return $"{secondName} won by {wkts} wicket{(wkts == 1 ? "" : "s")} ({left} ball{(left == 1 ? "" : "s")} left)";
         }
-        int by = first.runs - second.runs;
+        int by = par - second.runs;
         return $"{firstName} won by {by} run{(by == 1 ? "" : "s")}";
     }
 

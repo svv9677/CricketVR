@@ -83,7 +83,7 @@ public class CareerResultScreen : MenuScreen
         bool batFirst = BattedFirst(r, plan);
         int margin = Margin(r, batFirst, out bool byRuns);
         string words = margin > 0 ? Headline(r.won, r.tied, margin, byRuns) : Headline(r.won, r.tied, r.result);
-        Set(headline, $"<color={(r.tied ? Blue : r.won ? Good : Bad)}>{words}</color>");
+        Set(headline, $"<color={(r.tied ? Blue : r.won ? Good : Bad)}>{words}</color>{HeadlineTag(CareerSituationText.ResultTag(plan))}");
         Set(innings, r.batted ? $"{r.runs} <color={Muted}>({r.balls})</color>" : $"<color={Muted}>Did not bat</color>");
         Set(inningsDetail, r.batted ? InningsDetail(r.fours, r.sixes, r.isOut, r.retired, r.how) : "");
         Set(scores, ScoresLine(r, plan, batFirst));
@@ -133,6 +133,10 @@ public class CareerResultScreen : MenuScreen
         return $"{word} by {margin} {unit}";
     }
 
+    /// The match situation's small muted tag after the headline (" · rain, target 124"; "" for none).
+    public static string HeadlineTag(string tag) =>
+        string.IsNullOrEmpty(tag) ? "" : $"<size=55%><color={Muted}> · {tag}</color></size>";
+
     /// The headline from the result's own words when the scores cannot say: "WON by 4 wickets"
     /// out of "Harbour CC won by 4 wickets".
     public static string Headline(bool won, bool tied, string result) =>
@@ -149,8 +153,9 @@ public class CareerResultScreen : MenuScreen
         return true;
     }
 
-    /// The winning margin from the two innings: the side batting first wins by runs, the side
-    /// chasing by the wickets it had left. 0 when it cannot be told (a tie, a card missing).
+    /// The winning margin from the two innings: the side batting first wins by runs (past the
+    /// chaser's par: CareerSituationMath.Par, the revised target - 1 after rain), the side chasing
+    /// by the wickets it had left. 0 when it cannot be told (a tie, a card missing).
     public static int Margin(CareerMatchResult r, bool batFirst, out bool byRuns)
     {
         byRuns = false;
@@ -159,7 +164,7 @@ public class CareerResultScreen : MenuScreen
         InningsCard first = batFirst ? r.yours : r.theirs, second = batFirst ? r.theirs : r.yours;
         bool firstWon = r.won == batFirst;
         byRuns = firstWon;
-        int margin = firstWon ? first.runs - second.runs : Wickets - second.wickets;
+        int margin = firstWon ? CareerSituationMath.Par(first, second) - second.runs : Wickets - second.wickets;
         return Mathf.Max(0, margin);
     }
 
