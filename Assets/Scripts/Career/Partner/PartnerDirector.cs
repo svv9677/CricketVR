@@ -304,6 +304,9 @@ public class PartnerDirector : MonoBehaviour
             Debug.Log(LogLine());
             if (PartnerBatter.Instance != null)
                 PartnerBatter.Instance.BackToStance();
+            // The match in progress to disk after every real ball, his partner's too: the player
+            // faces none while he watches, and CareerMatchRecovery needs the score as it stands.
+            CareerSaves.SaveCurrent();
         }
         partnersBall = prepared = HasPlan = false;
         striker = null;

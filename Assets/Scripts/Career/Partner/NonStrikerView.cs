@@ -109,7 +109,8 @@ public class NonStrikerView : MonoBehaviour
     /// Blink to the other end if the player is at the wrong one; else just keep the partner at his.
     private void CheckEnd()
     {
-        if (Blinking)
+        // Not once the match is over: its result card is in front of him at this end.
+        if (Blinking || MatchFlow.Over)
             return;
         // Not with a panel open: the rig would move about 19 m and leave it at the old end. The
         // per-frame check between balls tries again once it closes.
@@ -139,8 +140,10 @@ public class NonStrikerView : MonoBehaviour
                 start = Time.unscaledTime - FadeSeconds;
                 t = FadeSeconds;
                 SetBlack(1f, visible);
-                // Read again at black: the strike may have changed while the screen went dark.
-                if (CanChangeEnds(main.gameState))
+                // Read again at black: the strike may have changed while the screen went dark, a
+                // panel may have opened (it would be left 19 m behind), the match may have ended.
+                // Not moved: the per-frame check between balls tries again.
+                if (CanChangeEnds(main.gameState) && !PanelOpen() && !MatchFlow.Over)
                     MoveTo(PartnerWatch.Live);
             }
             SetBlack(BlinkAlpha(t), visible);
@@ -202,11 +205,12 @@ public class NonStrikerView : MonoBehaviour
         Blinking || PanelOpen() || OverBreak.Blocking || MatchFlow.Over || MatchGate.Blocking;
 
     /// A panel or replay in front of the player at this end: settings, grip calibration, the over
-    /// break card, a shot replay.
+    /// break card, a shot replay, the career's catch-up card ("You come in at 28/4": MatchGate).
     private bool PanelOpen()
     {
         ShotReplay replay = ShotReplay.Instance;
-        return main.SettingsOpen || main.CalibratingGrip || OverBreak.Showing || (replay != null && replay.IsPlaying);
+        return main.SettingsOpen || main.CalibratingGrip || OverBreak.Showing || MatchGate.Blocking ||
+               (replay != null && replay.IsPlaying);
     }
 
     // ---- The black quad ---------------------------------------------------------------------------

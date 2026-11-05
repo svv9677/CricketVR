@@ -205,7 +205,9 @@ public class ShotRecorder : MonoBehaviour
             MarkContact();
 
         float now = Time.time - startTime;
-        Transform bat = main.theBat.transform;
+        // The partner's bat while he bats (the player's own is in his hand at the other end).
+        Transform partnerBat = Striker.IsPartner && PartnerBatter.Instance != null ? PartnerBatter.Instance.BatTransform : null;
+        Transform bat = partnerBat != null ? partnerBat : main.theBat.transform;
         // No helmet while the partner bats (he wears his own): the player's head is then at the
         // non-striker's end, and a zero rotation is "no helmet" (ShotRecording).
         Camera eye = Striker.IsPartner ? null : Camera.main;
