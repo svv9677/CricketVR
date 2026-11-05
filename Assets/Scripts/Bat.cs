@@ -201,7 +201,7 @@ public partial class Bat : MonoBehaviour
     /// strength is capped at 1, so a harder hit has to be felt as a longer jolt too: at 0.5-1.0
     /// strength over 0.07-0.22 s, most hits were weaker than the old flat 0.7+ (0.72 at 5 m/s,
     /// 0.82 at 10 against 0.8 and 0.9) - more varied, but not stronger.
-    private const float HapticFullImpact = 20f;
+    private const float HapticFullImpact = 20f, HapticMin = 0.75f, HapticShort = 0.08f, HapticLong = 0.3f;
 
     private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeed, BatContact.Result result)
     {
@@ -224,11 +224,15 @@ public partial class Bat : MonoBehaviour
             edge = result.edge,
         });
 
-        // Felt as the contact it was (Haptics): a middled one a crisp knock, an edge a rattle up the
-        // handle (more in the bottom hand, the one the bat hangs from), the toe or the handle a jar
-        // that rings on - stronger the harder they met.
+        // Haptics follow the contact too, both hands (both are on the handle), and scale with how
+        // hard it was hit: a nudge is a short buzz, a full-blooded strike a full-strength jolt that
+        // lasts. A mishit (edge, toe, shoulder) rings on longer - the sting up the handle.
+        bool clean = result.kind == BatContact.ContactKind.Middled || result.kind == BatContact.ContactKind.Good;
         float hard = Mathf.Clamp01(result.impactSpeed / HapticFullImpact);
-        Haptics.BatContact(result.kind, hard, attachParent == leftHandParent);
+        float strength = Mathf.Lerp(HapticMin, 1f, Mathf.Sqrt(hard));
+        float duration = Mathf.Lerp(HapticShort, HapticLong, hard) + (clean ? 0f : 0.12f);
+        XRInput.SendHaptics(true, strength, duration);
+        XRInput.SendHaptics(false, strength, duration);
         ShotDistance.Instance.RecordHit(inst.theBall.transform.position);
         if (SceneManager.GetActiveScene().name == "Nets")
             StartCoroutine(AutomaticReset(2f));

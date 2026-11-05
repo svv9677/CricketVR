@@ -19,12 +19,18 @@ using UnityEngine.UI;
 ///   [ Bumrah                    Fast   2.3-14-1             ]
 ///   [ THIS OVER   1  •  4  W                                ]
 ///
-/// Dark board, white figures, grey labels, gold for the striker and boundaries. 1.3x the old size.
+/// Dark board, white figures, grey labels, gold for the striker and boundaries. 1.9x the old size
+/// (1.3x was still too small from the crease, 2026-11-05).
 /// </summary>
 public static class ScoreboardBuilder
 {
     private const string Path = "Main/Displays/Scorecard Display/HUD";
-    private const float Grow = 1.3f;
+    private const float Grow = 1.9f;
+    /// Canvas width, px: fills the frame (42.8 m at 0.009 m/px) with a margin.
+    private const float Width = 4500f;
+    /// Where the board's centre goes: 70 m out from the middle (from 80, in front of the upper
+    /// tier's fascia, which hid its bottom half once it grew) and 28.5 m up (clear of the roof).
+    private const float CentreRadius = 70f, CentreHeight = 28.5f;
     private static readonly Vector3 OriginalScale = new Vector3(2.25f, 0.96f, 0.96f);
     private static readonly Color Board = new Color32(0x0A, 0x0E, 0x14, 0xFF);
     private static readonly Color Row = new Color32(0x14, 0x1A, 0x24, 0xFF);
@@ -47,39 +53,48 @@ public static class ScoreboardBuilder
             Undo.RecordObject(display, "Scoreboard size");
             display.localScale = want;
         }
+        Vector3 flat = new Vector3(display.position.x, 0f, display.position.z);
+        Vector3 place = flat.normalized * CentreRadius + Vector3.up * CentreHeight;
+        if ((display.position - place).sqrMagnitude > 1e-4f)
+        {
+            Undo.RecordObject(display, "Scoreboard place");
+            display.position = place;
+        }
         Image back = hud.GetComponent<Image>();
         if (back != null) { Undo.RecordObject(back, "Scoreboard"); back.sprite = null; back.color = Board; }
 
+        // Fill the frame: it is 42.8 x 18.2 m and the canvas was 23 m wide, half the board black.
+        var canvasRect = (RectTransform)hud.transform;
+        Undo.RecordObject(canvasRect, "Scoreboard");
+        canvasRect.sizeDelta = new Vector2(Width, 1920f);
         Transform score = hud.transform.Find("Score");
-        // Rows, top to bottom (the canvas is 2560 x 1920, centre origin).
-        RowAt(score, "RowLogo", 790f, 300f, null);
-        RowAt(score, "RowScore", 470f, 330f, Row);
-        RowAt(score, "RowBat1", 70f, 210f, Row);
-        RowAt(score, "RowBat2", -150f, 210f, RowAlt);
-        RowAt(score, "RowBowler", -400f, 230f, Row);
-        RowAt(score, "RowBalls", -680f, 240f, RowAlt);
+        // Two columns: the score on the left, the players on the right (canvas centre origin).
+        const float L = -1150f, R = 1150f, Col = 2150f, In = 1000f;
+        RowAt(score, "RowLogo", 0f, 790f, Width - 100f, 300f, null);
+        RowAt(score, "RowScore", L, 250f, Col, 760f, Row);
+        RowAt(score, "RowBalls", L, -560f, Col, 300f, RowAlt);
+        RowAt(score, "RowBat1", R, 470f, Col, 300f, Row);
+        RowAt(score, "RowBat2", R, 150f, Col, 300f, RowAlt);
+        RowAt(score, "RowBowler", R, -300f, Col, 560f, Row);
 
-        // The score: big and white on the left, the overs on the right.
-        // 250 in a 320-high box, and allowed to overflow: with Ellipsis, TMP hides a line taller
-        // than its box altogether (the score went missing at 270 in 300).
-        Text(score, "RowScore/txtScore", -1180f, 0f, 1200f, 320f, 250f, White, TextAlignmentOptions.Left, true);
+        // The score, huge; the overs beside it; the run rate and the match line under them.
+        Text(score, "RowScore/txtScore", -In, 120f, 1300f, 480f, 430f, White, TextAlignmentOptions.Left, true);
         Overflow(score, "RowScore/txtScore");
-        Text(score, "RowScore/txtOvers", 1180f, 0f, 1100f, 300f, 170f, White, TextAlignmentOptions.Right, true);
+        Text(score, "RowScore/txtOvers", In, 120f, 900f, 300f, 230f, White, TextAlignmentOptions.Right, true);
+        Text(score, "RowScore/txtRR", -In, -250f, 2000f, 200f, 150f, White, TextAlignmentOptions.Left, false);
         Hide(score, "RowScore/lblScore"); Hide(score, "RowScore/lblOvers");
         Hide(score, "RowScore/lblRR"); Hide(score, "RowScore/sepRRClose");
-        // The run rate and the match line: a line of its own under the score (it stays a child of
-        // the score row - the board is in a prefab instance, which cannot be re-parented - placed
-        // 200 below it, between the score and the batters).
-        Text(score, "RowScore/txtRR", -1180f, -200f, 2360f, 150f, 105f, White, TextAlignmentOptions.Left, false);
-        Text(score, "RowBat1/txtBatsman1", -1180f, 0f, 1600f, 190f, 150f, White, TextAlignmentOptions.Left, true);
-        Text(score, "RowBat1/txtBatsmanScore1", 1180f, 0f, 800f, 190f, 150f, White, TextAlignmentOptions.Right, true);
+        Text(score, "RowBalls/txtBalls", -In, 0f, 2000f, 240f, 175f, White, TextAlignmentOptions.Left, true);
+        // The batters, one to a row: name left, runs (balls) right.
+        Text(score, "RowBat1/txtBatsman1", -In, 0f, 1300f, 240f, 215f, White, TextAlignmentOptions.Left, true);
+        Text(score, "RowBat1/txtBatsmanScore1", In, 0f, 700f, 240f, 215f, White, TextAlignmentOptions.Right, true);
         Hide(score, "RowBat1/batIcon1");
-        Text(score, "RowBat2/txtBatsman2", -1180f, 0f, 1600f, 190f, 150f, White, TextAlignmentOptions.Left, false);
-        Text(score, "RowBat2/txtBatsmanScore2", 1180f, 0f, 800f, 190f, 150f, White, TextAlignmentOptions.Right, false);
-        Text(score, "RowBowler/txtBowler", -1180f, 0f, 1200f, 190f, 140f, White, TextAlignmentOptions.Left, true);
-        Text(score, "RowBowler/txtBowlerStyle", 1180f, 0f, 1300f, 190f, 120f, White, TextAlignmentOptions.Right, false);
+        Text(score, "RowBat2/txtBatsman2", -In, 0f, 1300f, 240f, 215f, White, TextAlignmentOptions.Left, false);
+        Text(score, "RowBat2/txtBatsmanScore2", In, 0f, 700f, 240f, 215f, White, TextAlignmentOptions.Right, false);
+        // The bowler, and under him how he bowls and his figures.
+        Text(score, "RowBowler/txtBowler", -In, 110f, 2000f, 240f, 205f, White, TextAlignmentOptions.Left, true);
+        Text(score, "RowBowler/txtBowlerStyle", -In, -120f, 2000f, 200f, 160f, White, TextAlignmentOptions.Left, false);
         Hide(score, "RowBowler/sepStyleOpen"); Hide(score, "RowBowler/sepStyleClose");
-        Text(score, "RowBalls/txtBalls", -1180f, 0f, 2360f, 200f, 130f, White, TextAlignmentOptions.Left, true);
         Hide(score, "txtVersion");
 
         // The title in place of the old low-resolution logo picture: clean white on the strip.
@@ -97,7 +112,7 @@ public static class ScoreboardBuilder
             }
             var t = title.GetComponent<TextMeshProUGUI>();
             t.text = "CRICKET VR";
-            Text(score, "RowLogo/Title", 0f, 0f, 2400f, 260f, 160f, White, TextAlignmentOptions.Center, true);
+            Text(score, "RowLogo/Title", 0f, 0f, 3000f, 260f, 180f, White, TextAlignmentOptions.Center, true);
             t.characterSpacing = 18f;
             var other = score.Find("RowBat1/txtBatsman1")?.GetComponent<TextMeshProUGUI>();
             if (other != null) { t.font = other.font; t.fontSharedMaterial = other.fontSharedMaterial; }
@@ -110,13 +125,13 @@ public static class ScoreboardBuilder
         Debug.Log("[Scoreboard] built");
     }
 
-    private static void RowAt(Transform score, string name, float y, float height, Color? colour)
+    private static void RowAt(Transform score, string name, float x, float y, float width, float height, Color? colour)
     {
         var rt = score.Find(name) as RectTransform;
         if (rt == null) return;
         Undo.RecordObject(rt, "Scoreboard");
-        rt.anchoredPosition = new Vector2(0f, y);
-        rt.sizeDelta = new Vector2(2500f, height);
+        rt.anchoredPosition = new Vector2(x, y);
+        rt.sizeDelta = new Vector2(width, height);
         Image img = rt.GetComponent<Image>();
         if (img != null && colour.HasValue) { Undo.RecordObject(img, "Scoreboard"); img.color = colour.Value; img.sprite = null; }
     }
@@ -136,13 +151,18 @@ public static class ScoreboardBuilder
         rt.pivot = new Vector2(right ? 1f : 0f, 0.5f);
         rt.anchoredPosition = new Vector2(x, y);
         rt.sizeDelta = new Vector2(width, height);
+        // Shrink a long line to fit its width rather than cutting it ("0.2 / 10...", "Over 1 of
+        // 10 · ..."), and never hide a line for being taller than its box (with Ellipsis, TMP drew
+        // nothing at all for a 215 px name in a 240 px row).
         t.fontSize = size;
-        t.enableAutoSizing = false;
+        t.enableAutoSizing = true;
+        t.fontSizeMax = size;
+        t.fontSizeMin = size * 0.55f;
         t.color = colour;
         t.alignment = align;
         t.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
         t.textWrappingMode = TextWrappingModes.NoWrap;
-        t.overflowMode = TextOverflowModes.Ellipsis;
+        t.overflowMode = TextOverflowModes.Overflow;
         t.richText = true;
         t.gameObject.SetActive(true);
     }

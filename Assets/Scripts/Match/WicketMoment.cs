@@ -126,6 +126,15 @@ public class Celebration : MonoBehaviour
         c.Begin(a, pose, seconds);
     }
 
+    private Transform rFinger, lFinger;
+    private readonly Transform[,] rFingers = new Transform[5, 3], lFingers = new Transform[5, 3];
+    private float rCurl = 1f, lCurl = 1f;
+    private Vector3 rPalm = Vector3.forward, lPalm = Vector3.forward;
+    private bool calibrated;
+
+    private static readonly HumanBodyBones[] RightRoots = { HumanBodyBones.RightThumbProximal, HumanBodyBones.RightIndexProximal, HumanBodyBones.RightMiddleProximal, HumanBodyBones.RightRingProximal, HumanBodyBones.RightLittleProximal };
+    private static readonly HumanBodyBones[] LeftRoots = { HumanBodyBones.LeftThumbProximal, HumanBodyBones.LeftIndexProximal, HumanBodyBones.LeftMiddleProximal, HumanBodyBones.LeftRingProximal, HumanBodyBones.LeftLittleProximal };
+
     private void Begin(Animator a, Pose p, float seconds)
     {
         rUpper = a.GetBoneTransform(HumanBodyBones.RightUpperArm);
@@ -134,10 +143,53 @@ public class Celebration : MonoBehaviour
         lUpper = a.GetBoneTransform(HumanBodyBones.LeftUpperArm);
         lLower = a.GetBoneTransform(HumanBodyBones.LeftLowerArm);
         lHand = a.GetBoneTransform(HumanBodyBones.LeftHand);
+        if (!calibrated)
+        {
+            Fingers(rHand, RightRoots, rFingers); Fingers(lHand, LeftRoots, lFingers);
+            rFinger = rFingers[2, 0] ?? rFingers[1, 0]; lFinger = lFingers[2, 0] ?? lFingers[1, 0];
+            Calibrate(rHand, rFingers, out rCurl, out rPalm);
+            Calibrate(lHand, lFingers, out lCurl, out lPalm);
+            calibrated = true;
+        }
         pose = p;
         start = Time.time;
         length = seconds;
         enabled = true;
+    }
+
+    /// Each finger's three joints, followed down from its root (the rig maps few of them).
+    private static void Fingers(Transform hand, HumanBodyBones[] roots, Transform[,] into)
+    {
+        Animator a = hand != null ? hand.GetComponentInParent<Animator>() : null;
+        for (int f = 0; f < 5; f++)
+        {
+            Transform b = a != null ? a.GetBoneTransform(roots[f]) : null;
+            for (int j = 0; j < 3 && b != null; j++)
+            {
+                into[f, j] = b;
+                b = b.childCount > 0 ? b.GetChild(0) : null;
+            }
+        }
+    }
+
+    /// Bend the index finger a little and see which way its tip goes - toward the thumb's side (the
+    /// palm) or away: the curl's sign, and the palm's normal in the hand's space (the left hand is a
+    /// mirror of the right).
+    private static void Calibrate(Transform hand, Transform[,] fingers, out float curl, out Vector3 palmLocal)
+    {
+        curl = 1f; palmLocal = Vector3.forward;
+        Transform index = fingers[1, 0], tip = fingers[1, 2] ?? fingers[1, 1], thumb = fingers[0, 2] ?? fingers[0, 1];
+        if (hand == null || index == null || tip == null || thumb == null) return;
+        Vector3 along = (index.position - hand.position).normalized;
+        Quaternion q = index.localRotation;
+        Vector3 before = tip.position;
+        index.localRotation = q * Quaternion.Euler(20f, 0f, 0f);
+        Vector3 moved = Vector3.ProjectOnPlane(tip.position - before, along);
+        index.localRotation = q;
+        Vector3 thumbSide = Vector3.ProjectOnPlane(thumb.position - hand.position, along);
+        if (moved.sqrMagnitude < 1e-10f) return;
+        curl = Vector3.Dot(moved, thumbSide) >= 0f ? 1f : -1f;
+        palmLocal = hand.InverseTransformDirection(moved.normalized * curl).normalized;
     }
 
     private void LateUpdate()
@@ -149,21 +201,51 @@ public class Celebration : MonoBehaviour
         switch (pose)
         {
             case Pose.ArmsUp:
-                float lift = 0.85f + 0.15f * Mathf.Sin(t * 9f);       // a little bounce in them
-                Arm(rUpper, rLower, rHand, (u * lift + r * 0.35f + f * 0.1f).normalized, (u + r * 0.15f).normalized, w);
-                Arm(lUpper, lLower, lHand, (u * lift - r * 0.35f + f * 0.1f).normalized, (u - r * 0.15f).normalized, w);
+                // Both arms thrown up in a V, a little bounce in them; hands open, palms forward,
+                // wrists straight (left to the animation, they folded back over the head).
+                float lift = 0.85f + 0.15f * Mathf.Sin(t * 9f);
+                Arm(rUpper, rLower, rHand, (u * lift + r * 0.35f + f * 0.1f).normalized, (u + r * 0.2f).normalized, w);
+                Arm(lUpper, lLower, lHand, (u * lift - r * 0.35f + f * 0.1f).normalized, (u - r * 0.2f).normalized, w);
+                Hand(rHand, rLower, rFinger, rPalm, f, rFingers, rCurl, 0.1f, w);
+                Hand(lHand, lLower, lFinger, lPalm, f, lFingers, lCurl, 0.1f, w);
                 break;
             case Pose.FistPump:
                 float pump = Mathf.Abs(Mathf.Sin(t * 7f));
                 Arm(rUpper, rLower, rHand, (r * 0.55f + f * 0.35f + u * (0.2f + 0.5f * pump)).normalized, (u * (0.6f + pump) + f * 0.2f).normalized, w);
+                Hand(rHand, rLower, rFinger, rPalm, -r, rFingers, rCurl, 1f, w);     // a fist, knuckles out
                 break;
             case Pose.Clap:
+                // At the chest: upper arms down and forward, forearms in to meet, palms to each other.
                 float open = 0.5f + 0.5f * Mathf.Sin(t * 14f);
-                Vector3 front = (f * 0.8f + u * 0.35f).normalized;
-                Arm(rUpper, rLower, rHand, (front + r * 0.25f).normalized, (front - r * (0.35f * open)).normalized, w);
-                Arm(lUpper, lLower, lHand, (front - r * 0.25f).normalized, (front + r * (0.35f * open)).normalized, w);
+                Arm(rUpper, rLower, rHand, (f * 0.45f - u * 0.4f + r * 0.3f).normalized, (f * 0.5f + u * 0.7f - r * (0.45f + 0.25f * open)).normalized, w);
+                Arm(lUpper, lLower, lHand, (f * 0.45f - u * 0.4f - r * 0.3f).normalized, (f * 0.5f + u * 0.7f + r * (0.45f + 0.25f * open)).normalized, w);
+                Hand(rHand, rLower, rFinger, rPalm, -r, rFingers, rCurl, 0.1f, w);
+                Hand(lHand, lLower, lFinger, lPalm, r, lFingers, lCurl, 0.1f, w);
                 break;
         }
+    }
+
+    /// The hand straight on from the forearm, turned so the palm faces `palmDir`, the fingers
+    /// curled to `curl` (0 open .. 1 fist) - by `w`.
+    private static void Hand(Transform hand, Transform lower, Transform finger, Vector3 palmLocal, Vector3 palmDir,
+                             Transform[,] fingers, float curlSign, float curl, float w)
+    {
+        if (hand == null || lower == null) return;
+        Vector3 forearm = (hand.position - lower.position).normalized;
+        if (finger != null) Aim(hand, finger, forearm, w);                      // wrist straight
+        Vector3 palmNow = Vector3.ProjectOnPlane(hand.TransformDirection(palmLocal), forearm);
+        Vector3 want = Vector3.ProjectOnPlane(palmDir, forearm);
+        if (palmNow.sqrMagnitude > 1e-4f && want.sqrMagnitude > 1e-4f)
+            hand.rotation = Quaternion.AngleAxis(Vector3.SignedAngle(palmNow, want, forearm) * w, forearm) * hand.rotation;
+        for (int f = 0; f < 5; f++)
+            for (int j = 0; j < 3; j++)
+            {
+                Transform b = fingers[f, j];
+                if (b == null) continue;
+                Vector3 e = b.localEulerAngles;
+                float bend = curlSign * curl * (j == 0 ? 70f : j == 1 ? 95f : 65f) * (f == 0 ? 0.5f : 1f);
+                b.localRotation = Quaternion.Slerp(b.localRotation, Quaternion.Euler(bend, e.y, e.z), w);
+            }
     }
 
     private static void Arm(Transform upper, Transform lower, Transform hand, Vector3 upperDir, Vector3 lowerDir, float w)

@@ -16,9 +16,6 @@ licence checked on each sound's Freesound page on 2026-11-05. Fetched as the pub
 | bounce_grass | "Tennis Bounce Ball on Grass" by jamesdrake89, https://freesound.org/people/jamesdrake89/sounds/662258/ (lowered and darkened) |
 | bails | "Random Wooden Stick Foley" by deadrobotmusic, https://freesound.org/people/deadrobotmusic/sounds/609943/ |
 | whoosh, boards (body) | synthesised in the script |
-| crowd_four | "Crowd Cheer" / "Crowd Cheer II" by FoolBoyMedia, https://freesound.org/people/FoolBoyMedia/sounds/397434/ , /397435/ |
-| crowd_six | "RoaringCrowd" by benfree, https://freesound.org/people/benfree/sounds/130568/ ; and itmightgetloud 829453 (below) |
-| crowd_six, crowd_wicket | "Millerntor Stadium Crowd Reaction Excited 01" by itmightgetloud, https://freesound.org/people/itmightgetloud/sounds/829453/ |
 | crowd_ooh | "Group Ooh Aah" by CHallSmith, https://freesound.org/people/CHallSmith/sounds/870652/ ; "crowd oh - disappointed" by mrrap4food, https://freesound.org/people/mrrap4food/sounds/619007/ ; "S12-01 Crowd reactions; oohs; ahh" by craigsmith, https://freesound.org/people/craigsmith/sounds/675056/ (2026-11-05: these replaced a "group groan" that sounded scary; cut to start at the top of the crowd's swell so they land with the moment) |
 
 **Not auditioned by a person yet**: cut and levelled by measurement. Listen in the headset and adjust

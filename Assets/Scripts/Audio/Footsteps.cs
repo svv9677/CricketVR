@@ -62,7 +62,7 @@ public class Footsteps : MonoBehaviour
         if (grip == null) grip = GetComponent<BowlerGrip>();
         if (grip == null || grip.TimeToRelease() > StrideBeforeRelease) return;
         strideDone = true;
-        GameSfx.Play("stride", left.position, GameAudio.Channel.Fielders, 0.95f * loudness, Random.Range(0.95f, 1.05f), 1.5f, 50f);
+        GameSfx.Play("stride", left.position, GameAudio.Channel.Fielders, 0.4f * loudness, Random.Range(0.95f, 1.05f), 1f, 30f);
     }
 
     /// Seconds before the release that the front foot lands.
@@ -86,8 +86,10 @@ public class Footsteps : MonoBehaviour
     {
         bool pitch = BallFlight.OnPitch(at);
         float run = Mathf.InverseLerp(0.5f, 7f, speed);
-        float vol = loudness * Mathf.Lerp(0.25f, 0.85f, run) * Mathf.Lerp(0.7f, 1.15f, Mathf.InverseLerp(0.5f, 3f, downSpeed));
+        // Quiet: a texture under the game, not a sound you notice (2026-11-05: "the footsteps are
+        // too obnoxious" at 0.25-0.85, heard 45 m away).
+        float vol = loudness * Mathf.Lerp(0.05f, 0.22f, run) * Mathf.Lerp(0.8f, 1.1f, Mathf.InverseLerp(0.5f, 3f, downSpeed));
         string group = pitch ? "step_pitch" : "step_grass";
-        GameSfx.Play(group, at, GameAudio.Channel.Fielders, vol, Random.Range(0.94f, 1.06f), 1.2f, 45f);
+        GameSfx.Play(group, at, GameAudio.Channel.Fielders, vol, Random.Range(0.94f, 1.06f), 0.8f, 22f);
     }
 }
