@@ -60,6 +60,14 @@ public class Ball : MonoBehaviour
     }
 
     // Start is called before the first frame update
+    // The seamed ball the player sees (BallVisual), from the first frame - before the replay
+    // copies the ball's renderers.
+    private void Awake()
+    {
+        if (GetComponent<BallVisual>() == null)
+            gameObject.AddComponent<BallVisual>();
+    }
+
     void Start()
     {
         myRigidBody = GetComponent<Rigidbody>();

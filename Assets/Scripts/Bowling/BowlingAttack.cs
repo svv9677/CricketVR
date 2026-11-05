@@ -42,8 +42,21 @@ public static class BowlingAttack
 
     // ---- This ball ---------------------------------------------------------------------------
 
+    /// Debug and editor checks (FieldingFilm, grip captures): bowl this kind and delivery next,
+    /// once, whoever is on.
+    public static eBowlerKind? ForceKind;
+    public static eDelivery? ForceDelivery;
+
     public static BowlingParams Next(HUD hud, BowlingProfileManager profiles)
     {
+        if (ForceDelivery.HasValue)
+        {
+            eDelivery forced = ForceDelivery.Value;
+            eBowlerKind fk = ForceKind ?? hud.CurrentBowler.Kind;
+            ForceDelivery = null;
+            ForceKind = null;
+            return MakeDelivery(fk, forced, profiles);
+        }
         if (!subscribed) { HUD.BallScored += OnBallScored; subscribed = true; }
         Bowler bowler = hud.CurrentBowler;
         if (plan == null || planBowler != bowler || planOver != hud.Overs)

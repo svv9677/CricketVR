@@ -48,6 +48,9 @@ public class AnimatedBowler : MonoBehaviour
     /// </summary>
     private bool ballInHand;
 
+    /// He has the ball in his hand (the run-up, until the release): BowlerGrip poses his fingers on it.
+    public bool CarryingBall => ballInHand;
+
     /// <summary>
     /// Where the hand was at the exact frame the release animation event fired. This is the single
     /// source of truth for where a delivery starts; reading the ball's own transform instead meant
@@ -96,6 +99,9 @@ public class AnimatedBowler : MonoBehaviour
         // After he has bowled he fields like anyone else (BowlerFielding).
         if (GetComponent<BowlerFielding>() == null)
             gameObject.AddComponent<BowlerFielding>();
+        // His fingers on the ball, gripped for the delivery (BowlerGrip).
+        if (GetComponent<BowlerGrip>() == null)
+            gameObject.AddComponent<BowlerGrip>();
     }
 
     private void Update()
