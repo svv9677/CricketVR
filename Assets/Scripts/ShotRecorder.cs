@@ -17,6 +17,7 @@ using UnityEngine;
 ///   * runs after Bat's LateUpdate (execution order), so the bat is where the player saw it, and
 ///     reads the ball's interpolated transform rather than the physics body for the same reason.
 /// </summary>
+// After CareerCosmetics (900): the replay copies the bat in its locker finish.
 [DefaultExecutionOrder(1000)]
 public class ShotRecorder : MonoBehaviour
 {
