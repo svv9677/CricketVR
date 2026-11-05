@@ -55,6 +55,8 @@ public class BallLedger : MonoBehaviour
     private Vector3 prevBall;
     private bool crossed, touched;
     private Vector3 exitVelocity;
+    /// The batter's head (the camera) as it comes down: footwork and how close it passed (drills).
+    private readonly HeadWatch head = new HeadWatch();
 
     // How it ended.
     private bool haveTerminal;
@@ -165,6 +167,7 @@ public class BallLedger : MonoBehaviour
         released = crossed = touched = haveTerminal = haveOutcome = false;
         rec.closestApproach = NeverNear;
         rec.swingSpeed = 0f;
+        head.Begin();
         fielderAtEnd = null;
         Situation();
     }
@@ -199,6 +202,9 @@ public class BallLedger : MonoBehaviour
         rec.lineAtStumps = BallLedgerMath.LineInBatterFrame(d.lineZ, leftHanded);
         rec.heightAtStumps = d.heightAtStumps;
         prevBall = main.theBall != null ? main.theBall.transform.position : d.releasePosition;
+        Camera cam = Camera.main;
+        if (cam != null)
+            head.Release(cam.transform.position);
         released = true;
     }
 
@@ -238,6 +244,7 @@ public class BallLedger : MonoBehaviour
         rec.quality = info.quality;
         rec.realQuality = info.realQuality;
         rec.realContact = info.realContact;
+        rec.contactHeight = info.contactPoint.y;
         // The shot as the real blade would have played it (the shield's wider bat is livelier and
         // heavier off the extra width): what power, carry and the nets' runs are measured from.
         if (info.realContact == eRealContact.WouldHaveMissed)
@@ -249,6 +256,7 @@ public class BallLedger : MonoBehaviour
         rec.exitSpeed = exitVelocity.magnitude;
         rec.launchDeg = BallLedgerMath.LaunchDegrees(exitVelocity);
         rec.carry = Carry(info.contactPoint, exitVelocity);
+        rec.shotAngle = BallLedgerMath.ShotAngle(exitVelocity, leftHanded);
     }
 
     /// Where the shot first lands, ignoring fielders - exactly as ShotDistance.RecordHit projects it
@@ -283,6 +291,9 @@ public class BallLedger : MonoBehaviour
         }
         Vector3 from = prevBall;
         prevBall = ball;
+        Camera cam = Camera.main;
+        if (!touched && st == eGameState.InGame_DeliverBallLoop && cam != null)
+            head.Sample(from, ball, cam.transform.position);
 
         Bat bat = main.theBatScript;
         if (st != eGameState.InGame_DeliverBallLoop || bat == null)
@@ -335,6 +346,8 @@ public class BallLedger : MonoBehaviour
         r.action = BallLedgerMath.Action(touched, r.realContact, r.closestApproach, r.swingSpeed);
         if (!touched)
             r.realContact = eRealContact.None;
+        r.headStep = head.Step;
+        r.headClearance = head.Clearance;
 
         if (!haveTerminal)
         {

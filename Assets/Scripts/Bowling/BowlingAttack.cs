@@ -52,13 +52,15 @@ public static class BowlingAttack
 
     public static BowlingParams Next(HUD hud, BowlingProfileManager profiles)
     {
+        DeliveryShape? shape = ForceShape;
+        ForceShape = null;
         if (ForceDelivery.HasValue)
         {
             eDelivery forced = ForceDelivery.Value;
             eBowlerKind fk = ForceKind ?? hud.CurrentBowler.Kind;
             ForceDelivery = null;
             ForceKind = null;
-            return MakeDelivery(fk, forced, profiles);
+            return Shape(MakeDelivery(fk, forced, profiles), shape, () => Random.value);
         }
         if (!subscribed) { HUD.BallScored += OnBallScored; subscribed = true; }
         Bowler bowler = hud.CurrentBowler;
@@ -72,7 +74,23 @@ public static class BowlingAttack
         float slowerBoost = active != null ? active.slowerChance * 2f : 0f;
         eDelivery d = plan.Next(hud.Balls, lastWasBoundary, slowerBoost, () => Random.value);
         lastWasBoundary = false;
-        return MakeDelivery(bowler.Kind, d, profiles);
+        return Shape(MakeDelivery(bowler.Kind, d, profiles), shape, () => Random.value);
+    }
+
+    /// A drill's length and line over the bowler's own ball: the same family's bands
+    /// (p.swingType, the profile's), the same clamps; never the over-the-head wide (a drill ball
+    /// must be playable). The pace and the movement stay the bowler's. No shape: p as it was.
+    /// Pure but for rand01.
+    public static BowlingParams Shape(BowlingParams p, DeliveryShape? s, System.Func<float> rand01)
+    {
+        if (p == null || !s.HasValue)
+            return p;
+        DeliveryPicker.Pick pick = DeliveryShape.Pick(s.Value, p.swingType, rand01);
+        p.length = pick.pitchX;
+        p.lengthBand = pick.band;
+        p.speedZ = pick.line;
+        p.overHead = false;
+        return p;
     }
 
     /// Release speed range by kind, in the configs' speed units (m/s x ConfigImpulseMass): a quick

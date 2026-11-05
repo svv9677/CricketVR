@@ -41,6 +41,15 @@ public static class BallLedgerMath
     public static float LaunchDegrees(Vector3 v) =>
         Mathf.Atan2(v.y, new Vector2(v.x, v.z).magnitude) * Mathf.Rad2Deg;
 
+    /// Direction a struck ball leaves the bat (degrees) in FieldSets.AngleOf's convention, in the
+    /// batter's frame: 0 straight back past the bowler (-X), + the off side, +-180 the keeper.
+    public static float ShotAngle(Vector3 exitVelocity, bool leftHanded) =>
+        Mathf.Atan2(LineInBatterFrame(exitVelocity.z, leftHanded), -exitVelocity.x) * Mathf.Rad2Deg;
+
+    /// Metres the head has moved down the pitch toward the bowler (-X) since the ball was released:
+    /// the batter using his feet (negative when he went back).
+    public static float HeadStep(Vector3 atRelease, Vector3 now) => atRelease.x - now.x;
+
     /// The nets have no field and no scoring (every hit is a dot there, Bat.AutomaticReset), so a shot
     /// is worth what it would have been worth in a match, judged from the contact, where it went and
     /// how far it would have carried:
