@@ -86,6 +86,31 @@ public class LeagueTests
     }
 
     [Test]
+    public void NoTeammateSharesYourSurname()
+    {
+        // A surname the region's lists really make, so a clash happens often unless it is stopped.
+        string surname = NameLists.Last[(int)NameBank.RegionOf("IND")][0];
+        for (int seed = 0; seed < 200; seed++)
+        {
+            var you = new SquadPlayer { name = "Test " + surname, bat = 50f };
+            Team mine = LeagueBuilder.NewSeason(eRung.Club, 1, "IND", null, you, new Random(seed)).Yours;
+            foreach (SquadPlayer p in mine.players)
+                if (p != you) Assert.AreNotEqual(surname, NameBank.Surname(p.name), "seed " + seed);
+        }
+    }
+
+    [Test]
+    public void AKeptSquadShortOfElevenIsMadeUpToEleven()
+    {
+        Team mine = NewSeason(eRung.State, "ENG", 4).Yours;
+        mine.players.RemoveRange(8, 3);
+        Season next = LeagueBuilder.NewSeason(eRung.State, 2, "ENG", mine, You(), new Random(9));
+        Assert.AreEqual(LeagueBuilder.SquadSize, next.Yours.players.Count);
+        var names = new HashSet<string>();
+        foreach (SquadPlayer p in next.Yours.players) Assert.IsTrue(names.Add(p.name), p.name);
+    }
+
+    [Test]
     public void EverySideHasItsOwnKit()
     {
         var kits = new HashSet<int>();
@@ -296,6 +321,15 @@ public class LeagueTests
             Assert.IsTrue(f.winner == "" || f.winner == f.home || f.winner == f.away);
             Assert.IsTrue(NameBank.IsLatin1(f.result));
         }
+        // A second call on a played fixture changes nothing: the match counts once in the table.
+        int played = 0;
+        foreach (Team t in s.teams) played += t.played;
+        string first = s.fixtures[0].result;
+        LeagueBuilder.Simulate(s, s.fixtures[0], rng);
+        int after = 0;
+        foreach (Team t in s.teams) after += t.played;
+        Assert.AreEqual(played, after);
+        Assert.AreEqual(first, s.fixtures[0].result);
     }
 
     [Test]

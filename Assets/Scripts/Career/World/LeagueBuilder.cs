@@ -27,6 +27,7 @@ public static class LeagueBuilder
 
         Team yours = YourSide(rung, nation, keep, used, rng, out bool kept);
         PutYouIn(yours, you);
+        RenameClashes(yours, you, nation, used, rng);
         s.teams.Add(yours);
 
         foreach (NameBank.TeamName n in OtherNames(rung, nation, yours.name, rng))
@@ -49,6 +50,7 @@ public static class LeagueBuilder
         {
             Team t = Clone(keep);
             foreach (SquadPlayer p in t.players) used.Add(p.name);
+            Pad(t, rung, nation, used, rng);
             return t;
         }
         NameBank.TeamName n = rung == eRung.International
@@ -193,6 +195,35 @@ public static class LeagueBuilder
         while (t.players.Count > SquadSize) t.players.RemoveAt(t.players.Count - 1);
     }
 
+    /// No teammate shares the career player's surname, so a card line like "c Sharma b X" always
+    /// means one man. A clashing teammate gets a new name (new to the league and to the side).
+    private static void RenameClashes(Team t, SquadPlayer you, string nation, HashSet<string> used, Random rng)
+    {
+        string mine = NameBank.Surname(you?.name);
+        if (mine.Length == 0) return;
+        var surnames = new HashSet<string>();
+        foreach (SquadPlayer p in t.players) surnames.Add(NameBank.Surname(p.name));
+        foreach (SquadPlayer p in t.players)
+            if (p != you && NameBank.Surname(p.name) == mine) p.name = SquadName(nation, used, surnames, rng);
+    }
+
+    /// A kept squad short of eleven (only a damaged save makes one) is made up with new tail-end
+    /// bowlers rated for the rung, so every side still fields eleven.
+    private static void Pad(Team t, eRung rung, string nation, HashSet<string> used, Random rng)
+    {
+        if (t.players.Count >= SquadSize) return;
+        var surnames = new HashSet<string>();
+        foreach (SquadPlayer p in t.players) surnames.Add(NameBank.Surname(p.name));
+        while (t.players.Count < SquadSize)
+            t.players.Add(new SquadPlayer
+            {
+                name = SquadName(nation, used, surnames, rng),
+                bat = (float)Math.Round(Clamp(Gaussian(rng, Ladder.SquadMean(rung), Ladder.SquadSpread), 5f, 95f), 1),
+                bowls = true,
+                kind = eBowlerKind.Medium,
+            });
+    }
+
     /// A copy of a side for a new season: the same name, code, kit and players; the table reset.
     private static Team Clone(Team k)
     {
@@ -288,10 +319,11 @@ public static class LeagueBuilder
     // ---- Results and the table ------------------------------------------------------------------
 
     /// Play an AI-vs-AI fixture by simulation and put it in the table: a toss for who bats first,
-    /// that side's innings, then the other side's chase of it.
+    /// that side's innings, then the other side's chase of it. A fixture already played is left
+    /// alone, so a second call never counts the match twice in the table.
     public static void Simulate(Season s, Fixture f, Random rng)
     {
-        if (s == null || f == null) return;
+        if (s == null || f == null || f.played) return;
         Team home = s.Team(f.home), away = s.Team(f.away);
         if (home == null || away == null) return;
         int overs = Ladder.Overs(s.rung);
