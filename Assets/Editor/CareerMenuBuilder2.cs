@@ -7,7 +7,7 @@ using UnityEngine.UI;
 /// The career screens around matches, built by MenuPrefabBuilder (Tools > CricketVR > Build Menu
 /// Prefabs) beside CareerMenuBuilder's slots and Create Player, in the same house style:
 ///   * CareerHubScreen ("careerHub") - the player card, the overall and form chips, the next
-///     match, Play match (the nets trial first), and Ratings, Season and Nets.
+///     match, Play match (the nets trial first), and Ratings, Season, Nets and Inbox.
 ///   * CareerRatingsScreen ("careerRatings") - the measured ratings, the coach, the trial's.
 ///   * SeasonScreen ("careerSeason") - the league table and the side's fixtures.
 ///   * CareerResultScreen ("careerResult") - how the career match just played went.
@@ -34,6 +34,7 @@ public static class CareerMenuBuilder2
         so.FindProperty("overallChip").objectReferenceValue = Chip(chips, "Overall  --");
         so.FindProperty("formChip").objectReferenceValue = Chip(chips, "Form  --");
         UIControls.Divider(column);
+        OfferLine(column, so);
 
         WorldPanelBuilder.Section(column, "Next match");
         NextMatch(column, so);
@@ -52,11 +53,13 @@ public static class CareerMenuBuilder2
                                                         UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 28f,
                                                         TextAlignmentOptions.Center);
 
-        // Equal thirds.
+        // Equal quarters.
         Transform more = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
         UIControls.ActionButton(more, "Ratings", screen.OnRatings, false);
         UIControls.ActionButton(more, "Season", screen.OnSeason, false);
         Button nets = UIControls.ActionButton(more, "Nets", screen.OnNets, false);
+        Button inbox = UIControls.ActionButton(more, "Inbox", screen.OnInbox, false);
+        so.FindProperty("inboxLabel").objectReferenceValue = UIControls.LabelOf(inbox);
 
         UIControls.Divider(column);
         UIControls.ActionButton(column, "Back", screen.OnBack, false);
@@ -105,6 +108,20 @@ public static class CareerMenuBuilder2
             WorldPanelBuilder.Line(tile, "", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.TextMuted, 30f, TextAlignmentOptions.Left);
         so.FindProperty("nextSlot").objectReferenceValue =
             WorldPanelBuilder.Line(tile, "", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.AccentText, 30f, TextAlignmentOptions.Left);
+        // "A Pro League scout is watching", shown only for a scouted match.
+        TextMeshProUGUI scout = WorldPanelBuilder.Line(tile, "", UIStyle.HintSize + 2f, FontStyles.Bold, UIStyle.MenuPrimary, 30f,
+                                                       TextAlignmentOptions.Left);
+        scout.gameObject.SetActive(false);
+        so.FindProperty("nextScout").objectReferenceValue = scout;
+    }
+
+    /// "An offer from Riverside Rovers - open your inbox", shown only while an offer waits.
+    private static void OfferLine(Transform column, SerializedObject so)
+    {
+        TextMeshProUGUI offer = WorldPanelBuilder.Line(column, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text, 34f,
+                                                       TextAlignmentOptions.Center);
+        offer.gameObject.SetActive(false);
+        so.FindProperty("offerLine").objectReferenceValue = offer;
     }
 
     /// A rounded dark chip holding one line ("Overall 54 Solid"), sharing its row equally.
@@ -282,6 +299,11 @@ public static class CareerMenuBuilder2
             WorldPanelBuilder.Line(column, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text, 34f, TextAlignmentOptions.Center);
         so.FindProperty("position").objectReferenceValue =
             WorldPanelBuilder.Line(column, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text, 34f, TextAlignmentOptions.Center);
+        // The scout's report, two lines at most, shown only when one was watching.
+        TextMeshProUGUI scout = WorldPanelBuilder.Text(column, "", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.Text, 60f);
+        scout.overflowMode = TextOverflowModes.Ellipsis;
+        scout.gameObject.SetActive(false);
+        so.FindProperty("scout").objectReferenceValue = scout;
 
         UIControls.Divider(column);
         Transform actions = WorldPanelBuilder.Column(column, false, UIStyle.Gap);

@@ -8,9 +8,9 @@ using UnityEngine;
 /// when CareerMatchSession.ReturnToHub brings the player home): won, lost or tied and by how much,
 /// his own innings big ("34 (22)", the boundaries and how he got out), both sides' totals, his
 /// overall before and after the match with his form, and where his side now sits in the league.
-/// Continue goes back to the hub; Season opens the table. It reads CareerMatchSession.LastResult and
-/// LastPlan and the saved career, and changes none of them. Built by Tools > CricketVR > Build Menu
-/// Prefabs.
+/// When a scout was watching, a line with his report (Scouting.Report). Continue goes back to the
+/// hub; Season opens the table. It reads CareerMatchSession.LastResult and LastPlan and the saved
+/// career, and changes none of them. Built by Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
 public class CareerResultScreen : MenuScreen
 {
@@ -23,6 +23,7 @@ public class CareerResultScreen : MenuScreen
     [SerializeField] private TextMeshProUGUI scores;
     [SerializeField] private TextMeshProUGUI ratings;
     [SerializeField] private TextMeshProUGUI position;
+    [SerializeField] private TextMeshProUGUI scout;
 
     // The overall as the player walked out (statics survive the scene loads, like NetsSession's),
     // so the result can say what the match did to it. Kept with the slot it belongs to.
@@ -66,6 +67,7 @@ public class CareerResultScreen : MenuScreen
             Set(scores, "");
             Set(ratings, "");
             Set(position, "");
+            ShowScout("");
             return;
         }
         bool batFirst = BattedFirst(r, plan);
@@ -77,6 +79,16 @@ public class CareerResultScreen : MenuScreen
         Set(scores, ScoresLine(r, plan, batFirst));
         Set(ratings, p == null ? "" : RatingsLine(OverallBefore(CareerSaves.Active), Overall(p), CareerProgress.Form(p)));
         Set(position, PositionLine(SeasonPlayed(p, CareerSaves.Active)));
+        ShowScout(ScoutLine(plan, LastInnings(p, plan)));
+    }
+
+    /// The scout's line, only there when he was.
+    private void ShowScout(string line)
+    {
+        if (scout == null)
+            return;
+        scout.text = line;
+        scout.gameObject.SetActive(!string.IsNullOrEmpty(line));
     }
 
     private static float Overall(CareerProfile p) => p.ratings != null ? p.ratings.Overall : RatingSet.Unknown;
@@ -191,6 +203,45 @@ public class CareerResultScreen : MenuScreen
     }
 
     private static string Round(float v) => Mathf.RoundToInt(v).ToString(CultureInfo.InvariantCulture);
+
+    // ---- Scouts (phase 4; pure, InboxScreensTests) -------------------------------------------------
+
+    /// Who is watching a scouted match at `rung`: the rung above's scout, or the national
+    /// selectors once the rung above is International.
+    public static string ScoutWatching(eRung rung)
+    {
+        eRung from = Ladder.Above(rung);
+        return from == eRung.International ? "Selectors watching" : $"A {Ladder.Short(from)} scout is watching";
+    }
+
+    /// Who signs a report from `from`: "Pro League scout", or "Selectors" for the national side.
+    public static string ScoutName(eRung from) => from == eRung.International ? "Selectors" : $"{Ladder.Short(from)} scout";
+
+    /// "Pro League scout: <his report>" for a scouted innings ("" when no scout was watching); the
+    /// selectors' report names them itself. The rung he came from is the plan's, or the one above
+    /// the innings' rung without a plan.
+    public static string ScoutLine(MatchPlan plan, InningsRecord r)
+    {
+        if (r == null || !r.scouted || r.leftOut)
+            return "";
+        eRung from = plan != null && plan.scout ? plan.scoutFrom : Ladder.Above(r.rung);
+        string report = Scouting.Report(r, from, r.impression);
+        if (string.IsNullOrEmpty(report))
+            return "";
+        return from == eRung.International ? report : $"<color={Muted}>{ScoutName(from)}:</color> {report}";
+    }
+
+    /// The record book's line for the match just played: the newest innings, if it is that match's
+    /// (against the plan's opponent; any when there is no plan) and not one he was left out of.
+    public static InningsRecord LastInnings(CareerProfile p, MatchPlan plan)
+    {
+        if (p?.innings == null || p.innings.Count == 0)
+            return null;
+        InningsRecord r = p.innings[p.innings.Count - 1];
+        if (r == null || r.leftOut)
+            return null;
+        return plan == null || string.IsNullOrEmpty(plan.opponentName) || r.opponent == plan.opponentName ? r : null;
+    }
 
     // ---- Wired in the prefab ------------------------------------------------------------------
 
