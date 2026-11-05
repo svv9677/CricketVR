@@ -291,8 +291,8 @@ public class BallLedger : MonoBehaviour
         }
         Vector3 from = prevBall;
         prevBall = ball;
-        Camera cam = Camera.main;
-        if (!touched && st == eGameState.InGame_DeliverBallLoop && cam != null)
+        Camera cam = !touched && st == eGameState.InGame_DeliverBallLoop ? Camera.main : null;
+        if (cam != null)
             head.Sample(from, ball, cam.transform.position);
 
         Bat bat = main.theBatScript;
