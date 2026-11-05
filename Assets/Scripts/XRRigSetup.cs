@@ -104,8 +104,9 @@ public class XRRigSetup : MonoBehaviour
     }
 
     /// The player stands still at the crease: wherever they are in their room, the rig is moved
-    /// and turned so their head is on the crease, facing the bowler. Done once the headset is
-    /// tracking, and again whenever it is recentred (the Oculus button held).
+    /// and turned so their head is on the crease, with the room's saved down-the-pitch (RoomFacing)
+    /// facing the bowler. Done once the headset is tracking, and again whenever it is recentred
+    /// (the Oculus button held), which first takes a new down-the-pitch from the head.
     private void PlaceAtCreaseWhenReady()
     {
         if (!_subscribed)
@@ -117,6 +118,14 @@ public class XRRigSetup : MonoBehaviour
                 _subscribed = true;
             }
         }
+        NoteOriginSettling();
+        // After a recentre, Splash included: down the pitch is where the head points now. Tried
+        // each frame until he is not looking straight up or down, then placed (again) with it.
+        if (_recapture && cameraTransform != null && RoomFacing.Capture(transform, cameraTransform, out _))
+        {
+            _recapture = false;
+            _placed = false;
+        }
         // Only in a match (CricketVR, Nets): Splash has no crease, just the menu.
         if (_placed || cameraTransform == null || Main.Instance == null)
             return;
@@ -126,7 +135,31 @@ public class XRRigSetup : MonoBehaviour
         PlaceAtCrease();
     }
 
-    private void OnTrackingOriginUpdated(XRInputSubsystem subsystem) => _placed = false;
+    /// A recentre redraws tracking space under the headset, so the saved direction no longer
+    /// points where it did in the room: take a new one, and place again. Not while the origin is
+    /// still settling (see OriginSettleFrames).
+    private void OnTrackingOriginUpdated(XRInputSubsystem subsystem)
+    {
+        _placed = false;
+        if (OriginSettled)
+            _recapture = true;
+    }
+
+    /// Frames, after the floor origin is in (or its retries are given up), before an origin update
+    /// counts as the player's recentre. Asking for the floor origin on every scene load may report
+    /// an update of its own, and taking that as a recentre would throw the saved direction away on
+    /// every launch and every scene change - the very thing RoomFacing is for.
+    private const int OriginSettleFrames = 30;
+    private int _originSettledAt = -1;
+    private bool _recapture;
+
+    private bool OriginSettled => _originSettledAt >= 0 && Time.frameCount >= _originSettledAt;
+
+    private void NoteOriginSettling()
+    {
+        if (_originSettledAt < 0 && (HasFloorOrigin || subsystemRetryFrames <= 0))
+            _originSettledAt = Time.frameCount + OriginSettleFrames;
+    }
 
     /// The player at this end (career, watching his partner: NonStrikerView), placed now.
     public void PlaceAtEnd(bool nonStriker)
@@ -140,22 +173,20 @@ public class XRRigSetup : MonoBehaviour
     private Vector2 EndHeadXZ => PlayerEnd.NonStriker ? EndPose.NonStrikerHeadXZ : creaseHeadXZ;
     private static Vector3 EndFacing => PlayerEnd.NonStriker ? Vector3.right : Vector3.left;
 
-    /// Turn the rig about the head so the head faces the bowler (down -X), then slide it so the
-    /// head is over the crease - or, at the non-striker's end (PlayerEnd), faces the batter from
-    /// the non-striker's spot. A recentre keeps the end.
+    /// Turn the rig about the head so the room's down-the-pitch (RoomFacing) faces the bowler
+    /// (down -X), then slide it so the head is over the crease - or, at the non-striker's end
+    /// (PlayerEnd), faces the batter from the non-striker's spot. The same wall of the room is the
+    /// far end at both ends and in every scene, wherever the head happens to be looking now. The
+    /// first placement ever takes down-the-pitch from the head (the old behaviour, once). A
+    /// recentre keeps the end.
     public void PlaceAtCrease()
     {
         if (cameraTransform == null)
             return;
-        Vector3 facing = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up);
-        if (facing.sqrMagnitude > 1e-4f)
-        {
-            float turn = Vector3.SignedAngle(facing, EndFacing, Vector3.up);
-            transform.RotateAround(cameraTransform.position, Vector3.up, turn);
-        }
-        Vector3 head = cameraTransform.position;
-        Vector2 at = EndHeadXZ;
-        transform.position += new Vector3(at.x - head.x, 0f, at.y - head.z);
+        if (RoomFacing.TryLoad(out float roomYaw) || RoomFacing.Capture(transform, cameraTransform, out roomYaw))
+            RoomFacing.Place(transform, cameraTransform, roomYaw, EndFacing, EndHeadXZ);
+        else
+            RoomFacing.Slide(transform, cameraTransform, EndHeadXZ); // looking straight down, nothing saved: just move
         _placed = true;
     }
 
