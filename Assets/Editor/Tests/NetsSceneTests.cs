@@ -85,4 +85,32 @@ public class NetsSceneTests
 
     [Test]
     public void TheNetsSoundIsThere() => Assert.IsTrue(GameSfx.Has("net"));
+
+    [Test]
+    public void TheScoreboardIsNotDrawn_ButTheHudRunsOn()
+    {
+        Transform board = All<Main>().Single().transform.Find("Displays/Scorecard Display");
+        Assert.IsNotNull(board);
+        Assert.IsFalse(board.GetComponent<Renderer>().enabled, "the board");
+        foreach (Canvas c in board.GetComponentsInChildren<Canvas>(true))
+            Assert.IsFalse(c.enabled, c.name);
+        HUD hud = board.GetComponentInChildren<HUD>(true);
+        Assert.IsNotNull(hud);
+        Assert.IsTrue(hud.enabled && hud.gameObject.activeInHierarchy, "the HUD still runs the over and the bowler");
+    }
+
+    /// Every root is an instance of a prefab (the match scene's, ScenePrefabs, and the nets' own),
+    /// so a change to a shared piece shows in both scenes.
+    [Test]
+    public void EveryRootIsAPrefabInstance_SharedWithTheMatchScene()
+    {
+        foreach (GameObject root in scene.GetRootGameObjects())
+            Assert.IsTrue(UnityEditor.PrefabUtility.IsAnyPrefabInstanceRoot(root), root.name);
+        foreach (string shared in new[] { "Main", "Controllers", "UI", "Day Lights", "ShotReplay", "Fader" })
+        {
+            GameObject root = scene.GetRootGameObjects().Single(g => g.name == shared);
+            string path = UnityEditor.AssetDatabase.GetAssetPath(UnityEditor.PrefabUtility.GetCorrespondingObjectFromSource(root));
+            Assert.AreEqual($"{ScenePrefabs.Folder}/{shared}.prefab", path, shared);
+        }
+    }
 }

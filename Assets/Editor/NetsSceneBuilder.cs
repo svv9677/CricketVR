@@ -12,11 +12,15 @@ using UnityEngine;
 /// camera, and was not kept up with the match scene.
 ///
 /// Tools/CricketVR/Build Nets Scene:
-///   1. copies CricketVR.unity over Nets.unity (Nets.unity.meta, so its GUID, is kept);
-///   2. takes out what only a match has: the crowd, and every fielder and the keeper (the nets
-///      have none: DrillField judges a shot against a virtual field). The keeper is switched off,
-///      not deleted, as Main.theKeeper is still moved for each bowler (HUD); NetsBackstop does
-///      his work on a ball the batter does not hit;
+///   1. copies CricketVR.unity over Nets.unity (Nets.unity.meta, so its GUID, is kept). The match
+///      scene is made of prefabs (ScenePrefabs: Assets/Prefabs/Scene), so the copy is instances of
+///      the same prefabs, and a change to one shows in both scenes; what follows are the nets'
+///      own overrides;
+///   2. takes out what only a match has: the crowd, every fielder and the keeper (the nets have
+///      none: DrillField judges a shot against a virtual field), and the scoreboard (the nets keep
+///      no score; the HUD runs on behind it). The keeper is switched off, not deleted, as
+///      Main.theKeeper is still moved for each bowler (HUD); NetsBackstop does his work on a ball
+///      the batter does not hit;
 ///   3. puts up a practice-net tunnel at the batting end, side nets and a back net behind the
 ///      stumps, open in front and above, so a drive or a lofted shot still flies out into the
 ///      ground; netting, poles and the net's texture are made here (no bought assets), the net's
@@ -38,6 +42,7 @@ public static class NetsSceneBuilder
     private const string PoleMaterialPath = Folder + "/NetPole.mat";
     private const string MeshPath = Folder + "/NetMeshes.asset";
     private const string PhysicsPath = Folder + "/NetDeadening.physicMaterial";
+    private const string PrefabPath = Folder + "/Practice Nets.prefab";
 
     // The tunnel, in the scene's frame (the pitch runs along x, batting stumps at x = 10.3).
     private const float HalfWidth = 3f, Height = 3.2f, FrontX = 2f, BackX = 14.5f;
@@ -80,6 +85,7 @@ public static class NetsSceneBuilder
             Object.DestroyImmediate(crowd);
             n++;
         }
+        n += HideScoreboard();
         GameObject fielders = GameObject.Find("Main/Fielders");
         if (fielders == null)
         {
@@ -93,6 +99,31 @@ public static class NetsSceneBuilder
                 f.gameObject.SetActive(false);
                 n++;
             }
+        }
+        return n;
+    }
+
+    /// The nets keep no score, so the stadium's scoreboard is not drawn: its board and the HUD's
+    /// canvas on it are switched off, the HUD itself (the over, the bowler, the ball's state) runs
+    /// on. Returns how many parts were switched off.
+    private static int HideScoreboard()
+    {
+        GameObject board = GameObject.Find("Main/Displays/Scorecard Display");
+        if (board == null)
+        {
+            Debug.LogError("[NetsSceneBuilder] Main/Displays/Scorecard Display not found: the match scene has changed shape.");
+            return 0;
+        }
+        int n = 0;
+        foreach (Renderer r in board.GetComponents<Renderer>())
+        {
+            r.enabled = false;
+            n++;
+        }
+        foreach (Canvas c in board.GetComponentsInChildren<Canvas>(true))
+        {
+            c.enabled = false;
+            n++;
         }
         return n;
     }
@@ -125,6 +156,8 @@ public static class NetsSceneBuilder
         Rail(root.transform, new Vector3(midX, Height, -HalfWidth), length, pole);
         Rail(root.transform, new Vector3(midX, Height, HalfWidth), length, pole);
         SaveMeshes(meshes);
+        // A prefab like every other piece of the scene, the scene holding an instance of it.
+        PrefabUtility.SaveAsPrefabAssetAndConnect(root, PrefabPath, InteractionMode.AutomatedAction);
         return root;
     }
 
