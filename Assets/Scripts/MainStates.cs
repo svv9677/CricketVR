@@ -188,8 +188,8 @@ public partial class Main
     public void StartNextBall()
     {
         // Not through the next-over card: the bowler is announced first (OverBreak). And not once
-        // the match is over (MatchFlow).
-        if (gameState != eGameState.InGame_Ready || OverBreak.Blocking || MatchFlow.Over)
+        // the match is over (MatchFlow). Nor while a career match is catching up (MatchGate).
+        if (gameState != eGameState.InGame_Ready || OverBreak.Blocking || MatchFlow.Over || MatchGate.Blocking)
             return;
         currentFielderName = "";
         Extras.Clear();

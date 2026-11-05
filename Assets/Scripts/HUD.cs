@@ -277,6 +277,7 @@ public partial class HUD : MonoBehaviour
                 {
                     IncrementRuns(0);
                     LastDismissal = Dismissal(CurrentBatsman);
+                    pendingOut = CurrentBatsman;   // HUD.BatterOut, once the ball is in the book (HUDCareer)
                     IncrementWickets();
                     IncrementBalls();
 
@@ -467,6 +468,8 @@ public partial class HUD : MonoBehaviour
 
     public void UpdateUI()
     {
+        // Every ball scored ends here: the wicket and the change of strike, if any (HUDCareer).
+        RaiseScoreEvents();
         // The stadium scoreboard (Tools > CricketVR > Build Stadium Scoreboard lays it out): big
         // white figures on a dark board, labels in grey, so it reads from the crease, 95 m away
         // (2026-11-05: "the text is not visible at all" - it was black on white, small).

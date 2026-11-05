@@ -10,7 +10,9 @@ using UnityEngine.UI;
 /// </summary>
 public sealed class ReplayOverlay
 {
-    private const string Team = "INDIA";
+    /// The batting side's name on the score bar. A career match puts the player's own side's name
+    /// here for the match and puts this back afterwards.
+    public static string Team = "INDIA";
     private static readonly Color Bar = new Color(0.04f, 0.06f, 0.12f, 0.88f);
     private static readonly Color Accent = new Color(0.86f, 0.12f, 0.2f, 0.95f);
     private static readonly Color Dim = new Color(0.7f, 0.74f, 0.82f);

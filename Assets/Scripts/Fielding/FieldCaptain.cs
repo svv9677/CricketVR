@@ -58,6 +58,10 @@ public class FieldCaptain : MonoBehaviour
     private readonly BatterBook book = new BatterBook();
     private int lastRuns, lastWickets, lastLegal;
     private bool haveScore;
+    /// A career match's simulated balls (the partners', HUD.ScoreSimulatedBall) have been scored
+    /// since the last read: they are not the batter's, so the next read only catches up with the
+    /// score and puts nothing in the book.
+    private bool simulatedSince;
     // The ball being bowled: who by, where, and what came of it.
     private eSwingType bowledBy;
     private float bowledLine;
@@ -87,6 +91,7 @@ public class FieldCaptain : MonoBehaviour
             nonStrikerX = bowlingEnd.transform.position.x;
         Main.Instance.onGameStateChanged += HandleGameState;
         Bat.ShotStruck += OnShot;
+        HUD.SimulatedBallScored += OnSimulatedBall;
     }
 
     private void OnDestroy()
@@ -94,6 +99,7 @@ public class FieldCaptain : MonoBehaviour
         if (Main.Instance != null)
             Main.Instance.onGameStateChanged -= HandleGameState;
         Bat.ShotStruck -= OnShot;
+        HUD.SimulatedBallScored -= OnSimulatedBall;
         BowlingPlans.Active = null;
         Label = null;
     }
@@ -103,6 +109,8 @@ public class FieldCaptain : MonoBehaviour
         struck = true;
         falseShot |= info.edge || info.quality < Mistimed;
     }
+
+    private void OnSimulatedBall() => simulatedSince = true;
 
     private void HandleGameState()
     {
@@ -133,6 +141,12 @@ public class FieldCaptain : MonoBehaviour
                     haveScore = true;
                     Remember(HUD.Instance);
                 }
+                else if (simulatedSince && HUD.Instance != null)
+                {
+                    // Simulated balls with no read after them: start this real ball from the score now.
+                    simulatedSince = false;
+                    Remember(HUD.Instance);
+                }
                 if (inst.swingType != setFor || inst.BattingStyle != setForHand || !BowlingPlans.Fits(plan, inst.swingType))
                     Set(true, true);
                 break;
@@ -152,10 +166,13 @@ public class FieldCaptain : MonoBehaviour
         {
             // First ball seen, or a new match (HUD.Reset).
             haveScore = true;
+            simulatedSince = false;
             Remember(hud);
             book.NewBatter();
             return true;
         }
+        if (simulatedSince)
+            return CatchUp(hud);
         int runs = hud.Runs - lastRuns;
         bool wicket = hud.Wickets > lastWickets;
         bool counted = legal != lastLegal;
@@ -165,6 +182,16 @@ public class FieldCaptain : MonoBehaviour
         book.Add(bowledBy, bowledLine, bowledBand, runs, counted, falseShot || beaten || wicket, wicket, shotAngle);
         boundariesInARow = runs >= 4 ? boundariesInARow + 1 : 0;
         return counted && hud.Balls == 0;
+    }
+
+    /// After simulated balls: take the score as it is now, with nothing in the book. True if they
+    /// took the match into a new over (the field is set again for it).
+    private bool CatchUp(HUD hud)
+    {
+        simulatedSince = false;
+        int legalBefore = lastLegal;
+        Remember(hud);
+        return lastLegal != legalBefore && hud.Balls == 0;
     }
 
     private void Remember(HUD hud)

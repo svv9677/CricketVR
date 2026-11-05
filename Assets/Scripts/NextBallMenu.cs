@@ -61,9 +61,11 @@ public class NextBallMenu : MonoBehaviour
     private void Update()
     {
         Main inst = Main.Instance;
-        // Not while the next-over card is up: that comes first (OverBreak).
+        // Not while the next-over card is up: that comes first (OverBreak). Nor while a career
+        // match is catching up on the partners' balls (MatchGate).
         bool want = inst != null && inst.gameState == eGameState.InGame_Ready &&
-                    !inst.SettingsOpen && !inst.CalibratingGrip && !OverBreak.Showing && !MatchFlow.Over;
+                    !inst.SettingsOpen && !inst.CalibratingGrip && !OverBreak.Showing && !MatchFlow.Over &&
+                    !MatchGate.Blocking;
         if (want && !shown)
             Show();
         else if (!want && shown)

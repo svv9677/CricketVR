@@ -4,6 +4,12 @@ public class Batsman
     public string Name;
     public int Runs;
     public int Balls;   // faced (HUDStats)
+    /// The player himself, in a career match (HUD.ApplyCareerRoster): his balls are bowled to him
+    /// for real; everyone else's are simulated (HUD.ScoreSimulatedBall). False in every other match.
+    public bool IsHuman;
+    /// A career batter's batting rating (0-100), for the simulation of his balls. Read only by the
+    /// career's simulation, never by the physics.
+    public float Rating = 40f;
 
     public Batsman(string name, int runs=0)
     {

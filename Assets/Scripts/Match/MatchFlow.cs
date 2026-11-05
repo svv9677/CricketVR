@@ -33,6 +33,33 @@ public class MatchFlow : MonoBehaviour
     public static string Status { get; private set; }
     /// The AI's first innings, in a chase (null when the player bats first).
     public static AIInnings.Result AIFirst { get; private set; }
+
+    // ---- What a career match changes (CareerMatch sets these before the scene loads; Build does
+    // not touch them, so the career clears them itself with ClearOverrides). Inert when unset.
+
+    /// Plays the other side's innings in place of AIInnings.Play (overs, target, level, rng), in
+    /// both places: the target in a chase (Start) and the AI's chase of the player's total (End).
+    public static System.Func<int, int, eBowlingLevel, System.Random, AIInnings.Result> AIInningsOverride;
+    /// False: End keeps the match out of the Quick Match history and asks for no result screen at
+    /// home (MatchHistory.Add and ResultPending), so the career's own result screen comes up.
+    public static bool KeepHistory = true;
+    /// Raised in End once the result is decided, before the card: the record (not added to the
+    /// history when KeepHistory is false), the AI innings that decided it (its first innings in a
+    /// chase, its chase otherwise; null if there was none), and the result line.
+    public static event System.Action<MatchHistory.Record, AIInnings.Result, string> Ended;
+    /// An extra line at the end of the result card's body, when not empty.
+    public static string CardNote;
+
+    /// Back to a normal match: no override, history kept, no listeners on Ended, no card note.
+    public static void ClearOverrides()
+    {
+        AIInningsOverride = null;
+        KeepHistory = true;
+        Ended = null;
+        CardNote = null;
+    }
+
+    private static MatchFlow instance;
     private System.Random rng;
 
     private GameObject card;
@@ -63,10 +90,11 @@ public class MatchFlow : MonoBehaviour
 
     private void Start()
     {
+        instance = this;
         rng = new System.Random(System.Environment.TickCount);
         if (MatchSetup.Type == eMatchType.Chase)
         {
-            AIFirst = AIInnings.Play(GameSettings.Overs, 0, MatchSetup.Bowling, rng);
+            AIFirst = PlayAI(GameSettings.Overs, 0, MatchSetup.Bowling, rng);
             Target = AIFirst.runs + 1;
         }
         else
@@ -81,22 +109,39 @@ public class MatchFlow : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (instance == this)
+            instance = null;
         if (subscribed && Main.Instance != null)
             Main.Instance.onGameStateChanged -= OnGameState;
     }
 
+    /// The other side's innings: the career's (AIInningsOverride) when it has one.
+    private static AIInnings.Result PlayAI(int overs, int target, eBowlingLevel level, System.Random random) =>
+        AIInningsOverride != null ? AIInningsOverride(overs, target, level, random) : AIInnings.Play(overs, target, level, random);
+
     private void OnGameState()
+    {
+        eGameState s = Main.Instance.gameState;
+        if (s == eGameState.InGame_ResetToReady || s == eGameState.InGame_Ready)
+            Check();
+    }
+
+    /// End the match now if it is over - for balls scored without a change of state (a career
+    /// match's simulated balls, HUD.ScoreSimulatedBall), which OnGameState never sees.
+    public static void CheckFinished()
+    {
+        if (instance != null)
+            instance.Check();
+    }
+
+    private void Check()
     {
         if (Over)
             return;
-        eGameState s = Main.Instance.gameState;
-        if (s == eGameState.InGame_ResetToReady || s == eGameState.InGame_Ready)
-        {
-            UpdateStatus();
-            HUD hud = HUD.Instance;
-            if (hud != null && Finished(hud, out string result))
-                End(hud, result);
-        }
+        UpdateStatus();
+        HUD hud = HUD.Instance;
+        if (hud != null && Finished(hud, out string result))
+            End(hud, result);
     }
 
     /// The match is over, and how it ended.
@@ -150,15 +195,17 @@ public class MatchFlow : MonoBehaviour
         if (Target == 0)
         {
             // Batted first: now the AI chases it.
-            aiChase = AIInnings.Play(hud.TotalOvers, hud.Runs + 1, MatchSetup.Bowling, rng);
+            aiChase = PlayAI(hud.TotalOvers, hud.Runs + 1, MatchSetup.Bowling, rng);
             result = AIInnings.ChaseResult(aiChase, out _, out _);
         }
         MatchHistory.Record r = Record(hud, result);
         AddAI(r, aiChase ?? AIFirst, aiChase != null);
-        MatchHistory.Add(r);
+        if (KeepHistory)
+            MatchHistory.Add(r);
         Status = result;
         hud.UpdateUI();
         Debug.Log($"[MatchFlow] {r.Score} in {r.OversText} overs: {result}");
+        Ended?.Invoke(r, aiChase ?? AIFirst, result);
         if (!BuildCard())
             return;
         if (aiChase != null)
@@ -178,6 +225,8 @@ public class MatchFlow : MonoBehaviour
                         $"{result}\n" +
                         $"<size=70%><color=#98A2B3>Target {Target}   Fours {r.fours}   Sixes {r.sixes}   Run rate {r.RunRate:0.00}</color></size>";
         }
+        if (!string.IsNullOrEmpty(CardNote))
+            body.text += "\n" + CardNote;
         Place();
         card.SetActive(true);
         LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)card.transform);
