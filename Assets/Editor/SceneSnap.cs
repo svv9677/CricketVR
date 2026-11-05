@@ -16,6 +16,13 @@ public static class SceneSnap
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         var go = new GameObject("Snap Camera");
         var cam = go.AddComponent<Camera>();
+        // See what the player sees: his camera's layers, clear and clip settings.
+        Camera eye = Camera.main;
+        if (eye != null)
+        {
+            cam.CopyFrom(eye);
+            cam.stereoTargetEye = StereoTargetEyeMask.None;
+        }
         cam.fieldOfView = fov;
         cam.nearClipPlane = 0.03f;
         cam.farClipPlane = 600f;

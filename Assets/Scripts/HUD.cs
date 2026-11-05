@@ -256,68 +256,6 @@ public partial class HUD : MonoBehaviour
         BowledBalls.Add(runs == 0 ? "*" : $"{runs}b");
     }
 
-    /// The last wicket as the scorecard writes it: "Rohit c Point b Bumrah 34 (22)" (WicketMoment).
-    public string LastDismissal;
-
-    private string Dismissal(Batsman b)
-    {
-        Main inst = Main.Instance;
-        string bowler = CurrentBowler != null ? CurrentBowler.Name : "";
-        string how;
-        if (inst != null && inst.gameState == eGameState.InGame_Bowled)
-            how = $"b {bowler}";
-        else
-        {
-            string catcher = inst != null ? inst.currentFielderName : "";
-            if (catcher == "Bowler")
-                how = $"c & b {bowler}";
-            else if (catcher != null && catcher.Contains("Keeper"))
-                how = $"c wk b {bowler}";
-            else
-            {
-                string where = null;
-                FieldCaptain captain = FindFirstObjectByType<FieldCaptain>();
-                foreach (AnimatedFielder f in AnimatedFielder.All)
-                    if (f != null && f.name == catcher && captain != null)
-                        where = captain.PositionName(f);
-                how = where != null ? $"c {where} b {bowler}" : $"c b {bowler}";
-            }
-        }
-        return $"{b.Name} {how}  {b.Runs} ({b.Balls})";
-    }
-
-    /// A no-ball (NoBalls): one run to the team (the bowler's), plus runs off the bat to the batter
-    /// or byes to the team; a ball faced, not one of the over's six. "nb", "5nb" (four off it).
-    /// Byes coming in after the ball was first scored add to the same entry.
-    void ScoreNoBall(int runs, bool byes)
-    {
-        int last = BowledBalls.Count - 1;
-        bool already = byes && last >= 0 && BowledBalls[last].EndsWith("nb");
-        if (!already)
-        {
-            Runs += 1;
-            CurrentBowler.Conceded += 1;
-            CurrentBatsman.Balls++;
-        }
-        Runs += runs;
-        if (!byes)
-        {
-            CurrentBatsman.Runs += runs;
-            CurrentBowler.Conceded += runs;
-        }
-        if (runs % 2 == 1)
-            SwitchBatsmen();
-        if (already)
-        {
-            string e = BowledBalls[last];
-            int was = e == "nb" ? 1 : int.Parse(e.Substring(0, e.Length - 2));
-            BowledBalls[last] = $"{was + runs}nb";
-        }
-        else
-            BowledBalls.Add(runs == 0 ? "nb" : $"{1 + runs}nb");
-        NoBalls.Scored(true);
-    }
-
     // Note: -1 runs is a wicket
     void AddRuns(int runs)
     {
@@ -529,53 +467,24 @@ public partial class HUD : MonoBehaviour
 
     public void UpdateUI()
     {
-        //txtVersion.text = "Version: " + PlayerSettings.bundleVersion;
-        int count = BowledBalls.Count;
-        if (count > 0)
-        {
-            string str = "";
-            int legal = 0;
-
-            for (int i = 0; i < count; i++)
-            {
-                str = BowledBalls[i] + " " + str;
-
-                if (!BowledBalls[i].EndsWith("wd") && !BowledBalls[i].EndsWith("nb"))
-                {
-                    legal++;
-                    if (legal == 6)
-                    {
-                        str = " | " + str;
-                        legal = 0;
-                    }
-                }
-                
-                
-
-            }
-            txtBalls.text = str;
-        }
-        else
-            txtBalls.text = "";
-
+        // The stadium scoreboard (Tools > CricketVR > Build Stadium Scoreboard lays it out): big
+        // white figures on a dark board, labels in grey, so it reads from the crease, 95 m away
+        // (2026-11-05: "the text is not visible at all" - it was black on white, small).
+        txtBalls.text = ThisOver();
         txtScore.text = Runs.ToString() + "/" + Wickets.ToString();
-        // Two decimals. RunRate is runs/overs, so the raw ToString() gives things like
-        // "6.8571429" - far too long for the scoreboard's bracketed field.
-        txtRunRate.text = RunRate.ToString("F2");
-        // ...and where the match is (MatchFlow): "Need 23 off 14", "Over 3 of 5".
-        if (!string.IsNullOrEmpty(MatchFlow.Status))
-            txtRunRate.text += "  · " + MatchFlow.Status;
-        txtBatsman1.text = CurrentBatsman.Name;
+        // Two decimals ("6.8571429" was far too long), then where the match is (MatchFlow):
+        // "Need 23 off 14 · RRR 9.9", "Over 3 of 5".
+        txtRunRate.text = $"<color=#98A2B3>RR</color> {RunRate:F2}" +
+                          (string.IsNullOrEmpty(MatchFlow.Status) ? "" : $"   <color=#98A2B3>·</color>   {MatchFlow.Status}");
+        txtBatsman1.text = CurrentBatsman.Name + "<color=#FFD34D> *</color>";
         txtBatsman1Score.text = RunsAndBalls(CurrentBatsman);
         txtBatsman2.text = CurrentRunner.Name;
         txtBatsman2Score.text = RunsAndBalls(CurrentRunner);
 
-        txtOvers.text = Overs.ToString() + "." + Balls.ToString() + " (" + TotalOvers.ToString() + ")";
+        txtOvers.text = $"{Overs}.{Balls}<size=60%><color=#98A2B3> / {TotalOvers} ov</color></size>";
         txtBowler.text = CurrentBowler.Name;
-        txtBowlerStyle.text = Constants.CT_SwingPrefixes[(int)CurrentBowler.Type];
-        // ...and the captain's plan for him (FieldCaptain): "Short-ball plan, attacking".
-        if (!string.IsNullOrEmpty(FieldCaptain.Label))
-            txtBowlerStyle.text += " · " + FieldCaptain.Label;
+        // How he bowls and his figures - the captain's plan was more than a scoreboard should say.
+        txtBowlerStyle.text = $"<color=#98A2B3>{BowlerRepertoire.KindName(CurrentBowler.Kind)}</color>   {Figures(CurrentBowler)}";
 
         if (ShotCard.Instance != null)
             ShotCard.Instance.SetScore(Runs, Wickets, Overs, Balls, BowledBalls);

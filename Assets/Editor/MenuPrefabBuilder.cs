@@ -253,6 +253,9 @@ public static class MenuPrefabBuilder
         WorldPanelBuilder.Section(column, "Pitch");
         SegmentedControl pitch = UIControls.Segmented(column, new[] { "Flat", "Green", "Dusty" }, screen.OnPitch);
         TextMeshProUGUI pitchHint = Hint(column);
+        WorldPanelBuilder.Section(column, "Time of day");
+        SegmentedControl time = UIControls.Segmented(column, new[] { "Afternoon", "Golden hour", "Night" }, screen.OnTimeOfDay);
+        TextMeshProUGUI timeHint = Hint(column);
 
         UIControls.Divider(column);
         UIControls.ActionButton(column, "Back", screen.OnBack, false);
@@ -261,6 +264,8 @@ public static class MenuPrefabBuilder
         so.FindProperty("crowd").objectReferenceValue = crowd;
         so.FindProperty("pitch").objectReferenceValue = pitch;
         so.FindProperty("pitchHint").objectReferenceValue = pitchHint;
+        so.FindProperty("timeOfDay").objectReferenceValue = time;
+        so.FindProperty("timeHint").objectReferenceValue = timeHint;
         so.ApplyModifiedProperties();
         return screen;
     }

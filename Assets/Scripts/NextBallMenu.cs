@@ -88,9 +88,7 @@ public class NextBallMenu : MonoBehaviour
         string type = BowlerRepertoire.KindName(shownBowler.Kind);
         // Every bowling action in the game is right-arm, over the wicket (the run-ups come in on
         // the stumps' left as he sees them, AnimatedBowler).
-        bowlerLabel.text = newOver
-            ? $"{shownBowler.Name}  <color=#98A2B3>{type}</color>\n<size=55%><color=#98A2B3>Right-arm, over the wicket</color></size>"
-            : $"{shownBowler.Name}  <color=#98A2B3>{type}</color>";
+        bowlerLabel.text = $"{shownBowler.Name}\n<size=62%><color=#98A2B3>{type}{(newOver ? "  ·  right-arm over" : "")}</color></size>";
         if (header != null)
             header.text = freeHit ? "<color=#F59E0B>FREE HIT</color>  <size=60%><color=#98A2B3>you can't be bowled or caught</color></size>"
                         : newOver ? "<color=#3B82F6>FIRST OVER</color>" : "BOWLER";

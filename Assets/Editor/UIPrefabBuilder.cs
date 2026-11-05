@@ -109,18 +109,18 @@ public static class UIPrefabBuilder
 
     private static TextMeshProUGUI PlayCard(Transform parent, NextBallMenu c)
     {
-        Transform card = NestedCard(parent, "Play", 460f);
+        // The bowler on a line of his own (name, and how he bowls under it - they were squeezed
+        // onto one line with the Change button and cut off: "Bhuvneshwar Medi"), the one big
+        // action, then the three small ones in an even row.
+        Transform card = NestedCard(parent, "Play", 520f);
         WorldPanelBuilder.Section(card, "Bowler");
-        Transform who = WorldPanelBuilder.Column(card, false, UIStyle.Gap);
-        WorldPanelBuilder.NoForceExpand(who);
-        TextMeshProUGUI label = WorldPanelBuilder.Line(who, "", UIStyle.LabelSize + 2f, FontStyles.Bold, UIStyle.Text,
-                                                       UIStyle.Control, TextAlignmentOptions.Left);
-        UIControls.ActionButton(who, "Change", c.OnChangeBowler, false, UIStyle.Control, 140f);
-
+        TextMeshProUGUI label = WorldPanelBuilder.Line(card, "", UIStyle.LabelSize + 6f, FontStyles.Bold, UIStyle.Text,
+                                                       78f, TextAlignmentOptions.Left);
         UIControls.ActionButton(card, "Bowl" + A, c.OnNextBall, true, 88f);
         Transform more = WorldPanelBuilder.Column(card, false, UIStyle.Gap);
+        UIControls.ActionButton(more, "Change bowler", c.OnChangeBowler, false);
         UIControls.ActionButton(more, "Settings" + B, c.OnSettings, false);
-        UIControls.ActionButton(more, "Bat grip", c.OnCalibrateGrip, false);   // "Calibrate grip" clipped
+        UIControls.ActionButton(more, "Bat grip", c.OnCalibrateGrip, false);
         return label;
     }
 
@@ -182,41 +182,32 @@ public static class UIPrefabBuilder
     {
         var root = new GameObject("ShotCard");
         var c = root.AddComponent<ShotCard>();
-        // Read from ~3.5 m, so 2 mm per px: the 24 px captions are 48 mm tall.
-        GameObject panel = WorldPanelBuilder.Canvas(root, 440f, 0.002f, false);
+        // Read from ~3.5 m, so 2 mm per px: the 20 px captions are 40 mm tall. Three tiers, nothing
+        // else (2026-11-05, "not so cluttered"): how it came off the bat, what was bowled, and the
+        // three numbers. The score lives on the stadium scoreboard, not here.
+        GameObject panel = WorldPanelBuilder.Canvas(root, 540f, 0.002f, false);
         WorldPanelBuilder.MakeCard(panel, UIStyle.Pad, UIStyle.Gap);
         WorldPanelBuilder.FitContent(panel, false);
         Transform t = panel.transform;
 
         WorldPanelBuilder.Section(t, "Last shot");
-        TextMeshProUGUI contact = WorldPanelBuilder.Line(t, "Ready", 52f, FontStyles.Bold, UIStyle.Text, 64f, TextAlignmentOptions.Left);
+        TextMeshProUGUI contact = WorldPanelBuilder.Line(t, "No shot yet", 56f, FontStyles.Bold, UIStyle.Text, 66f, TextAlignmentOptions.Left);
         RectTransform quality = QualityBar(t);
-        Transform speeds = WorldPanelBuilder.Column(t, false, UIStyle.Gap);
-        TextMeshProUGUI ball = Stat(speeds, "Ball", out _);
-        TextMeshProUGUI bat = Stat(speeds, "Bat", out _);
-        Transform result = WorldPanelBuilder.Column(t, false, UIStyle.Gap);
-        TextMeshProUGUI exit = Stat(result, "Exit", out _);
-        TextMeshProUGUI distance = Stat(result, "Carry", out TextMeshProUGUI distanceCaption);
+        TextMeshProUGUI delivery = WorldPanelBuilder.Line(t, " ", 24f, FontStyles.Normal, UIStyle.TextMuted, 34f, TextAlignmentOptions.Left);
         UIControls.Divider(t);
-
-        Transform scoreRow = WorldPanelBuilder.Column(t, false, UIStyle.Gap);
-        WorldPanelBuilder.NoForceExpand(scoreRow);
-        TextMeshProUGUI score = WorldPanelBuilder.Line(scoreRow, "0/0", 44f, FontStyles.Bold, UIStyle.Text, 56f, TextAlignmentOptions.Left);
-        TextMeshProUGUI overs = WorldPanelBuilder.Line(scoreRow, "0.0 ov", 24f, FontStyles.Normal, UIStyle.TextMuted, 56f,
-                                                       TextAlignmentOptions.Right, 160f);
-        TextMeshProUGUI recent = WorldPanelBuilder.Line(t, " ", 24f, FontStyles.Bold, UIStyle.TextMuted, 32f, TextAlignmentOptions.Left);
+        Transform stats = WorldPanelBuilder.Column(t, false, UIStyle.Gap);
+        TextMeshProUGUI bat = Stat(stats, "Bat speed", out _);
+        TextMeshProUGUI exit = Stat(stats, "Off the bat", out _);
+        TextMeshProUGUI distance = Stat(stats, "Carry", out TextMeshProUGUI distanceCaption);
 
         SetField(c, "panel", panel);
         SetField(c, "contact", contact);
         SetField(c, "qualityFill", quality);
-        SetField(c, "ballSpeed", ball);
+        SetField(c, "delivery", delivery);
         SetField(c, "batSpeed", bat);
         SetField(c, "exitSpeed", exit);
         SetField(c, "distance", distance);
         SetField(c, "distanceCaption", distanceCaption);
-        SetField(c, "score", score);
-        SetField(c, "overs", overs);
-        SetField(c, "recent", recent);
         SetField(c, "goodColor", UIStyle.AccentText);
         SetField(c, "okColor", UIStyle.Text);
         SetField(c, "poorColor", UIStyle.TextMuted);
@@ -225,11 +216,11 @@ public static class UIPrefabBuilder
 
     private static TextMeshProUGUI Stat(Transform row, string caption, out TextMeshProUGUI captionText)
     {
-        Transform cell = WorldPanelBuilder.Column(row, true, 0f);
-        captionText = WorldPanelBuilder.Line(cell, caption, 18f, FontStyles.Bold | FontStyles.UpperCase, UIStyle.TextMuted, 24f,
+        Transform cell = WorldPanelBuilder.Column(row, true, 2f);
+        captionText = WorldPanelBuilder.Line(cell, caption, 17f, FontStyles.Bold | FontStyles.UpperCase, UIStyle.TextMuted, 24f,
                                              TextAlignmentOptions.Left);
-        captionText.characterSpacing = 4f;
-        return WorldPanelBuilder.Line(cell, "-", 40f, FontStyles.Bold, UIStyle.Text, 48f, TextAlignmentOptions.Left);
+        captionText.characterSpacing = 3f;
+        return WorldPanelBuilder.Line(cell, "–", 38f, FontStyles.Bold, UIStyle.Text, 46f, TextAlignmentOptions.Left);
     }
 
     private static RectTransform QualityBar(Transform parent)

@@ -13,7 +13,7 @@ public class BallOutcomeTests
     [TestCase("4", eGameState.InGame_BallPastBoundary, "FOUR", UmpireSignal.Four)]
     [TestCase("6", eGameState.InGame_BallPastBoundary, "SIX", UmpireSignal.Six)]
     [TestCase("W", eGameState.InGame_Bowled, "BOWLED", UmpireSignal.Out)]
-    [TestCase("W", eGameState.InGame_BallFielded, "OUT", UmpireSignal.Out)]       // caught
+    [TestCase("W", eGameState.InGame_BallFielded, "CAUGHT", UmpireSignal.Out)]    // caught
     [TestCase("wd", eGameState.InGame_BallMissed, "WIDE", UmpireSignal.Wide)]
     [TestCase("3wd", eGameState.InGame_BallFielded, "WIDE +2", UmpireSignal.Wide)]
     [TestCase("1b", eGameState.InGame_BallFielded, "1 BYE", UmpireSignal.Bye)]

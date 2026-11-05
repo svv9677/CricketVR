@@ -3,16 +3,20 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// What happened on the last ball - "0", "1", "WIDE", "FOUR", "OUT" - in big letters hovering
-/// over the bowler's stumps, where the batter is looking. It pops up when the ball is scored
-/// (HUD.BallScored), then floats there bobbing gently and pulsing, turned to face the player,
-/// until the bowler starts his next run-up. Built when the match scene loads (no scene change).
+/// What happened on the last ball, over the bowler's stumps where the batter is looking - only when
+/// it is worth saying (2026-11-05: "not so cluttered, and AI sloppy, make it professional"):
+///   * a boundary, a wicket (with the batter's scorecard line), a wide, a no-ball / free hit:
+///     a clean title with a small caption under it, soft shadow, no outline;
+///   * 1, 2 or 3 runs: a small grey figure; a dot ball: nothing (the scoreboard has it).
+/// It eases in when the ball is scored (HUD.BallScored), holds still - no bobbing, no pulsing -
+/// turned to face the player, and fades as the bowler starts his next run-up.
 /// </summary>
 public class BallResultText : MonoBehaviour
 {
     private const string MatchScene = "CricketVR";
-    private const float Height = 3.4f, PopTime = 0.45f, HideTime = 0.3f;
-    private const float Bob = 0.12f, BobRate = 0.55f, Pulse = 0.06f, PulseRate = 1.1f;
+    private const float Height = 3.4f, PopTime = 0.3f, HideTime = 0.3f;
+    /// Runs alone are shown this much smaller than a headline.
+    private const float RunsScale = 0.55f;
 
     private TextMeshPro text;
     private Vector3 home;
@@ -50,8 +54,15 @@ public class BallResultText : MonoBehaviour
         text.enableWordWrapping = false;
         text.fontStyle = FontStyles.Bold;
         text.rectTransform.sizeDelta = new Vector2(12f, 3f);
-        text.outlineWidth = 0.22f;
-        text.outlineColor = new Color32(0, 0, 0, 220);
+        // A soft shadow under the letters rather than a heavy black outline round them.
+        text.outlineWidth = 0f;
+        text.fontSharedMaterial = new Material(text.fontSharedMaterial);
+        text.fontSharedMaterial.EnableKeyword("UNDERLAY_ON");
+        text.fontSharedMaterial.SetColor("_UnderlayColor", new Color(0f, 0f, 0f, 0.55f));
+        text.fontSharedMaterial.SetFloat("_UnderlayOffsetX", 0.6f);
+        text.fontSharedMaterial.SetFloat("_UnderlayOffsetY", -0.6f);
+        text.fontSharedMaterial.SetFloat("_UnderlaySoftness", 0.5f);
+        text.characterSpacing = 6f;
         text.text = "";
         transform.localScale = Vector3.zero;
     }
@@ -80,12 +91,31 @@ public class BallResultText : MonoBehaviour
         }
     }
 
+    private float size = 1f;
+
     private void Show(BallOutcome outcome)
     {
-        // A wicket: the batter's scorecard line under it (HUD.LastDismissal).
-        string line = outcome.Signal == UmpireSignal.Out && HUD.Instance != null ? HUD.Instance.LastDismissal : null;
-        text.text = string.IsNullOrEmpty(line) ? outcome.Label : $"{outcome.Label}\n<size=38%><color=#E5E7EB>{line}</color></size>";
-        text.color = outcome.Color;
+        string caption = null;
+        size = 1f;
+        switch (outcome.Signal)
+        {
+            case UmpireSignal.Out:
+                caption = HUD.Instance != null ? HUD.Instance.LastDismissal : null;    // "Ishan b Shami  0 (1)"
+                break;
+            case UmpireSignal.NoBall:
+                caption = "Free hit next ball";
+                break;
+            case UmpireSignal.None:
+                // Runs off the bat: a small figure, and nothing at all for a dot.
+                if (outcome.Label == "0") { showing = false; hiddenAt = Time.time; return; }
+                size = RunsScale;
+                break;
+        }
+        if (NoBalls.FreeHit && outcome.Signal != UmpireSignal.NoBall && outcome.Signal != UmpireSignal.Wide)
+            caption = caption ?? "Free hit";
+        text.text = string.IsNullOrEmpty(caption) ? outcome.Label
+                  : $"{outcome.Label}\n<size=34%><color=#E5E7EB><cspace=0>{caption}</cspace></color></size>";
+        text.color = outcome.Signal == UmpireSignal.None ? new Color(0.85f, 0.88f, 0.92f) : outcome.Color;
         shownAt = Time.time;
         showing = true;
     }
@@ -96,8 +126,12 @@ public class BallResultText : MonoBehaviour
         if (showing)
         {
             float t = Time.time - shownAt;
-            scale = t < PopTime ? Overshoot(t / PopTime) : 1f + Pulse * Mathf.Sin((t - PopTime) * Mathf.PI * 2f * PulseRate);
-            transform.position = home + Vector3.up * (Bob * Mathf.Sin(t * Mathf.PI * 2f * BobRate));
+            // Eased in (rising a little into place), then held still.
+            float k = Mathf.Clamp01(t / PopTime);
+            float e = 1f - (1f - k) * (1f - k) * (1f - k);
+            scale = size * Mathf.Lerp(0.85f, 1f, e);
+            transform.position = home + Vector3.down * (0.15f * (1f - e));
+            text.alpha = e;
         }
         else
         {
@@ -108,7 +142,8 @@ public class BallResultText : MonoBehaviour
                     transform.localScale = Vector3.zero;
                 return;
             }
-            scale = 1f - Mathf.SmoothStep(0f, 1f, t);
+            scale = size * (1f - 0.15f * t);
+            text.alpha = 1f - Mathf.SmoothStep(0f, 1f, t);
         }
         transform.localScale = Vector3.one * scale;
         Face();

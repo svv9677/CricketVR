@@ -18,7 +18,8 @@ public enum ePitch { Flat, Green, Dusty }
 /// </summary>
 public static class MatchSetup
 {
-    private const string KeyBowling = "match_bowling", KeyType = "match_type", KeyCrowd = "match_crowd", KeyPitch = "match_pitch";
+    private const string KeyBowling = "match_bowling", KeyType = "match_type", KeyCrowd = "match_crowd", KeyPitch = "match_pitch",
+                         KeyTime = "match_time";
 
     public static eBowlingLevel Bowling
     {
@@ -36,6 +37,13 @@ public static class MatchSetup
     {
         get => (eCrowd)PlayerPrefs.GetInt(KeyCrowd, (int)eCrowd.Packed);
         set { PlayerPrefs.SetInt(KeyCrowd, (int)value); PlayerPrefs.Save(); }
+    }
+
+    /// The light the match is played in (StadiumLighting). Afternoon is the ground as built.
+    public static eTimeOfDay TimeOfDay
+    {
+        get => (eTimeOfDay)PlayerPrefs.GetInt(KeyTime, (int)eTimeOfDay.Afternoon);
+        set { PlayerPrefs.SetInt(KeyTime, (int)value); PlayerPrefs.Save(); }
     }
 
     public static ePitch Pitch

@@ -84,7 +84,7 @@ public partial class HUD
         if (entry == "*") o.Label = "0";
         else if (entry == "W")
         {
-            o.Label = state == eGameState.InGame_Bowled ? "BOWLED" : "OUT";
+            o.Label = state == eGameState.InGame_Bowled ? "BOWLED" : state == eGameState.InGame_BallFielded ? "CAUGHT" : "OUT";
             o.Signal = UmpireSignal.Out;
             o.Color = OutColor;
         }
@@ -117,4 +117,92 @@ public partial class HUD
         }
         return o;
     }
+
+    /// The current over, ball by ball: "1  •  4  W  2wd", boundaries gold, wickets red, extras blue.
+    private string ThisOver()
+    {
+        if (BowledBalls == null || BowledBalls.Count == 0)
+            return "<color=#98A2B3>THIS OVER</color>";
+        // Back to the start of this over: Balls legal deliveries, plus any wides / no-balls among them.
+        int legal = 0, from = BowledBalls.Count;
+        while (from > 0 && (legal < Balls || IsExtra(BowledBalls[from - 1])))
+        {
+            from--;
+            if (!IsExtra(BowledBalls[from])) legal++;
+        }
+        var sb = new System.Text.StringBuilder("<color=#98A2B3>THIS OVER</color>   ");
+        for (int i = from; i < BowledBalls.Count; i++)
+        {
+            string b = BowledBalls[i];
+            string shown = b == "*" ? "•" : b;
+            string col = b == "W" ? "#FF5A4E" : b == "4" || b == "6" ? "#FFD34D" : IsExtra(b) || b.EndsWith("b") ? "#7FB2FF" : "#F3F5F8";
+            sb.Append("<color=").Append(col).Append('>').Append(shown).Append("</color>  ");
+        }
+        return sb.ToString();
+    }
+
+    private static bool IsExtra(string b) => b.EndsWith("wd") || b.EndsWith("nb");
+
+    /// The last wicket as the scorecard writes it: "Rohit c Point b Bumrah 34 (22)" (WicketMoment).
+    public string LastDismissal;
+
+    private string Dismissal(Batsman b)
+    {
+        Main inst = Main.Instance;
+        string bowler = CurrentBowler != null ? CurrentBowler.Name : "";
+        string how;
+        if (inst != null && inst.gameState == eGameState.InGame_Bowled)
+            how = $"b {bowler}";
+        else
+        {
+            string catcher = inst != null ? inst.currentFielderName : "";
+            if (catcher == "Bowler")
+                how = $"c & b {bowler}";
+            else if (catcher != null && catcher.Contains("Keeper"))
+                how = $"c wk b {bowler}";
+            else
+            {
+                string where = null;
+                FieldCaptain captain = FindFirstObjectByType<FieldCaptain>();
+                foreach (AnimatedFielder f in AnimatedFielder.All)
+                    if (f != null && f.name == catcher && captain != null)
+                        where = captain.PositionName(f);
+                how = where != null ? $"c {where} b {bowler}" : $"c b {bowler}";
+            }
+        }
+        return $"{b.Name} {how}  {b.Runs} ({b.Balls})";
+    }
+
+    /// A no-ball (NoBalls): one run to the team (the bowler's), plus runs off the bat to the batter
+    /// or byes to the team; a ball faced, not one of the over's six. "nb", "5nb" (four off it).
+    /// Byes coming in after the ball was first scored add to the same entry.
+    void ScoreNoBall(int runs, bool byes)
+    {
+        int last = BowledBalls.Count - 1;
+        bool already = byes && last >= 0 && BowledBalls[last].EndsWith("nb");
+        if (!already)
+        {
+            Runs += 1;
+            CurrentBowler.Conceded += 1;
+            CurrentBatsman.Balls++;
+        }
+        Runs += runs;
+        if (!byes)
+        {
+            CurrentBatsman.Runs += runs;
+            CurrentBowler.Conceded += runs;
+        }
+        if (runs % 2 == 1)
+            SwitchBatsmen();
+        if (already)
+        {
+            string e = BowledBalls[last];
+            int was = e == "nb" ? 1 : int.Parse(e.Substring(0, e.Length - 2));
+            BowledBalls[last] = $"{was + runs}nb";
+        }
+        else
+            BowledBalls.Add(runs == 0 ? "nb" : $"{1 + runs}nb");
+        NoBalls.Scored(true);
+    }
+
 }

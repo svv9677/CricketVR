@@ -64,6 +64,7 @@ public static class StadiumConditions
             return;
         ApplyPitch(Current);
         ApplyCrowd(MatchSetup.Crowd);
+        StadiumLighting.Apply(MatchSetup.TimeOfDay);
     }
 
     private static void ApplyPitch(Pitch p)

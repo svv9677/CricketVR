@@ -21,6 +21,7 @@ public class ShotCard : MonoBehaviour
     [Header("Shot")]
     [SerializeField] private TMP_Text contact;
     [SerializeField] private RectTransform qualityFill;
+    [SerializeField] private TMP_Text delivery;
     [SerializeField] private TMP_Text ballSpeed;
     [SerializeField] private TMP_Text batSpeed;
     [SerializeField] private TMP_Text exitSpeed;
@@ -47,7 +48,10 @@ public class ShotCard : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        BuildScorecard();
+        // The batters and bowler under the score was more than the card needs (2026-11-05: "not
+        // so cluttered"); kept for a card built with a score row, which this one is not.
+        if (score != null)
+            BuildScorecard();
         Clear();
     }
 
@@ -126,13 +130,14 @@ public class ShotCard : MonoBehaviour
 
     public void Clear()
     {
-        Set(contact, "Ready");
+        Set(contact, "No shot yet");
         if (contact != null) contact.color = poorColor;
         SetQuality(0f);
-        Set(ballSpeed, "-");
-        Set(batSpeed, "-");
-        Set(exitSpeed, "-");
-        Set(distance, "-");
+        Set(delivery, " ");
+        Set(ballSpeed, "–");
+        Set(batSpeed, "–");
+        Set(exitSpeed, "–");
+        Set(distance, "–");
         Set(distanceCaption, "Carry");
     }
 
@@ -145,6 +150,10 @@ public class ShotCard : MonoBehaviour
             contact.color = info.edge ? poorColor : q >= 0.7f ? goodColor : q >= 0.35f ? okColor : poorColor;
         SetQuality(q);
         Set(ballSpeed, UIFormat.Kmh(info.ballSpeedIn));
+        // What it was: "Off-cutter · 132 km/h".
+        BowlingParams cfg = Main.Instance != null ? Main.Instance.currentBowlingConfig : null;
+        string what = cfg != null ? BowlerRepertoire.Name(cfg.delivery, cfg.kind) : "Delivery";
+        Set(delivery, $"{what}  ·  {Mathf.RoundToInt(info.ballSpeedIn * UIFormat.KmhPerMps)} km/h");
         Set(batSpeed, UIFormat.Kmh(info.batSpeed));
         Set(exitSpeed, UIFormat.Kmh(info.exitSpeed));
     }
