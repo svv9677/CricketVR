@@ -76,7 +76,7 @@ public class CareerProgressTests
         Assert.AreEqual(1, CountYou(s.Yours));
         Assert.AreEqual("Sam Carter", s.Yours.You.name);
         Assert.AreEqual(CareerProgress.BattingRating(p), s.Yours.You.bat, 0.001f);
-        Assert.AreEqual(7, p.battingSlot, "a new career bats at 7");
+        Assert.AreEqual(Ladder.LowestSlot(eRung.Club), p.battingSlot, "a new career starts at the lowest slot that bats at Club");
 
         CareerProgress.EnsureSeason(p, new Random(2));
         Assert.AreSame(s, p.season, "a second call keeps the season");
@@ -92,7 +92,7 @@ public class CareerProgressTests
         for (int seed = 0; seed < 30; seed++)
         {
             CareerProfile p = NewCareer(seed);
-            p.battingSlot = 4;
+            p.battingSlot = 2;
             MatchPlan plan = CareerProgress.PlanNext(p, new Random(seed + 100));
             Fixture f = CareerProgress.NextFixture(p);
             Assert.AreSame(f, p.season.fixtures[plan.fixture]);
@@ -106,13 +106,13 @@ public class CareerProgressTests
 
             Assert.AreEqual(11, plan.order.Count);
             Assert.AreEqual(11, plan.orderRatings.Count);
-            Assert.AreEqual(3, plan.slot);
+            Assert.AreEqual(1, plan.slot);
             Assert.AreEqual("Sam Carter", plan.order[plan.slot]);
             Assert.AreEqual(CareerProgress.BattingRating(p), plan.orderRatings[plan.slot], 0.001f);
             var others = new List<string>();
             foreach (SquadPlayer s in p.season.Yours.players)
                 if (!s.isYou) others.Add(s.name);
-            others.Insert(3, "Sam Carter");
+            others.Insert(1, "Sam Carter");
             CollectionAssert.AreEqual(others, plan.order, "the others keep their order around him");
 
             Assert.AreEqual(8, plan.bowlers.Count);
@@ -301,12 +301,12 @@ public class CareerProgressTests
     [Test]
     public void TheSlotMovesAtMostTwoPlaces()
     {
-        CareerProfile p = NewCareer(20);
-        p.seasonsPlayed = 1;                       // past the first Club season
+        var p = new CareerProfile { name = "Sam Carter", nation = "AUS", created = "2026-11-05", rung = eRung.ProLeague };
+        CareerProgress.EnsureSeason(p, new Random(20));
+        Assert.AreEqual(Ladder.LowestSlot(eRung.ProLeague), p.battingSlot, "a newcomer to the Pro League starts at its lowest slot");
         SetRatings(p, 99f);
         var rng = new Random(21);
-        int[] expect = { 5, 3, 1, 1 };
-        foreach (int slot in expect)
+        foreach (int slot in new[] { 3, 1, 1 })
         {
             int before = p.battingSlot;
             Play(p, rng, 40, 20, false);
@@ -316,26 +316,24 @@ public class CareerProgressTests
 
         SetRatings(p, 1f);
         p.innings.Clear();                         // form from the ducks alone
-        foreach (int slot in new[] { 3, 5, 7, 7 })
+        foreach (int slot in new[] { 3, 5, 5 })
         {
             Play(p, rng, 0, 4, true);
-            Assert.AreEqual(slot, p.battingSlot, "down the order two at a time, no lower than 7");
+            Assert.AreEqual(slot, p.battingSlot, "down the order two at a time, never below the rung's lowest slot");
         }
     }
 
     [Test]
-    public void TheFirstClubSeasonDoesNotOpen()
+    public void TheLowestSlotDependsOnTheRung()
     {
+        Assert.AreEqual(2, CareerProgressMath.NextSlot(2, 9, Ladder.LowestSlot(eRung.Club)), "Club: never below 2");
+        Assert.AreEqual(3, CareerProgressMath.NextSlot(3, 9, Ladder.LowestSlot(eRung.State)));
+        Assert.AreEqual(5, CareerProgressMath.NextSlot(4, 9, Ladder.LowestSlot(eRung.ProLeague)));
+        Assert.AreEqual(1, CareerProgressMath.NextSlot(2, 1, Ladder.LowestSlot(eRung.Club)), "and up to open");
         CareerProfile p = NewCareer(22);
-        SetRatings(p, 99f);
-        var rng = new Random(23);
-        foreach (int slot in new[] { 5, 3, 3 })
-        {
-            Play(p, rng, 40, 20, false);
-            Assert.AreEqual(slot, p.battingSlot);
-        }
-        Assert.AreEqual(3, CareerProgressMath.NextSlot(3, 1, true));
-        Assert.AreEqual(1, CareerProgressMath.NextSlot(3, 1, false));
+        p.battingSlot = 7;                         // an old save's number 7
+        MatchPlan plan = CareerProgress.PlanNext(p, new Random(5));
+        Assert.LessOrEqual(plan.slot + 1, Ladder.LowestSlot(eRung.Club), "planned no lower than the rung allows");
     }
 
     private static InningsRecord Inn(int runs, int balls, bool isOut, eRung rung = eRung.Club) =>

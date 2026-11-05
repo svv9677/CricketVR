@@ -147,7 +147,7 @@ public static class CareerSaves
         p.inbox ??= new System.Collections.Generic.List<CareerMessage>();
         p.scoutReports ??= new System.Collections.Generic.List<float>();
         p.unlocked ??= new System.Collections.Generic.List<string>();
-        if (p.battingSlot < 1 || p.battingSlot > 11) p.battingSlot = 7;
+        if (p.battingSlot < 1 || p.battingSlot > Ladder.LowestSlot(p.rung)) p.battingSlot = Ladder.LowestSlot(p.rung);
         // JsonUtility gives an empty Season (not null) for a missing field: a season with no teams
         // is no season.
         if (p.season != null && (p.season.teams == null || p.season.teams.Count == 0))

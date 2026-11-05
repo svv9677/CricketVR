@@ -93,6 +93,18 @@ public static class Ladder
         _ => 57f,
     };
 
+    /// The lowest place in the order the career player can be given at this rung: the deepest slot
+    /// that still bats in nearly every match (measured on CareerSim innings, 2026-11-05: at Club,
+    /// 6 overs, a number 3 batted in 81% of innings and a number 7 in 3%; State 3 batted 96%; Pro
+    /// League and International 5 batted 94%). A newcomer to a rung starts here and earns his way up
+    /// the order - he never sits out a match padded up at number 7 in a 6-over game.
+    public static int LowestSlot(eRung r) => r switch
+    {
+        eRung.Club => 2,
+        eRung.State => 3,
+        _ => 5,
+    };
+
     public static bool Top(eRung r) => r == eRung.International;
     public static eRung Above(eRung r) => r == eRung.International ? r : r + 1;
     public static eRung Below(eRung r) => r == eRung.Club ? r : r - 1;

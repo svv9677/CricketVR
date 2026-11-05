@@ -31,8 +31,8 @@ public static class CareerProgress
                 EndSeason(p, rng);
             return;
         }
-        if (p.stats.matches == 0)
-            p.battingSlot = CareerProgressMath.FirstSlot;
+        if (p.stats.matches == 0 || p.battingSlot > Ladder.LowestSlot(p.rung))
+            p.battingSlot = Ladder.LowestSlot(p.rung);
         p.season = LeagueBuilder.NewSeason(p.rung, p.seasonsPlayed + 1, p.nation, null, You(p), rng);
     }
 
@@ -117,7 +117,7 @@ public static class CareerProgress
                 others.Add(s);
         while (others.Count > 10)         // the order is 11 names, whatever size the squad is
             others.RemoveAt(others.Count - 1);
-        int slot = Math.Max(0, Math.Min(others.Count, p.battingSlot - 1));
+        int slot = Math.Max(0, Math.Min(Math.Min(others.Count, Ladder.LowestSlot(p.rung) - 1), p.battingSlot - 1));
         plan.order.Clear();
         plan.orderRatings.Clear();
         for (int i = 0; i <= others.Count; i++)
@@ -159,7 +159,7 @@ public static class CareerProgress
         if (you != null)
             you.bat = BattingRating(p);
         int target = CareerProgressMath.TargetSlot(BattingRating(p), Form(p), s.Yours?.players ?? new List<SquadPlayer>());
-        p.battingSlot = CareerProgressMath.NextSlot(p.battingSlot, target, p.rung == eRung.Club && p.seasonsPlayed == 0);
+        p.battingSlot = CareerProgressMath.NextSlot(p.battingSlot, target, Ladder.LowestSlot(p.rung));
         Milestones(p, rec);
     }
 

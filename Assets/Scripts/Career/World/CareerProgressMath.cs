@@ -12,18 +12,11 @@ public static class CareerProgressMath
     /// A beginner's batting rating before anything is measured: a club tail-ender's.
     public const float BeginnerRating = 35f;
 
-    /// Where a new career bats in its first match: number 7, earning its way up.
-    public const int FirstSlot = 7;
-
     /// The deepest slot the slot rule ranks for (the top order and the all-rounder at 7).
     public const int TopOrderSlots = 7;
 
     /// Places the slot can move after one match, up or down: one innings is not a career.
     public const int MaxSlotMove = 2;
-
-    /// The highest a player bats in his first season at Club, however he starts: openers are
-    /// picked on more than a handful of innings.
-    public const int FirstClubSeasonBestSlot = 3;
 
     /// How much of the slot score is the measured overall (the rest is form).
     public const float OverallWeight = 0.7f;
@@ -99,14 +92,11 @@ public static class CareerProgressMath
     }
 
     /// The slot for the next match: toward the target by at most MaxSlotMove, never higher than
-    /// FirstClubSeasonBestSlot in the first season at Club, and always 1..11.
-    public static int NextSlot(int current, int target, bool firstClubSeason)
+    /// the rung's lowest slot (Ladder.LowestSlot), and never above 1.
+    public static int NextSlot(int current, int target, int lowest)
     {
         int move = Math.Max(-MaxSlotMove, Math.Min(MaxSlotMove, target - current));
-        int slot = current + move;
-        if (firstClubSeason)
-            slot = Math.Max(slot, FirstClubSeasonBestSlot);
-        return Math.Max(1, Math.Min(11, slot));
+        return Math.Max(1, Math.Min(Math.Max(1, lowest), current + move));
     }
 
     /// Pace or spin, for a near match when the other side has none of a kind.

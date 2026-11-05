@@ -112,7 +112,7 @@ public static class AIInnings
 
     /// "AI won by 4 wickets (7 balls left)" / "You won by 12 runs" / "Match tied", for the AI
     /// chasing `r.target` after the player made target - 1.
-    public static string ChaseResult(Result r, out bool playerWon, out bool tied)
+    public static string ChaseResult(Result r, out bool playerWon, out bool tied, string them = "AI", string us = "You")
     {
         tied = !r.ReachedTarget && r.runs == r.target - 1;
         playerWon = !r.ReachedTarget && !tied;
@@ -120,9 +120,9 @@ public static class AIInnings
         if (r.ReachedTarget)
         {
             int left = 10 - r.wickets, balls = r.overs * 6 - r.balls;
-            return $"AI won by {left} wicket{(left == 1 ? "" : "s")} ({balls} ball{(balls == 1 ? "" : "s")} left)";
+            return $"{them} won by {left} wicket{(left == 1 ? "" : "s")} ({balls} ball{(balls == 1 ? "" : "s")} left)";
         }
         int by = r.target - 1 - r.runs;
-        return $"You won by {by} run{(by == 1 ? "" : "s")}";
+        return $"{us} won by {by} run{(by == 1 ? "" : "s")}";
     }
 }

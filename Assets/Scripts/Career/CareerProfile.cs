@@ -114,7 +114,7 @@ public class CareerProfile
     /// Seasons finished, all rungs.
     public int seasonsPlayed;
     /// Where he bats in the order (1..11), as his side picked it for the next match.
-    public int battingSlot = 7;
+    public int battingSlot = 2;
     /// Matches left out of the side still to sit out (phase 4).
     public int benchedFor;
     /// The record book: every innings, newest last (kept to MaxInnings).

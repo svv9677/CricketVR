@@ -49,6 +49,9 @@ public class MatchFlow : MonoBehaviour
     public static event System.Action<MatchHistory.Record, AIInnings.Result, string> Ended;
     /// An extra line at the end of the result card's body, when not empty.
     public static string CardNote;
+    /// What the other side and the player's side are called on the card and the status line ("AI"
+    /// and "You" in a Quick Match; the career's two sides by name).
+    public static string OpponentName = "AI", YourName = "You";
 
     /// Back to a normal match: no override, history kept, no listeners on Ended, no card note.
     public static void ClearOverrides()
@@ -57,6 +60,8 @@ public class MatchFlow : MonoBehaviour
         KeepHistory = true;
         Ended = null;
         CardNote = null;
+        OpponentName = "AI";
+        YourName = "You";
     }
 
     private static MatchFlow instance;
@@ -183,7 +188,7 @@ public class MatchFlow : MonoBehaviour
             Status = $"Need {need} off {left}" + (left > 0 ? $" · RRR {need * 6f / left:0.0}" : "");
         }
         else
-            Status = total > 0 ? $"Over {Mathf.Min(hud.Overs + 1, hud.TotalOvers)} of {hud.TotalOvers} · AI chases" : null;
+            Status = total > 0 ? $"Over {Mathf.Min(hud.Overs + 1, hud.TotalOvers)} of {hud.TotalOvers} · {OpponentName} chases" : null;
         hud.UpdateUI();
     }
 
@@ -196,7 +201,7 @@ public class MatchFlow : MonoBehaviour
         {
             // Batted first: now the AI chases it.
             aiChase = PlayAI(hud.TotalOvers, hud.Runs + 1, MatchSetup.Bowling, rng);
-            result = AIInnings.ChaseResult(aiChase, out _, out _);
+            result = AIInnings.ChaseResult(aiChase, out _, out _, OpponentName, YourName);
         }
         MatchHistory.Record r = Record(hud, result);
         AddAI(r, aiChase ?? AIFirst, aiChase != null);
@@ -213,7 +218,7 @@ public class MatchFlow : MonoBehaviour
             // The chase is shown at home, over by over: here, only what the AI needs.
             heading.text = "<color=#3B82F6>INNINGS OVER</color>";
             body.text = $"<b><size=150%>{r.Score}</size></b>  <color=#98A2B3>({r.OversText} overs)</color>\n" +
-                        $"The AI needs {r.runs + 1} to win\n" +
+                        $"{(OpponentName == "AI" ? "The AI needs" : OpponentName + " need")} {r.runs + 1} to win\n" +
                         $"<size=70%><color=#98A2B3>Fours {r.fours}   Sixes {r.sixes}   Run rate {r.RunRate:0.00}{(KeepHistory ? "   · watch the chase at home" : "")}</color></size>";
         }
         else

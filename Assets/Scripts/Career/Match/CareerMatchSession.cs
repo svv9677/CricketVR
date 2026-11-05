@@ -84,6 +84,8 @@ public static class CareerMatchSession
             return;
         MatchFlow.KeepHistory = false;
         MatchFlow.AIInningsOverride = PlayTheirs;
+        MatchFlow.OpponentName = string.IsNullOrEmpty(Plan.opponentName) ? "AI" : Plan.opponentName;
+        MatchFlow.YourName = string.IsNullOrEmpty(Plan.yourTeamName) ? "You" : Plan.yourTeamName;
     }
 
     /// MatchFlow asking for the other side's innings: with no target it is their first innings (we

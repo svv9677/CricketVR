@@ -77,7 +77,8 @@ public static class GameLoopTest
                     typeof(OverBreak).GetMethod("Close", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.Invoke(ob, null);
                     phaseStart = Time.time;
                 }
-                else if (s == eGameState.InGame_Ready && !OverBreak.Blocking)
+                // (MatchGate: a career match's catch-up card is up - StartNextBall would do nothing.)
+                else if (s == eGameState.InGame_Ready && !OverBreak.Blocking && !MatchGate.Blocking)
                 {
                     inst.StartNextBall();
                     Next(1, $"ball {balls + 1}: started");
