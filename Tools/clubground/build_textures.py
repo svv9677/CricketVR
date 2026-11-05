@@ -21,12 +21,13 @@ How each texture maps (the builder, Assets/Editor/ClubGround, must use the same)
                         ground line is v = 0.16. The bottom 15% is solid.
   club_flag.png         hoist (the pole side) at u = 0.
 
-The contact-shadow pools in the surround (and the outfield, where a bench reaches it) are painted at
-the footprints in SPOTS, which copy ClubGroundLayout (Assets/Scripts/ClubGround). The trees are a
-seeded Poisson-disc in C#, so their pools come from --layout: a JSON file the builder can export from
-ClubGroundLayout.Footprints() and Trees(seed):
-    {"spots": [{"name", "x", "z", "yaw", "w", "d"}], "trees": [{"x", "z", "scale", "kind"}]}
-"spots" replaces SPOTS; without "trees" the tree ring only gets a faint leaf-litter tint.
+The contact-shadow pools in the outfield and surround are painted at the footprints and trees of
+ClubGroundLayout (Assets/Scripts/ClubGround), read from layout_table.json beside this script (written
+by ClubGroundLayoutTests.WriteLayoutTable from Footprints() and Trees(seed); --layout picks another):
+    {"footprints": [{"name", "x", "z", "yaw", "w", "d"}], "trees": [{"x", "z", "scale", "kind"}]}
+Each pool's darkness, spread and lean come from POOLS by name. Without the file the footprints fall
+back to SPOTS (a copy of the C#) and the tree ring only gets a faint leaf-litter tint, so re-run this
+after the layout changes and the file is regenerated.
 """
 import argparse, json, math, os
 import numpy as np
@@ -34,29 +35,37 @@ from PIL import Image
 
 EYE = (10.3, 0.0)            # ClubGroundLayout.BatterEye, xz (BallDelivery.BatsmanStumpsX)
 SUN = (-0.5, 0.866)          # Sun Light 1 (50, 330, 0): which way a shadow falls, xz
-# The footprint table: name, x, z, w (local X: the face toward the eye), d (local Z), yaw in degrees
-# (None = faces BatterEye), how dark the pool is under it (0..1), how far it spreads (m), and how far
-# it leans toward the sun's shadow (m).
+# The footprint table, a copy of ClubGroundLayout.Footprints() (layout_table.json, seed 1): name, x, z,
+# w (local X: the face toward the eye), d (local Z), yaw in degrees (None = faces BatterEye). Only a
+# fallback for when layout_table.json is missing: the file wins, so the pools follow the C#.
 SPOTS = [
-    ("Pavilion",        -60.00,  30.00, 22.0, 9.0, None, 0.55, 2.2, 0.8),
-    ("ScoreHut",        -56.00, -30.00,  9.6, 6.0, None, 0.50, 1.6, 0.6),
-    ("Flagpole",        -55.00,  44.00,  0.6, 0.6, None, 0.30, 0.4, 0.2),
-    ("RearSightscreen",  63.00,   0.00, 14.0, 1.5, None, 0.40, 1.4, 0.6),
-    ("Roller",          -30.00,  62.00,  2.4, 1.4, None, 0.45, 0.6, 0.3),
-    ("Bench0",           52.83,  30.50,  2.0, 0.7, None, 0.35, 0.5, 0.2),
-    ("Bench1",           30.50,  52.83,  2.0, 0.7, None, 0.35, 0.5, 0.2),
-    ("Bench2",          -10.59,  60.07,  2.0, 0.7, None, 0.35, 0.5, 0.2),
-    ("Bench3",          -39.21,  46.73,  2.0, 0.7, None, 0.35, 0.5, 0.2),
-    ("Bench4",          -39.21, -46.73,  2.0, 0.7, None, 0.35, 0.5, 0.2),
-    ("Bench5",          -10.59, -60.07,  2.0, 0.7, None, 0.35, 0.5, 0.2),
-    ("Bench6",           30.50, -52.83,  2.0, 0.7, None, 0.35, 0.5, 0.2),
-    ("Bench7",           52.83, -30.50,  2.0, 0.7, None, 0.35, 0.5, 0.2),
-    ("Pylon0",           45.25,  45.25,  1.5, 1.5,  45., 0.45, 0.8, 0.4),
-    ("Pylon1",          -45.25,  45.25,  1.5, 1.5, 135., 0.45, 0.8, 0.4),
-    ("Pylon2",          -45.25, -45.25,  1.5, 1.5, 225., 0.45, 0.8, 0.4),
-    ("Pylon3",           45.25, -45.25,  1.5, 1.5, 315., 0.45, 0.8, 0.4),
+    ("Pavilion",         -60.000,  30.000, 22.0, 9.0,  113.110),
+    ("ScoreHut",         -56.000, -30.000,  9.6, 6.0,   65.654),
+    ("Flagpole",         -55.000,  44.000,  1.0, 1.0,  123.973),
+    ("SightscreenFrame", -63.000,   0.000, 19.0, 1.2,   90.000),
+    ("RearSightscreen",   63.000,   0.000, 14.0, 1.5,  -90.000),
+    ("Roller",           -30.000,  62.000,  2.4, 1.6,  146.976),
+    ("Bench0",            10.593,  60.073,  2.4, 0.9, -179.721),
+    ("Bench1",           -10.593,  60.073,  2.4, 0.9,  160.823),
+    ("Bench2",           -25.780,  55.285,  2.4, 0.9,  146.871),
+    ("Bench3",           -37.555,  48.069,  2.4, 0.9,  135.127),
+    ("Bench4",           -37.555, -48.069,  2.4, 0.9,   44.873),
+    ("Bench5",           -20.863, -57.321,  2.4, 0.9,   28.531),
+    ("Bench6",             0.000, -61.000,  2.4, 0.9,    9.584),
+    ("Bench7",            20.863, -57.321,  2.4, 0.9,  -10.441),
+    ("Pylon0",            45.255,  45.255,  2.0, 2.0, -142.318),
+    ("Pylon1",           -45.255,  45.255,  2.0, 2.0,  129.166),
+    ("Pylon2",           -45.255, -45.255,  2.0, 2.0,   50.834),
+    ("Pylon3",            45.255, -45.255,  2.0, 2.0,  -37.682),
 ]
-TREE_CANOPY = (4.0, 1.6)     # canopy radius (m) at scale 1: broadleaf (kind 0), poplar (kind 1)
+# The pool under each kind of footprint, by name (digits dropped): how dark it is under it (0..1), how
+# far it spreads (m), how far it leans toward the sun's shadow (m). A name not here gets DEFAULT_POOL.
+POOLS = {"Pavilion": (0.55, 2.2, 0.8), "ScoreHut": (0.50, 1.6, 0.6), "Flagpole": (0.30, 0.4, 0.2),
+         "SightscreenFrame": (0.40, 1.4, 0.6), "RearSightscreen": (0.40, 1.4, 0.6),
+         "Roller": (0.45, 0.6, 0.3), "Bench": (0.35, 0.5, 0.2), "Pylon": (0.45, 0.8, 0.4)}
+DEFAULT_POOL = (0.38, 0.6, 0.25)
+LAYOUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "layout_table.json")
+TREE_CANOPY = (4.0, 1.6)     # ClubGroundLayout.CanopyBroadleaf (kind 0), CanopyPoplar (kind 1), at scale 1
 FENCE_R, DISC_R = 58.5, 61.0
 CELL_METRES = {0: 1.95, 1: 1.2, 2: 1.2, 3: 1.2, 4: 1.2, 5: 1.0, 6: 0.5, 7: 1.0,
                8: 1.0, 9: 1.0, 10: 2.0, 11: 2.0, 12: 2.0, 13: 2.0, 14: 1.0, 15: 0.5}
@@ -117,14 +126,25 @@ def face_eye(x, z):
     return math.degrees(math.atan2(EYE[0] - x, EYE[1] - z))
 
 def spots_from(layout):
-    if layout is None or "spots" not in layout:
-        return SPOTS
-    out = []
-    for s in layout["spots"]:
-        big = s["w"] * s["d"] > 20
-        out.append((s["name"], s["x"], s["z"], s["w"], s["d"], s.get("yaw"),
-                    0.5 if big else 0.38, 2.0 if big else 0.6, 0.7 if big else 0.25))
-    return out
+    """The footprints with their pools: from the layout's "footprints" (what ClubGroundLayoutTests
+    writes; "spots" is still read), else SPOTS. Each pool is tuned by name (POOLS), not guessed from
+    its area, so a new piece in the C# still gets a pool where it really stands."""
+    rows = (layout or {}).get("footprints") or (layout or {}).get("spots")
+    rows = [(s["name"], s["x"], s["z"], s["w"], s["d"], s.get("yaw")) for s in rows] if rows else SPOTS
+    return [r + POOLS.get(r[0].rstrip("0123456789"), DEFAULT_POOL) for r in rows]
+
+def load_layout(path):
+    """--layout, else layout_table.json beside this script when it is there (it is generated from
+    ClubGroundLayout, trees included); None means the SPOTS fallback and no tree pools."""
+    path = path or (LAYOUT if os.path.exists(LAYOUT) else None)
+    if path is None:
+        print("no layout_table.json: SPOTS fallback, no tree pools")
+        return None
+    with open(path) as f:
+        layout = json.load(f)
+    print("layout", path, len(layout.get("footprints") or layout.get("spots") or []), "footprints,",
+          len(layout.get("trees", [])), "trees")
+    return layout
 
 def paint_pools(g, occ, spots, trees):
     """Soft contact shadow: dark under each footprint, fading over its spread, leaning with the sun.
@@ -180,6 +200,14 @@ def outfield(path, spots, trees, rng):
     long_t = sstep(58.35, 58.75, R + 0.06 * noise(shape, 3, rng))
     col = mixc(col, LONG, long_t)
     bright = bright * (1 - long_t) + long_t * (1 + 0.07 * noise(shape, 5, rng) + 0.05 * noise(shape, 1.3, rng))
+    # The pavilion's gravel where it runs inside 61 m, beyond the fence only. Its own generator (and
+    # the surround's noise scales in metres: 3.3x the pixels here) leaves the shared stream as it was.
+    arng = np.random.default_rng(61)
+    apron = gravel_apron(g, spots, 0.3 * noise(shape, 10, arng))
+    if apron is not None:
+        apron = apron * long_t
+        col = mixc(col, GRAVEL, apron)
+        bright *= 1 + apron * 0.08 * noise(shape, 2.3, arng)
     occ = np.ones(shape, np.float32)
     occ *= 1 - 0.28 * np.exp(-((R - FENCE_R) / 0.3) ** 2)   # the pickets' foot
     paint_pools(g, occ, spots, trees)
@@ -197,20 +225,27 @@ def surround(path, spots, trees, rng):
     under = sstep(70, 76, R) * (1 - sstep(104, 112, R))
     col = mixc(col, LITTER, under * (0.15 if not trees else 0.06))
     bright = 1 + (0.06 + 0.06 * rough) * noise(shape, 6, rng) + 0.04 * noise(shape, 1.2, rng)
-    pav = [s for s in spots if s[0] == "Pavilion"]
-    if pav:
-        _, x, z, w, d, yaw, *_ = pav[0]
-        yaw = math.radians(face_eye(x, z) if yaw is None else yaw)
-        dx, dz = g.X - x, g.Z - z
-        lx = dx * math.cos(yaw) - dz * math.sin(yaw)
-        lz = dx * math.sin(yaw) + dz * math.cos(yaw)
-        e = 0.3 * noise(shape, 3, rng)
-        apron = sstep(0, 0.6, w / 2 + 0.5 - np.abs(lx) + e) * sstep(0, 0.6, lz - d / 2 + 0.2 + e) * \
-            sstep(0, 0.6, d / 2 + 3.2 - lz + e)
+    apron = gravel_apron(g, spots, 0.3 * noise(shape, 3, rng))
+    if apron is not None:
         col = mixc(col, GRAVEL, apron)
         bright *= 1 + apron * 0.08 * noise(shape, 0.7, rng)
     occ = paint_pools(g, np.ones(shape, np.float32), spots, trees)
     save(path, col * (bright * occ)[..., None])
+
+def gravel_apron(g, spots, e):
+    """The gravel in front of the pavilion (0..1), e jittering its edge (m). It reaches ~59.3 m, inside
+    the outfield disc that covers the surround there, so both textures paint it (else a hard arc cuts
+    it at 61 m). None when there is no pavilion."""
+    pav = [s for s in spots if s[0] == "Pavilion"]
+    if not pav:
+        return None
+    _, x, z, w, d, yaw, *_ = pav[0]
+    yaw = math.radians(face_eye(x, z) if yaw is None else yaw)
+    dx, dz = g.X - x, g.Z - z
+    lx = dx * math.cos(yaw) - dz * math.sin(yaw)
+    lz = dx * math.sin(yaw) + dz * math.cos(yaw)
+    return sstep(0, 0.6, w / 2 + 0.5 - np.abs(lx) + e) * sstep(0, 0.6, lz - d / 2 + 0.2 + e) * \
+        sstep(0, 0.6, d / 2 + 3.2 - lz + e)
 
 def grass_detail(path, rng):
     """Grey-centred blades and clumps; URP doubles it, so sRGB 128 leaves the colour as it is."""
@@ -325,7 +360,7 @@ def main():
     ap.add_argument("out", nargs="?", default="../../Assets/ClubGround/Textures")
     ap.add_argument("--layout", default=None)
     a = ap.parse_args()
-    layout = json.load(open(a.layout)) if a.layout else None
+    layout = load_layout(a.layout)
     spots, trees = spots_from(layout), (layout or {}).get("trees", [])
     from atlas_cells import atlas
     os.makedirs(a.out, exist_ok=True)
