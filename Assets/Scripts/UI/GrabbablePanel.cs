@@ -7,6 +7,11 @@ using UnityEngine;
 /// controller as if held; let go and it stays there, upright. Where it was left is saved
 /// (PlayerPrefs), and the panel opens there from then on - Restore, called by its Show.
 ///
+/// The pose is saved as if the player were at the striker's crease (EndPose.ToCrease) and carried
+/// to wherever he stands when it is restored (FromCrease): a panel left beside him at the crease
+/// opens beside him at the non-striker's end too (PlayerEnd). At the crease both are the identity,
+/// so poses saved before the ends existed still read the same.
+///
 /// Runs after OpenXRMenuInputModule has posed the laser for the frame.
 /// </summary>
 [DefaultExecutionOrder(100)]
@@ -28,22 +33,42 @@ public class GrabbablePanel : MonoBehaviour
     {
         if (target == null || string.IsNullOrEmpty(saveKey))
             return false;
-        string saved = PlayerPrefs.GetString(Key, "");
-        string[] v = saved.Split(',');
-        if (v.Length != 7)
+        if (!Decode(PlayerPrefs.GetString(Key, ""), PlayerEnd.NonStriker, out Vector3 p, out Quaternion q))
             return false;
-        float F(int i) => float.Parse(v[i], CultureInfo.InvariantCulture);
-        target.SetPositionAndRotation(new Vector3(F(0), F(1), F(2)), new Quaternion(F(3), F(4), F(5), F(6)).normalized);
+        target.SetPositionAndRotation(p, q);
         return true;
     }
 
     private void Save()
     {
-        Vector3 p = target.position;
-        Quaternion q = target.rotation;
-        PlayerPrefs.SetString(Key, string.Join(",", new[] { p.x, p.y, p.z, q.x, q.y, q.z, q.w }
-            .Select(f => f.ToString("R", CultureInfo.InvariantCulture))));
+        PlayerPrefs.SetString(Key, Encode(target.position, target.rotation, PlayerEnd.NonStriker));
         PlayerPrefs.Save();
+    }
+
+    /// "x,y,z,qx,qy,qz,qw": a pose at the player's end, written as it would be at the crease.
+    public static string Encode(Vector3 position, Quaternion rotation, bool nonStriker)
+    {
+        Vector3 p = EndPose.ToCrease(position, nonStriker);
+        Quaternion q = EndPose.ToCrease(rotation, nonStriker);
+        return string.Join(",", new[] { p.x, p.y, p.z, q.x, q.y, q.z, q.w }
+            .Select(f => f.ToString("R", CultureInfo.InvariantCulture)));
+    }
+
+    /// The saved crease pose carried to the player's end. False for nothing saved (or not a pose).
+    public static bool Decode(string saved, bool nonStriker, out Vector3 position, out Quaternion rotation)
+    {
+        position = Vector3.zero;
+        rotation = Quaternion.identity;
+        string[] v = (saved ?? "").Split(',');
+        if (v.Length != 7)
+            return false;
+        var f = new float[7];
+        for (int i = 0; i < 7; i++)
+            if (!float.TryParse(v[i], NumberStyles.Float, CultureInfo.InvariantCulture, out f[i]))
+                return false;
+        position = EndPose.FromCrease(new Vector3(f[0], f[1], f[2]), nonStriker);
+        rotation = EndPose.FromCrease(new Quaternion(f[3], f[4], f[5], f[6]).normalized, nonStriker);
+        return true;
     }
 
     private void LateUpdate()

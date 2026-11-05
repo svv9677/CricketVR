@@ -128,8 +128,21 @@ public class XRRigSetup : MonoBehaviour
 
     private void OnTrackingOriginUpdated(XRInputSubsystem subsystem) => _placed = false;
 
+    /// The player at this end (career, watching his partner: NonStrikerView), placed now.
+    public void PlaceAtEnd(bool nonStriker)
+    {
+        PlayerEnd.Set(nonStriker);
+        PlaceAtCrease();
+    }
+
+    /// Where the head goes at each end, and the way it faces: the bowler (down -X) at the crease;
+    /// the batter (up +X) from the non-striker's spot.
+    private Vector2 EndHeadXZ => PlayerEnd.NonStriker ? EndPose.NonStrikerHeadXZ : creaseHeadXZ;
+    private static Vector3 EndFacing => PlayerEnd.NonStriker ? Vector3.right : Vector3.left;
+
     /// Turn the rig about the head so the head faces the bowler (down -X), then slide it so the
-    /// head is over the crease.
+    /// head is over the crease - or, at the non-striker's end (PlayerEnd), faces the batter from
+    /// the non-striker's spot. A recentre keeps the end.
     public void PlaceAtCrease()
     {
         if (cameraTransform == null)
@@ -137,11 +150,12 @@ public class XRRigSetup : MonoBehaviour
         Vector3 facing = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up);
         if (facing.sqrMagnitude > 1e-4f)
         {
-            float turn = Vector3.SignedAngle(facing, Vector3.left, Vector3.up);
+            float turn = Vector3.SignedAngle(facing, EndFacing, Vector3.up);
             transform.RotateAround(cameraTransform.position, Vector3.up, turn);
         }
         Vector3 head = cameraTransform.position;
-        transform.position += new Vector3(creaseHeadXZ.x - head.x, 0f, creaseHeadXZ.y - head.z);
+        Vector2 at = EndHeadXZ;
+        transform.position += new Vector3(at.x - head.x, 0f, at.y - head.z);
         _placed = true;
     }
 

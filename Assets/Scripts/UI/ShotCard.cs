@@ -7,7 +7,8 @@ using UnityEngine;
 /// The last-shot card: how well it was struck ("Middled", "Thick edge", "Toe") with a quality
 /// bar, ball / bat / exit speed, how far it carried (or went, for a six), and the score. It stands
 /// off to the batter's off side, well out of the line to the bowler, and turns to face the
-/// crease; it moves across when the batting hand changes.
+/// crease; it moves across when the batting hand changes, and goes with the player to the
+/// non-striker's end when he watches his partner bat (PlayerEnd, EndPose).
 ///
 /// A prefab (Assets/Resources/Prefabs/UI/ShotCard.prefab, built by Tools > CricketVR > Build Player
 /// UI). Fed by HUD.ShowShot (Bat.ShotStruck), ShotDistance (carry / six distance) and HUD.UpdateUI
@@ -41,6 +42,7 @@ public class ShotCard : MonoBehaviour
 
     private const int RecentBallCount = 6;
     private eBattingStyle placedFor = eBattingStyle.None;
+    private bool placedAtNonStriker;
     private readonly StringBuilder builder = new StringBuilder(32);
 
     private TMP_Text scorecard;
@@ -107,7 +109,7 @@ public class ShotCard : MonoBehaviour
     {
         Main main = Main.Instance;
         eBattingStyle style = main != null ? main.BattingStyle : eBattingStyle.RightHanded;
-        if (style != placedFor)
+        if (style != placedFor || PlayerEnd.NonStriker != placedAtNonStriker)
             Place(style);
         // Only between balls, alongside the next-ball options: while a ball is being bowled or
         // is in play it is in the way.
@@ -119,11 +121,15 @@ public class ShotCard : MonoBehaviour
     private void Place(eBattingStyle style)
     {
         placedFor = style;
+        placedAtNonStriker = PlayerEnd.NonStriker;
         float side = style == eBattingStyle.LeftHanded ? -1f : 1f;
-        Vector3 position = new Vector3(rightHandedPosition.x, rightHandedPosition.y, rightHandedPosition.z * side);
-        Vector3 away = Vector3.ProjectOnPlane(position - eyePosition, Vector3.up);
+        // Placed for the crease, then carried to the player's end: the same spot beside him there.
+        Vector3 position = EndPose.FromCrease(new Vector3(rightHandedPosition.x, rightHandedPosition.y, rightHandedPosition.z * side),
+                                              placedAtNonStriker);
+        Vector3 eye = EndPose.FromCrease(eyePosition, placedAtNonStriker);
+        Vector3 away = Vector3.ProjectOnPlane(position - eye, Vector3.up);
         if (away.sqrMagnitude < 1e-4f)
-            away = Vector3.left;
+            away = placedAtNonStriker ? Vector3.right : Vector3.left;
         // Canvas text faces -Z: point +Z away from the batter.
         panel.transform.SetPositionAndRotation(position, Quaternion.LookRotation(away.normalized, Vector3.up));
     }

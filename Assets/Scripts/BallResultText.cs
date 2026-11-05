@@ -9,7 +9,9 @@ using UnityEngine.SceneManagement;
 ///     a clean title with a small caption under it, soft shadow, no outline;
 ///   * 1, 2 or 3 runs: a small grey figure; a dot ball: nothing (the scoreboard has it).
 /// It eases in when the ball is scored (HUD.BallScored), holds still - no bobbing, no pulsing -
-/// turned to face the player, and fades as the bowler starts his next run-up.
+/// turned to face the player, and fades as the bowler starts his next run-up. While the player
+/// watches his partner from the non-striker's end (PlayerEnd) it is over the far stumps from him,
+/// the striker's, where he is looking then.
 /// </summary>
 public class BallResultText : MonoBehaviour
 {
@@ -20,6 +22,8 @@ public class BallResultText : MonoBehaviour
 
     private TextMeshPro text;
     private Vector3 home;
+    /// Over the bowler's stumps, as the scene placed it.
+    private Vector3 creaseHome;
     private float shownAt = -100f, hiddenAt = -100f;
     private bool showing;
 
@@ -47,7 +51,7 @@ public class BallResultText : MonoBehaviour
 
     private void Awake()
     {
-        home = transform.position;
+        home = creaseHome = transform.position;
         text = gameObject.AddComponent<TextMeshPro>();
         text.fontSize = 14f;
         text.alignment = TextAlignmentOptions.Center;
@@ -67,8 +71,30 @@ public class BallResultText : MonoBehaviour
         transform.localScale = Vector3.zero;
     }
 
-    private void OnEnable() => HUD.BallScored += Show;
-    private void OnDisable() => HUD.BallScored -= Show;
+    private void OnEnable()
+    {
+        HUD.BallScored += Show;
+        PlayerEnd.Changed += FollowEnd;
+        FollowEnd();
+    }
+
+    private void OnDisable()
+    {
+        HUD.BallScored -= Show;
+        PlayerEnd.Changed -= FollowEnd;
+    }
+
+    /// Over the stumps at the other end from the player.
+    private void FollowEnd()
+    {
+        if (!PlayerEnd.NonStriker)
+        {
+            home = creaseHome;
+            return;
+        }
+        Vector3 far = EndPose.FarStumps(true);
+        home = new Vector3(far.x, Height, far.z);
+    }
 
     private void Start()
     {

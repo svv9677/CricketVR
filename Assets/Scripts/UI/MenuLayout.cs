@@ -9,6 +9,10 @@ using UnityEngine;
 ///
 /// Spots rise and fall with the session's camera-height setting, as the player's view does.
 /// A scene without a layout falls back to each screen's old in-front-of-the-gaze placement.
+///
+/// In a career match the player may watch his partner from the non-striker's end (PlayerEnd): the
+/// whole layout is then turned end for end with him (EndPose), so every screen that asks it -
+/// the next-ball card, the over break, the match and career cards - comes up in front of him there.
 /// </summary>
 public class MenuLayout : MonoBehaviour
 {
@@ -17,12 +21,36 @@ public class MenuLayout : MonoBehaviour
 
     public static MenuLayout Instance { get; private set; }
 
-    private void Awake() => Instance = this;
+    /// The pose the scene placed it at: the striker's crease.
+    private Vector3 creasePosition;
+    private Quaternion creaseRotation;
+
+    private void Awake()
+    {
+        Instance = this;
+        creasePosition = transform.position;
+        creaseRotation = transform.rotation;
+    }
+
+    private void OnEnable()
+    {
+        PlayerEnd.Changed += FollowEnd;
+        FollowEnd();
+    }
+
+    private void OnDisable() => PlayerEnd.Changed -= FollowEnd;
 
     private void OnDestroy()
     {
         if (Instance == this)
             Instance = null;
+    }
+
+    /// At the player's end: the crease pose as placed, or that pose carried to the non-striker's end.
+    private void FollowEnd()
+    {
+        bool far = PlayerEnd.NonStriker;
+        transform.SetPositionAndRotation(EndPose.FromCrease(creasePosition, far), EndPose.FromCrease(creaseRotation, far));
     }
 
     /// The fixed eye point and the level direction the player faces.

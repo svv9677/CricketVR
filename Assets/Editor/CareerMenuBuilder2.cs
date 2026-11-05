@@ -7,7 +7,8 @@ using UnityEngine.UI;
 /// The career screens around matches, built by MenuPrefabBuilder (Tools > CricketVR > Build Menu
 /// Prefabs) beside CareerMenuBuilder's slots and Create Player, in the same house style:
 ///   * CareerHubScreen ("careerHub") - the player card, the overall and form chips, the next
-///     match, Play match (the nets trial first), and Ratings, Season, Nets and Inbox.
+///     match, Play match (the nets trial first), Ratings, Season, Nets and Inbox, and the partner's
+///     innings toggle (Watch | Skip).
 ///   * CareerRatingsScreen ("careerRatings") - the measured ratings, the coach, the trial's.
 ///   * SeasonScreen ("careerSeason") - the league table and the side's fixtures.
 ///   * CareerResultScreen ("careerResult") - how the career match just played went.
@@ -19,6 +20,8 @@ public static class CareerMenuBuilder2
     private const float ChipHeight = 48f;
     private const float ListRow = 40f;
     private const float ListGap = 4f;
+    private const float WatchRow = 52f;
+    private const float WatchLabelWidth = 220f;
 
     // ---- Career hub -------------------------------------------------------------------------------
 
@@ -60,6 +63,7 @@ public static class CareerMenuBuilder2
         Button nets = UIControls.ActionButton(more, "Nets", screen.OnNets, false);
         Button inbox = UIControls.ActionButton(more, "Inbox", screen.OnInbox, false);
         so.FindProperty("inboxLabel").objectReferenceValue = UIControls.LabelOf(inbox);
+        WatchPartnerRow(column, screen, so);
 
         UIControls.Divider(column);
         UIControls.ActionButton(column, "Back", screen.OnBack, false);
@@ -95,6 +99,20 @@ public static class CareerMenuBuilder2
         so.FindProperty("kitBar").objectReferenceValue = kitBar;
         so.FindProperty("stage").objectReferenceValue = stage;
         so.FindProperty("season").objectReferenceValue = season;
+    }
+
+    /// "Partner's innings  [Watch | Skip]" on one short row (the hub has no scroll, so it is a little
+    /// lower than a full control): watch the partner bat from the non-striker's end, or skip to the
+    /// next ball you face.
+    private static void WatchPartnerRow(Transform column, CareerHubScreen screen, SerializedObject so)
+    {
+        Transform row = CareerMenuBuilder.Row(column, UIStyle.Unit);
+        WorldPanelBuilder.Line(row, "Partner's innings", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.TextMuted, WatchRow,
+                               TextAlignmentOptions.Left, WatchLabelWidth);
+        SegmentedControl watch = UIControls.Segmented(row, CareerHubScreen.WatchOptions, screen.OnWatchPartner);
+        LayoutElement layout = watch.GetComponent<LayoutElement>();
+        layout.minHeight = layout.preferredHeight = WatchRow;
+        so.FindProperty("watchPartner").objectReferenceValue = watch;
     }
 
     /// "vs Old Mill CC" bold, the round and format muted, "You bat at 7" in the accent - in a dark

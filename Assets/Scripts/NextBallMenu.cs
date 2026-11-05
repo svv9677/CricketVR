@@ -6,7 +6,9 @@ using UnityEngine;
 /// a big Bowl button, Settings and Calibrate Grip - and, beside it, the replay card
 /// (ReplayControls). It appears where the player is looking whenever the game is ready for the
 /// next delivery and goes away the moment the ball is on its way. The laser pointer clicks it;
-/// A still bowls the next ball.
+/// A still bowls the next ball. While the career player watches his partner bat it says so -
+/// "PARTNER ON STRIKE" - and the ball comes on its own (NonStrikerView); it is away while the view
+/// blinks to the other end, and comes back there.
 ///
 /// The panel is a prefab (Assets/Resources/Prefabs/UI/NextBallMenu.prefab, built by
 /// Tools > CricketVR > Build Player UI) with its buttons wired to the On* methods below - nothing
@@ -29,7 +31,7 @@ public class NextBallMenu : MonoBehaviour
     private bool shown;
     private bool registered;
     private Bowler shownBowler;
-    private bool shownNewOver, shownFreeHit;
+    private bool shownNewOver, shownFreeHit, shownPartner;
     private TMP_Text header;
 
     private void Start()
@@ -65,7 +67,7 @@ public class NextBallMenu : MonoBehaviour
         // match is catching up on the partners' balls (MatchGate).
         bool want = inst != null && inst.gameState == eGameState.InGame_Ready &&
                     !inst.SettingsOpen && !inst.CalibratingGrip && !OverBreak.Showing && !MatchFlow.Over &&
-                    !MatchGate.Blocking;
+                    !MatchGate.Blocking && !NonStrikerView.Blinking;
         if (want && !shown)
             Show();
         else if (!want && shown)
@@ -82,18 +84,31 @@ public class NextBallMenu : MonoBehaviour
             return;
         bool newOver = hud.Balls == 0 && hud.Overs == 0;     // the match's first over; later overs are announced by OverBreak
         bool freeHit = NoBalls.NextIsFreeHit;
-        if (hud.CurrentBowler == shownBowler && newOver == shownNewOver && freeHit == shownFreeHit)
+        bool partner = PartnerWatch.Live;
+        if (hud.CurrentBowler == shownBowler && newOver == shownNewOver && freeHit == shownFreeHit && partner == shownPartner)
             return;
         shownBowler = hud.CurrentBowler;
         shownNewOver = newOver;
         shownFreeHit = freeHit;
+        shownPartner = partner;
         string type = BowlerRepertoire.KindName(shownBowler.Kind);
         // Every bowling action in the game is right-arm, over the wicket (the run-ups come in on
         // the stumps' left as he sees them, AnimatedBowler).
         bowlerLabel.text = $"{shownBowler.Name}\n<size=62%><color=#98A2B3>{type}{(newOver ? "  ·  right-arm over" : "")}</color></size>";
         if (header != null)
-            header.text = freeHit ? "<color=#F59E0B>FREE HIT</color>  <size=60%><color=#98A2B3>you can't be bowled or caught</color></size>"
-                        : newOver ? "<color=#3B82F6>FIRST OVER</color>" : "BOWLER";
+            header.text = Header(freeHit, partner, newOver);
+    }
+
+    /// The card's heading: a free hit first (who can't be out), then the partner on strike, then
+    /// the match's first over; otherwise just "BOWLER".
+    public static string Header(bool freeHit, bool partnerOnStrike, bool newOver)
+    {
+        if (freeHit)
+            return "<color=#F59E0B>FREE HIT</color>  <size=60%><color=#98A2B3>" +
+                   (partnerOnStrike ? "he can't be bowled or caught" : "you can't be bowled or caught") + "</color></size>";
+        if (partnerOnStrike)
+            return "<color=#22C55E>PARTNER ON STRIKE</color>";
+        return newOver ? "<color=#3B82F6>FIRST OVER</color>" : "BOWLER";
     }
 
     private void Show()

@@ -6,7 +6,8 @@ using NUnit.Framework;
 /// The career match screens' wording, which needs no scene: the hub's chips and next-match line,
 /// the season table's fixed columns and the fixtures' outcomes from the player's side, the result
 /// headline and innings, and ordinals - and that every string stays in Latin-1, the only characters
-/// the TMP default font has. Standalone; nothing here reads or writes a save.
+/// the TMP default font has - and the hub's partner's-innings toggle, built by the menu builder and
+/// thrown away. Standalone; nothing here reads or writes a save.
 /// Run: Window > General > Test Runner > EditMode > CareerScreensTests.
 /// </summary>
 public class CareerScreensTests
@@ -239,6 +240,40 @@ public class CareerScreensTests
         CareerResultScreen.RememberBefore(null);
     }
 
+    // ---- Partner's innings (phase 3) ----------------------------------------------------------------
+
+    [Test]
+    public void ThePartnersInningsToggleIsWatchThenSkip()
+    {
+        CollectionAssert.AreEqual(new[] { "Watch", "Skip" }, CareerHubScreen.WatchOptions);
+        Assert.AreEqual(0, CareerHubScreen.WatchIndex(true));
+        Assert.AreEqual(1, CareerHubScreen.WatchIndex(false));
+        Assert.AreEqual(0, CareerHubScreen.WatchIndex(new CareerProfile().watchPartner), "a new career watches");
+    }
+
+    /// The hub as Tools > CricketVR > Build Menu Prefabs builds it: the toggle is the screen's
+    /// watchPartner and reports to OnWatchPartner. Needs the editor (it builds UI objects).
+    [Test]
+    public void TheHubsToggleIsWiredToOnWatchPartner()
+    {
+        var parent = new UnityEngine.GameObject("Hub build test");
+        try
+        {
+            MenuScreen screen = CareerMenuBuilder2.BuildHub(parent.transform);
+            var so = new UnityEditor.SerializedObject(screen);
+            var watch = so.FindProperty("watchPartner").objectReferenceValue as SegmentedControl;
+            Assert.IsNotNull(watch, "CareerHubScreen.watchPartner is wired");
+            Assert.AreEqual(CareerHubScreen.WatchOptions.Length, watch.Count);
+            Assert.AreEqual(1, watch.onValueChanged.GetPersistentEventCount());
+            Assert.AreSame(screen, watch.onValueChanged.GetPersistentTarget(0));
+            Assert.AreEqual(nameof(CareerHubScreen.OnWatchPartner), watch.onValueChanged.GetPersistentMethodName(0));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(parent);
+        }
+    }
+
     // ---- Every string -------------------------------------------------------------------------------
 
     [Test]
@@ -253,6 +288,7 @@ public class CareerScreensTests
             CareerResultScreen.Headline(true, false, 12, true), CareerResultScreen.InningsDetail(4, 2, true, false, "b Lee"),
             CareerResultScreen.RatingsLine(54f, 56f, 61f), CareerResultScreen.PositionLine(s),
             CareerRatingsScreen.Value(54f), CareerRatingsScreen.TrialLine(new CareerProfile()),
+            "Partner's innings", CareerHubScreen.WatchOptions[0], CareerHubScreen.WatchOptions[1],
         };
         foreach (Fixture f in SeasonScreen.YourFixtures(s))
             lines.Add(SeasonScreen.FixtureLine(s, f, true));

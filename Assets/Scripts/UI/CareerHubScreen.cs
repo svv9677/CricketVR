@@ -9,12 +9,14 @@ using UnityEngine.UI;
 /// measured overall and the form - and the next match of the season: who against, which round, the
 /// format and where the player bats. The primary button is the 30-ball nets trial until it is done
 /// (matches stay locked: the trial sets the ratings they start from), then Play match. Ratings,
-/// Season and the nets are a row below. The ratings only describe how the player bats; nothing here
-/// changes how the game plays. Coming back from the trial it says so once (NetsSession.TrialResult);
-/// coming back from a match, the result screen (CareerResultScreen) says how it went. Phase 4 adds
-/// the Inbox (with the unread count), a line when an offer is waiting, "A Pro League scout is
-/// watching" on a scouted next match, and - left out of the side - Sim the match in place of Play
-/// match. Built by Tools > CricketVR > Build Menu Prefabs.
+/// Season and the nets are a row below, and under them "Partner's innings: Watch | Skip" - whether
+/// a match shows the partner batting while the player is at the non-striker's end. The ratings
+/// only describe how the player bats; nothing here changes how the game plays. Coming back from the
+/// trial it says so once (NetsSession.TrialResult); coming back from a match, the result screen
+/// (CareerResultScreen) says how it went. Phase 4 adds the Inbox (with the unread count), a line
+/// when an offer is waiting, "A Pro League scout is watching" on a scouted next match, and - left
+/// out of the side - Sim the match in place of Play match. Built by Tools > CricketVR > Build Menu
+/// Prefabs.
 /// </summary>
 public class CareerHubScreen : MenuScreen
 {
@@ -41,6 +43,9 @@ public class CareerHubScreen : MenuScreen
     [SerializeField] private TextMeshProUGUI inboxLabel;
     [SerializeField] private TextMeshProUGUI offerLine;
     [SerializeField] private TextMeshProUGUI nextScout;
+    /// "Partner's innings: Watch | Skip" - watch the partner bat from the non-striker's end, or skip
+    /// to the next ball you face (CareerProfile.watchPartner).
+    [SerializeField] private SegmentedControl watchPartner;
 
     private bool showedTrial;
     // How the match he was left out of went, said once on the banner (until the hub goes).
@@ -88,6 +93,7 @@ public class CareerHubScreen : MenuScreen
         if (primary != null) primary.interactable = p != null;
         if (nets != null) nets.interactable = p != null && p.trialDone;
         ShowInbox(p);
+        if (watchPartner != null) watchPartner.SetValueWithoutNotify(WatchIndex(p == null || p.watchPartner));
         if (p == null)
         {
             Set(playerName, "No career loaded");
@@ -279,6 +285,10 @@ public class CareerHubScreen : MenuScreen
         InningsRecord r = p.innings[p.innings.Count - 1];
         return r != null && r.leftOut ? r : null;
     }
+    /// The partner's-innings options, in order: Watch, then Skip.
+    public static readonly string[] WatchOptions = { "Watch", "Skip" };
+
+    public static int WatchIndex(bool watch) => watch ? 0 : 1;
 
     // ---- Wired in the prefab ------------------------------------------------------------------
 
@@ -315,6 +325,17 @@ public class CareerHubScreen : MenuScreen
             return;
         CareerResultScreen.RememberBefore(p);
         CareerMatchSession.Begin(plan);
+    }
+
+    /// Watch the partner bat from the other end (0), or skip to your next ball (1). Saved at once.
+    public void OnWatchPartner(int index)
+    {
+        CareerProfile p = CareerSaves.Current;
+        bool watch = index == 0;
+        if (p == null || p.watchPartner == watch)
+            return;
+        p.watchPartner = watch;
+        CareerSaves.SaveCurrent();
     }
 
     public void OnRatings() => Push("careerRatings");
