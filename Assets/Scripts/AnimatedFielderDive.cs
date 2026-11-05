@@ -220,6 +220,9 @@ public partial class AnimatedFielder
         return true;
     }
 
+    /// A fielder has gone into a dive: who, and how long until he lands (MatchSounds: the thud).
+    public static event System.Action<Transform, float> DiveStarted;
+
     private void StartDive(Vector3 point, float eta)
     {
         Main inst = Main.Instance;
@@ -229,6 +232,7 @@ public partial class AnimatedFielder
         divePoint = point;
         // The arms meet it as it gets there (DiveCatchPoint of the way through the flight).
         diveFlight = Mathf.Clamp(eta / DiveCatchPoint, QuickestDive, DiveFlight);
+        DiveStarted?.Invoke(transform, diveFlight);
         if (ragdoll == null)
             ragdoll = GetComponent<FielderRagdoll>();
         ragdollDown = false;

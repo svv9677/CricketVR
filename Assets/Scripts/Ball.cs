@@ -226,9 +226,15 @@ public class Ball : MonoBehaviour
             touchingGround = true;
     }
 
+    /// Every collision the ball makes, with how hard it went in along the contact (m/s): for the
+    /// sounds of it pitching, bouncing and hitting the boards (MatchSounds).
+    public static event System.Action<Collision, float> Collided;
+
     public void OnCollisionEnter(Collision collisionInfo)
     {
         Main inst = Main.Instance;
+        if (Collided != null && collisionInfo.contactCount > 0)
+            Collided(collisionInfo, Mathf.Abs(Vector3.Dot(collisionInfo.relativeVelocity, collisionInfo.GetContact(0).normal)));
         // The pitch grips: take the pace off the bounce PhysX has just resolved (BallFlight.Bounce
         // models the same, so the fielders' prediction agrees). Before the turn below, which only
         // rotates it.

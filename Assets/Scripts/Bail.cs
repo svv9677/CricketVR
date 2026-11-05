@@ -100,8 +100,12 @@ public class Bail : MonoBehaviour
             restsOn[0].Hit();
     }
 
+    /// A bail has come off (MatchSounds: the clatter).
+    public static event System.Action<Vector3> KnockedOff;
+
     private void KnockOff(Vector3 impulse)
     {
+        KnockedOff?.Invoke(transform.position);
         loose = true;
         body.isKinematic = false;
         body.AddForce(impulse, ForceMode.Impulse);

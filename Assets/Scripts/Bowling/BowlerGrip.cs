@@ -342,10 +342,14 @@ public class BowlerGrip : MonoBehaviour
         bones[0, 2].localRotation = lastWritten[0, 2] = q2;
     }
 
+    /// The ball has left his hand (MatchSounds: his effort at the release).
+    public static event System.Action<AnimatedBowler, BowlingParams> Released;
+
     /// The ball has gone: give it the spin the fingers put on it.
     private void OnReleased(Main inst)
     {
         releasedAt = Time.time;
+        Released?.Invoke(bowler, inst.currentBowlingConfig);
         if (offset != null) offset.localPosition = offsetLocal;
         if (ballVisual == null) return;
         Frame(out Vector3 fwd, out Vector3 palm, out Vector3 side);
