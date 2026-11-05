@@ -3,9 +3,9 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// The career player in the nets: the 30-ball trial, or measured practice (NetsSession.Mode, set by
-/// the career hub before the Nets scene loads). Built when the Nets scene loads, only for a career
-/// session - free nets practice from the main menu is the game as it always was.
+/// The career player in the nets: the 30-ball trial, a drill, or measured practice (NetsSession.Mode,
+/// set by the career hub before the Nets scene loads). Built when the Nets scene loads, only for a
+/// career session - free nets practice from the main menu is the game as it always was.
 ///
 /// Every ball the player faces (BallFeed.Faced, raised by BallLedger) is stamped with where it was
 /// faced, added to the active career and the ratings recomputed and saved, ball by ball - so a career
@@ -182,7 +182,8 @@ public class NetsTrial : MonoBehaviour
         }
     }
 
-    /// A ball faced and settled: into the career, ratings recomputed, saved; the trial moves on if it counted.
+    /// A ball faced and settled: into the career, ratings recomputed, saved; the trial or drill moves
+    /// on if it counted.
     private void OnFaced(BallRecord r)
     {
         if (r == null || finished || finishPending)
@@ -209,7 +210,7 @@ public class NetsTrial : MonoBehaviour
         ShowProgress();
     }
 
-    /// The trial is over: hold the game, record the trial in the career, show the result.
+    /// The trial or drill is over: hold the game, record it in the career, show the result.
     private void Finish()
     {
         finishPending = false;
@@ -260,7 +261,8 @@ public class NetsTrial : MonoBehaviour
         DrillResult d = drill.Finish(p, CareerProgressMath.Today());
         if (p != null)
             CareerSaves.SaveCurrent();
-        drill.Dispose();
+        // The field markers stay up behind the card (the last shot's fielder in red); OnDestroy
+        // disposes them when the scene goes.
         HoldInMenu();
         ui.HideProgress();
         ui.ShowResult(NetsTrialCard.Latin1(DrillText.Heading(d)), NetsTrialCard.Latin1(DrillText.ResultBody(drill.Def, d)), Continue);
