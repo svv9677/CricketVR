@@ -35,13 +35,17 @@ public static class StadiumLighting
     private static void ResetStatics()
     {
         key = null; glows = null; sceneSun = null; savedLightmaps.Clear(); dimmed.Clear(); Applied = eTimeOfDay.Afternoon;
-        glowPoints = null; glowSize = StadiumGlowSize;
+        glowPoints = null; glowSize = StadiumGlowSize; RealtimeAfternoon = false;
     }
 
     /// Where the night's floodlight glows hang, and how big each is: null for the stadium's ring of
     /// eight on the roof rim (BankRadius, BankHeight), else one glow at each point (the club ground's
     /// pylon heads). Set by StadiumConditions before every Apply, so a club match never leaves its
     /// glows to the next stadium match.
+    /// The afternoon from a realtime copy of the sun (the club ground; StadiumConditions sets it on
+    /// every Apply) rather than the scene's baked one.
+    public static bool RealtimeAfternoon;
+
     public static void SetGlowBanks(Vector3[] points, Vector2 size)
     {
         glowPoints = points;
@@ -66,6 +70,25 @@ public static class StadiumLighting
         Applied = t;
         // Rao's clouds and the crowd's flashes follow the old stadium-mode preference.
         PlayerPrefs.SetInt(Constants.PP_StadiumMode, (int)(t == eTimeOfDay.Night ? eStadiumMode.Night : eStadiumMode.Day));
+        if (t == eTimeOfDay.Afternoon && RealtimeAfternoon && sun != null)
+        {
+            // The club ground: the scene's sun is Mixed (Shadowmask), and its baked shadows and probe
+            // occlusion were made with the stadium standing - everything at the club comes out in
+            // shadow. The same sun as a realtime key, as Evening and Night do.
+            sun.enabled = false;
+            if (key == null)
+                key = new GameObject("Club Sun").AddComponent<Light>();
+            key.type = LightType.Directional;
+            key.transform.rotation = sun.transform.rotation;
+            key.color = sun.color;
+            key.intensity = sun.intensity;
+            key.shadows = LightShadows.Soft;
+            key.shadowStrength = sun.shadowStrength;
+            RenderSettings.sun = key;
+            if (glows != null) Object.Destroy(glows);
+            UndimStands();
+            return;
+        }
         if (t == eTimeOfDay.Afternoon)
         {
             if (sun != null) { sun.enabled = true; RenderSettings.sun = sun; }

@@ -78,6 +78,7 @@ public static class StadiumConditions
         ClubGround club = MatchVenue.IsClub ? ClubGroundVenue.Dress(scene, MatchSetup.Crowd) : null;
         if (club == null) { MatchVenue.Set(eVenue.Stadium); ApplyCrowd(MatchSetup.Crowd); }
         StadiumLighting.SetGlowBanks(club != null ? club.GlowPoints() : null, VenueRules.GlowSize(MatchVenue.Current));
+        StadiumLighting.RealtimeAfternoon = club != null;
         StadiumLighting.Apply(MatchSetup.TimeOfDay);
         if (club != null) club.SetNight(MatchSetup.TimeOfDay == eTimeOfDay.Night);
     }
