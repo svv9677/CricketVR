@@ -111,6 +111,10 @@ public class NonStrikerView : MonoBehaviour
     {
         if (Blinking)
             return;
+        // Not with a panel open: the rig would move about 19 m and leave it at the old end. The
+        // per-frame check between balls tries again once it closes.
+        if (PanelOpen())
+            return;
         if (PartnerWatch.Live != PlayerEnd.NonStriker)
             StartCoroutine(Blink());
         else
@@ -194,11 +198,15 @@ public class NonStrikerView : MonoBehaviour
     }
 
     /// Something the player is doing, or the match is showing, comes before the next ball.
-    private bool Held()
+    private bool Held() =>
+        Blinking || PanelOpen() || OverBreak.Blocking || MatchFlow.Over || MatchGate.Blocking;
+
+    /// A panel or replay in front of the player at this end: settings, grip calibration, the over
+    /// break card, a shot replay.
+    private bool PanelOpen()
     {
         ShotReplay replay = ShotReplay.Instance;
-        return Blinking || main.SettingsOpen || main.CalibratingGrip || OverBreak.Blocking || MatchFlow.Over ||
-               MatchGate.Blocking || (replay != null && replay.IsPlaying);
+        return main.SettingsOpen || main.CalibratingGrip || OverBreak.Showing || (replay != null && replay.IsPlaying);
     }
 
     // ---- The black quad ---------------------------------------------------------------------------
