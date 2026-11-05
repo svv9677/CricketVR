@@ -192,8 +192,11 @@ public partial class Bat : MonoBehaviour
         Debug.Log($"[BatHit] {result.kind} quality={result.quality:F2} e={result.restitution:F2} M={result.effectiveMass:F2} " +
                   $"in={incoming.magnitude:F1} bat={batPointVelocity.magnitude:F1} impact={result.impactSpeed:F1} out={outgoing.magnitude:F1} " +
                   $"local={hit.localBat.ToString("F3")} normal={normal.ToString("F2")} t={hit.t:F2}");
+        // The same contact on the real-width blade, for measuring (the career): the shield only
+        // ever changes the shot, never the measurement (RealBlade).
+        RealBlade.Contact real = RealBlade.Evaluate(hit, blade, scale, widthMultiplier);
         // Report the swing the player actually made, not the power-scaled one.
-        OnBallHit(inst, incoming, outgoing, swingVelocity.magnitude, result);
+        OnBallHit(inst, incoming, outgoing, swingVelocity.magnitude, result, real, contactCentre);
     }
 
     /// Closing speed (m/s) at which the bat's jolt is at full strength (most firm shots), and the
@@ -203,7 +206,8 @@ public partial class Bat : MonoBehaviour
     /// 0.82 at 10 against 0.8 and 0.9) - more varied, but not stronger.
     private const float HapticFullImpact = 20f, HapticMin = 0.75f, HapticShort = 0.08f, HapticLong = 0.3f;
 
-    private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeed, BatContact.Result result)
+    private void OnBallHit(Main inst, Vector3 incoming, Vector3 outgoing, float batSpeed, BatContact.Result result,
+                           RealBlade.Contact real, Vector3 contactCentre)
     {
         hasHitBall = true;
         inst.gameState = eGameState.InGame_BallHit;
@@ -222,6 +226,12 @@ public partial class Bat : MonoBehaviour
             quality = result.quality,
             contactLabel = BatContact.Label(result.kind),
             edge = result.edge,
+            kind = result.kind,
+            impactSpeed = result.impactSpeed,
+            exitVelocity = outgoing,
+            contactPoint = contactCentre,
+            realQuality = real.quality,
+            realContact = real.contact,
         });
 
         // Haptics follow the contact too, both hands (both are on the handle), and scale with how
@@ -238,10 +248,16 @@ public partial class Bat : MonoBehaviour
             StartCoroutine(AutomaticReset(2f));
     }
 
+    /// Nets only: a hit ball is called dead after `delay`. Only while it is still the hit ball in
+    /// play - by then a ball that was bowled, caught or reset has moved on (BowledLoop's wicket
+    /// pause outlasts the delay), and forcing BallMissed there scored a second ball and could
+    /// reset the next delivery mid run-up.
     private IEnumerator AutomaticReset(float delay)
     {
         yield return new WaitForSeconds(delay);
-        Main.Instance.gameState = eGameState.InGame_BallMissed;
+        eGameState state = Main.Instance.gameState;
+        if (state == eGameState.InGame_BallHit || state == eGameState.InGame_BallHitLoop)
+            Main.Instance.gameState = eGameState.InGame_BallMissed;
     }
 
     // The bat-swing term below was originally tuned against a per-frame position delta
