@@ -115,6 +115,8 @@ public static class CareerProgress
         foreach (SquadPlayer s in yours.players)
             if (s != null && !s.isYou)
                 others.Add(s);
+        while (others.Count > 10)         // the order is 11 names, whatever size the squad is
+            others.RemoveAt(others.Count - 1);
         int slot = Math.Max(0, Math.Min(others.Count, p.battingSlot - 1));
         plan.order.Clear();
         plan.orderRatings.Clear();
@@ -145,7 +147,8 @@ public static class CareerProgress
         if (s == null || plan == null || result == null || s.finished)
             return;
         Fixture f = plan.fixture >= 0 && plan.fixture < s.fixtures.Count ? s.fixtures[plan.fixture] : null;
-        if (f == null || f.played || !f.Involves(s.yourTeam))
+        if (f == null || f.played || !f.Involves(s.yourTeam)
+            || plan.yourTeam != s.yourTeam || f.Opponent(s.yourTeam) != plan.opponent)
             return;                       // not this season's, or already recorded: count it once
 
         InningsRecord rec = RecordInnings(p, s, plan, result);

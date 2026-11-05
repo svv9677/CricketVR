@@ -224,6 +224,20 @@ public class CareerProgressTests
         Assert.AreEqual(1, p.stats.matches, "a match is recorded once");
     }
 
+    /// A plan for another match (another season's, say) never fills the fixture at its index.
+    [Test]
+    public void AStalePlanIsNotRecorded()
+    {
+        CareerProfile p = NewCareer(14);
+        var rng = new Random(15);
+        MatchPlan plan = CareerProgress.PlanNext(p, rng);
+        Fixture next = CareerProgress.NextFixture(p);
+        plan.opponent = "someone-else";
+        CareerProgress.RecordMatch(p, plan, Result(plan, 25, 20, true, true), rng);
+        Assert.AreEqual(0, p.stats.matches, "a plan against the wrong side is ignored");
+        Assert.IsFalse(next.played, "the fixture is still to play");
+    }
+
     /// Plays the season out, checking the final appears only after the league; returns matches.
     private static int PlaySeason(CareerProfile p, Random rng, bool win)
     {
