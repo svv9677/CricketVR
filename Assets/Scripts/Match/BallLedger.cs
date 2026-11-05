@@ -311,6 +311,10 @@ public class BallLedger : MonoBehaviour
         if (!crossed && ball != null && !float.IsNaN(ball.lastLineAtStumps) && !touched)
             r.lineAtStumps = BallLedgerMath.LineInBatterFrame(ball.lastLineAtStumps, leftHanded);
         r.wouldHitStumps = BallLedgerMath.WouldHitStumps(r.lineAtStumps, r.heightAtStumps);
+        // Bowled without a touch: it did hit them, even though it usually stops at the stumps before
+        // its centre crosses BatsmanStumpsX and the line above is only the aim.
+        if (haveTerminal && terminal == eGameState.InGame_Bowled && !touched && ballXAtEnd > 0f)
+            r.wouldHitStumps = true;
         r.wide = (ball != null && ball.wide) || (haveOutcome && lastOutcome.Signal == UmpireSignal.Wide);
         r.action = BallLedgerMath.Action(touched, r.realContact, r.closestApproach, r.swingSpeed);
         if (!touched)
