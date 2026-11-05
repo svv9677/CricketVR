@@ -26,8 +26,12 @@ public static class BallFlight
     public const float DragCoefficient = 0.4f;
     public const float SwingCoefficientMax = 0.25f;
     public const float MaxTurnDegrees = 6f;
-    /// Deceleration of a ball rolling on grass or the pitch, m/s^2.
+    /// Deceleration of a ball rolling on the pitch, m/s^2.
     public const float RollingDecel = 2.0f;
+    /// Rolling on the outfield, m/s^2: a little quicker than the pitch (2026-11-05, "make the
+    /// outfield slightly faster"; was 2.0 like the pitch). A ball rolls v^2/2a, so ~25% further.
+    public const float OutfieldRollingDecel = 1.6f;
+    public static float RollingDecelAt(Vector3 p) => OnPitch(p) ? RollingDecel : OutfieldRollingDecel;
     public const float BounceThreshold = 2f;
 
     static float Area => Mathf.PI * Radius * Radius;
@@ -44,7 +48,10 @@ public static class BallFlight
     // short balls skidded through and read as full. A hard, true strip at e 0.6 plus the grip
     // below put back of a length ~0.75 m and a short ball ~1.3-1.5 m at the batter; raised to
     // 0.65 (pitch material 0.7 -> 0.8) on request for a little more bounce (2026-09-28).
-    public const float PitchRestitution = 0.65f;
+    /// The flat pitch's: PitchConditions sets a green or a dusty one for the match (with the
+    /// pitch's physics material to match), which is why these are not constants.
+    public const float FlatPitchRestitution = 0.65f, FlatPitchGrip = 0.88f;
+    public static float PitchRestitution { get; private set; } = FlatPitchRestitution;
     public const float OutfieldRestitution = 0.4f;
     /// The prepared strip. Everything else is outfield.
     public static readonly Vector2 PitchHalfExtent = new Vector2(12f, 3f);
@@ -87,17 +94,40 @@ public static class BallFlight
     /// Pace kept off the pitch. A real ball grips the strip and comes off it 10-15% slower (the
     /// "pace off the pitch" Hawk-Eye shows); PhysX takes nothing, so Ball applies this itself at
     /// each pitch bounce and this model matches it.
-    public const float PitchGrip = 0.88f;
+    public static float PitchGrip { get; private set; } = FlatPitchGrip;
+
+    /// The match's pitch (PitchConditions): restitution and grip off it.
+    public static void SetPitch(float restitution, float grip)
+    {
+        PitchRestitution = restitution;
+        PitchGrip = grip;
+    }
 
     /// Velocity just after a bounce: what PhysX resolves (e measured 0.53 on the old pitch, 0.41 on
     /// the outfield, matching the averaged materials), then the pitch's grip.
     public static Vector3 Bounce(Vector3 velocity, bool onPitch)
     {
-        float e = onPitch ? PitchRestitution : OutfieldRestitution;
+        float e = Restitution(onPitch, -velocity.y);
         float vn = velocity.y;
         Vector3 vt = new Vector3(velocity.x, 0f, velocity.z) * (BounceTangentialRetention * (onPitch ? PitchGrip : 1f));
         float newVn = -vn < BounceThreshold ? 0f : -e * vn;
         return new Vector3(vt.x, newVn, vt.z);
+    }
+
+    /// Turf gives under a hard impact: a ball driven into the ground comes up far less than a gentle
+    /// one, where PhysX gives every impact the same e. Hit down into the outfield at 20 m/s it rose
+    /// at 8 m/s, over 3 m (reported 2026-11-03: "bounces very very high" off the outfield). Above
+    /// these normal speeds e falls away; below them it is the materials' own, and no delivery comes
+    /// in steeper than ~10 m/s, so bowling is unchanged. Ball applies the same after PhysX.
+    public const float OutfieldSoftFrom = 4f, OutfieldSoftAt = 16f, OutfieldHardImpactE = 0.22f;
+    public const float PitchSoftFrom = 12f, PitchSoftAt = 25f, PitchHardImpactE = 0.38f;
+
+    /// Restitution for an impact at this speed into the ground (m/s, positive).
+    public static float Restitution(bool onPitch, float impactSpeed)
+    {
+        return onPitch
+            ? Mathf.Lerp(PitchRestitution, Mathf.Min(PitchRestitution, PitchHardImpactE), Mathf.InverseLerp(PitchSoftFrom, PitchSoftAt, impactSpeed))
+            : Mathf.Lerp(OutfieldRestitution, OutfieldHardImpactE, Mathf.InverseLerp(OutfieldSoftFrom, OutfieldSoftAt, impactSpeed));
     }
 
     /// Rotate the horizontal velocity about the vertical: the turn off the pitch.
@@ -167,7 +197,7 @@ public static class BallFlight
             {
                 velocity += AirAcceleration(velocity, 0f, 0f) * dt;
                 float speed = velocity.magnitude;
-                float slowed = Mathf.Max(0f, speed - RollingDecel * dt);
+                float slowed = Mathf.Max(0f, speed - RollingDecelAt(position) * dt);
                 velocity = speed > 1e-5f ? velocity * (slowed / speed) : Vector3.zero;
                 position += velocity * dt;
                 position.y = GroundY(position) + Radius;

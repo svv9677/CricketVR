@@ -34,9 +34,11 @@ Material:
     m_Ints: []
     m_Floats:
     - _DetailStrength: 0.5
-    - _FadeWidthX: 0.03
-    - _FadeWidthY: 0.09
-    - _InsetY: 0.2
+    - _EdgeNoise: 0.55
+    - _EdgeNoiseScale: 0.12
+    - _FadeWidthX: 0.05
+    - _FadeWidthY: 0.16
+    - _InsetY: 0.165
     - _Metallic: 0
     - _Smoothness: 0.05
     m_Colors:

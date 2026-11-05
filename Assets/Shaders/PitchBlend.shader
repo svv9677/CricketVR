@@ -14,6 +14,10 @@ Shader "CricketVR/PitchBlend"
         // Width (in 0..1 quad UV) of a fully clear band along each long edge, inside which the
         // fade starts: the quad can be wider than the pitch, which then blends into the grass.
         _InsetY("Clear Band Y (UV)", Range(0,0.5)) = 0.0
+        // Breaks up the straight fade edge with the detail texture (blotches of worn turf at the
+        // pitch's sides, as a real strip has): 0 = a clean straight fade.
+        _EdgeNoise("Edge Noise", Range(0,1)) = 0.0
+        _EdgeNoiseScale("Edge Noise Scale", Range(0.02,1)) = 0.15
     }
 
     SubShader
@@ -73,6 +77,8 @@ Shader "CricketVR/PitchBlend"
                 float _FadeWidthX;
                 float _FadeWidthY;
                 float _InsetY;
+                float _EdgeNoise;
+                float _EdgeNoiseScale;
             CBUFFER_END
 
             TEXTURE2D(_BaseMap);        SAMPLER(sampler_BaseMap);
@@ -131,6 +137,16 @@ Shader "CricketVR/PitchBlend"
             {
                 float ex = min(uv.x, 1.0 - uv.x);
                 float ey = min(uv.y, 1.0 - uv.y);
+                if (_EdgeNoise > 1e-4)
+                {
+                    // Low-frequency blotches from the detail texture, centred on zero.
+                    float2 nUV = uv * _DetailAlbedoMap_ST.xy * _EdgeNoiseScale;
+                    float n = dot(SAMPLE_TEXTURE2D(_DetailAlbedoMap, sampler_DetailAlbedoMap, nUV).rgb, float3(0.333, 0.333, 0.333));
+                    float n2 = dot(SAMPLE_TEXTURE2D(_DetailAlbedoMap, sampler_DetailAlbedoMap, nUV * 0.37 + 0.5).rgb, float3(0.333, 0.333, 0.333));
+                    float wobble = ((n - 0.5) + (n2 - 0.5)) * 2.0;
+                    ey += wobble * _EdgeNoise * _FadeWidthY;
+                    ex += wobble * _EdgeNoise * _FadeWidthX;
+                }
                 float ax = (_FadeWidthX <= 1e-5) ? 1.0 : saturate(ex / _FadeWidthX);
                 float ay = (_FadeWidthY <= 1e-5) ? step(_InsetY, ey) : saturate((ey - _InsetY) / _FadeWidthY);
                 float a = min(ax, ay);

@@ -13,7 +13,9 @@ using UnityEngine.SceneManagement;
 /// (2.64 m), the popping crease 1.22 m in front of it (across the whole marked width), the return
 /// creases 1.32 m either side of the middle stump, and the wide guidelines (0.89 m). Plus the
 /// edges of the pitch itself, 1.525 m either side (a 3.05 m pitch), softer than the creases, so
-/// the width of the pitch reads at a glance. One mesh, one unlit material: one draw call.
+/// the width of the pitch reads at a glance. And at each end the batters' guard marks: a short
+/// line back from the popping crease toward the stumps in line with each of leg, middle and off
+/// stump, where a batter scratches the guard they take. One mesh, one unlit material: one draw call.
 /// </summary>
 public static class PitchLines
 {
@@ -29,6 +31,11 @@ public static class PitchLines
     private const float FarCrease = 0.3f;
     private const float BowlingCreaseHalf = 1.32f, PoppingHalf = 1.83f, PoppingOut = 1.22f;
     private const float ReturnZ = 1.32f, ReturnBack = 2.44f, WideZ = 0.89f, PitchHalf = 1.525f;
+    /// Guard marks: in line with each stump (the stumps' centres, as placed in the scene: 9.525 cm
+    /// apart), this long back from the popping crease and this wide - narrower than a crease, so
+    /// they read as scratched marks, not more creases.
+    private static readonly float[] GuardZ = { -0.09525f, 0f, 0.09525f };
+    private const float GuardLength = 0.3f, GuardWidth = 0.025f;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
@@ -95,6 +102,10 @@ public static class PitchLines
             // return creases - not out into the pitch.
             Strip(q, new Vector3(popping, y, side * WideZ), new Vector3(stumps, y, side * WideZ), Crease);
         }
+        // Guard marks: leg, middle and off, from the crease's back edge toward the stumps.
+        float crease = popping - inward * Crease * 0.5f;
+        foreach (float z in GuardZ)
+            Strip(q, new Vector3(crease, y, z), new Vector3(crease - inward * GuardLength, y, z), GuardWidth);
     }
 
     /// A flat strip from `p` to `q`, `width` wide: four corners.

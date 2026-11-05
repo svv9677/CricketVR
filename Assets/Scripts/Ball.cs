@@ -31,9 +31,33 @@ public class Ball : MonoBehaviour
     [HideInInspector] public Vector3 lastPitchPoint = new Vector3(float.NaN, 0f, 0f);
     [HideInInspector] public float lastLineAtStumps = float.NaN;
     private Vector3 prevPosition;
-    /// Seconds of path the trail shows: bowled (0.12 s, ~4 m at 35 m/s) and after the hit. Was
-    /// 0.25 s throughout.
-    private const float DeliveryTrail = 0.12f, HitTrail = 0.3f;
+    /// Seconds of path the trail shows: bowled (0.07 s, ~2.5 m at 35 m/s; was 0.12) and after the
+    /// hit. Was 0.25 s throughout.
+    private const float DeliveryTrail = 0.07f, HitTrail = 0.3f;
+    /// While it is being bowled the trail is drawn at half its opacity; once hit, at full.
+    private const float DeliveryTrailAlpha = 0.5f;
+    private Gradient hitColours, deliveryColours;
+    private bool deliveryLook;
+
+    /// The trail's own colours after the hit; the same at DeliveryTrailAlpha of their opacity while
+    /// it is bowled. Set only when it changes: assigning a gradient copies it.
+    private void SetTrailLook(bool delivery)
+    {
+        if (hitColours == null)
+        {
+            hitColours = myParticles.colorGradient;
+            GradientAlphaKey[] alphas = hitColours.alphaKeys;
+            for (int i = 0; i < alphas.Length; i++)
+                alphas[i].alpha *= DeliveryTrailAlpha;
+            deliveryColours = new Gradient { mode = hitColours.mode };
+            deliveryColours.SetKeys(hitColours.colorKeys, alphas);
+            deliveryLook = false;
+        }
+        if (delivery == deliveryLook)
+            return;
+        deliveryLook = delivery;
+        myParticles.colorGradient = delivery ? deliveryColours : hitColours;
+    }
 
     // Start is called before the first frame update
     void Start()
@@ -91,12 +115,13 @@ public class Ball : MonoBehaviour
         {
             myParticles.enabled = true;
         }
-        // Shorter while it is being bowled (a long streak coming at the batter gives the line away
-        // and clutters the view), normal-to-long once it is hit.
+        // Shorter and half see-through while it is being bowled (a long, solid streak coming at the
+        // batter gives the line away and clutters the view), as it was once it is hit.
         if (myParticles.enabled)
         {
             bool delivery = inst.gameState == eGameState.InGame_DeliverBall || inst.gameState == eGameState.InGame_DeliverBallLoop;
             myParticles.time = delivery ? DeliveryTrail : HitTrail;
+            SetTrailLook(delivery);
         }
 
         Vector3 here = myRigidBody.position;
@@ -132,7 +157,7 @@ public class Ball : MonoBehaviour
                 float speed = horizontal.magnitude;
                 if (speed > 1e-4f)
                 {
-                    float slowed = Mathf.Max(0f, speed - BallFlight.RollingDecel * Time.fixedDeltaTime);
+                    float slowed = Mathf.Max(0f, speed - BallFlight.RollingDecelAt(transform.position) * Time.fixedDeltaTime);
                     myRigidBody.linearVelocity = new Vector3(velocity.x * slowed / speed, velocity.y, velocity.z * slowed / speed);
                     myRigidBody.angularVelocity *= slowed / speed;
                 }
@@ -196,6 +221,16 @@ public class Ball : MonoBehaviour
         // The pitch grips: take the pace off the bounce PhysX has just resolved (BallFlight.Bounce
         // models the same, so the fielders' prediction agrees). Before the turn below, which only
         // rotates it.
+        // A hard impact gives less back than PhysX's fixed e (BallFlight.Restitution): scale the
+        // rebound PhysX has just resolved to the e for how hard it came in.
+        if (collisionInfo.gameObject.CompareTag("Ground") && collisionInfo.contactCount > 0)
+        {
+            bool pitch = BallFlight.OnPitch(collisionInfo.GetContact(0).point);
+            float impact = Mathf.Abs(collisionInfo.relativeVelocity.y);
+            Vector3 v = myRigidBody.linearVelocity;
+            if (v.y > 0f && impact > BallFlight.BounceThreshold)
+                myRigidBody.linearVelocity = new Vector3(v.x, Mathf.Min(v.y, BallFlight.Restitution(pitch, impact) * impact), v.z);
+        }
         if (collisionInfo.gameObject.CompareTag("Ground") && collisionInfo.contactCount > 0 &&
             BallFlight.OnPitch(collisionInfo.GetContact(0).point))
         {
