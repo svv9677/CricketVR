@@ -34,7 +34,7 @@ public static class StadiumLighting
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics()
     {
-        key = null; glows = null; savedLightmaps.Clear(); dimmed.Clear(); Applied = eTimeOfDay.Afternoon;
+        key = null; glows = null; sceneSun = null; savedLightmaps.Clear(); dimmed.Clear(); Applied = eTimeOfDay.Afternoon;
     }
 
     public static string Name(eTimeOfDay t) => t == eTimeOfDay.Afternoon ? "Afternoon" : t == eTimeOfDay.Evening ? "Golden hour" : "Night";
@@ -107,12 +107,19 @@ public static class StadiumLighting
         RenderSettings.fog = t == eTimeOfDay.Night ? false : RenderSettings.fog;
     }
 
+    private static Light sceneSun;
+
+    /// The scene's own sun: RenderSettings.sun as the scene set it, else its shadow-casting
+    /// directional light. (Light.lightmapBakeType is editor-only, so not that.)
     private static Light FindSceneSun()
     {
+        if (sceneSun != null) return sceneSun;
+        if (RenderSettings.sun != null && RenderSettings.sun != key)
+            return sceneSun = RenderSettings.sun;
         foreach (Light l in Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-            if (l.type == LightType.Directional && l != key && l.lightmapBakeType == LightmapBakeType.Mixed)
-                return l;
-        return RenderSettings.sun != key ? RenderSettings.sun : null;
+            if (l.type == LightType.Directional && l != key && l.shadows != LightShadows.None)
+                return sceneSun = l;
+        return null;
     }
 
     private static void NightLightmaps()
