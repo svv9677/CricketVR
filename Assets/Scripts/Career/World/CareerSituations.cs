@@ -131,13 +131,23 @@ public static class CareerSituations
     /// Three wickets go down before he comes in: he bats at number 5 for this match (moved with his
     /// rating; his own batting slot is untouched), and the top order's collapse is worked out now and
     /// kept in the plan, so the hub, the match and a recovered match all see the same score.
+    /// With no collapse to script (an order too short, or Collapse refusing) the match is Normal,
+    /// so nothing calls it a rescue at 0/0.
     private static void Rescue(MatchPlan plan, Random rng)
     {
         if (plan.order == null || plan.order.Count <= RescueIndex || plan.slot < 0 || plan.slot >= plan.order.Count)
+        {
+            plan.situation = eSituation.Normal;
             return;
+        }
         MoveTo(plan, RescueIndex);
         int budget = (int)Math.Round(CareerSituationMath.CollapseShare * Ladder.Overs(plan.rung) * 6);
         plan.collapse = CareerSituationMath.Collapse(plan, RescueWickets, budget, rng, out MatchState end);
+        if (plan.collapse.Count == 0)
+        {
+            plan.situation = eSituation.Normal;
+            return;
+        }
         plan.startRuns = end.runs;
         plan.startWickets = end.wickets;
     }

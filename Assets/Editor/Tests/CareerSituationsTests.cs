@@ -271,7 +271,7 @@ public class CareerSituationsTests
     [Test]
     public void ACollapse_ScoresSlowerThanANormalStart()
     {
-        foreach (eRung rung in new[] { eRung.Club, eRung.ProLeague })
+        foreach (eRung rung in Rungs)
         {
             float collapseRuns = 0f, collapseBalls = 0f, normalRuns = 0f, normalBalls = 0f;
             MatchPlan basePlan = Plan(5, rung, out Team yours, out Team them);
