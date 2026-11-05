@@ -254,6 +254,8 @@ public static class MenuPrefabBuilder
         SetScreenName(screen, "customise");
         Title(column, "Customise", "The ground for your next match");
 
+        WorldPanelBuilder.Section(column, "Ground");
+        SegmentedControl venue = UIControls.Segmented(column, new[] { VenueRules.Name(VenueRules.FromQuickIndex(0)), VenueRules.Name(VenueRules.FromQuickIndex(1)) }, screen.OnVenue);
         WorldPanelBuilder.Section(column, "Crowd");
         SegmentedControl crowd = UIControls.Segmented(column, new[] { "Packed", "Half full", "Empty" }, screen.OnCrowd);
         WorldPanelBuilder.Section(column, "Pitch");
@@ -267,6 +269,7 @@ public static class MenuPrefabBuilder
         UIControls.ActionButton(column, "Back", screen.OnBack, false);
 
         var so = new SerializedObject(screen);
+        so.FindProperty("venue").objectReferenceValue = venue;
         so.FindProperty("crowd").objectReferenceValue = crowd;
         so.FindProperty("pitch").objectReferenceValue = pitch;
         so.FindProperty("pitchHint").objectReferenceValue = pitchHint;

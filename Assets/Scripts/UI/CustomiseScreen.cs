@@ -2,12 +2,13 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Customise, from the Splash main menu: the ground for the next match - the crowd, the pitch and
-/// the time of day (StadiumConditions and StadiumLighting put them on the ground when it loads). Built by
+/// Customise, from the Splash main menu: the ground for the next match - the stadium or the club
+/// ground (ClubGround), the crowd, the pitch and the time of day (StadiumConditions and StadiumLighting put them on the ground when it loads). Built by
 /// Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
 public class CustomiseScreen : MenuScreen
 {
+    [SerializeField] private SegmentedControl venue;
     [SerializeField] private SegmentedControl crowd;
     [SerializeField] private SegmentedControl pitch;
     [SerializeField] private TextMeshProUGUI pitchHint;
@@ -18,6 +19,7 @@ public class CustomiseScreen : MenuScreen
 
     private void Refresh()
     {
+        if (venue != null) venue.SetValueWithoutNotify(VenueRules.QuickIndex(MatchSetup.Venue));
         if (crowd != null) crowd.SetValueWithoutNotify((int)MatchSetup.Crowd);
         if (pitch != null) pitch.SetValueWithoutNotify((int)MatchSetup.Pitch);
         if (pitchHint != null) pitchHint.text = MatchSetup.Hint(MatchSetup.Pitch);
@@ -25,6 +27,7 @@ public class CustomiseScreen : MenuScreen
         if (timeHint != null) timeHint.text = StadiumLighting.Hint(MatchSetup.TimeOfDay);
     }
 
+    public void OnVenue(int i) { MatchSetup.Venue = VenueRules.FromQuickIndex(i); Refresh(); }
     public void OnCrowd(int i) { MatchSetup.Crowd = (eCrowd)i; Refresh(); }
     public void OnPitch(int i) { MatchSetup.Pitch = (ePitch)i; Refresh(); }
     public void OnTimeOfDay(int i) { MatchSetup.TimeOfDay = (eTimeOfDay)i; Refresh(); }
