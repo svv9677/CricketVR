@@ -179,6 +179,31 @@ public class BattingCardTests
         Assert.AreEqual(BattingCard.Out, BattingCard.CompactHowOut("  "));
     }
 
+    /// A real-ball catch names the position (HUD via FieldCaptain.PositionName), and the positions
+    /// of more than one word must come through whole, not cut to their last words like a surname.
+    [Test]
+    public void FieldPositionsKeepEveryWord()
+    {
+        foreach (string where in new[] { "Third man", "Fine leg", "Square leg", "Deep square leg", "Silly point",
+                                         "Extra cover", "First slip", "Short third man", "Cover (up)" })
+        {
+            Assert.IsTrue(BattingCard.IsFieldPosition(where), where);
+            Assert.AreEqual($"c {where} b Bumrah", BattingCard.CompactHowOut($"c {where} b Jasprit Bumrah"));
+        }
+        Assert.IsFalse(BattingCard.IsFieldPosition("Arjun Khan"));
+        Assert.IsFalse(BattingCard.IsFieldPosition("Quinton de Kock"), "a lower-case particle is still a name");
+        Assert.IsFalse(BattingCard.IsFieldPosition("Point"), "one word is left as it is anyway");
+        Assert.AreEqual("c de Kock b Lee", BattingCard.CompactHowOut("c Quinton de Kock b Ravi Lee"));
+    }
+
+    /// Build Nets Scene copies CricketVR.unity, card and all: the nets must still keep the shot card.
+    [Test]
+    public void TheNetsNeverShowTheCard()
+    {
+        Assert.IsFalse(ScorecardPanel.ShowsCard(NetsSession.NetsScene));
+        Assert.IsTrue(ScorecardPanel.ShowsCard("CricketVR"));
+    }
+
     [Test]
     public void ALongDismissalIsCut()
     {

@@ -125,7 +125,8 @@ public class BattingCard
     /// A dismissal with the players by surname, as scorecards print them: "c Arjun Khan b Ravi Lee"
     /// is "c Khan b Lee", "st Dev Rao b Om Iyer" is "st Rao b Iyer". The forms HUD and CareerSim
     /// write ("b X", "lbw b X", "c & b X", "c wk b X", "c Point b X", "st X b Y", "run out") keep
-    /// their shape; anything else, or nothing, comes back as it is (or "out").
+    /// their shape, and a catcher that is a field position keeps all its words ("c Third man b X",
+    /// IsFieldPosition); anything else, or nothing, comes back as it is (or "out").
     public static string CompactHowOut(string how)
     {
         if (string.IsNullOrEmpty(how) || string.IsNullOrEmpty(how.Trim()))
@@ -146,13 +147,33 @@ public class BattingCard
             if (by < lead.Length)
                 return h;
             string fielder = h.Substring(lead.Length, by - lead.Length);
-            return lead + Surname(fielder) + " b " + Surname(h.Substring(by + 3));
+            string catcher = IsFieldPosition(fielder) ? fielder.Trim() : Surname(fielder);
+            return lead + catcher + " b " + Surname(h.Substring(by + 3));
         }
         return h;
     }
 
     /// Everything after the first name ("Ravi Lee" -> "Lee"); one word stays ("Point", "wk").
     private static string Surname(string full) => NameBank.Surname(full);
+
+    /// True for a catcher that is a place on the field, not a player: a real-ball catch is written
+    /// by position (HUD, FieldCaptain.PositionName), and "Third man" cut to a surname would read
+    /// "c man". Positions are written in sentence case, every word after the first in lower case
+    /// ("Deep square leg", "Short third man", "Cover (up)"), while a player's name always has a
+    /// capital after the first word ("Arjun Khan", "Quinton de Kock"). One word is left as it is
+    /// either way, so it does not matter which it is.
+    public static bool IsFieldPosition(string catcher)
+    {
+        if (string.IsNullOrEmpty(catcher))
+            return false;
+        string[] words = catcher.Trim().Split(' ');
+        if (words.Length < 2)
+            return false;
+        for (int i = 1; i < words.Length; i++)
+            if (words[i].Length > 0 && char.IsUpper(words[i][0]))
+                return false;
+        return true;
+    }
 
     /// At most `max` characters: a longer one is cut and ends "...".
     public static string Truncate(string s, int max)

@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 /// the career player), then the extras and the total. It stands where the last-shot card stands
 /// in the nets (ShotCard: off to the batter's off side, turned to the crease, mirrored for a
 /// left-hander, carried to the non-striker's end with the player: PlayerEnd, EndPose), and the
-/// shot card stands down in any scene that has one of these (ShownInstead).
+/// shot card stands down in any scene but the nets that has one of these (ShownInstead).
 ///
 /// A prefab (Assets/Resources/Prefabs/UI/ScorecardPanel.prefab, built and placed in CricketVR.unity
 /// by Tools > CricketVR > Build Scorecard Panel). Display only: no raycasters, so the laser passes
@@ -60,9 +60,15 @@ public class ScorecardPanel : MonoBehaviour
     private static void ResetStatics() => Instance = null;
 
     /// True when a batting card stands in `scene`: the shot card there hides (ShotCard.Update), so
-    /// a match shows the card and the nets, which have none, keep the last shot.
+    /// a match shows the card and the nets keep the last shot. Never in the nets, even with a
+    /// card in the scene: Build Nets Scene makes Nets.unity by copying CricketVR.unity, so the
+    /// card's instance comes along, and the nets are told apart by scene name, as elsewhere.
     public static bool ShownInstead(Scene scene) =>
-        Instance != null && Instance.isActiveAndEnabled && Instance.gameObject.scene == scene;
+        Instance != null && Instance.isActiveAndEnabled && Instance.gameObject.scene == scene
+        && ShowsCard(scene.name);
+
+    /// Whether a scene of this name shows the batting card: every scene but the nets.
+    public static bool ShowsCard(string sceneName) => sceneName != NetsSession.NetsScene;
 
     private void Awake()
     {
@@ -92,8 +98,10 @@ public class ScorecardPanel : MonoBehaviour
         eBattingStyle style = main != null ? main.BattingStyle : eBattingStyle.RightHanded;
         if (style != placedFor || PlayerEnd.NonStriker != placedAtNonStriker)
             Place(style);
-        // Only between balls, alongside the next-ball options (as ShotCard).
-        bool between = main == null || main.gameState == eGameState.InGame_Ready;
+        // Only between balls, alongside the next-ball options (as ShotCard), and never in the
+        // nets, where the shot card shows instead (ShownInstead).
+        bool between = (main == null || main.gameState == eGameState.InGame_Ready)
+                       && ShowsCard(gameObject.scene.name);
         if (panel.activeSelf != between)
             panel.SetActive(between);
         if (between && dirty)
