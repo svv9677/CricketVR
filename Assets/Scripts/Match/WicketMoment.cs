@@ -158,7 +158,7 @@ public class Celebration : MonoBehaviour
     }
 
     /// Each finger's three joints, followed down from its root (the rig maps few of them).
-    private static void Fingers(Transform hand, HumanBodyBones[] roots, Transform[,] into)
+    internal static void Fingers(Transform hand, HumanBodyBones[] roots, Transform[,] into)
     {
         Animator a = hand != null ? hand.GetComponentInParent<Animator>() : null;
         for (int f = 0; f < 5; f++)
@@ -175,7 +175,7 @@ public class Celebration : MonoBehaviour
     /// Bend the index finger a little and see which way its tip goes - toward the thumb's side (the
     /// palm) or away: the curl's sign, and the palm's normal in the hand's space (the left hand is a
     /// mirror of the right).
-    private static void Calibrate(Transform hand, Transform[,] fingers, out float curl, out Vector3 palmLocal)
+    internal static void Calibrate(Transform hand, Transform[,] fingers, out float curl, out Vector3 palmLocal)
     {
         curl = 1f; palmLocal = Vector3.forward;
         Transform index = fingers[1, 0], tip = fingers[1, 2] ?? fingers[1, 1], thumb = fingers[0, 2] ?? fingers[0, 1];
