@@ -23,6 +23,7 @@ licence checked on each sound's Freesound page on 2026-11-05. Fetched as the pub
 | club_clap | synthesised by `Tools/clubground/build_sounds.py` (2026-11-05): ours, no third-party material. Polite applause from 8-15 clappers, each its own hands (band-passed noise, 0.8-2.5 kHz, 6-10 ms decay), rate and distance |
 | club_cheer | synthesised by `Tools/clubground/build_sounds.py`: ours, no third-party material. Livelier applause (15 clappers) with a synthesised two-finger whistle |
 | fence | synthesised by `Tools/clubground/build_sounds.py`: ours, no third-party material. A modal wooden knock with a picket's rattle |
+| net | synthesised by `Tools/sfx/build_net_sounds.py` (2026-11-05): ours, no third-party material. The ball into a hanging nylon net: a padded low give, a swish of cord with the cords slapping back, and a faint ring from the steel frame |
 | club_ambience (in `Assets/ClubGround/Audio/`, not this folder) | synthesised by `Tools/clubground/build_sounds.py`: ours, no third-party material. A seamless 30 s loop of songbirds, breeze, a distant road and murmur, about -24 LUFS |
 
 **Not auditioned by a person yet**: cut and levelled by measurement. Listen in the headset and adjust
