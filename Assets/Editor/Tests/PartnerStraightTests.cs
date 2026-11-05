@@ -31,11 +31,13 @@ public class PartnerStraightTests
     /// 360 seeded balls across every field (both hands), every delivery and every runs intent,
     /// planned and played from the real contact. Measured 2026-11-05 (seed 101): searching the
     /// whole field as before, 77 of 360 shots were within 40 degrees of straight, 130 were glances
-    /// and 10 sweeps; searching the V first, 307 straight, 21 glances, 2 sweeps, 2 cuts and pulls
-    /// (seeds 7, 202 and 9001: 306-310 straight, 22-24 glances, 2-3 sweeps). The glances are
-    /// twos: on most fields a two is only to be had fine, and the intent comes before the look.
-    /// Singles, fours and sixes, which the V nearly always gives, are 94% straight. Measured on a
-    /// managed stand-in for UnityEngine's maths outside the editor; the editor run logs its own.
+    /// and 10 sweeps; searching the V first, 307 straight, 29 glances, 3 sweeps, 1 cut or pull
+    /// (seeds 7, 202 and 9001: 305-310 straight, 31-33 glances, 2-3 sweeps). The glances are
+    /// twos and threes: on most fields those are only to be had fine, and the intent comes before
+    /// the look (the first cut of the arcs had 21 glances, but planned no threes and fewer twos;
+    /// PartnerIntentReachTests). Singles, fours and sixes, which the V nearly always gives, are
+    /// 98% straight. Measured on a managed stand-in for UnityEngine's maths outside the editor;
+    /// the editor run logs its own.
     [Test]
     public void MostRunsShotsAreStraightAndSweepsAreRare()
     {

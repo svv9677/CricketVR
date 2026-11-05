@@ -23,9 +23,11 @@ using UnityEngine;
 ///      the ball to him at catching height.
 ///   2. Unless a target already did it comfortably: a sweep across the arc from a random start,
 ///      closer together in the straight arc, where he means to play.
-/// Then a refinement around the best so far: 2 degrees either way, a little harder or softer,
-/// higher or flatter. A shot that lands the intent always beats one that does not, and among
-/// those that do the straighter arc wins before the margin does.
+///   3. If nothing in the arc has landed the intent: a fine refinement around the arc's own
+///      nearest miss (RefineMiss), before the search widens.
+/// Then, once something lands, a refinement around the best: 2 degrees either way, a little
+/// harder or softer, higher or flatter. A shot that lands the intent always beats one that does
+/// not, and among those that do the straighter arc wins before the margin does.
 ///
 /// The career player stands at the non-striker's end, just off straight: a shot passing within
 /// PartnerShotPlanner.HumanClearance of his head is never taken. Rather than just dropping it, the
@@ -67,6 +69,10 @@ internal sealed class PartnerDirectionSearch
     private float bestScore = float.NegativeInfinity, bestMargin;
     private int bestArc, nudgesLeft = NudgeBudget;
     private bool any;
+    /// The best shot tried in each arc, by Score alone: what an arc that missed is refined around.
+    private readonly Candidate[] arcBest = new Candidate[3];
+    private readonly float[] arcScore = new float[3];
+    private readonly bool[] arcAny = new bool[3];
 
     public int Tried { get; private set; }
     public ShotDirection Best => best;
@@ -118,6 +124,13 @@ internal sealed class PartnerDirectionSearch
     private bool Landed => any && best.valid;
 
     /// Every candidate in order; lazy, because the widening and the refinement read the best so far.
+    /// An arc where nothing landed the intent is refined around its own nearest miss before the
+    /// search widens. The intents a field gives only in a narrow window are found by that
+    /// refinement - the threes on the test fields, 14.5 to 15 m/s a few degrees either side of
+    /// square leg, on two of the 18 - and refining only the overall best, a straight two that the
+    /// arc order prefers among misses, never looked there (measured 2026-11-05 over 180 seeded
+    /// searches: threes planned 14 searching the whole field, 0 with the arcs refining only the
+    /// overall best, 18 now; PartnerIntentReachTests).
     public IEnumerable<Candidate> Candidates()
     {
         if (intent == PartnerIntent.LeaveWide) yield break;
@@ -126,9 +139,11 @@ internal sealed class PartnerDirectionSearch
             foreach (Candidate c in WithNudges(Targets(arc))) yield return c;
             if (!(Landed && bestMargin >= Comfortable))
                 foreach (Candidate c in WithNudges(Sweep(arc))) yield return c;
+            if (!Landed && arcAny[arc])
+                foreach (Candidate c in WithNudges(RefineMiss(arcBest[arc]))) yield return c;
         }
-        if (any)
-            foreach (Candidate c in Refine(bestCandidate)) yield return c;
+        if (Landed)
+            foreach (Candidate c in WithNudges(Refine(bestCandidate))) yield return c;
     }
 
     /// The candidates, each followed by any retries Try queued for it (turned off the player).
@@ -157,6 +172,12 @@ internal sealed class PartnerDirectionSearch
         bool match = PartnerShotPlanner.Realises(intent, a, out float margin);
         float score = PartnerShotPlanner.Score(intent, a, match, margin);
         int arc = Arc(c.angle);
+        if (!arcAny[arc] || score > arcScore[arc])
+        {
+            arcAny[arc] = true;
+            arcScore[arc] = score;
+            arcBest[arc] = c;
+        }
         if (Better(match, arc, score))
         {
             any = true;
@@ -253,6 +274,23 @@ internal sealed class PartnerDirectionSearch
         }
     }
 
+    /// Around an arc's nearest miss: finer than Refine, because what was missed is usually a
+    /// narrow window - the threes on the test fields are only to be had between 14.5 and 15 m/s,
+    /// which a 2 m/s step from the grid's 14 or 17 jumps straight over. The miss itself and 2 and
+    /// 4 degrees either side, each 1 and 2 m/s harder and softer and 3 degrees higher and flatter.
+    private IEnumerable<Candidate> RefineMiss(Candidate b)
+    {
+        float[] turns = { 0f, -2f, 2f, -4f, 4f };
+        float[] speeds = { 1f, -1f, 2f, -2f };
+        foreach (float d in turns)
+        {
+            foreach (float ds in speeds)
+                yield return new Candidate { angle = b.angle + d, elevation = b.elevation, speed = b.speed + ds };
+            yield return new Candidate { angle = b.angle + d, elevation = b.elevation + 3f, speed = b.speed };
+            yield return new Candidate { angle = b.angle + d, elevation = b.elevation - 3f, speed = b.speed };
+        }
+    }
+
     /// The fielders other than the keeper (and, for catches, only those in front of square-ish).
     private List<int> Fielders(bool forCatch)
     {
@@ -283,8 +321,12 @@ internal sealed class PartnerDirectionSearch
         return aims;
     }
 
-    /// The middle of every gap of 15 degrees or more between fielders, as much of it as lies in
-    /// this arc, widest first, shuffled among the wide ones so the same gap is not always the one.
+    /// Every gap of 15 degrees or more between fielders, as much of it as lies in this arc, widest
+    /// first, shuffled among the wide ones so the same gap is not always the one. Aimed at the
+    /// middle of the whole gap when that is in the arc - the run is likeliest there, furthest from
+    /// both fielders - and only at the middle of the piece in the arc when it is not (a gap that
+    /// straddles the edge of the V). Aiming at the piece's middle every time moved the aims off the
+    /// gaps' middles and lost threes (measured 2026-11-05: 11 of 180 seeded searches, 18 this way).
     private List<float> Gaps(int arc)
     {
         var angles = new List<float>();
@@ -298,7 +340,9 @@ internal sealed class PartnerDirectionSearch
             foreach (Vector2 r in ranges)
             {
                 float lo = Mathf.Max(angles[i - 1], r.x), hi = Mathf.Min(angles[i], r.y), w = hi - lo;
-                if (w >= 15f) gaps.Add(new Vector2(0.5f * (lo + hi), w + 20f * (float)rng.NextDouble()));
+                float whole = 0.5f * (angles[i - 1] + angles[i]);
+                float aim = whole >= r.x && whole <= r.y ? whole : 0.5f * (lo + hi);
+                if (w >= 15f) gaps.Add(new Vector2(aim, w + 20f * (float)rng.NextDouble()));
             }
         gaps.Sort((x, y) => y.y.CompareTo(x.y));
         var aims = new List<float>();
