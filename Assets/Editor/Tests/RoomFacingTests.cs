@@ -65,18 +65,55 @@ public class RoomFacingTests
                     "saved " + saved + ", scene " + scene);
     }
 
-    /// Two scenes, the player looking a different way at each load: the same rig yaw both times,
-    /// so the same wall of his room is the bowler - where he looks does not move the pitch.
+    /// One placement as XRRigSetup.PlaceAtCrease makes it, on bare yaws: the choice of
+    /// down-the-pitch from the saved value and the head, then the turn from the rig's yaw now.
+    /// Returns the rig's yaw after, and the room yaw used.
+    private static float PlaceAsTheRigDoes(bool hasSaved, float saved, float headTrackingYaw,
+                                           float startRigYaw, float scene, out float roomYaw)
+    {
+        Assert.IsTrue(RoomFacing.Choose(hasSaved, saved, true, headTrackingYaw, out roomYaw, out _));
+        return Placed(startRigYaw, roomYaw, scene);
+    }
+
+    /// Two scenes, the player looking a different way at each load (head tracking yaw 10, then
+    /// 200, and the rig loaded at a different yaw too): the same rig yaw both times, so the same
+    /// wall of his room is the bowler. And his head is not snapped onto the bowler: it sees as far
+    /// off the bowler as it was off the saved direction. (The old placement turned the head onto
+    /// the bowler, so the two loads would differ by 190 degrees.)
     [Test]
     public void WhereTheHeadLooksDoesNotMoveThePitch()
     {
         const float saved = 40f;
-        float first = Placed(startRigYaw: 0f, saved, TowardsBowler);
-        float second = Placed(startRigYaw: 123f, saved, TowardsBowler);
+        float first = PlaceAsTheRigDoes(true, saved, headTrackingYaw: 10f, 0f, TowardsBowler, out _);
+        float second = PlaceAsTheRigDoes(true, saved, headTrackingYaw: 200f, 123f, TowardsBowler, out _);
         Assert.AreEqual(0f, Mathf.DeltaAngle(first, second), 1e-3f);
-        // The head looking 90 degrees right of down-the-pitch (tracking yaw 130) sees 90 degrees
-        // right of the bowler, not the bowler.
-        Assert.AreEqual(0f, Mathf.DeltaAngle(TowardsBowler + 90f, WorldYaw(second, saved + 90f)), 1e-3f);
+        Assert.AreEqual(0f, Mathf.DeltaAngle(TowardsBowler, WorldYaw(first, saved)), 1e-3f);
+        Assert.AreEqual(0f, Mathf.DeltaAngle(TowardsBowler + (200f - saved), WorldYaw(second, 200f)), 1e-3f,
+            "the head looks 160 degrees off the bowler, as it was 160 off down-the-pitch");
+    }
+
+    /// The very first placement (nothing saved) takes down-the-pitch from the head, and says to
+    /// save it; once saved the head no longer decides.
+    [Test]
+    public void TheFirstPlacementEverTakesTheHeadAndLaterOnesDoNot()
+    {
+        Assert.IsTrue(RoomFacing.Choose(false, 0f, true, -45f, out float first, out bool fromHead));
+        Assert.IsTrue(fromHead, "first ever: save the head's direction");
+        Assert.AreEqual(315f, first, 1e-3f);
+        Assert.IsTrue(RoomFacing.Choose(true, first, true, 90f, out float later, out fromHead));
+        Assert.IsFalse(fromHead, "saved: nothing new to save");
+        Assert.AreEqual(315f, later, 1e-3f, "the saved value, not the head's 90");
+    }
+
+    /// Nothing saved and the head looking straight up or down: no direction at all, so the rig
+    /// only slides and nothing is saved.
+    [Test]
+    public void NoSavedValueAndNoHeadDirectionChoosesNothing()
+    {
+        Assert.IsFalse(RoomFacing.Choose(false, 0f, false, 0f, out _, out bool fromHead));
+        Assert.IsFalse(fromHead);
+        Assert.IsTrue(RoomFacing.Choose(true, 12f, false, 0f, out float yaw, out _), "a saved value needs no head");
+        Assert.AreEqual(12f, yaw, 1e-3f);
     }
 
     /// Down the pitch is the far end at both ends: the bowler from the crease, the striker from the

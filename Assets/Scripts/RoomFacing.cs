@@ -68,6 +68,18 @@ public static class RoomFacing
         return true;
     }
 
+    /// Which down-the-pitch a placement uses. The saved one whenever there is one, so where the
+    /// head happens to look at this load cannot move the pitch. Only on the first placement ever
+    /// (nothing saved) is it the head's own direction, and `fromHead` tells the caller to save it.
+    /// False when there is neither (nothing saved, head looking straight up or down): just slide.
+    public static bool Choose(bool hasSaved, float saved, bool headHasYaw, float headYaw,
+                              out float roomYaw, out bool fromHead)
+    {
+        fromHead = !hasSaved && headHasYaw;
+        roomYaw = hasSaved ? Normalize(saved) : fromHead ? Normalize(headYaw) : 0f;
+        return hasSaved || fromHead;
+    }
+
     /// The rig yaw that puts the saved room direction on the scene's facing: rig yaw plus a
     /// tracking-space yaw is that direction's world yaw, so the rig takes the difference.
     public static float RigYaw(float savedTrackingYaw, float sceneFacingYaw) =>

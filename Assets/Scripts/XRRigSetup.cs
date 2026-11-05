@@ -118,12 +118,13 @@ public class XRRigSetup : MonoBehaviour
                 _subscribed = true;
             }
         }
-        NoteOriginSettling();
+        _recentre.Note(HasFloorOrigin || subsystemRetryFrames <= 0, Time.frameCount);
         // After a recentre, Splash included: down the pitch is where the head points now. Tried
         // each frame until he is not looking straight up or down, then placed (again) with it.
-        if (_recapture && cameraTransform != null && RoomFacing.Capture(transform, cameraTransform, out _))
+        if (_recentre.RecapturePending && cameraTransform != null
+            && RoomFacing.Capture(transform, cameraTransform, out _))
         {
-            _recapture = false;
+            _recentre.Captured();
             _placed = false;
         }
         // Only in a match (CricketVR, Nets): Splash has no crease, just the menu.
@@ -137,29 +138,14 @@ public class XRRigSetup : MonoBehaviour
 
     /// A recentre redraws tracking space under the headset, so the saved direction no longer
     /// points where it did in the room: take a new one, and place again. Not while the origin is
-    /// still settling (see OriginSettleFrames).
+    /// still settling after a load (RecentreGate).
     private void OnTrackingOriginUpdated(XRInputSubsystem subsystem)
     {
         _placed = false;
-        if (OriginSettled)
-            _recapture = true;
+        _recentre.OnOriginUpdated(Time.frameCount);
     }
 
-    /// Frames, after the floor origin is in (or its retries are given up), before an origin update
-    /// counts as the player's recentre. Asking for the floor origin on every scene load may report
-    /// an update of its own, and taking that as a recentre would throw the saved direction away on
-    /// every launch and every scene change - the very thing RoomFacing is for.
-    private const int OriginSettleFrames = 30;
-    private int _originSettledAt = -1;
-    private bool _recapture;
-
-    private bool OriginSettled => _originSettledAt >= 0 && Time.frameCount >= _originSettledAt;
-
-    private void NoteOriginSettling()
-    {
-        if (_originSettledAt < 0 && (HasFloorOrigin || subsystemRetryFrames <= 0))
-            _originSettledAt = Time.frameCount + OriginSettleFrames;
-    }
+    private readonly RecentreGate _recentre = new RecentreGate();
 
     /// The player at this end (career, watching his partner: NonStrikerView), placed now.
     public void PlaceAtEnd(bool nonStriker)
@@ -183,8 +169,14 @@ public class XRRigSetup : MonoBehaviour
     {
         if (cameraTransform == null)
             return;
-        if (RoomFacing.TryLoad(out float roomYaw) || RoomFacing.Capture(transform, cameraTransform, out roomYaw))
+        bool hasSaved = RoomFacing.TryLoad(out float saved);
+        bool headHasYaw = RoomFacing.TryHeadTrackingYaw(transform, cameraTransform, out float headYaw);
+        if (RoomFacing.Choose(hasSaved, saved, headHasYaw, headYaw, out float roomYaw, out bool fromHead))
+        {
+            if (fromHead)
+                RoomFacing.Save(roomYaw);
             RoomFacing.Place(transform, cameraTransform, roomYaw, EndFacing, EndHeadXZ);
+        }
         else
             RoomFacing.Slide(transform, cameraTransform, EndHeadXZ); // looking straight down, nothing saved: just move
         _placed = true;
