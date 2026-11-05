@@ -61,3 +61,15 @@ public class CareerMatchResult
     /// the rest of the match is simulated.
     public bool abandoned;
 }
+
+/// <summary>A career match begun and not yet recorded (CareerMatchRecovery): the plan, and the
+/// innings as it stood when last saved, so a match the app was killed in can still be recorded.</summary>
+[Serializable]
+public class PendingMatch
+{
+    public bool active;
+    public MatchPlan plan;
+    public int runs, balls, fours, sixes, teamRuns, teamWickets, teamBalls;
+    public bool batted, isOut;
+    public string how = "";
+}

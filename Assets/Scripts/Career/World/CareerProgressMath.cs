@@ -66,7 +66,8 @@ public static class CareerProgressMath
         for (int i = innings.Count - 1; i >= 0 && n < count; i--)
         {
             InningsRecord r = innings[i];
-            if (r == null || !r.batted || r.leftOut)
+            // Not out without facing a ball (the end came at the other end) says nothing about form.
+            if (r == null || !r.batted || r.leftOut || (r.balls == 0 && !r.isOut))
                 continue;
             sum += InningsScore(r);
             n++;
@@ -178,7 +179,7 @@ public static class CareerProgressMath
         for (int i = innings.Count - 1; i >= 0; i--)
         {
             InningsRecord r = innings[i];
-            if (r == null || !r.batted || r.leftOut)
+            if (r == null || !r.batted || r.leftOut || (r.balls == 0 && !r.isOut))
                 continue;
             if (r.runs != 0 || !r.isOut)
                 break;

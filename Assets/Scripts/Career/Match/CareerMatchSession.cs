@@ -34,11 +34,15 @@ public static class CareerMatchSession
     /// and load the match scene.
     public static void Begin(MatchPlan plan)
     {
-        if (plan == null)
+        // Once: a second press of Play match while the first is loading would replace the plan
+        // and load the scene twice, abandoning the first.
+        if (plan == null || Active)
             return;
         Plan = plan;
         TheirInnings = null;
         CareerProfile p = CareerSaves.Current;
+        CareerMatchRecovery.Begin(p, plan);
+        CareerSaves.SaveCurrent();
         CareerSettingsGuard.ApplyMatch(p != null ? p.hand : GameSettings.BattingStyle, plan.bowling, plan.overs,
                                        plan.batFirst ? eMatchType.SetTotal : eMatchType.Chase,
                                        plan.crowd, plan.pitch, plan.time);
@@ -66,9 +70,12 @@ public static class CareerMatchSession
             {
                 UnityEngine.Debug.LogError($"[Career] recording the match: {e.Message}");
             }
+            CareerMatchRecovery.Clear(p);
             CareerSaves.SaveCurrent();
         }
-        CareerSettingsGuard.Restore();
+        // The player's own settings come back when the match scene goes (CareerMatch.OnDestroy, or
+        // the next scene's load below): restored here, mid-scene, his batting hand would flip
+        // sides under the result card and the replay.
         MatchFlow.ClearOverrides();
         LastResult = result;
         LastPlan = plan;
@@ -126,6 +133,21 @@ public static class CareerMatchSession
         return yours
             ? CareerMatchLogic.StandInTeam(plan.yourTeam, plan.yourTeamName, plan.order, plan.orderRatings, Ladder.SquadMean(plan.rung))
             : CareerMatchLogic.StandInTeam(plan.opponent, plan.opponentName, plan.bowlers, null, Ladder.SquadMean(plan.rung));
+    }
+
+    /// A safety net for the settings: any scene but the match (and the nets, which keep their own)
+    /// loading with no career match on puts the player's own back.
+    [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void Boot()
+    {
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        if (!Active && scene.name != MatchScene && scene.name != NetsSession.NetsScene && !NetsSession.Career)
+            CareerSettingsGuard.Restore();
     }
 
     /// Tests: a plan in force without loading a scene or touching the settings.

@@ -57,6 +57,7 @@ public class OverBreak : MonoBehaviour
             Main.Instance.onGameStateChanged += OnGameState;
             subscribed = true;
         }
+        HUD.SimulatedBallScored += OnSimulatedBall;
     }
 
     private void OnDestroy()
@@ -64,6 +65,17 @@ public class OverBreak : MonoBehaviour
         Showing = false;
         if (subscribed && Main.Instance != null)
             Main.Instance.onGameStateChanged -= OnGameState;
+        HUD.SimulatedBallScored -= OnSimulatedBall;
+    }
+
+    /// A career match's simulated ball that finished an over: its catch-up card announces that
+    /// over, so this card must not come up for it later (a wide or dead first ball of the next over
+    /// leaves Balls at 0 at the next Ready).
+    private void OnSimulatedBall()
+    {
+        HUD hud = HUD.Instance;
+        if (hud != null && hud.Balls == 0 && hud.Overs > 0)
+            shownForOver = hud.Overs;
     }
 
     private void OnGameState()

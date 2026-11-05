@@ -151,7 +151,12 @@ public class SeasonScreen : MenuScreen
         {
             int at = result.IndexOf(verb, System.StringComparison.OrdinalIgnoreCase);
             if (at == 0 || at > 0 && result[at - 1] == ' ')
-                return result.Substring(at + verb.IndexOf(' '));
+            {
+                // " by 4 wickets": the balls left would run past the row's last column.
+                string m = result.Substring(at + verb.IndexOf(' '));
+                int paren = m.IndexOf(" (", System.StringComparison.Ordinal);
+                return paren > 0 ? m.Substring(0, paren) : m;
+            }
         }
         return "";
     }

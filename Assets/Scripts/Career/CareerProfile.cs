@@ -130,6 +130,9 @@ public class CareerProfile
     public string batFinish = "", kitTrim = "";
     /// The international side has picked him (top rung) - caps.
     public int caps;
+    /// A career match begun and not yet recorded: if the app dies mid-match it is recorded as left
+    /// early the next time the career is opened (CareerMatchRecovery).
+    public PendingMatch pending = new PendingMatch();
 
     public void AddInnings(InningsRecord r)
     {

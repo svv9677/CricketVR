@@ -53,6 +53,14 @@ public class MatchFlow : MonoBehaviour
     /// and "You" in a Quick Match; the career's two sides by name).
     public static string OpponentName = "AI", YourName = "You";
 
+    /// The status line again now (a career match's simulated balls change the score without a
+    /// state change, so the line would wait for the next real ball). Does not check for the end.
+    public static void RefreshStatus()
+    {
+        if (instance != null)
+            instance.UpdateStatus();
+    }
+
     /// Back to a normal match: no override, history kept, no listeners on Ended, no card note.
     public static void ClearOverrides()
     {
@@ -210,6 +218,8 @@ public class MatchFlow : MonoBehaviour
         Status = result;
         hud.UpdateUI();
         Debug.Log($"[MatchFlow] {r.Score} in {r.OversText} overs: {result}");
+        // The card below names the other side; a listener on Ended may clear the overrides.
+        string opponent = OpponentName;
         Ended?.Invoke(r, aiChase ?? AIFirst, result);
         if (!BuildCard())
             return;
@@ -218,7 +228,7 @@ public class MatchFlow : MonoBehaviour
             // The chase is shown at home, over by over: here, only what the AI needs.
             heading.text = "<color=#3B82F6>INNINGS OVER</color>";
             body.text = $"<b><size=150%>{r.Score}</size></b>  <color=#98A2B3>({r.OversText} overs)</color>\n" +
-                        $"{(OpponentName == "AI" ? "The AI needs" : OpponentName + " need")} {r.runs + 1} to win\n" +
+                        $"{(opponent == "AI" ? "The AI needs" : opponent + " need")} {r.runs + 1} to win\n" +
                         $"<size=70%><color=#98A2B3>Fours {r.fours}   Sixes {r.sixes}   Run rate {r.RunRate:0.00}{(KeepHistory ? "   · watch the chase at home" : "")}</color></size>";
         }
         else

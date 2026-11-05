@@ -119,9 +119,14 @@ public partial class HUD
         RaiseScoreEvents();   // anything left over from before, so this ball's are its own
         ReadyNoBallsForSimulatedBall();
         Simulating = true;
+        Bowler bowling = CurrentBowler;
         try
         {
             AddRuns(code);
+            // A run out is the side's wicket, not the bowler's (Credit gave it to him).
+            if (code == -1 && bowling != null && bowling.Wickets > 0 && howOut != null &&
+                howOut.StartsWith("run out", System.StringComparison.OrdinalIgnoreCase))
+                bowling.Wickets--;
             if (pendingOut != null)
                 LastDismissal = $"{pendingOut.Name} {(string.IsNullOrEmpty(howOut) ? "out" : howOut)}";
             // In the book already: AnnounceBall must not take it for a new ball at the next state.

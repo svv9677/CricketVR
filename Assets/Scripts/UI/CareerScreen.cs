@@ -78,7 +78,12 @@ public class CareerScreen : MenuScreen
     public void OnPlay(int i)
     {
         if (Valid(i) && CareerSaves.Activate(i) && Root != null)
+        {
+            // A match the app died in last time: recorded now, as left early (CareerMatchRecovery).
+            if (CareerMatchRecovery.Resolve(CareerSaves.Current))
+                CareerSaves.SaveCurrent();
             Root.Push("careerHub");
+        }
         else
             Refresh();
     }

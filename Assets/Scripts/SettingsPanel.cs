@@ -365,6 +365,13 @@ public partial class SettingsPanel : MonoBehaviour
     public void OnJustRestart()
     {
         Time.timeScale = 1f;
+        // A career match cannot be restarted: that would be a way out of a bad innings. Leaving it
+        // retires the career player out, as the pause menu's Main Menu does (CareerMatch).
+        if (CareerMatchSession.Active)
+        {
+            SceneFader.Load("Splash");
+            return;
+        }
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         UnityEngine.SceneManagement.SceneManager.LoadScene(scene.buildIndex >= 0 ? scene.buildIndex : 0);
     }

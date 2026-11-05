@@ -166,9 +166,11 @@ public static class CareerProgress
     /// The line in the record book, and the career figures.
     private static InningsRecord RecordInnings(CareerProfile p, Season s, MatchPlan plan, CareerMatchResult r)
     {
-        // Leaving the match early counts as retired out (MatchTypes: abandoned).
-        bool retired = r.retired || (r.abandoned && r.batted);
-        bool isOut = r.batted && (r.isOut || r.abandoned);
+        // Leaving the match early is retired out - CareerMatchLogic.Retire marks the innings he
+        // walked out of; one already over when he left (the winning runs hit at the other end)
+        // stands as it was.
+        bool retired = r.retired;
+        bool isOut = r.batted && r.isOut;
         var rec = new InningsRecord
         {
             season = s.number, rung = plan.rung,
