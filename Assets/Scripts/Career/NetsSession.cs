@@ -43,12 +43,51 @@ public static class NetsSession
     /// The session is over (finished or left): back to free nets for next time, hub on return.
     public static void End(RatingSet trialResult = null)
     {
+        leftPending = false;
         if (Mode != eNetsMode.Free)
             ReturnToHub = true;
         if (trialResult != null)
             TrialResult = trialResult;
         Mode = eNetsMode.Free;
         TrialIndex = 0;
+    }
+
+    /// The nets scene is going away before the session ended. A restart of the nets (Settings >
+    /// Restart reloads the scene) carries on with the session - the trial picks up at the same ball;
+    /// any other scene ends it. Either way the hub is wanted on the way back to Splash, so that is
+    /// set now (Splash's menu may read it before its sceneLoaded comes round).
+    public static void Left(RatingSet trialResult = null)
+    {
+        if (Mode == eNetsMode.Free)
+            return;
+        ReturnToHub = true;
+        if (trialResult != null)
+            TrialResult = trialResult;
+        leftPending = true;
+    }
+
+    private static bool leftPending;
+
+    [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void Boot()
+    {
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+        leftPending = false;
+    }
+
+    private static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        if (!leftPending)
+            return;
+        leftPending = false;
+        if (scene.name == NetsScene)
+            ReturnToHub = false;          // the nets again: still in the session
+        else
+        {
+            Mode = eNetsMode.Free;
+            TrialIndex = 0;
+        }
     }
 
     /// Tests.
@@ -58,5 +97,6 @@ public static class NetsSession
         TrialIndex = 0;
         ReturnToHub = false;
         TrialResult = null;
+        leftPending = false;
     }
 }

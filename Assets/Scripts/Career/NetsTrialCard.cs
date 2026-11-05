@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Text;
 using TMPro;
@@ -23,9 +24,18 @@ public class NetsTrialCard
     /// The progress line: metres ahead (toward the bowler), to the side, and above the eyes.
     private const float ProgressAhead = 7f, ProgressSide = 2.8f, ProgressUp = 0.7f, ProgressSize = 3f;
     /// The result card, as MatchFlow places its own.
-    private const float CardAhead = 1.5f, CardBelow = 0.1f, CardBigger = 1.25f;
+    private const float CardAhead = 1.5f, CardBelow = 0.1f, CardBigger = 1.4f;
     /// The plain-text fallback for the card.
     private const float FallbackAhead = 2.2f, FallbackSize = 0.9f;
+    /// How far (m, level) a MenuLayout eye may be from the camera and still be used.
+    private const float MaxLayoutDrift = 1.5f;
+    /// Sorting order above the nets' scoreboard canvas (10), which otherwise draws over anything
+    /// nearer the eye.
+    private const int OverTheScoreboard = 20;
+    /// The result body's width (card px).
+    private const float BodyWidth = 640f;
+    /// The heading ("Trial complete"), card px.
+    private const float HeadingSize = 40f;
 
     private readonly Transform parent;
     private TextMeshPro progress, fallback;
@@ -211,41 +221,55 @@ public class NetsTrialCard
         Transform play = card.transform.Find("Play");
         if (play == null)
             return false;
-        Transform labelRow = null;
-        for (int i = play.childCount - 1; i >= 0; i--)
+        // The play card: a name line, a line under it, Bowl, and a row of small buttons. The name
+        // line becomes the heading, the line under it the body, Bowl the Continue button; the row goes.
+        var doomed = new List<GameObject>();
+        foreach (Transform child in play)
         {
-            Transform child = play.GetChild(i);
-            Button change = child.GetComponentInChildren<Button>(true);
+            TMP_Text text = child.GetComponent<TMP_Text>();
             if (child.name.StartsWith("Bowl"))
                 WireContinueButton(child);
-            else if (child.GetComponent<TMP_Text>() != null)
-                heading = child.GetComponent<TMP_Text>();
-            else if (labelRow == null && child.GetComponentInChildren<TMP_Text>(true) != null && change != null && change.name == "Change")
-                labelRow = child;
+            else if (text != null && heading == null)
+            {
+                heading = text;
+                heading.enableAutoSizing = false;
+                heading.fontSize = HeadingSize;
+                heading.overflowMode = TextOverflowModes.Overflow;
+            }
+            else if (text != null && body == null)
+                MakeBody(text);
             else
-                UnityEngine.Object.Destroy(child.gameObject);
+                doomed.Add(child.gameObject);
         }
-        if (labelRow != null)
-            MakeBody(labelRow);
+        foreach (GameObject g in doomed)
+            UnityEngine.Object.Destroy(g);
+        // Over the nets' scoreboard, which is drawn at sorting order 10 whatever its depth.
+        Canvas canvas = card.GetComponent<Canvas>();
+        if (canvas != null)
+            canvas.sortingOrder = OverTheScoreboard;
         OpenXRMenuInputModule.RegisterPanel(card);
         return body != null && heading != null;
     }
 
-    /// The label row becomes the body: its buttons go, its text grows to hold the seven ratings and a
-    /// verdict that may wrap.
-    private void MakeBody(Transform labelRow)
+    /// The line under the heading becomes the body: it grows to hold the seven ratings and a verdict
+    /// that may wrap.
+    private void MakeBody(TMP_Text text)
     {
-        foreach (Button b in labelRow.GetComponentsInChildren<Button>(true))
-            UnityEngine.Object.Destroy(b.gameObject);
-        body = labelRow.GetComponentInChildren<TMP_Text>(true);
-        if (body == null)
-            return;
+        body = text;
         body.textWrappingMode = TextWrappingModes.Normal;
+        body.enableAutoSizing = false;
+        body.overflowMode = TextOverflowModes.Overflow;
         body.alignment = TextAlignmentOptions.TopLeft;
         body.fontSize = 30f;
         var layout = body.GetComponent<LayoutElement>();
-        if (layout != null)
+        if (layout == null)
+            layout = body.gameObject.AddComponent<LayoutElement>();
+        {
+            // Wide enough for "Temperament  62  Developing" on one line (the play card's line under
+            // the name is sized for a few words); the verdict wraps inside it.
             layout.preferredHeight = 400f;
+            layout.minWidth = layout.preferredWidth = BodyWidth;
+        }
     }
 
     private void WireContinueButton(Transform bowl)
@@ -282,6 +306,7 @@ public class NetsTrialCard
         t.fontSharedMaterial.SetFloat("_UnderlayOffsetY", -0.6f);
         t.fontSharedMaterial.SetFloat("_UnderlaySoftness", 0.5f);
         t.text = "";
+        t.GetComponent<MeshRenderer>().sortingOrder = OverTheScoreboard;
         go.SetActive(false);
         return t;
     }
@@ -291,9 +316,12 @@ public class NetsTrialCard
     /// gaze, where they are looking.
     private static bool Eye(bool gaze, out Vector3 eye, out Vector3 forward)
     {
-        if (MenuLayout.TryGetEye(out eye, out forward))
-            return true;
         Camera cam = Camera.main;
+        // The Nets scene's MenuLayout spot is the menu's default at the world origin, ten metres up
+        // the pitch from the crease: trust a layout eye only where the player actually is.
+        if (MenuLayout.TryGetEye(out eye, out forward) &&
+            (cam == null || Vector3.ProjectOnPlane(eye - cam.transform.position, Vector3.up).magnitude < MaxLayoutDrift))
+            return true;
         if (cam == null)
             return false;
         eye = cam.transform.position;

@@ -271,26 +271,29 @@ public class MatchFlow : MonoBehaviour
         Transform play = card.transform.Find("Play");
         if (play == null)
             return false;
-        Transform labelRow = null;
-        for (int i = play.childCount - 1; i >= 0; i--)
+        // The play card: a name line, a line under it, Bowl, and a row of small buttons (NextBallMenu,
+        // UIPrefabBuilder.PlayCard). The name line is the heading, the line under it the body, Bowl
+        // the Home button; the row goes.
+        var doomed = new System.Collections.Generic.List<GameObject>();
+        foreach (Transform child in play)
         {
-            Transform child = play.GetChild(i);
-            Button change = child.GetComponentInChildren<Button>(true);
+            TMP_Text text = child.GetComponent<TMP_Text>();
             if (child.name.StartsWith("Bowl"))
                 WireHomeButton(child);
-            else if (child.GetComponent<TMP_Text>() != null)
-                heading = child.GetComponent<TMP_Text>();
-            else if (labelRow == null && child.GetComponentInChildren<TMP_Text>(true) != null && change != null && change.name == "Change")
-                labelRow = child;
+            else if (text != null && heading == null)
+                heading = text;
+            else if (text != null && body == null)
+                body = text;
             else
-                Destroy(child.gameObject);
+                doomed.Add(child.gameObject);
         }
-        if (labelRow != null)
+        foreach (GameObject g in doomed)
+            Destroy(g);
+        if (body != null)
         {
-            foreach (Button b in labelRow.GetComponentsInChildren<Button>(true))
-                Destroy(b.gameObject);
-            body = labelRow.GetComponentInChildren<TMP_Text>(true);
             body.textWrappingMode = TextWrappingModes.NoWrap;
+            body.enableAutoSizing = false;
+            body.overflowMode = TextOverflowModes.Overflow;
             body.alignment = TextAlignmentOptions.TopLeft;
             body.fontSize = 36f;
             var layout = body.GetComponent<LayoutElement>();

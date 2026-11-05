@@ -172,9 +172,10 @@ public class NetsTrialTests
         RatingSet r = NetsTrial.RecordTrial(p);
         Assert.IsTrue(p.trialDone);
         Assert.AreEqual(1, p.totals.trials);
-        Assert.AreSame(r, p.ratings);
+        Assert.AreNotSame(r, p.trialRatings, "the caller's copy must not be the saved trial ratings");
         Assert.AreNotSame(p.ratings, p.trialRatings, "the trial's ratings must not move with the live ones");
-        Assert.AreEqual(p.ratings.sample, p.trialRatings.sample);
+        Assert.AreEqual(p.trialRatings.sample, r.sample);
+        Assert.AreEqual(p.ratings.sample, p.trialRatings.sample, "one trial and nothing else: the same balls");
     }
 
     [Test]
@@ -224,5 +225,34 @@ public class NetsTrialTests
         AssertLatin1(body);
         AssertLatin1(NetsTrialCard.ResultHeading);
         Assert.AreEqual("Ok?", NetsTrialCard.Latin1("Ok\u263A"));
+    }
+
+    [Test]
+    public void AnAbandonedAttemptIsNotPartOfTheTrialsRatings()
+    {
+        var p = new CareerProfile { name = "Test" };
+        // 20 balls of an attempt left half way: all bowled.
+        for (int i = 0; i < 20; i++)
+        {
+            BallRecord r = Ball(eBallEnd.Out);
+            r.source = eBallSource.Trial;
+            p.Add(r);
+        }
+        // A wide and 30 counting balls of the finished attempt.
+        BallRecord wide = Ball(eBallEnd.Wide, wide: true);
+        wide.source = eBallSource.Trial;
+        p.Add(wide);
+        for (int i = 0; i < NetsSession.TrialBalls; i++)
+        {
+            BallRecord r = Ball(eBallEnd.Dot);
+            r.source = eBallSource.Trial;
+            p.Add(r);
+        }
+        List<BallRecord> trial = NetsTrial.TrialBalls(p.balls, NetsSession.TrialBalls);
+        Assert.AreEqual(NetsSession.TrialBalls, trial.Count, "the finished attempt's 30 only");
+        Assert.IsFalse(trial.Exists(b => b.Out), "none of the abandoned attempt's balls");
+        RatingSet r2 = NetsTrial.RecordTrial(p);
+        Assert.AreEqual(NetsSession.TrialBalls, r2.sample);
+        Assert.AreEqual(50, p.ratings.sample, "the career's own ratings keep every real ball");
     }
 }

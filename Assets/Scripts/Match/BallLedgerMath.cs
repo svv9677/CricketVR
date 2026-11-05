@@ -45,20 +45,25 @@ public static class BallLedgerMath
     /// is worth what it would have been worth in a match, judged from the contact, where it went and
     /// how far it would have carried:
     ///   * the real blade missed it: 0;
-    ///   * an edge, or anything going behind square (on toward the keeper, +X): 0, or 1 if hard;
+    ///   * an edge, or anything straight back at the keeper (+X): 0, or 1 if hard;
     ///   * carrying 65 m or more on the full: 6;
     ///   * along the ground (first bounce inside 20 m) and hard in front of square: 4;
     ///   * otherwise 0-3 by how hard it was struck.
     /// The rules are the same on both sides of the wicket today; leftHanded turns the shot into the
     /// batter's frame so an off/leg split can come in without changing the callers.
+    /// Degrees either side of straight back (+X) that the keeper takes.
+    public const float KeeperCone = 15f;
+
     public static int NetsRunsEquivalent(Vector3 exitVelocity, float carry, eRealContact rc, bool leftHanded)
     {
         if (rc == eRealContact.WouldHaveMissed)
             return 0;
         Vector3 v = new Vector3(exitVelocity.x, exitVelocity.y, LineInBatterFrame(exitVelocity.z, leftHanded));
         float ground = new Vector2(v.x, v.z).magnitude, speed = v.magnitude;
-        bool behindSquare = v.x > 0f;
-        if (rc == eRealContact.Edge || behindSquare)
+        // Back toward the keeper (within KeeperCone of +X) is the keeper's ball whatever the contact;
+        // a clean pull, sweep or glance square or fine of square scores like any other shot.
+        bool atKeeper = v.x > 0f && Mathf.Abs(v.z) < v.x * Mathf.Tan(KeeperCone * Mathf.Deg2Rad);
+        if (rc == eRealContact.Edge || atKeeper)
             return ground >= 15f ? 1 : 0;
         if (carry >= 65f && v.y > 0f)
             return 6;

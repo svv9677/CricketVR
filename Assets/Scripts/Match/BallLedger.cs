@@ -37,6 +37,8 @@ public class BallLedger : MonoBehaviour
     private const float Arriving = 3f;
     /// Closest approach before the bat ever came near the ball.
     private const float NeverNear = 99f;
+    /// Points sampled along the ball's path each frame for the closest approach.
+    private const int ApproachSteps = 4;
 
     private Main main;
     private bool nets, leftHanded;
@@ -232,14 +234,21 @@ public class BallLedger : MonoBehaviour
         if (rec == null || !released || touched)
             return;
         touched = true;
-        exitVelocity = info.exitVelocity;
         rec.contact = (int)info.kind;
         rec.quality = info.quality;
         rec.realQuality = info.realQuality;
         rec.realContact = info.realContact;
-        rec.exitSpeed = info.exitSpeed;
-        rec.launchDeg = BallLedgerMath.LaunchDegrees(info.exitVelocity);
-        rec.carry = Carry(info.contactPoint, info.exitVelocity);
+        // The shot as the real blade would have played it (the shield's wider bat is livelier and
+        // heavier off the extra width): what power, carry and the nets' runs are measured from.
+        if (info.realContact == eRealContact.WouldHaveMissed)
+        {
+            exitVelocity = Vector3.zero;
+            return;
+        }
+        exitVelocity = info.realExitVelocity;
+        rec.exitSpeed = exitVelocity.magnitude;
+        rec.launchDeg = BallLedgerMath.LaunchDegrees(exitVelocity);
+        rec.carry = Carry(info.contactPoint, exitVelocity);
     }
 
     /// Where the shot first lands, ignoring fielders - exactly as ShotDistance.RecordHit projects it
@@ -272,6 +281,7 @@ public class BallLedger : MonoBehaviour
             rec.heightAtStumps = Mathf.Lerp(prevBall.y, ball.y, f);
             crossed = true;
         }
+        Vector3 from = prevBall;
         prevBall = ball;
 
         Bat bat = main.theBatScript;
@@ -279,7 +289,13 @@ public class BallLedger : MonoBehaviour
             return;
         if ((ball - bat.transform.position).sqrMagnitude > Arriving * Arriving)
             return;
-        rec.closestApproach = Mathf.Min(rec.closestApproach, RealBladeDistance(bat, ball));
+        // Along the ball's path since last frame, not just where it is now: a quick moves ~0.5 m a
+        // frame, so the nearest frame can be well off the nearest point of a near miss.
+        for (int i = 0; i <= ApproachSteps; i++)
+        {
+            Vector3 p = Vector3.Lerp(from, ball, i / (float)ApproachSteps);
+            rec.closestApproach = Mathf.Min(rec.closestApproach, RealBladeDistance(bat, p));
+        }
         rec.swingSpeed = Mathf.Max(rec.swingSpeed, bat.trackerVelocity.magnitude);
     }
 
@@ -331,9 +347,23 @@ public class BallLedger : MonoBehaviour
         else
             SettleMatch(r);
 
+        RealMissBowled(r);
         if (r.end != eBallEnd.Dead)
             ballsSinceWicket = r.Out ? 0 : ballsSinceWicket + 1;
         BallFeed.Raise(r);
+    }
+
+    /// The shield found a ball the real blade would have missed, and it was hitting the stumps: the
+    /// widened bat kept it out, but the batter was beaten and bowled, and that is what is measured
+    /// (the game's own score stands). Not off a no-ball or a free hit, as for any bowled.
+    private static void RealMissBowled(BallRecord r)
+    {
+        if (r.realContact != eRealContact.WouldHaveMissed || !r.wouldHitStumps || r.noBall || r.freeHit ||
+            r.wide || r.end == eBallEnd.Dead || r.Out)
+            return;
+        r.end = eBallEnd.Out;
+        r.runs = 0;
+        r.howOut = eHowOut.Bowled;
     }
 
     /// A match: the score against the snapshot - runs off the bat to the striker, a wicket.

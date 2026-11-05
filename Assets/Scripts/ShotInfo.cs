@@ -20,4 +20,6 @@ public struct ShotInfo
     public Vector3 exitVelocity, contactPoint;
     public float realQuality;
     public eRealContact realContact;
+    /// The ball off the real-width blade (RealBlade): what exit speed, carry and power are measured from.
+    public Vector3 realExitVelocity;
 }

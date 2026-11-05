@@ -33,26 +33,39 @@ public static class RealBlade
         public bool edge;
         /// Where on the real blade, as a batter would describe it (meaningless when missed).
         public BatContact.ContactKind kind;
+        /// The ball's velocity off the real blade (world), when the swing's velocities were given:
+        /// what the shot would really have done - the widened bat's response is livelier and heavier
+        /// off the extra width, so exit speed, carry and power are measured from this. The incoming
+        /// velocity (the ball carries on past) when the real blade would have missed.
+        public Vector3 exitVelocity;
     }
 
     /// <param name="hit">The sweep's contact, found with widthMultiplier.</param>
     /// <param name="scale">The bat's uniform scale (local units to metres), as passed to Sweep.</param>
     /// <param name="widthMultiplier">The shield's widening, as passed to Sweep (1 = the real blade).</param>
-    public static Contact Evaluate(BatContact.Hit hit, BatContact.Blade blade, float scale, float widthMultiplier)
+    public static Contact Evaluate(BatContact.Hit hit, BatContact.Blade blade, float scale, float widthMultiplier) =>
+        Evaluate(hit, blade, scale, widthMultiplier, Vector3.zero, Vector3.zero, BallFlight.Mass);
+
+    /// <param name="ballVelocity">The ball's velocity coming in, and the bat's at the contact point
+    /// (as Bat passes Respond), for the real blade's exit velocity.</param>
+    public static Contact Evaluate(BatContact.Hit hit, BatContact.Blade blade, float scale, float widthMultiplier,
+                                   Vector3 ballVelocity, Vector3 batPointVelocity, float ballMass)
     {
         if (!OnRealBlade(hit, blade, scale, widthMultiplier, out BatContact.Hit real))
-            return new Contact { contact = eRealContact.WouldHaveMissed, quality = 0f, edge = false, kind = BatContact.ContactKind.ThinEdge };
+            return new Contact { contact = eRealContact.WouldHaveMissed, quality = 0f, edge = false,
+                                 kind = BatContact.ContactKind.ThinEdge, exitVelocity = ballVelocity };
         // Respond's quality, edge and kind depend only on where the blade was met, not on the
-        // velocities, so they are read off a still bat and a still ball.
+        // velocities; its velocity is the real blade's response to the same swing.
         // A centre outside the real half-width always reads as a (thin) edge there: OnRealBlade
         // turns the normal toward it from the side, so Respond's centre lands outside too.
-        BatContact.Result r = BatContact.Respond(real, blade, scale, Vector3.zero, Vector3.zero, BallFlight.Mass, 1f);
+        BatContact.Result r = BatContact.Respond(real, blade, scale, ballVelocity, batPointVelocity, ballMass, 1f);
         return new Contact
         {
             contact = r.edge ? eRealContact.Edge : eRealContact.Clean,
             quality = r.quality,
             edge = r.edge,
             kind = r.kind,
+            exitVelocity = r.velocity,
         };
     }
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -38,8 +39,6 @@ public class NetsTrial : MonoBehaviour
     private NetsTrialCard ui;
     private Main main;
 
-    private eBattingStyle savedHand;
-    private eBowlingLevel savedBowling;
     private bool applied, feedSubscribed;
 
     private bool finishPending, finished, leaving;
@@ -71,12 +70,8 @@ public class NetsTrial : MonoBehaviour
         mode = NetsSession.Mode;
         CareerProfile p = CareerSaves.Current;
         ui = new NetsTrialCard(transform);
-        savedHand = GameSettings.BattingStyle;
-        savedBowling = MatchSetup.Bowling;
         applied = true;
-        MatchSetup.Bowling = NetsTrialPlan.Level;
-        if (p != null)
-            GameSettings.BattingStyle = p.hand;
+        CareerSettingsGuard.Apply(p != null ? p.hand : GameSettings.BattingStyle, NetsTrialPlan.Level);
         if (mode == eNetsMode.Trial)
         {
             plan = NetsTrialPlan.Make(NetsTrialPlan.SeedFor(p, CareerSaves.Active));
@@ -100,11 +95,12 @@ public class NetsTrial : MonoBehaviour
             BowlingAttack.ForceKind = null;
             BowlingAttack.ForceDelivery = null;
         }
-        // Left before the end (the pause menu's Main Menu, a restart): the session is over, the hub
-        // opens on return, and the balls already measured stay in the career. A finished trial left
-        // before its card was dismissed still reports its result.
+        // Left before the end: the pause menu's Main Menu ends the session (the hub opens on return;
+        // the balls already measured stay in the career), a restart of the nets carries on with it
+        // (NetsSession.Left decides when the next scene loads). A finished trial left before its card
+        // was dismissed still reports its result.
         if (!leaving)
-            NetsSession.End(finished ? result : null);
+            NetsSession.Left(finished ? result : null);
         RestoreSettings();
     }
 
@@ -206,7 +202,8 @@ public class NetsTrial : MonoBehaviour
         BowlingAttack.ForceKind = null;
         BowlingAttack.ForceDelivery = null;
         CareerProfile p = CareerSaves.Current;
-        RatingSet ratings = p != null ? RecordTrial(p) : new RatingSet();
+        // Recorded once: a restart while the card was up finishes again, from the same balls.
+        RatingSet ratings = p == null ? new RatingSet() : p.trialDone ? p.trialRatings.Clone() : RecordTrial(p);
         if (p != null)
             CareerSaves.SaveCurrent();
         result = ratings.Clone();
@@ -235,12 +232,33 @@ public class NetsTrial : MonoBehaviour
     /// trialRatings, a copy - the live ratings go on changing). Returns the ratings now.
     public static RatingSet RecordTrial(CareerProfile p)
     {
-        RatingSet ratings = CareerRatings.Compute(p.balls);
-        p.ratings = ratings;
+        // The starting ratings are this trial's: its TrialBalls counting balls, the most recent trial
+        // balls (an attempt left half way stays in the career's ratings, not in the trial's).
+        p.trialRatings = CareerRatings.Compute(TrialBalls(p.balls, NetsSession.TrialBalls));
+        p.ratings = CareerRatings.Compute(p.balls);
         p.trialDone = true;
-        p.trialRatings = ratings.Clone();
         p.totals.trials++;
-        return ratings;
+        return p.trialRatings.Clone();
+    }
+
+    /// The most recent trial balls, back to the `count`th counting one (the wides and dead balls
+    /// among them come too; Compute skips them).
+    public static List<BallRecord> TrialBalls(List<BallRecord> balls, int count)
+    {
+        int start = balls.Count, counted = 0;
+        for (int i = balls.Count - 1; i >= 0 && counted < count; i--)
+        {
+            if (balls[i] == null || balls[i].source != eBallSource.Trial)
+                continue;
+            start = i;
+            if (balls[i].Counts && balls[i].end != eBallEnd.Dead)
+                counted++;
+        }
+        var trial = new List<BallRecord>();
+        for (int i = start; i < balls.Count; i++)
+            if (balls[i] != null && balls[i].source == eBallSource.Trial)
+                trial.Add(balls[i]);
+        return trial;
     }
 
     /// Back to the career hub with the result (the card's button, A, or the time running out).
@@ -290,15 +308,6 @@ public class NetsTrial : MonoBehaviour
         if (!applied)
             return;
         applied = false;
-        MatchSetup.Bowling = savedBowling;
-        try
-        {
-            GameSettings.BattingStyle = savedHand;
-        }
-        catch (System.Exception e)
-        {
-            // Saved before Changed is raised, so the preference is back even if a listener failed.
-            Debug.LogWarning($"[NetsTrial] restoring the batting hand: {e.Message}");
-        }
+        CareerSettingsGuard.Restore();
     }
 }

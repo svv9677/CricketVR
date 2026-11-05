@@ -194,7 +194,7 @@ public partial class Bat : MonoBehaviour
                   $"local={hit.localBat.ToString("F3")} normal={normal.ToString("F2")} t={hit.t:F2}");
         // The same contact on the real-width blade, for measuring (the career): the shield only
         // ever changes the shot, never the measurement (RealBlade).
-        RealBlade.Contact real = RealBlade.Evaluate(hit, blade, scale, widthMultiplier);
+        RealBlade.Contact real = RealBlade.Evaluate(hit, blade, scale, widthMultiplier, incoming, batPointVelocity, ball.mass);
         // Report the swing the player actually made, not the power-scaled one.
         OnBallHit(inst, incoming, outgoing, swingVelocity.magnitude, result, real, contactCentre);
     }
@@ -232,6 +232,7 @@ public partial class Bat : MonoBehaviour
             contactPoint = contactCentre,
             realQuality = real.quality,
             realContact = real.contact,
+            realExitVelocity = real.exitVelocity,
         });
 
         // Haptics follow the contact too, both hands (both are on the handle), and scale with how

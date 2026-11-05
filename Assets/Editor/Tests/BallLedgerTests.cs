@@ -187,4 +187,13 @@ public class BallLedgerTests
         Assert.IsTrue(BallLedgerMath.UnderPressure(false, 0, 30, true), "a wicket just fell");
         Assert.IsFalse(BallLedgerMath.UnderPressure(true, 0, 12, false), "already won");
     }
+
+    [Test]
+    public void ACleanShotSquareOrBehindSquareScoresLikeAnyOther()
+    {
+        Assert.AreEqual(6, BallLedgerMath.NetsRunsEquivalent(new Vector3(4f, 16f, 30f), 72f, eRealContact.Clean, false), "pulled for six, a touch behind square");
+        Assert.AreEqual(4, BallLedgerMath.NetsRunsEquivalent(new Vector3(10f, 1f, -26f), 9f, eRealContact.Clean, false), "swept hard along the ground");
+        Assert.AreEqual(1, BallLedgerMath.NetsRunsEquivalent(new Vector3(25f, 2f, 3f), 30f, eRealContact.Clean, false), "straight back to the keeper");
+        Assert.AreEqual(1, BallLedgerMath.NetsRunsEquivalent(new Vector3(4f, 16f, 30f), 72f, eRealContact.Edge, false), "an edge is still an edge");
+    }
 }
