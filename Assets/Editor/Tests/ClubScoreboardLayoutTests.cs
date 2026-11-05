@@ -187,13 +187,9 @@ public class ClubScoreboardLayoutTests
     }
 
     [Test]
-    public void TheLastWicketIsTheTotalWhenTheWicketsWentUp()
+    public void TheLastWicketTinShowsOnlyOnceAWicketIsDown()
     {
-        Assert.AreEqual(0, ClubScoreboardFigures.LastWicket(0, 0, 0, 25), "none down yet");
-        Assert.AreEqual(25, ClubScoreboardFigures.LastWicket(0, 0, 1, 25), "the first falls at 25");
-        Assert.AreEqual(25, ClubScoreboardFigures.LastWicket(1, 25, 1, 60), "kept while no more fall");
-        Assert.AreEqual(61, ClubScoreboardFigures.LastWicket(1, 25, 3, 61), "two in one poll: the total now");
-        Assert.AreEqual(0, ClubScoreboardFigures.LastWicket(3, 61, 0, 0), "a new innings");
+        // How the figure is worked out from the book is ClubScoreboardFallOfWicketTests'.
         BoardState down = ClubScoreboardFigures.From(60, 1, 10, 0, 0, 2, 10, 3, 20, 25);
         Assert.AreEqual("25", ClubScoreboardFigures.Figures(down)[(int)Slot.LastWicket]);
         Assert.AreEqual("", ClubScoreboardFigures.Figures(ClubScoreboardFigures.From(60, 0, 10, 0, 0, 2, 10, 3, 20, 0))[(int)Slot.LastWicket]);

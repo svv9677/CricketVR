@@ -13,9 +13,10 @@ using UnityEngine;
 /// balls change the score without a delivery, and polling sees those too. The text is set only when
 /// the figures change, so TMP rebuilds its mesh a few times an over, not every poll.
 ///
-/// The scorebook keeps no fall of wickets, so the board keeps its own: the total when it saw the
-/// wickets go up (ClubScoreboardFigures.LastWicket). Two wickets inside one poll (simulated balls
-/// in a burst) give the total after the second, as a scorer catching up would chalk it.
+/// The scorebook keeps no fall of wickets, so the board works out the last one each poll from its
+/// ball list (ClubScoreboardFigures.LastWicket): the total less the runs since the last "W". That
+/// stays right when a batch of simulated balls scores runs after a wicket in the same frame, which
+/// the total at the poll would not.
 /// </summary>
 public class ClubScoreboard : MonoBehaviour
 {
@@ -28,7 +29,6 @@ public class ClubScoreboard : MonoBehaviour
     private float nextPoll;
     private BoardState shown;
     private bool hasShown;
-    private int seenWickets, lastWicket;
 
     /// The name across the top of the board, in capitals as signwritten (ClubGround.SetClubName).
     public void SetHomeName(string name)
@@ -45,9 +45,7 @@ public class ClubScoreboard : MonoBehaviour
         HUD hud = HUD.Instance;
         if (hud == null)
             return;
-        lastWicket = ClubScoreboardFigures.LastWicket(seenWickets, lastWicket, hud.Wickets, hud.Runs);
-        seenWickets = hud.Wickets;
-        BoardState now = Read(hud, lastWicket);
+        BoardState now = Read(hud, ClubScoreboardFigures.LastWicket(hud.BowledBalls, hud.Runs, hud.Wickets));
         if (hasShown && now.Equals(shown))
             return;
         shown = now;

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
@@ -87,11 +88,44 @@ public static class ClubScoreboardFigures
         return s;
     }
 
-    /// The total at the fall of the last wicket, poll to poll: the total now when the wickets went
-    /// up since the last poll (a wicket ball's runs count: they are in the total when it falls),
-    /// nothing (0) when they went back to none (a new innings), else as it was.
-    public static int LastWicket(int wktsBefore, int lastBefore, int wkts, int runs) =>
-        wkts > wktsBefore ? runs : wkts == 0 ? 0 : lastBefore;
+    /// The total at the fall of the last wicket, read from the scorebook's ball list (HUD.BowledBalls:
+    /// "*", "4", "W", "wd", "3wd", "nb", "5nb", "2b"): the total now less the runs of every ball after
+    /// the last "W". Worked out from the book rather than from the total when the board saw the
+    /// wickets go up, because the career plays a batch of simulated balls in one frame (the
+    /// partner's balls, the rest of the innings once the player is out): a poll after the batch
+    /// would chalk the runs scored after the wicket as well. Counting back from the total, not up
+    /// from the first ball, means only the balls since the wicket have to be read right.
+    /// 0 with no wicket down; the total now if the book has no "W" to count back to.
+    public static int LastWicket(IList<string> book, int runs, int wkts)
+    {
+        if (wkts <= 0)
+            return 0;
+        int after = 0;
+        for (int i = book != null ? book.Count - 1 : -1; i >= 0; i--)
+        {
+            if (book[i] == "W")
+                return System.Math.Max(0, runs - after);
+            after += BallRuns(book[i]);
+        }
+        return runs;
+    }
+
+    /// The runs one scorebook entry put on the total: "*" and "W" none, "wd" and "nb" one, "3wd",
+    /// "5nb" and "2b" their number (a no-ball's or wide's includes its one), "4" its runs.
+    public static int BallRuns(string entry)
+    {
+        if (string.IsNullOrEmpty(entry) || entry == "*" || entry == "W")
+            return 0;
+        if (entry == "wd" || entry == "nb")
+            return 1;
+        int n = 0;
+        foreach (char c in entry)
+        {
+            if (c < '0' || c > '9') break;
+            n = n * 10 + (c - '0');
+        }
+        return n;
+    }
 
     /// What each slot shows ("" for a blank tin), in ClubScoreboardLayout.Slot order. A figure too
     /// long for its tins shows its tins' largest (999 on three).
