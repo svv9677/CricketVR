@@ -139,6 +139,7 @@ public class FieldCaptain : MonoBehaviour
                 if (!haveScore && HUD.Instance != null)
                 {
                     haveScore = true;
+                    simulatedSince = false;
                     Remember(HUD.Instance);
                 }
                 else if (simulatedSince && HUD.Instance != null)

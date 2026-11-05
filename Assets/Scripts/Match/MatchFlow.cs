@@ -214,7 +214,7 @@ public class MatchFlow : MonoBehaviour
             heading.text = "<color=#3B82F6>INNINGS OVER</color>";
             body.text = $"<b><size=150%>{r.Score}</size></b>  <color=#98A2B3>({r.OversText} overs)</color>\n" +
                         $"The AI needs {r.runs + 1} to win\n" +
-                        $"<size=70%><color=#98A2B3>Fours {r.fours}   Sixes {r.sixes}   Run rate {r.RunRate:0.00}   · watch the chase at home</color></size>";
+                        $"<size=70%><color=#98A2B3>Fours {r.fours}   Sixes {r.sixes}   Run rate {r.RunRate:0.00}{(KeepHistory ? "   · watch the chase at home" : "")}</color></size>";
         }
         else
         {

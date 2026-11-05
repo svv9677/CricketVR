@@ -91,6 +91,8 @@ public partial class HUD
                 if (Bowlers[i] != null && !string.IsNullOrEmpty(bowlerNames[i]))
                     Bowlers[i].Name = bowlerNames[i];
         }
+        // HUD.Reset already announced the opener before IsHuman was set: announce him again.
+        strikeRaised = null;
         UpdateUI();
     }
 
