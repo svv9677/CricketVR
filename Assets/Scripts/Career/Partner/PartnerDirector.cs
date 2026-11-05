@@ -71,7 +71,8 @@ public class PartnerDirector : MonoBehaviour
     {
         if (scene.name != CareerMatchSession.MatchScene || !CareerMatchSession.Active || FindFirstObjectByType<PartnerDirector>() != null)
             return;
-        var go = new GameObject("Partner Director", typeof(PartnerDirector), typeof(PartnerContact));
+        // PartnerContact first: PartnerDirector.Awake runs as it is added and looks for it.
+        var go = new GameObject("Partner Director", typeof(PartnerContact), typeof(PartnerDirector));
         SceneManager.MoveGameObjectToScene(go, scene);
     }
 
@@ -254,6 +255,8 @@ public class PartnerDirector : MonoBehaviour
             shotPlan = new ShotPlan { intent = dir.intent, shot = PartnerShot.Leave };
         }
         HasPlan = true;
+        if (contact == null)
+            contact = GetComponent<PartnerContact>();
         contact.Arm(shotPlan);
         // Seconds after the release, and the ball has only just left the hand (no physics step yet).
         partner.Play(shotPlan, shotPlan.contactTime);
