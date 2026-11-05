@@ -20,6 +20,11 @@ licence checked on each sound's Freesound page on 2026-11-05. Fetched as the pub
 | crowd_six | "RoaringCrowd" by benfree, https://freesound.org/people/benfree/sounds/130568/ ; and itmightgetloud 829453 (below) |
 | crowd_six, crowd_wicket | "Millerntor Stadium Crowd Reaction Excited 01" by itmightgetloud, https://freesound.org/people/itmightgetloud/sounds/829453/ |
 | crowd_ooh | "Group Ooh Aah" by CHallSmith, https://freesound.org/people/CHallSmith/sounds/870652/ ; "crowd oh - disappointed" by mrrap4food, https://freesound.org/people/mrrap4food/sounds/619007/ ; "S12-01 Crowd reactions; oohs; ahh" by craigsmith, https://freesound.org/people/craigsmith/sounds/675056/ (2026-11-05: these replaced a "group groan" that sounded scary; cut to start at the top of the crowd's swell so they land with the moment) |
+| club_clap | synthesised by `Tools/clubground/build_sounds.py` (2026-11-05): ours, no third-party material. Polite applause from 8-15 clappers, each its own hands (band-passed noise, 0.8-2.5 kHz, 6-10 ms decay), rate and distance |
+| club_cheer | synthesised by `Tools/clubground/build_sounds.py`: ours, no third-party material. Livelier applause (15 clappers) with a synthesised two-finger whistle |
+| fence | synthesised by `Tools/clubground/build_sounds.py`: ours, no third-party material. A modal wooden knock with a picket's rattle |
+| club_ambience (in `Assets/ClubGround/Audio/`, not this folder) | synthesised by `Tools/clubground/build_sounds.py`: ours, no third-party material. A seamless 30 s loop of songbirds, breeze, a distant road and murmur, about -24 LUFS |
 
 **Not auditioned by a person yet**: cut and levelled by measurement. Listen in the headset and adjust
-the cut times and levels in `build_sfx.py`, or the volumes in `MatchSounds` / `Footsteps`.
+the cut times and levels in `build_sfx.py`, or the volumes in `MatchSounds` / `Footsteps`. The club
+sounds were checked by spectrogram and level only; adjust them in `Tools/clubground/build_sounds.py`.
