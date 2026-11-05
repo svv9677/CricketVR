@@ -35,6 +35,7 @@ public partial class CareerMatch
         state.striker = hud.Batsmen.IndexOf(hud.CurrentBatsman);
         state.runner = hud.Batsmen.IndexOf(hud.CurrentRunner);
         CareerMatchLogic.ObserveOvers(state);
+        CareerMatchLogic.ObserveMoments(state);   // phase 7: balls to his fifty and hundred, from the scoreboard
         CareerMatchRecovery.Note(CareerSaves.Current, state);   // saved with his next ball
     }
 

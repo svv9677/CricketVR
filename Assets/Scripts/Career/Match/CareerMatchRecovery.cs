@@ -26,6 +26,9 @@ public static class CareerMatchRecovery
         if (m == null || !m.active || s == null)
             return;
         m.teamRuns = s.runs; m.teamWickets = s.wickets; m.teamBalls = s.balls;
+        // The record moments (phase 7), so a match finished without him keeps his fifty and his six.
+        m.ballsToFifty = s.ballsToFifty; m.ballsToHundred = s.ballsToHundred;
+        m.longestSix = s.longestSix; m.sixStamp = s.sixStamp ?? "";
         MatchBatter you = s.You;
         if (you == null)
             return;
@@ -77,6 +80,8 @@ public static class CareerMatchRecovery
     {
         MatchState s = CareerMatchLogic.NewState(plan, plan.overs * 6, plan.Target);
         s.runs = m.teamRuns; s.wickets = Math.Min(10, m.teamWickets); s.balls = m.teamBalls;
+        s.ballsToFifty = m.ballsToFifty; s.ballsToHundred = m.ballsToHundred;
+        s.longestSix = m.longestSix; s.sixStamp = m.sixStamp ?? "";
         int you = s.YouIndex;
         foreach (MatchBatter b in s.batters)
             b.batted = false;

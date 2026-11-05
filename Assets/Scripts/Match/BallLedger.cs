@@ -255,17 +255,8 @@ public class BallLedger : MonoBehaviour
         exitVelocity = info.realExitVelocity;
         rec.exitSpeed = exitVelocity.magnitude;
         rec.launchDeg = BallLedgerMath.LaunchDegrees(exitVelocity);
-        rec.carry = Carry(info.contactPoint, exitVelocity);
+        rec.carry = BallLedgerMath.Carry(info.contactPoint, exitVelocity, samples);
         rec.shotAngle = BallLedgerMath.ShotAngle(exitVelocity, leftHanded);
-    }
-
-    /// Where the shot first lands, ignoring fielders - exactly as ShotDistance.RecordHit projects it
-    /// for the shot card: the same flight model, from the contact, until the first bounce.
-    private float Carry(Vector3 from, Vector3 velocity)
-    {
-        BallFlight.Simulate(from, velocity, BallFlight.DeliveryEffects.None, 8f, samples, s => s.bounced);
-        Vector3 to = samples.Count > 0 ? samples[samples.Count - 1].position : from;
-        return new Vector2(to.x - from.x, to.z - from.z).magnitude;
     }
 
     // ---- Watching it arrive ---------------------------------------------------------------------

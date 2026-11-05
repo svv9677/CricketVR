@@ -80,7 +80,8 @@ public class CareerTotals
 [Serializable]
 public class CareerProfile
 {
-    public const int CurrentVersion = 2;
+    /// Version 3 (phase 7): the record book, backfilled from the innings and balls (CareerRecords.Backfill).
+    public const int CurrentVersion = 3;
     /// Innings kept in the record book (the stats keep everything).
     public const int MaxInnings = 200;
     /// Inbox messages kept.

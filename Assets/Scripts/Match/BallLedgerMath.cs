@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -35,6 +36,18 @@ public static class BallLedgerMath
         if (touched)
             return realContact == eRealContact.WouldHaveMissed ? eBallAction.Missed : eBallAction.Played;
         return closest < SwingNear && peakSwingSpeed > SwingSpeed ? eBallAction.Missed : eBallAction.Left;
+    }
+
+    /// Where the shot first lands, ignoring fielders - exactly as ShotDistance.RecordHit projects it
+    /// for the shot card: the same flight model, from the contact, until the first bounce. `buf` is
+    /// the caller's own list, reused so a shot allocates nothing (BallLedger, and the career's
+    /// record sixes, CareerMatchMoments).
+    public static float Carry(Vector3 from, Vector3 velocity, List<BallFlight.Sample> buf)
+    {
+        buf ??= new List<BallFlight.Sample>();
+        BallFlight.Simulate(from, velocity, BallFlight.DeliveryEffects.None, 8f, buf, s => s.bounced);
+        Vector3 to = buf.Count > 0 ? buf[buf.Count - 1].position : from;
+        return new Vector2(to.x - from.x, to.z - from.z).magnitude;
     }
 
     /// Launch angle (degrees, + up) of a velocity.

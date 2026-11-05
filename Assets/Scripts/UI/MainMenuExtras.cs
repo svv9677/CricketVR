@@ -9,8 +9,9 @@ using UnityEngine;
 /// result; and the last match as a small scorecard - won or lost, both sides' scores. Coming home
 /// from a match, its result is shown straight away (MatchResultScreen); coming home from a career
 /// session in the nets, the career hub is (NetsSession.ReturnToHub); from a career match, its
-/// result over the hub (CareerMatchSession.ReturnToHub, CareerResultScreen). Built by Tools >
-/// CricketVR > Build Menu Prefabs.
+/// result over the hub (CareerMatchSession.ReturnToHub, CareerResultScreen); from the replay
+/// theatre, the Records screen (ReplayTheatre.ReturnToRecords). Built by Tools > CricketVR > Build
+/// Menu Prefabs.
 /// </summary>
 public class MainMenuExtras : MonoBehaviour
 {
@@ -35,6 +36,17 @@ public class MainMenuExtras : MonoBehaviour
                 return;
             }
             CareerMatchSession.ReturnToHub = false;
+        }
+        // Back from the replay theatre (phase 7): the Records screen it was opened from, with the
+        // same rules for the flag as the nets', below.
+        if (ReplayTheatre.ReturnToRecords)
+        {
+            if (CareerSaves.Current != null)
+            {
+                StartCoroutine(ShowCareerRecords());
+                return;
+            }
+            ReplayTheatre.ReturnToRecords = false;
         }
         // Back from a career session in the nets: straight to the career hub, ahead of any match
         // result. The flag is only cleared once the hub is actually pushed (ShowCareerHub): this
@@ -117,6 +129,21 @@ public class MainMenuExtras : MonoBehaviour
         Push("career");
         Push("careerHub");
         Push("careerResult");
+    }
+
+    /// Records over Ratings over the hub over the slots, so Back walks the way he came. The theatre
+    /// plays no match into MatchHistory, so a pending result is an older one, already seen on the
+    /// way into the career (as in ShowCareerResult): dropped.
+    private IEnumerator ShowCareerRecords()
+    {
+        yield return null;
+        ReplayTheatre.ReturnToRecords = false;
+        if (MatchHistory.ResultPending)
+            MatchHistory.ResultPending = false;
+        Push("career");
+        Push("careerHub");
+        Push("careerRatings");
+        Push("careerRecords");
     }
 
     private void Push(string name)
