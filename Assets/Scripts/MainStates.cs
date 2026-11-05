@@ -38,6 +38,8 @@ public partial class Main
         case eGameState.InGame_SelectDelivery:
             {
                 // Get current bowler from Score keeper
+                // Will he overstep? Is it a free hit? (NoBalls)
+                NoBalls.NewDelivery(() => UnityEngine.Random.value);
                 // The bowler's over plan: his stock ball or one of his variations (BowlingAttack).
                 currentBowlingConfig = BowlingAttack.Next(theHUD, bowlingProfileManager);
                 // Each ball starts from the normal gap; a boundary or a keeper's miss sets its own.
@@ -205,6 +207,8 @@ public partial class Main
     /// The ball leaves the bowler's hand (the release animation event set InGame_DeliverBall).
     private void DeliverBall()
     {
+        // The umpire calls a front-foot no-ball as the ball is bowled.
+        NoBalls.Released();
         // Remove hand parent
         theBall.transform.SetParent(null);
         Vector3 torque = new Vector3(currentBowlingConfig.torqueX, 0f, 0f);

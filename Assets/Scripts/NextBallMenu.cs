@@ -29,7 +29,7 @@ public class NextBallMenu : MonoBehaviour
     private bool shown;
     private bool registered;
     private Bowler shownBowler;
-    private bool shownNewOver;
+    private bool shownNewOver, shownFreeHit;
     private TMP_Text header;
 
     private void Start()
@@ -79,10 +79,12 @@ public class NextBallMenu : MonoBehaviour
         if (bowlerLabel == null || hud == null || hud.CurrentBowler == null)
             return;
         bool newOver = hud.Balls == 0 && hud.Overs == 0;     // the match's first over; later overs are announced by OverBreak
-        if (hud.CurrentBowler == shownBowler && newOver == shownNewOver)
+        bool freeHit = NoBalls.NextIsFreeHit;
+        if (hud.CurrentBowler == shownBowler && newOver == shownNewOver && freeHit == shownFreeHit)
             return;
         shownBowler = hud.CurrentBowler;
         shownNewOver = newOver;
+        shownFreeHit = freeHit;
         string type = BowlerRepertoire.KindName(shownBowler.Kind);
         // Every bowling action in the game is right-arm, over the wicket (the run-ups come in on
         // the stumps' left as he sees them, AnimatedBowler).
@@ -90,7 +92,8 @@ public class NextBallMenu : MonoBehaviour
             ? $"{shownBowler.Name}  <color=#98A2B3>{type}</color>\n<size=55%><color=#98A2B3>Right-arm, over the wicket</color></size>"
             : $"{shownBowler.Name}  <color=#98A2B3>{type}</color>";
         if (header != null)
-            header.text = newOver ? "<color=#3B82F6>FIRST OVER</color>" : "BOWLER";
+            header.text = freeHit ? "<color=#F59E0B>FREE HIT</color>  <size=60%><color=#98A2B3>you can't be bowled or caught</color></size>"
+                        : newOver ? "<color=#3B82F6>FIRST OVER</color>" : "BOWLER";
     }
 
     private void Show()

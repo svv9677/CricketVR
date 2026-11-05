@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// What the umpire signals for a ball (Umpire).
-public enum UmpireSignal { None, Wide, NoBall, Bye, LegBye, Four, Six, Out }
+public enum UmpireSignal { None, Wide, NoBall, Bye, LegBye, Four, Six, Out, FreeHit }
 
 /// <summary>What happened on one ball, once it is scored: the words for the floating result
 /// (BallResultText) and the umpire's signal (Umpire).</summary>
@@ -93,6 +93,13 @@ public partial class HUD
             int n = entry == "wd" ? 1 : int.Parse(entry.Substring(0, entry.Length - 2));
             o.Label = n == 1 ? "WIDE" : $"WIDE +{n - 1}";
             o.Signal = UmpireSignal.Wide;
+            o.Color = ExtraColor;
+        }
+        else if (entry.EndsWith("nb"))
+        {
+            int n = entry == "nb" ? 1 : int.Parse(entry.Substring(0, entry.Length - 2));
+            o.Label = n == 1 ? "NO BALL" : n == 5 ? "NO BALL + FOUR" : n == 7 ? "NO BALL + SIX" : $"NO BALL +{n - 1}";
+            o.Signal = UmpireSignal.NoBall;
             o.Color = ExtraColor;
         }
         else if (entry.EndsWith("b"))

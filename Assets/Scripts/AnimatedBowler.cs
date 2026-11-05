@@ -102,6 +102,9 @@ public class AnimatedBowler : MonoBehaviour
         // His fingers on the ball, gripped for the delivery (BowlerGrip).
         if (GetComponent<BowlerGrip>() == null)
             gameObject.AddComponent<BowlerGrip>();
+        // His front foot over the line on a no-ball (FrontFoot, NoBalls).
+        if (GetComponent<FrontFoot>() == null)
+            gameObject.AddComponent<FrontFoot>();
     }
 
     private void Update()

@@ -113,6 +113,7 @@ public partial class HUD : MonoBehaviour
             AnimatedBowler.Instance.myBowlers.data.Add(AnimatedBowler.Instance.configs.data[((int)bo.Type) - 1]);
         }
         BowlingAttack.NewInnings();
+        NoBalls.NewInnings();
         int opener = BowlingAttack.PickNextBowler(Bowlers, null, 0, TotalOvers, () => Random.value);
         CurrentBowler = Bowlers[Mathf.Max(0, opener)];
         //CurrentBowler = Bowlers[2];               // QWERTYUIOP
@@ -234,6 +235,12 @@ public partial class HUD : MonoBehaviour
     /// added to that wide ("3wd"). Extras go to the team, never to the batter.
     void AddExtras(int runs)
     {
+        // Byes off a no-ball are no-ball extras: still not one of the six (NoBalls).
+        if (NoBalls.Called)
+        {
+            ScoreNoBall(runs, true);
+            return;
+        }
         CreditExtras(runs);
         Runs += runs;
         if (runs % 2 == 1)
@@ -249,9 +256,51 @@ public partial class HUD : MonoBehaviour
         BowledBalls.Add(runs == 0 ? "*" : $"{runs}b");
     }
 
+    /// A no-ball (NoBalls): one run to the team (the bowler's), plus runs off the bat to the batter
+    /// or byes to the team; a ball faced, not one of the over's six. "nb", "5nb" (four off it).
+    /// Byes coming in after the ball was first scored add to the same entry.
+    void ScoreNoBall(int runs, bool byes)
+    {
+        int last = BowledBalls.Count - 1;
+        bool already = byes && last >= 0 && BowledBalls[last].EndsWith("nb");
+        if (!already)
+        {
+            Runs += 1;
+            CurrentBowler.Conceded += 1;
+            CurrentBatsman.Balls++;
+        }
+        Runs += runs;
+        if (!byes)
+        {
+            CurrentBatsman.Runs += runs;
+            CurrentBowler.Conceded += runs;
+        }
+        if (runs % 2 == 1)
+            SwitchBatsmen();
+        if (already)
+        {
+            string e = BowledBalls[last];
+            int was = e == "nb" ? 1 : int.Parse(e.Substring(0, e.Length - 2));
+            BowledBalls[last] = $"{was + runs}nb";
+        }
+        else
+            BowledBalls.Add(runs == 0 ? "nb" : $"{1 + runs}nb");
+        NoBalls.Scored(true);
+    }
+
     // Note: -1 runs is a wicket
     void AddRuns(int runs)
     {
+        // Not out off a no-ball or a free hit (NoBalls): a catch is just the runs they ran, the
+        // ball that hit the stumps a dot.
+        if (runs == -1 && NoBalls.Protected)
+            runs = Main.Instance != null && Main.Instance.gameState == eGameState.InGame_Bowled ? 0 : RunsForTime();
+        if (NoBalls.Called)
+        {
+            ScoreNoBall(runs == 10 ? 0 : runs, false);
+            return;
+        }
+        NoBalls.Scored(runs == 10);
         Credit(runs);
         switch(runs)
         {
@@ -460,7 +509,7 @@ public partial class HUD : MonoBehaviour
             {
                 str = BowledBalls[i] + " " + str;
 
-                if (!BowledBalls[i].EndsWith("wd"))
+                if (!BowledBalls[i].EndsWith("wd") && !BowledBalls[i].EndsWith("nb"))
                 {
                     legal++;
                     if (legal == 6)
