@@ -82,7 +82,8 @@ public class MessageScreen : MenuScreen
 
     // ---- Formatting (pure; InboxScreensTests) ------------------------------------------------------
 
-    /// "OFFER  ·  5 Nov 2026", with "Answered" after it once a choice has been made.
+    /// "OFFER  ·  5 Nov 2026", with "Answered" after it once a choice has been made, or "Lapsed"
+    /// when the offer ran out (or the choice came too late) instead.
     public static string MetaLine(CareerMessage m)
     {
         if (m == null)
@@ -90,11 +91,19 @@ public class MessageScreen : MenuScreen
         string tag = $"<b><color={InboxScreen.TagColour(m.kind)}>{InboxScreen.Tag(m.kind)}</color></b>";
         string date = InboxScreen.DateText(m.date);
         string line = string.IsNullOrEmpty(date) ? tag : $"{tag}  <color={Muted}>·  {date}</color>";
-        return Answered(m) ? $"{line}  <color={Muted}>·</color>  <color={Good}>Answered</color>" : line;
+        if (!Answered(m))
+            return line;
+        string done = Lapsed(m) ? $"<color={Muted}>Lapsed</color>" : $"<color={Good}>Answered</color>";
+        return $"{line}  <color={Muted}>·</color>  {done}";
     }
 
     /// Answered, and it had something to answer (a note with no choices is just read).
     public static bool Answered(CareerMessage m) => m != null && m.answered && m.options != null && m.options.Count > 0;
+
+    /// Answered by the core rather than the player: CareerProgress puts its ExpiredNote under an
+    /// offer that lapsed, and under a choice made after the season's first match.
+    public static bool Lapsed(CareerMessage m) =>
+        Answered(m) && m.body != null && m.body.Contains(CareerProgress.ExpiredNote);
 
     /// An option's label; "OK" when it has none.
     public static string OptionLabel(MessageOption o) => o == null || string.IsNullOrEmpty(o.label) ? "OK" : o.label;

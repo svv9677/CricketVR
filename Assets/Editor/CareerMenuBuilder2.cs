@@ -299,8 +299,9 @@ public static class CareerMenuBuilder2
             WorldPanelBuilder.Line(column, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text, 34f, TextAlignmentOptions.Center);
         so.FindProperty("position").objectReferenceValue =
             WorldPanelBuilder.Line(column, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text, 34f, TextAlignmentOptions.Center);
-        // The scout's report, two lines at most, shown only when one was watching.
-        TextMeshProUGUI scout = WorldPanelBuilder.Text(column, "", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.Text, 60f);
+        // The scout's report, three lines at most (a scout's runs to about 160 characters, its
+        // verdict last), shown only when one was watching.
+        TextMeshProUGUI scout = WorldPanelBuilder.Text(column, "", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.Text, 84f);
         scout.overflowMode = TextOverflowModes.Ellipsis;
         scout.gameObject.SetActive(false);
         so.FindProperty("scout").objectReferenceValue = scout;

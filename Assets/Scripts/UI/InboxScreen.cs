@@ -38,15 +38,19 @@ public class InboxScreen : MenuScreen
 
     private readonly CareerMessage[] shown = new CareerMessage[PerPage];
     private int page;
-    // Coming back from a message keeps the page it was opened from; arriving from the hub starts
-    // on the newest.
-    private bool returning;
+    // Arriving from the hub starts on the newest (it calls StartAtNewest); coming back from a
+    // message keeps the page it was opened from. A flag the hub raises rather than one this
+    // screen keeps: a menu closed while a message is open never comes back here to clear it.
+    private static bool startAtNewest = true;
+
+    /// The hub calls this as it opens the inbox.
+    public static void StartAtNewest() => startAtNewest = true;
 
     public override void OnShow()
     {
-        if (!returning)
+        if (startAtNewest)
             page = 0;
-        returning = false;
+        startAtNewest = false;
         Refresh();
     }
 
@@ -213,7 +217,6 @@ public class InboxScreen : MenuScreen
         if (m == null || Root == null)
             return;
         MessageScreen.Open(m);
-        returning = true;
         Root.Push("careerMessage");
     }
 

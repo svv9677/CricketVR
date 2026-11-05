@@ -321,7 +321,11 @@ public class CareerHubScreen : MenuScreen
 
     public void OnSeason() => Push("careerSeason");
 
-    public void OnInbox() => Push("careerInbox");
+    public void OnInbox()
+    {
+        InboxScreen.StartAtNewest();
+        Push("careerInbox");
+    }
 
     /// He sits this one out: the match is simulated without him, and the banner says how it went.
     private void SimLeftOut(CareerProfile p, System.Random rng)

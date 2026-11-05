@@ -131,8 +131,12 @@ public static class CareerMenuBuilder3
 
         so.FindProperty("meta").objectReferenceValue =
             WorldPanelBuilder.Line(column, "", UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 28f, TextAlignmentOptions.Left);
-        so.FindProperty("title").objectReferenceValue =
-            WorldPanelBuilder.Line(column, "", UIStyle.TitleSize - 6f, FontStyles.Bold, UIStyle.Text, 48f, TextAlignmentOptions.Left);
+        // The title wraps to two lines: "You're left out for the match against <side>" names the
+        // side only at its end, and the body does not repeat it.
+        TextMeshProUGUI title = WorldPanelBuilder.Text(column, "", UIStyle.TitleSize - 8f, FontStyles.Bold, UIStyle.Text, 76f,
+                                                       TextAlignmentOptions.TopLeft);
+        title.overflowMode = TextOverflowModes.Ellipsis;
+        so.FindProperty("title").objectReferenceValue = title;
         so.FindProperty("from").objectReferenceValue =
             WorldPanelBuilder.Line(column, "", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.AccentText, 30f, TextAlignmentOptions.Left);
         UIControls.Divider(column);

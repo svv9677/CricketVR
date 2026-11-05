@@ -112,6 +112,19 @@ public class InboxScreensTests
     }
 
     [Test]
+    public void ALapsedOfferSaysLapsedNotAnswered()
+    {
+        CareerMessage m = Offer("join:2:Harbour Kings", "stay");
+        m.answered = true;
+        m.body = "Harbour Kings want you.\n" + CareerProgress.ExpiredNote;
+        Assert.IsTrue(MessageScreen.Lapsed(m));
+        Assert.AreEqual("OFFER  ·  5 Nov 2026  ·  Lapsed", Plain(MessageScreen.MetaLine(m)));
+        AssertLatin1(MessageScreen.MetaLine(m));
+        m.answered = false;
+        Assert.IsFalse(MessageScreen.Lapsed(m), "an offer still open has not lapsed");
+    }
+
+    [Test]
     public void AnOptionWithNoLabelIsOk()
     {
         Assert.AreEqual("OK", MessageScreen.OptionLabel(new MessageOption { action = "ok" }));
