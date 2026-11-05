@@ -94,6 +94,12 @@ public class NetsTrial : MonoBehaviour
         feedSubscribed = false;
         if (main != null)
             main.onGameStateChanged -= OnGameState;
+        // A ball forced at SelectDelivery but not yet bowled must not carry into the next scene.
+        if (mode == eNetsMode.Trial)
+        {
+            BowlingAttack.ForceKind = null;
+            BowlingAttack.ForceDelivery = null;
+        }
         // Left before the end (the pause menu's Main Menu, a restart): the session is over, the hub
         // opens on return, and the balls already measured stay in the career. A finished trial left
         // before its card was dismissed still reports its result.
@@ -134,9 +140,11 @@ public class NetsTrial : MonoBehaviour
     private void OnGameState()
     {
         eGameState s = main.gameState;
-        if (finished)
+        if (finished || finishPending)
         {
             // Held between balls: nothing may start another (re-asserted in Update for the rest).
+            // finishPending too: the 30th ball has counted but Update has not run Finish yet, and an
+            // unforced 31st ball must not start in that frame.
             if (s == eGameState.InGame_Ready || s == eGameState.InGame_SelectDelivery)
                 main.gameState = eGameState.InMenu;
             return;
