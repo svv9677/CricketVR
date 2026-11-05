@@ -7,7 +7,8 @@ using UnityEngine;
 /// screen object, so his screen is used as it is: under Quick Match, the match it will start
 /// (overs, bowling, pitch, who bats first); buttons to Match Setup, Customise, Career and the last
 /// result; and the last match as a small scorecard - won or lost, both sides' scores. Coming home
-/// from a match, its result is shown straight away (MatchResultScreen). Built by Tools > CricketVR
+/// from a match, its result is shown straight away (MatchResultScreen); coming home from a career
+/// session in the nets, the career hub is (NetsSession.ReturnToHub). Built by Tools > CricketVR
 /// > Build Menu Prefabs.
 /// </summary>
 public class MainMenuExtras : MonoBehaviour
@@ -23,6 +24,18 @@ public class MainMenuExtras : MonoBehaviour
     private void OnEnable()
     {
         Refresh();
+        // Back from a career session in the nets: straight to the career hub, ahead of any match
+        // result. The flag is cleared either way, so it cannot fire later on an unrelated return
+        // to this screen.
+        if (NetsSession.ReturnToHub)
+        {
+            NetsSession.ReturnToHub = false;
+            if (CareerSaves.Current != null)
+            {
+                StartCoroutine(ShowCareerHub());
+                return;
+            }
+        }
         if (MatchHistory.ResultPending)
             StartCoroutine(ShowResult());
     }
@@ -61,6 +74,14 @@ public class MainMenuExtras : MonoBehaviour
     {
         yield return null;
         Push("result");
+    }
+
+    /// The hub over the slots screen, so Back from the hub goes to the slots, then here.
+    private IEnumerator ShowCareerHub()
+    {
+        yield return null;
+        Push("career");
+        Push("careerHub");
     }
 
     private void Push(string name)

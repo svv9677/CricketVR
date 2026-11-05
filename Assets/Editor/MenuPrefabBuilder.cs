@@ -11,7 +11,8 @@ using UnityEngine.UI;
 ///     MainMenuScreen (Quick Match with overs steppers, Settings, and - MainMenuExtras - Match
 ///     Setup, Customise, Career, Results and the last match's score), PauseScreen (Resume,
 ///     Settings, Main Menu, plus the leave-match confirm row), MatchSetupScreen, CustomiseScreen,
-///     CareerScreen (a placeholder) and MatchResultScreen.
+///     the career screens (CareerMenuBuilder: the save slots, Create Player, Create Look and the
+///     career hub) and MatchResultScreen.
 ///
 /// The settings screen is NOT built here: it is the existing SettingsPanel prefab from
 /// Tools > CricketVR > Build Player UI, attached as a third screen by the scene builders.
@@ -33,7 +34,7 @@ public static class MenuPrefabBuilder
     private const float BackdropHeight = 1600f;
     private const float BackdropMetresPerPixel = 0.00625f;   // 3200 px -> 20 m
     private const float BackdropBehind = 3.0f;
-    private const float StepperWidth = 88f;
+    internal const float StepperWidth = 88f;
     private const float OversWidth = 170f;
 
     [MenuItem("Tools/CricketVR/Build Menu Prefabs")]
@@ -79,7 +80,9 @@ public static class MenuPrefabBuilder
         MenuScreen[] more =
         {
             BuildMatchSetup(panel.transform), BuildCustomise(panel.transform),
-            BuildCareer(panel.transform), BuildResult(panel.transform),
+            CareerMenuBuilder.BuildSlots(panel.transform), CareerMenuBuilder.BuildCreatePlayer(panel.transform),
+            CareerMenuBuilder.BuildCreateLook(panel.transform), CareerMenuBuilder.BuildHub(panel.transform),
+            BuildResult(panel.transform),
         };
 
         // MenuRoot.Awake switches screens off at runtime, but Awake does not run in the editor,
@@ -196,7 +199,7 @@ public static class MenuPrefabBuilder
         return screen;
     }
 
-    // ---- Match Setup, Customise, Career, Result ---------------------------------------------------
+    // ---- Match Setup, Customise, Result (the career screens: CareerMenuBuilder) ------------------
 
     private static MenuScreen BuildMatchSetup(Transform parent)
     {
@@ -270,23 +273,6 @@ public static class MenuPrefabBuilder
         return screen;
     }
 
-    private static MenuScreen BuildCareer(Transform parent)
-    {
-        Transform column = ScreenColumn(parent, "CareerScreen", out GameObject go);
-        CareerScreen screen = go.AddComponent<CareerScreen>();
-        SetScreenName(screen, "career");
-        Title(column, "Career", "Coming soon");
-        WorldPanelBuilder.Text(column, "Start at your local club and bat your way up: county, then your country. " +
-                                       "Every innings counts toward your record.", UIStyle.LabelSize, FontStyles.Normal,
-                               UIStyle.Text, 100f);
-        foreach (string stage in new[] { "1   Club cricket", "2   County", "3   International" })
-            WorldPanelBuilder.Line(column, stage + "   <color=#98A2B3>· locked</color>", UIStyle.LabelSize, FontStyles.Normal,
-                                   UIStyle.TextMuted, 40f, TextAlignmentOptions.Left);
-        UIControls.Divider(column);
-        UIControls.ActionButton(column, "Back", screen.OnBack, false);
-        return screen;
-    }
-
     private static MenuScreen BuildResult(Transform parent)
     {
         Transform column = ScreenColumn(parent, "MatchResultScreen", out GameObject go);
@@ -316,14 +302,14 @@ public static class MenuPrefabBuilder
         return screen;
     }
 
-    private static void Title(Transform column, string title, string subtitle)
+    internal static void Title(Transform column, string title, string subtitle)
     {
         WorldPanelBuilder.Text(column, title, UIStyle.TitleSize, FontStyles.Bold, UIStyle.Text, 58f);
         WorldPanelBuilder.Text(column, subtitle, UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 30f);
         UIControls.Divider(column);
     }
 
-    private static TextMeshProUGUI Hint(Transform column) =>
+    internal static TextMeshProUGUI Hint(Transform column) =>
         WorldPanelBuilder.Text(column, "", UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 30f, TextAlignmentOptions.Left);
 
     private static PauseScreen BuildPause(Transform parent)
@@ -361,7 +347,7 @@ public static class MenuPrefabBuilder
     }
 
     /// A screen: a full-width column under the card, switched on and off by MenuRoot.
-    private static Transform ScreenColumn(Transform parent, string name, out GameObject go)
+    internal static Transform ScreenColumn(Transform parent, string name, out GameObject go)
     {
         Transform column = WorldPanelBuilder.Column(parent, true, UIStyle.Gap);
         column.name = name;
@@ -369,7 +355,7 @@ public static class MenuPrefabBuilder
         return column;
     }
 
-    private static void SetScreenName(MenuScreen screen, string name)
+    internal static void SetScreenName(MenuScreen screen, string name)
     {
         var so = new SerializedObject(screen);
         so.FindProperty("screenName").stringValue = name;
