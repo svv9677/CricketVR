@@ -10,9 +10,10 @@ using UnityEngine;
 ///     that gets MissedPastStumps beyond the batter's stumps is called missed, as the keeper's take
 ///     would call it, so it is a ball faced (BallLedger) and not a dead ball;
 ///   * gathered: once a ball is missed (that, a wide, or Bat's automatic call on a hit in the nets)
-///     it is stopped and held still where it is when it has come to rest, or GatherAfter seconds
-///     on, as if picked up - Main waits for the ball to be held (WaitForReturnThenReset: the
-///     keeper's gloves in a match) before the next one.
+///     it is stopped and held still where it is once it has come to rest, or once GatherAfter
+///     seconds are up and it is rolling on the ground (never in the air), as if picked up - Main
+///     waits for the ball to be held (WaitForReturnThenReset: the keeper's gloves in a match)
+///     before the next one, and gives up waiting on its own after MaxReturnWait.
 /// None of this happens while a keeper is on the field (a scene with one keeps his rules).
 /// </summary>
 public class NetsBackstop : MonoBehaviour
@@ -22,6 +23,8 @@ public class NetsBackstop : MonoBehaviour
     public const float MissedPastStumps = 1.2f;
     /// A missed ball is gathered once it is this slow (m/s), or this long (s) after the call.
     private const float GatherSpeed = 0.6f, GatherAfter = 2.5f;
+    /// A ball's centre below this (m) is on the ground (rolling), not in the air.
+    private const float OnTheGround = 0.3f;
     /// Speed into the net (m/s) at full volume; the softest sound's volume; slower than this, and
     /// within MinGap of the last, nothing (a ball rolling along the bottom of the net).
     private const float FullVolumeImpact = 18f, MinVolume = 0.15f, Quietest = 0.8f, MinGap = 0.07f;
@@ -96,7 +99,11 @@ public class NetsBackstop : MonoBehaviour
     {
         if (ball.isKinematic)
             return;
-        if (ball.linearVelocity.magnitude > GatherSpeed && Time.time - missedAt < GatherAfter)
+        // Still: gather it. Still moving: only once GatherAfter is up and it is on the ground, so a
+        // skier is never held up in the sky; one still in the air waits for Main's own give-up.
+        bool still = ball.linearVelocity.magnitude <= GatherSpeed;
+        bool down = ball.position.y < OnTheGround;
+        if (!still && (Time.time - missedAt < GatherAfter || !down))
             return;
         ball.linearVelocity = Vector3.zero;
         ball.angularVelocity = Vector3.zero;

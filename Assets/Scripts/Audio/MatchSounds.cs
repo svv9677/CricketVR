@@ -197,7 +197,12 @@ public class MatchSounds : MonoBehaviour
     {
         Vector3 at = ball.position;
         float speed = lastBallVelocity.magnitude;
-        bool keeper = NearestPlayer(at) is Footsteps f && f.GetComponentInParent<KeeperCatcher>() != null;
+        Footsteps nearest = NearestPlayer(at);
+        // Nobody within reach: not a take (the practice nets hold a dead ball still where it lies,
+        // NetsBackstop, with no one near it).
+        if (nearest == null || (nearest.transform.position - at).sqrMagnitude > TakeReach * TakeReach)
+            return;
+        bool keeper = nearest.GetComponentInParent<KeeperCatcher>() != null;
         if (keeper)
             GameSfx.Play("glove", at, GameAudio.Channel.Fielders, Mathf.Lerp(0.35f, 1f, speed / 30f), Random.Range(0.96f, 1.04f), 1.5f, 60f);
         else
@@ -206,6 +211,8 @@ public class MatchSounds : MonoBehaviour
     }
 
     private Footsteps[] players;
+    /// A take is within this of the taker's feet (m): wide enough for a keeper's full-length dive.
+    private const float TakeReach = 5f;
 
     /// Who is nearest the ball (the one who has just taken it).
     private Footsteps NearestPlayer(Vector3 at)
