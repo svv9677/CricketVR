@@ -148,6 +148,9 @@ public class Ball : MonoBehaviour
             bool swinging = inst.gameState == eGameState.InGame_DeliverBallLoop && fresh;
             Vector3 air = BallFlight.AirAcceleration(velocity,
                 swinging ? deliveryEffects.swingAccelPerV2 : 0f, deliveryEffects.swingSign);
+            // A top-spinner's dip (BallFlight.DeliveryEffects.dip), until it pitches.
+            if (swinging && deliveryEffects.dip != 0f)
+                air.y -= deliveryEffects.dip;
             myRigidBody.AddForce(air, ForceMode.Acceleration);
 
             // PhysX has no rolling resistance, so without this a ball on the ground rolls forever.
@@ -247,6 +250,14 @@ public class Ball : MonoBehaviour
                 //print(((firstImpact + transform.position.x) / 2) - Main.Instance.currentBowlingConfig.length);
                 fresh = false;
                 lastPitchPoint = collisionInfo.GetContact(0).point;
+
+                // Kick or skid off the first bounce (a top-spinner, a slider): the same rule
+                // BallFlight.Simulate aims and predicts with.
+                if (deliveryEffects.BounceScale != 1f)
+                {
+                    Vector3 kv = myRigidBody.linearVelocity;
+                    myRigidBody.linearVelocity = new Vector3(kv.x, kv.y * deliveryEffects.BounceScale, kv.z);
+                }
 
                 // Turn off the pitch: PhysX has already bounced the ball, so rotate the velocity it
                 // bounced with (BallFlight.Turn - the same rule BallDelivery aimed with).

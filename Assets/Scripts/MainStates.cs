@@ -38,7 +38,8 @@ public partial class Main
         case eGameState.InGame_SelectDelivery:
             {
                 // Get current bowler from Score keeper
-                currentBowlingConfig = bowlingProfileManager.GetProfile(theHUD.CurrentBowler.Type).GetRandomDelivery();
+                // The bowler's over plan: his stock ball or one of his variations (BowlingAttack).
+                currentBowlingConfig = BowlingAttack.Next(theHUD, bowlingProfileManager);
                 // Each ball starts from the normal gap; a boundary or a keeper's miss sets its own.
                 resetDelay = NextBallDelay;
                 CameraReplay.Instance.ResetForNextBall();

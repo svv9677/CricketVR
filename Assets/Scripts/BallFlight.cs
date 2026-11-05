@@ -150,6 +150,13 @@ public static class BallFlight
         public float swingAccelPerV2;
         public float swingSign;
         public float turnDegrees;
+        /// Extra downward acceleration in the air before the first bounce, m/s^2: over-spin
+        /// (Magnus) pulling a top-spinner down so it dips. 0 for most deliveries.
+        public float dip;
+        /// Vertical speed kept off the first bounce, as a multiple of the normal rebound: a
+        /// top-spinner kicks (above 1), a slider or flipper skids on low (below 1). 0 means 1.
+        public float bounceScale;
+        public float BounceScale => bounceScale > 0f ? bounceScale : 1f;
         public static readonly DeliveryEffects None = default;
     }
 
@@ -171,6 +178,8 @@ public static class BallFlight
             if (!rolling)
             {
                 Vector3 accel = Physics.gravity + AirAcceleration(velocity, bounced ? 0f : effects.swingAccelPerV2, effects.swingSign);
+                if (!bounced)
+                    accel.y -= effects.dip;
                 velocity += accel * dt;
                 Vector3 before = position;
                 position += velocity * dt;
@@ -186,6 +195,8 @@ public static class BallFlight
                     position.y = ground + Radius;
                     bool first = !bounced;
                     velocity = Bounce(velocity, OnPitch(position));
+                    if (first)
+                        velocity.y *= effects.BounceScale;
                     if (first && effects.turnDegrees != 0f)
                         velocity = Turn(velocity, effects.turnDegrees);
                     bounced = true;

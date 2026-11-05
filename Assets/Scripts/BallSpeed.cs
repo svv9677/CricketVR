@@ -24,7 +24,10 @@ public class BallSpeed : MonoBehaviour
         yield return new WaitForFixedUpdate();
         yield return new WaitForFixedUpdate();
 
-        setText(Kmh(Main.Instance.theBallRigidBody.linearVelocity.magnitude) + " km/h");
+        // What it was as well as how fast, so a player learns the bowler's variations.
+        BowlingParams cfg = Main.Instance.currentBowlingConfig;
+        string what = cfg != null ? BowlerRepertoire.Name(cfg.delivery, cfg.kind) + "\n" : "";
+        setText(what + Kmh(Main.Instance.theBallRigidBody.linearVelocity.magnitude) + " km/h");
     }
 
     /// The stadium display: delivery speed, then bat and exit speed once the ball is hit.

@@ -96,7 +96,7 @@ public class OverBreak : MonoBehaviour
     {
         if (!BuildCard())
             return;
-        string type = UIFormat.BowlerType(hud.CurrentBowler.Type);
+        string type = BowlerRepertoire.KindName(hud.CurrentBowler.Kind);
         // Every bowling action in the game is right-arm, over the wicket.
         body.text = $"<b>{hud.CurrentBowler.Name}</b>  <color=#98A2B3>{type}</color>\n" +
                     "<size=70%><color=#98A2B3>Right-arm, over the wicket</color></size>\n\n" +

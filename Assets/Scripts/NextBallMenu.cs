@@ -83,7 +83,7 @@ public class NextBallMenu : MonoBehaviour
             return;
         shownBowler = hud.CurrentBowler;
         shownNewOver = newOver;
-        string type = UIFormat.BowlerType(shownBowler.Type);
+        string type = BowlerRepertoire.KindName(shownBowler.Kind);
         // Every bowling action in the game is right-arm, over the wicket (the run-ups come in on
         // the stumps' left as he sees them, AnimatedBowler).
         bowlerLabel.text = newOver

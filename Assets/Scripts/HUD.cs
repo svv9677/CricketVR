@@ -2,32 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Batsman
-{
-    public string Name;
-    public int Runs;
-    public int Balls;   // faced (HUDStats)
-
-    public Batsman(string name, int runs=0)
-    {
-        Name = name;
-        Runs = runs;
-    }
-}
-
-public class Bowler
-{
-    public string Name;
-    public eSwingType Type;
-    public int Balls, Conceded, Wickets;   // HUDStats
-
-    public Bowler(string name, eSwingType typ = eSwingType.None)
-    {
-        Name = name;
-        Type = typ;
-    }
-}
-
 public partial class HUD : MonoBehaviour
 {
     [SerializeField]
@@ -128,19 +102,24 @@ public partial class HUD : MonoBehaviour
 
         Bowlers = new List<Bowler>();
         string[] boNames = { "Bumrah", "Shami", "Bhuvneshwar", "Siraj", "Ashwin", "Chahal", "Hooda", "Bishnoi" };
-        eSwingType[] boTypes = { eSwingType.InSwing, eSwingType.Pace, eSwingType.OutSwing, eSwingType.Pace, eSwingType.OffSpin, eSwingType.LegSpin, eSwingType.OffSpin, eSwingType.LegSpin };
+        // Two quicks, two medium-pacers, an off-spinner, two leg-spinners and a mystery spinner
+        // (BowlerRepertoire). Who bowls when is the captain's (BowlingAttack.PickNextBowler), not
+        // the order of this list.
+        eBowlerKind[] boKinds = { eBowlerKind.Fast, eBowlerKind.Medium, eBowlerKind.Medium, eBowlerKind.Fast, eBowlerKind.OffSpin, eBowlerKind.LegSpin, eBowlerKind.Mystery, eBowlerKind.LegSpin };
         for(int i=0; i<boNames.Length; i++)
         {
-            Bowler bo = new Bowler(boNames[i], boTypes[i]);
+            Bowler bo = new Bowler(boNames[i], boKinds[i]);
             Bowlers.Add(bo);
-            AnimatedBowler.Instance.myBowlers.data.Add(AnimatedBowler.Instance.configs.data[((int)boTypes[i]) - 1]);
+            AnimatedBowler.Instance.myBowlers.data.Add(AnimatedBowler.Instance.configs.data[((int)bo.Type) - 1]);
         }
-        CurrentBowler = Bowlers[0];
+        BowlingAttack.NewInnings();
+        int opener = BowlingAttack.PickNextBowler(Bowlers, null, 0, TotalOvers, () => Random.value);
+        CurrentBowler = Bowlers[Mathf.Max(0, opener)];
         //CurrentBowler = Bowlers[2];               // QWERTYUIOP
         Main.Instance.swingType = CurrentBowler.Type;
         UpdateKeeperPosition();
         AnimatedBowler.Instance.UpdateInfo(Bowlers.IndexOf(CurrentBowler));
-        NextBowlerIndex = 0;
+        NextBowlerIndex = Bowlers.IndexOf(CurrentBowler);
 
         
         UpdateUI();
@@ -337,7 +316,10 @@ public partial class HUD : MonoBehaviour
     /// Bring the next bowler on now (the between-balls "Change Bowler" option).
     public void ChangeBowler()
     {
-        SelectNextBowler();
+        // Mid-over: the captain's pick for this over, but the over is not done.
+        int pick = BowlingAttack.PickNextBowler(Bowlers, CurrentBowler, Overs, TotalOvers, () => Random.value);
+        NextBowlerIndex = pick >= 0 ? pick : (NextBowlerIndex + 1) % Bowlers.Count;
+        SetBowler(NextBowlerIndex);
         UpdateUI();
     }
 
@@ -360,11 +342,13 @@ public partial class HUD : MonoBehaviour
             ShotCard.Instance.ShowShot(info);
     }
 
+    /// The captain's bowling change (BowlingAttack.PickNextBowler): it used to be the next in the
+    /// list, so every innings bowled the same order of types.
     void SelectNextBowler()
     {
-        NextBowlerIndex++;
-        if (NextBowlerIndex >= Bowlers.Count)
-            NextBowlerIndex = 0;
+        BowlingAttack.OverDone(CurrentBowler);
+        int pick = BowlingAttack.PickNextBowler(Bowlers, CurrentBowler, Overs, TotalOvers, () => Random.value);
+        NextBowlerIndex = pick >= 0 ? pick : (NextBowlerIndex + 1) % Bowlers.Count;
         SetBowler(NextBowlerIndex);
     }
 
