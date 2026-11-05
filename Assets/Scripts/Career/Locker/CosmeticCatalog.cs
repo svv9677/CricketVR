@@ -109,7 +109,7 @@ public static class CosmeticCatalog
             eUnlock.Runs => $"Score {n.ToString("N0", CultureInfo.InvariantCulture)} career runs",
             eUnlock.Sixes => $"Hit {n} sixes in your career",
             eUnlock.Seasons => n <= 1 ? "Finish a season" : $"Finish {n} seasons",
-            eUnlock.Goals => n <= 1 ? "Reach a coach's goal" : $"Reach {n} coach's goals",
+            eUnlock.Goals => n <= 1 ? "Reach a coach's goal" : $"Reach {n} coach goals",
             _ => $"Score {n} or more in a drill",
         };
     }

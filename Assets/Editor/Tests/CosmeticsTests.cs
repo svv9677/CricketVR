@@ -193,7 +193,7 @@ public class CosmeticsTests
         Assert.AreEqual("Locked: Pro gold bat - reach the Pro League. 3 of 19 unlocked.", CareerLockerScreen.StatusLine(p, pro));
         StringAssert.StartsWith("3 of 19 unlocked.", CareerLockerScreen.StatusLine(p, null));
         Assert.AreEqual("Pro gold", CareerLockerScreen.NameLine(pro, true));
-        Assert.AreEqual("Pro gold  · locked", Regex.Replace(CareerLockerScreen.NameLine(pro, false), "<[^>]*>", ""));
+        Assert.AreEqual("Pro gold locked", Regex.Replace(CareerLockerScreen.NameLine(pro, false), "<[^>]*>", ""));
         Assert.AreEqual(CareerLockerScreen.LockedAlpha, CareerLockerScreen.Swatch(pro, null, false).a);
         Assert.AreEqual(1f, CareerLockerScreen.Swatch(pro, null, true).a);
     }

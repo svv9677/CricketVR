@@ -92,9 +92,9 @@ public static class CoachGoalsText
         return SeasonOver;
     }
 
-    /// "Goals reached in your career: 4. Each counts toward kit in your Locker."
+    /// "Goals reached in your career: 4. They unlock Locker kit." (one 20 px line, 696 px wide).
     public static string CareerLine(CareerProfile p) =>
-        p == null ? "" : $"Goals reached in your career: {Math.Max(0, p.goalsDone)}. Each counts toward kit in your Locker.";
+        p == null ? "" : $"Goals reached in your career: {Math.Max(0, p.goalsDone)}. They unlock Locker kit.";
 
     /// `s`'s goals (no gaps).
     public static int Count(Season s) => s?.goals == null ? 0 : s.goals.FindAll(g => g != null).Count;

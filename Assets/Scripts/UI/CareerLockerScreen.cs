@@ -84,9 +84,10 @@ public class CareerLockerScreen : MenuScreen
             status.text = StatusLine(p, lastLocked);
     }
 
-    /// "Pro gold", or "Pro gold · locked" with the mark muted.
+    /// "Pro gold", or "Pro gold locked" with the mark small and muted: the stepper leaves the name
+    /// about 250 px of a line that does not wrap, so a full-size mark would cut "Coach's pick" short.
     public static string NameLine(CosmeticDef d, bool owned) =>
-        d == null ? "" : owned ? d.name : $"{d.name}  <color={Muted}>· locked</color>";
+        d == null ? "" : owned ? d.name : $"{d.name} <size=70%><color={Muted}>locked</color></size>";
 
     /// "Locked: Pro gold bat - reach the Pro League. 7 of 19 unlocked."; with nothing locked shown,
     /// the count and where the kit is worn.

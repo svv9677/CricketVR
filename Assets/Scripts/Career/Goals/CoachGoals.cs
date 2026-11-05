@@ -107,7 +107,7 @@ public static class CoachGoals
 
     /// The inbox message's body when `g` is reached.
     public static string ReachedBody(SeasonGoal g) =>
-        $"{g?.text} - reached. Well done: every goal you reach counts toward kit in your Locker.";
+        $"{g?.text} - reached. Well done. Goals you reach unlock kit in your Locker.";
 
     // ---- Making the goals ---------------------------------------------------------------------
 
