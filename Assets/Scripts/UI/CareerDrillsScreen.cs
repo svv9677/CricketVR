@@ -6,8 +6,8 @@ using UnityEngine.UI;
 /// The career nets ("careerDrills", from the hub's Nets button): a header line (the training slot
 /// and the coach's pick, DrillText.Header), Measured practice - free nets where every ball still
 /// counts - and the five 12-ball drills (DrillDefs.All, in its order), each a row with its name, a
-/// pink COACH'S PICK on the one the coach recommends, its last and best scores (DrillText.RowDetail)
-/// and Start. Everything is locked until the nets trial is done: the trial sets the ratings the
+/// pink COACH'S PICK on the one the coach recommends, its last and best scores (DrillText.RowDetail,
+/// always asked with coachPick false: this screen owns the marker, on the name line) and Start. Everything is locked until the nets trial is done: the trial sets the ratings the
 /// drills build on. Start begins a new attempt (DrillCoach.Start, saved before the nets load, so a
 /// restart of the scene bowls the same shuffled plan) and goes to the nets. The ratings only
 /// measure: a drill bowls the balls that test one or two of them, nothing more. There is no scroll
@@ -68,7 +68,8 @@ public class CareerDrillsScreen : MenuScreen
             return;
         bool coachPick = d.id == pick;
         Set(At(names, i), RowName(d, coachPick));
-        Set(At(details, i), p == null ? "" : DrillText.RowDetail(d, RecordOf(p.drills, d.id), coachPick));
+        // The pick is marked once, on the name line (RowName); the detail line is last/best only.
+        Set(At(details, i), p == null ? "" : DrillText.RowDetail(d, RecordOf(p.drills, d.id), false));
         Button start = At(starts, i);
         if (start != null)
             start.interactable = open;
