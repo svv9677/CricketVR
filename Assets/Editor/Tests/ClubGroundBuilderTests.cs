@@ -23,13 +23,14 @@ public class ClubGroundBuilderTests
         ClubParts p = Build();
         int tris = 0;
         foreach (MeshData md in Batches(p)) tris += md.TriangleCount;
-        // Two texts (2 triangles a character, ~200 characters) and the flag's 12 x 8 grid.
+        // Three texts (2 triangles a character, ~200 characters) and the flag's 12 x 8 grid.
         tris += 400 + 192;
         Assert.LessOrEqual(tris, ClubGroundBuilder.MaxTriangles, "triangles");
-        // Six static batches, three spectator groups, flag, night windows, two texts.
+        // Six static batches, three spectator groups, night windows, then the flag and three texts
+        // (the score hut's labels and figures, the name board).
         int batches = 0;
         foreach (MeshData md in Batches(p)) if (md.TriangleCount > 0) batches++;
-        Assert.LessOrEqual(batches + 3, ClubGroundBuilder.MaxDrawCalls, "draw calls");
+        Assert.LessOrEqual(batches + 4, ClubGroundBuilder.MaxDrawCalls, "draw calls");
     }
 
     [Test]
@@ -143,6 +144,21 @@ public class ClubGroundBuilderTests
         }
         Assert.AreEqual(p.Seats.Count, quads);
         Assert.Less(p.Spectators[0].TriangleCount / 2, quads / 2, "an empty ground is under half full");
+    }
+
+    /// The board's six rows at 118% (ClubScoreboardFigures) must fit the plate at the size the
+    /// builder gives both texts: at a fixed size an overflow spills off the plate.
+    [Test]
+    public void ScoreboardRowsFitThePlate()
+    {
+        ClubParts p = Build();
+        Assert.AreEqual(6, ClubBuildings.ScoreboardRows);
+        Assert.AreEqual(1.18f, ClubBuildings.ScoreboardLineHeight, 1e-4f);
+        float size = ClubBuildings.RowsFontSize(p.Figures.rect.y, ClubBuildings.ScoreboardRows, ClubBuildings.ScoreboardLineHeight);
+        float metresPerUnit = size / 86f * 0.1f;   // LiberationSans SDF: point size 86, scale 1
+        float block = (77.85f + 18.22f + 5 * 98.89f * 1.18f) * metresPerUnit;
+        Assert.LessOrEqual(block, p.Figures.rect.y, "six rows fit the plate");
+        Assert.Greater(block, 0.9f * p.Figures.rect.y, "and nearly fill it");
     }
 
     [Test]

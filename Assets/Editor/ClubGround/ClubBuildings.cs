@@ -169,9 +169,9 @@ public static class ClubBuildings
 
     // ---- Score hut -------------------------------------------------------------------------------
 
-    /// The score hut. Its plate is 8.8 x 3 m (the walls are 4.2 m, not 3, so the figures can be
-    /// 0.9 m tall: at the hut's 73 m from the crease that is 0.7 degrees, about the smallest a
-    /// Quest shows crisply).
+    /// The score hut. Its plate is 8.8 x 3 m (the walls are 4.2 m, not 3, to give the plate that
+    /// height): the six rows of ClubScoreboardFigures fit it at a TMP size of about 3.5, figures
+    /// about 0.24 m tall (ClubGroundBuilder sizes both texts to the box).
     public static void ScoreHut(ClubParts p, Frame fr, Vector2 footprint)
     {
         float w = footprint.x, d = footprint.y, back = -d * 0.5f, front = d * 0.5f;
@@ -195,6 +195,24 @@ public static class ClubBuildings
             name = "Club Score Hut Collider", centre = fr.P(0f, ridge * 0.5f, 0f), yawDeg = fr.YawDeg,
             size = new Vector3(w, ridge, d),
         });
+    }
+
+    /// The score hut's rows (ClubScoreboardFigures.Labels, row for row with Compose) and their
+    /// spacing (its LineHeight, 118%).
+    public static int ScoreboardRows => ClubScoreboardFigures.Labels.Split('\n').Length;
+    public static float ScoreboardLineHeight =>
+        float.Parse(ClubScoreboardFigures.LineHeight.TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture) / 100f;
+
+    /// The largest TMP font size whose `rows` lines, `lineHeight` apart (a fraction of the font's
+    /// line height, as a line-height % tag sets it), fit `boxHeight` metres: the first line's ascent,
+    /// the steps between lines, the last line's descent. A world-space TextMeshPro draws a font
+    /// unit at fontSize / pointSize * scale * 0.1 m (TMP_Text's non-orthographic scale). 3% spare.
+    /// The face numbers default to LiberationSans SDF's (the font the builder uses).
+    public static float RowsFontSize(float boxHeight, int rows, float lineHeight, float ascent = 77.85f,
+                                     float descent = -18.22f, float line = 98.89f, float point = 86f, float scale = 1f)
+    {
+        float units = ascent - descent + (rows - 1) * line * lineHeight;
+        return 0.97f * boxHeight * point * 10f / (units * scale);
     }
 
     // ---- Shared shapes ----------------------------------------------------------------------------

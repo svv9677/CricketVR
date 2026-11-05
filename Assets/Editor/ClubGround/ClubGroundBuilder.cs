@@ -35,7 +35,10 @@ public sealed class ClubParts
 /// </summary>
 public static class ClubGeometry
 {
-    public const int TreeSeed = 1864, CrowdSeed = 1877;
+    /// Must equal ClubGroundLayoutTests.TableSeed (the "seed" in Tools/clubground/layout_table.json):
+    /// build_textures.py paints the trees' shadow pools from that table, so another seed plants the
+    /// wood away from its shadows.
+    public const int TreeSeed = 1, CrowdSeed = 1877;
     /// Mesh resolution of the ground: 128 round, rings every ~7.6 m on the outfield.
     const int GroundSegments = 128, OutfieldRings = 8, SurroundRings = 6, HorizonSegments = 96;
     /// club_horizon.png repeats four times round the ground (2048 px a quarter: ~23 px a degree).
@@ -81,7 +84,9 @@ public static class ClubGeometry
             return new Vector2(v.x / (2f * sr) + 0.5f, flipV ? 1f - vv : vv);
         });
         float hr = ClubGroundLayout.HorizonRadius;
-        ClubMeshKit.Band(p.Horizon, hr, ClubGroundLayout.HorizonBottom, ClubGroundLayout.HorizonHeight, 0f, Mathf.PI * 2f,
+        // HorizonHeight is the band's height above its bottom: club_horizon.png's v = 1 is painted at
+        // HorizonBottom + HorizonHeight (+21 m), its ground line at v = 0.16.
+        ClubMeshKit.Band(p.Horizon, hr, ClubGroundLayout.HorizonBottom, ClubGroundLayout.HorizonBottom + ClubGroundLayout.HorizonHeight, 0f, Mathf.PI * 2f,
                          HorizonSegments, Mathf.PI * 2f * hr / HorizonRepeats, true);
     }
 
@@ -131,7 +136,8 @@ public static class ClubGeometry
 ///
 /// Budget (Quest): at most 15 draw calls and 35k triangles, checked and logged on every build.
 /// Static geometry is merged per material: outfield, surround, structures, fence, trees, horizon,
-/// three spectator groups, flag, night windows, two texts = 13.
+/// three spectator groups, flag, night windows, three texts (the score hut's labels and figures,
+/// the name board) = 14.
 /// </summary>
 public static class ClubGroundBuilder
 {
@@ -278,7 +284,7 @@ public static class ClubGroundBuilder
             GameObject night = b.Part("Club Night", p.Night, m.night);
             night.SetActive(false);
             TMP_FontAsset font = Font();
-            TextMeshPro figures = Label("Club Scoreboard", root.transform, p.Figures, "0", 13f, TextAlignmentOptions.Left, new Color(0.96f, 0.96f, 0.92f), font, layer);
+            TextMeshPro figures = Scoreboard(p.Figures, root.transform, font, layer, log);
             var board = figures.gameObject.AddComponent<ClubScoreboard>();
             errors += Wire(board, log, ("figures", (Object)figures));
             TextMeshPro name = Label("Club Name Board", root.transform, p.ClubName, "Cricket Club", 6f, TextAlignmentOptions.Center, new Color(0.97f, 0.95f, 0.85f), font, layer);
@@ -358,6 +364,25 @@ public static class ClubGroundBuilder
             Quiet(r, false);
             go.AddComponent<FlagWave>();
             return go;
+        }
+
+        /// The score hut's two texts over the same box on the plate: the fixed row labels
+        /// (ClubScoreboardFigures.Labels) and the figures ClubScoreboard writes, which Compose puts
+        /// at FiguresAt across. One fixed size for both, the largest that fits the six rows, so the
+        /// rows line up and auto-sizing never shrinks one text and not the other.
+        static TextMeshPro Scoreboard(ClubLabel at, Transform parent, TMP_FontAsset font, int layer, StringBuilder log)
+        {
+            var white = new Color(0.96f, 0.96f, 0.92f);
+            int rows = ClubBuildings.ScoreboardRows;
+            float spacing = ClubBuildings.ScoreboardLineHeight;
+            float size = font == null ? ClubBuildings.RowsFontSize(at.rect.y, rows, spacing) :
+                ClubBuildings.RowsFontSize(at.rect.y, rows, spacing, font.faceInfo.ascentLine, font.faceInfo.descentLine,
+                                          font.faceInfo.lineHeight, font.faceInfo.pointSize, font.faceInfo.scale);
+            log.AppendLine("scoreboard font size " + size.ToString("0.00"));
+            TextMeshPro labels = Label("Club Scoreboard Labels", parent, at, ClubScoreboardFigures.Labels, size, TextAlignmentOptions.Left, white, font, layer);
+            TextMeshPro figures = Label("Club Scoreboard", parent, at, ClubScoreboardFigures.Compose(default), size, TextAlignmentOptions.Left, white, font, layer);
+            labels.enableAutoSizing = figures.enableAutoSizing = false;
+            return figures;
         }
 
         static TMP_FontAsset Font()

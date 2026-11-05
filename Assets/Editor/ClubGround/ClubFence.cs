@@ -145,7 +145,8 @@ public static class ClubFence
         Vector3 face = new Vector3(toward.x - foot.x, 0f, toward.z - foot.z).normalized;
         Vector3 fly = Vector3.Cross(Vector3.up, -face);    // the flag's local +X (see ClubGroundBuilder's Flag)
         p.FlagFacing = face;
-        p.FlagHoist = foot + Vector3.up * (Height - 0.1f - 0.9f) + fly * 0.06f;
+        // FlagWave's origin is the top of the hoist and the flag hangs down from it: just under the cap.
+        p.FlagHoist = foot + Vector3.up * (Height - 0.15f) + fly * 0.06f;
     }
 
     // ---- Sightscreens ----------------------------------------------------------------------------

@@ -87,8 +87,8 @@ public static class ClubTextures
     }
 
     /// Vorbis, decompressed as it plays from a compressed copy in memory (a 30 s mono loop is about
-    /// 0.3 MB that way, 2.6 MB as PCM). The importer has no loop flag: the Crowd's AudioSource
-    /// replays it (CrowdController restarts the clip whenever it stops).
+    /// 0.3 MB that way, 2.6 MB as PCM). The importer has no loop flag: ClubGroundVenue loops it
+    /// (source.loop = true on the crowd's AudioSource).
     static void AmbienceClip(string path)
     {
         var ai = AssetImporter.GetAtPath(path) as AudioImporter;

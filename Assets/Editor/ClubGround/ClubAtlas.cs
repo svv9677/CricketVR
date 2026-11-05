@@ -50,17 +50,21 @@ public static class ClubAtlas
         }
     }
 
-    /// Metres one cell covers when tiled (x across, y up the surface). Weatherboard and brick at
-    /// 2 m keep a 0.2 m board and a 75 mm course at about 50 px each, sharp at the 70 m they are seen
-    /// from; the bark repeats every 2 m up a trunk.
+    /// Metres one cell covers when tiled (x across, y up the surface), square: the scale
+    /// build_textures.py paints each cell at (its CELL_METRES), so boards, courses and tiles come
+    /// out their real size.
     public static Vector2 Tile(ClubCell c)
     {
+        float m;
         switch (c)
         {
-            case ClubCell.BenchSlats: return new Vector2(1f, 1f);
-            case ClubCell.Bark: return new Vector2(1f, 2f);
-            default: return new Vector2(2f, 2f);
+            case ClubCell.Weatherboard: m = 1.95f; break;
+            case ClubCell.Brick: case ClubCell.RoofTile: case ClubCell.VerandaBoards: m = 1.2f; break;
+            case ClubCell.BenchSlats: m = 0.5f; break;
+            case ClubCell.Bark: m = 1f; break;
+            default: m = 2f; break;
         }
+        return new Vector2(m, m);
     }
 
     public static bool IsFoliage(ClubCell c) => c >= ClubCell.FoliageA && c <= ClubCell.FoliageD;
