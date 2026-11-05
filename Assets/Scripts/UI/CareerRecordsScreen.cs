@@ -23,6 +23,8 @@ public class CareerRecordsScreen : MenuScreen
     public const string NoteText = "Longest six is the carry off the real blade, not the shield.";
     private const string Muted = "#98A2B3";
     private const string Sep = "  ·  ";
+    // The header carries six figures on one 20 px line: single spaces keep a big career's inside the card.
+    private const string HeaderSep = " · ";
 
     [SerializeField] private TextMeshProUGUI header;
     [SerializeField] private TextMeshProUGUI[] names = new TextMeshProUGUI[0];
@@ -148,25 +150,27 @@ public class CareerRecordsScreen : MenuScreen
         return string.IsNullOrEmpty(book.lastMilestoneDate) ? latest : latest + Sep + book.lastMilestoneDate;
     }
 
-    /// "1,234 runs  ·  avg 41.1  ·  SR 132  ·  50s 7  ·  100s 2  ·  6s 41"; before his first innings,
+    /// "1,234 runs · avg 41.1 · SR 132 · 50s 7 · 100s 2 · 6s 41"; before his first innings,
     /// what the screen will hold.
     public static string HeaderLine(CareerStats st)
     {
         if (st == null || st.innings <= 0)
             return "No innings yet. Your bests start with your first match.";
         CultureInfo c = CultureInfo.InvariantCulture;
-        return $"{st.runs.ToString("N0", c)} runs{Sep}avg {st.Average.ToString("0.0", c)}{Sep}SR {Whole(st.StrikeRate)}" +
-               $"{Sep}50s {st.fifties}{Sep}100s {st.hundreds}{Sep}6s {st.sixes}";
+        string h = HeaderSep;
+        return $"{st.runs.ToString("N0", c)} runs{h}avg {st.Average.ToString("0.0", c)}{h}SR {Whole(st.StrikeRate)}" +
+               $"{h}50s {st.fifties}{h}100s {st.hundreds}{h}6s {st.sixes}";
     }
 
-    /// The result screen's line naming the records a match broke ("" when none): the first two by
-    /// name, then how many more, so it fits one line of the card.
+    /// The result screen's line naming the records a match broke ("" when none): both by name when
+    /// there are two, else the first and how many more, so it fits one 22 px line of the card.
     public static string BestLine(List<eRecord> bests, CareerRecordBook book)
     {
         if (bests == null || bests.Count == 0 || book == null)
             return "";
+        int name = bests.Count == 2 ? 2 : 1;   // two names plus "and N more" would run off the card
         var named = new List<string>();
-        for (int i = 0; i < bests.Count && named.Count < 2; i++)
+        for (int i = 0; i < bests.Count && named.Count < name; i++)
             named.Add(BestName(bests[i], book.Get(bests[i])));
         string line = (bests.Count == 1 ? "New career best: " : "New career bests: ") + string.Join(", ", named);
         int more = bests.Count - named.Count;

@@ -121,11 +121,14 @@ public class CareerRecordsScreenTests
         Assert.AreEqual("No innings yet. Your bests start with your first match.", CareerRecordsScreen.HeaderLine(null));
         Assert.AreEqual("No innings yet. Your bests start with your first match.", CareerRecordsScreen.HeaderLine(new CareerStats()));
         var st = new CareerStats { innings = 31, notOuts = 1, runs = 1234, balls = 935, fifties = 7, hundreds = 2, sixes = 41 };
-        Assert.AreEqual("1,234 runs  ·  avg 41.1  ·  SR 132  ·  50s 7  ·  100s 2  ·  6s 41", CareerRecordsScreen.HeaderLine(st));
+        Assert.AreEqual("1,234 runs · avg 41.1 · SR 132 · 50s 7 · 100s 2 · 6s 41", CareerRecordsScreen.HeaderLine(st));
+        // A big career still fits the 20 px header line (about 62 characters inside the card).
+        var big = new CareerStats { innings = 260, notOuts = 11, runs = 10234, balls = 7750, fifties = 17, hundreds = 12, sixes = 141 };
+        Assert.LessOrEqual(CareerRecordsScreen.HeaderLine(big).Length, 62, CareerRecordsScreen.HeaderLine(big));
     }
 
     [Test]
-    public void TheBestLineNamesTwoThenCountsTheRest()
+    public void TheBestLineNamesTwoOrOneAndCountsTheRest()
     {
         CareerRecordBook b = Book();
         Assert.AreEqual("", CareerRecordsScreen.BestLine(null, b));
@@ -135,9 +138,12 @@ public class CareerRecordsScreenTests
                         CareerRecordsScreen.BestLine(new List<eRecord> { eRecord.HighScore }, b));
         Assert.AreEqual("New career bests: highest score 112*, longest six 104 m",
                         CareerRecordsScreen.BestLine(new List<eRecord> { eRecord.HighScore, eRecord.LongestSix }, b));
-        Assert.AreEqual("New career bests: fastest fifty 23 balls, strike rate 245.5 and 2 more",
+        Assert.AreEqual("New career bests: fastest fifty 23 balls and 3 more",
                         CareerRecordsScreen.BestLine(new List<eRecord> { eRecord.FastestFifty, eRecord.BestStrikeRate,
                                                                          eRecord.MostSixes, eRecord.LongestSix }, b));
+        Assert.AreEqual("New career bests: strike rate 245.5 and 2 more",
+                        CareerRecordsScreen.BestLine(new List<eRecord> { eRecord.BestStrikeRate, eRecord.MostSixes,
+                                                                         eRecord.HighScore }, b));
     }
 
     [Test]
@@ -147,17 +153,20 @@ public class CareerRecordsScreenTests
         b.highScore.opponent = "Łódź — Rangers";
         b.lastMilestone = "10,000 career runs";
         var all = new List<eRecord>(CareerRecordsScreen.RecordRows);
-        // Every pair of records, the widest the line gets before "and N more".
+        // Every pair named in full, and every first record with 2-4 more: about 60 characters fit one
+        // 22 px line of the 696 px card.
         for (int i = 0; i < all.Count; i++)
             for (int j = 0; j < all.Count; j++)
             {
                 if (i == j) continue;
                 var bests = new List<eRecord> { all[i], all[j] };
-                for (int k = 0; k < all.Count; k++)
-                    if (k != i && k != j && bests.Count < 5) bests.Add(all[k]);
-                string line = CareerRecordsScreen.BestLine(bests, b);
-                AssertLatin1(line);
-                Assert.LessOrEqual(line.Length, 72, line);
+                for (int k = 0; k <= all.Count; k++)
+                {
+                    string line = CareerRecordsScreen.BestLine(bests, b);
+                    AssertLatin1(line);
+                    Assert.LessOrEqual(line.Length, 60, line);
+                    if (k < all.Count && k != i && k != j) bests.Add(all[k]);
+                }
             }
         for (int i = 0; i < CareerRecordsScreen.Rows; i++)
         {
