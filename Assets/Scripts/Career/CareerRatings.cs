@@ -187,9 +187,13 @@ public static class CareerRatings
     /// <summary>
     /// One ball as batting, for vs Pace and vs Spin (and temperament): did he survive, how well did
     /// he hit it, and what did it bring. Surviving is a base (0.2 for being beaten and still there),
-    /// the real-blade contact adds up to 0.45 and the runs up to 0.35. An out is zero, and weighs as
-    /// OutWeight balls in the mean. A sensible leave scores like a decent defensive shot (more for a
-    /// ball well outside off); leaving one that was hitting the stumps is as bad as being out.
+    /// the real-blade contact adds up to 0.35 and the runs up to 0.45. Runs outweigh contact on
+    /// purpose: a batter who only survives (leaves what misses, blocks what hits) is Solid, not
+    /// Strong, because these ratings are about batting, and batting is scoring. An out is zero, and
+    /// weighs as OutWeight balls in the mean. A sensible leave of a ball well outside off is worth a
+    /// little less than a sweetly timed block; letting any other ball go (a loose leg-side one, say)
+    /// is a chance missed, as Judgement also says; leaving one that was hitting the stumps is as bad
+    /// as being out.
     /// </summary>
     private static float BattingValue(BallRecord r)
     {
@@ -197,9 +201,9 @@ public static class CareerRatings
         if (r.action == eBallAction.Left)
         {
             if (r.wouldHitStumps) return 0f;
-            return r.lineAtStumps > OffSide ? 0.65f : 0.55f;
+            return r.lineAtStumps > OffSide ? 0.45f : 0.3f;
         }
-        return Mathf.Min(1f, 0.2f + 0.45f * ContactValue(r) + 0.35f * ScoreValue(r));
+        return Mathf.Min(1f, 0.2f + 0.35f * ContactValue(r) + 0.45f * ScoreValue(r));
     }
 
     /// <summary>
@@ -345,6 +349,20 @@ public static class CareerRatings
         return best;
     }
 
+    /// The weakest known rating other than `skip` (first in RatingSet order on a tie), -1 when no
+    /// other rating is known. Same as Weakest unless every known rating is equal.
+    private static int WeakestBesides(RatingSet r, int skip)
+    {
+        int weak = -1;
+        for (int i = 0; i < RatingSet.Count; i++)
+        {
+            if (i == skip || !RatingSet.Known(r[i])) continue;
+            if (weak < 0 || r[i] < r[weak])
+                weak = i;
+        }
+        return weak;
+    }
+
     // The coach's words, RatingSet order. Plain ASCII (the TMP default font is Latin-1).
     private static readonly string[] StrengthLines =
     {
@@ -396,14 +414,19 @@ public static class CareerRatings
     /// where the work is."), naming the strongest and the weakest. Never empty.
     public static string Verdict(RatingSet r)
     {
-        int strong = Strongest(r), weak = Weakest(r);
+        int strong = Strongest(r);
         if (strong < 0)
             return "Face a few more balls and the coach will have a read on your game.";
 
         string praise = r[strong] >= RealStrength ? StrengthLines[strong] : EarlyStrengthLines[strong];
-        if (strong == weak)
+        // The weakest is looked for among the others, so equal ratings (pace 50, spin 50) still get
+        // a strength and a weakness rather than "only one thing is known".
+        int weak = WeakestBesides(r, strong);
+        if (weak < 0)
             return praise + " Face a few more balls so the coach can see the rest of your game.";
-        if (r[strong] - r[weak] < EvenSpread)
+        // Close together AND good is a balanced game; close together and low (14, 15, 17) is not
+        // "no weak spot", so it falls through to the praise plus the work.
+        if (r[strong] - r[weak] < EvenSpread && r[weak] >= RealStrength)
             return "A well-balanced game so far, with no real weak spot. Keep it going.";
         if (r[weak] >= NoRealWeakness)
             return praise + " Nothing is holding you back; keep sharpening your " + Nouns[weak] + ".";

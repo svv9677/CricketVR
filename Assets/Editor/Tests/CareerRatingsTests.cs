@@ -343,4 +343,37 @@ public class CareerRatingsTests
         StringAssert.Contains("timing", named);
         StringAssert.Contains("outside off", named);
     }
+
+    [Test]
+    public void TheVerdictHandlesTiesAndALowEvenGame()
+    {
+        // Two equal known ratings are two things known, not one.
+        string tie = CareerRatings.Verdict(new RatingSet { pace = 50f, spin = 50f });
+        StringAssert.DoesNotContain("Face a few more balls", tie);
+        StringAssert.Contains("well-balanced", tie);
+
+        // Everything close together but Raw is not "no real weak spot".
+        string low = CareerRatings.Verdict(new RatingSet { timing = 14f, power = 16f, pace = 15f, spin = 17f });
+        StringAssert.DoesNotContain("no real weak spot", low);
+        StringAssert.Contains("where the work is", low);
+    }
+
+    [Test]
+    public void SurvivingWithoutScoringIsNotStrong()
+    {
+        // Leaves everything outside off and blocks everything on the stumps, sweetly, for 150 balls
+        // and never scores: a solid nets session, but not Strong batting against pace.
+        var balls = new List<BallRecord>();
+        for (int i = 0; i < 150; i++)
+        {
+            if (i % 2 == 0) { balls.Add(Ball(eBowlerKind.Fast, eLengthBand.GoodLength, 0.45f)); continue; }
+            var b = Clean(Ball(eBowlerKind.Fast, eLengthBand.GoodLength, 0.02f), 0.75f, 12f, 0);
+            b.wouldHitStumps = true;
+            balls.Add(b);
+        }
+        RatingSet r = CareerRatings.Compute(balls);
+        Assert.IsTrue(RatingSet.Known(r.pace));
+        Assert.Less(r.pace, 60f, "a batter who never scores is not Strong vs pace");
+        Assert.GreaterOrEqual(r.pace, 45f, "but surviving well is Solid");
+    }
 }
