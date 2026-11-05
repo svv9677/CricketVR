@@ -23,8 +23,9 @@ public class PartnerDirector : MonoBehaviour
     /// Most time the direction search may take in one frame (ms): the run-up must stay smooth on a
     /// Quest. Whatever is not done by the release is left; the best direction so far is played.
     public const float PlanBudgetMs = 1.5f;
-    /// Candidate directions tried between looks at the clock.
-    public const int CandidatesPerStep = 6;
+    /// Candidate directions tried between looks at the clock: few, so one step cannot run far past
+    /// the budget on a Quest (tune from the "search=.. ms" log in the headset).
+    public const int CandidatesPerStep = 2;
     /// Where the bowler fields from once he has bowled: his follow-through, down the pitch (world x).
     private const float BowlerFinishX = -7f;
 
@@ -53,6 +54,7 @@ public class PartnerDirector : MonoBehaviour
     // The partner's ball in play: who faced it and what the scorer called it.
     private bool partnersBall, boundaryCounted;
     private Batsman striker;
+    private int runsAtRelease;
     private string got;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -114,6 +116,11 @@ public class PartnerDirector : MonoBehaviour
                 boundaryCounted = false;
                 got = null;
                 striker = partnersBall && HUD.Instance != null ? HUD.Instance.CurrentBatsman : null;
+                runsAtRelease = striker != null ? striker.Runs : 0;
+                // A fresh ball: no plan or contact from the last one left for this one's log line.
+                shotPlan = default;
+                if (contact != null)
+                    contact.Arm(default);
                 break;
             case eGameState.InGame_DeliverBallLoop:
                 if (partnersBall && PartnerBatter.Instance != null)
@@ -262,7 +269,7 @@ public class PartnerDirector : MonoBehaviour
         if (!partnersBall || HUD.Simulating)
             return;
         got = o.Label;
-        int runs = o.Signal == UmpireSignal.Four ? 4 : o.Signal == UmpireSignal.Six ? 6 : 0;
+        int runs = main != null && striker != null ? BoundaryRuns(main.gameState, runsAtRelease, striker.Runs) : 0;
         if (runs == 0 || boundaryCounted)
             return;
         boundaryCounted = true;
@@ -270,6 +277,18 @@ public class PartnerDirector : MonoBehaviour
             careerMatch = FindFirstObjectByType<CareerMatch>();
         if (careerMatch != null)
             careerMatch.PartnerBoundary(striker, runs);
+    }
+
+    /// A four or six off the bat, from the runs to the striker's name over the ball: over the rope
+    /// only, and a no-ball's ("5nb", "7nb" - signalled NoBall, not Four) as well as a legal ball's,
+    /// as the player's own are counted (BallLedgerMath.End). Byes over the rope are not his. 0 if
+    /// it was neither.
+    public static int BoundaryRuns(eGameState state, int runsBefore, int runsNow)
+    {
+        if (state != eGameState.InGame_BallPastBoundary)
+            return 0;
+        int offTheBat = runsNow - runsBefore;
+        return offTheBat == 4 || offTheBat == 6 ? offTheBat : 0;
     }
 
     private void Finish()
@@ -292,7 +311,8 @@ public class PartnerDirector : MonoBehaviour
         FieldResult p = shotPlan.predicted;
         string meant = !HasPlan ? "-" : $"{shotPlan.shot}/{shotPlan.foot}{(shotPlan.edge ? " edge" : "")}";
         string predicted = p.caught ? "caught" : p.runs.ToString();
-        return $"[Partner] intent={IntentText(intent)} shot={meant} wicket={shotPlan.wicket} predicted={predicted} " +
+        // The intent played: a wide's is LeaveWide, whatever was drawn at the run-up.
+        return $"[Partner] intent={IntentText(HasPlan ? shotPlan.intent : intent)} shot={meant} wicket={shotPlan.wicket} predicted={predicted} " +
                $"contact={(contact != null && contact.Struck ? "yes" : "no")} got={got ?? "dead"} " +
                $"search={stepsRun} steps {searchMs:F1} ms";
     }
@@ -326,7 +346,9 @@ public class PartnerDirector : MonoBehaviour
         {
             if (f == null || !f.isActiveAndEnabled || f.IsBowler)
                 continue;
-            at.Add(f.transform.position);
+            // His mark for this ball (FieldCaptain sets it, ReturnToStart puts him there), not
+            // wherever he is on the walk to it.
+            at.Add(f.StartPosition);
             speed.Add(f.RunSpeed);
         }
         float bowlerZ = AnimatedBowler.Instance != null ? Mathf.Clamp(AnimatedBowler.Instance.transform.position.z, -1.5f, 1.5f) : 0f;
@@ -335,9 +357,11 @@ public class PartnerDirector : MonoBehaviour
         int keeper = -1;
         if (main.theKeeper != null)
         {
+            // The keeper runs slower in his pads (KeeperFetch): his own speed, as the fielding plan has it.
+            KeeperCatcher k = main.theKeeper.GetComponentInChildren<KeeperCatcher>();
             keeper = at.Count;
-            at.Add(main.theKeeper.transform.position);
-            speed.Add(runSpeed);
+            at.Add(k != null ? k.Position : main.theKeeper.transform.position);
+            speed.Add(k != null ? k.RunSpeed : runSpeed);
         }
         Camera eye = Camera.main;
         return new FieldSnapshot

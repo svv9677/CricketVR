@@ -112,4 +112,17 @@ public class PartnerWatchTests
         Assert.AreEqual("wide", PartnerDirector.IntentText(PartnerIntent.LeaveWide));
         Assert.AreEqual("4", PartnerDirector.IntentText(4));
     }
+
+    [Test]
+    public void APartnersBoundaryIsCountedOffANoBallToo()
+    {
+        const eGameState rope = eGameState.InGame_BallPastBoundary;
+        Assert.AreEqual(4, PartnerDirector.BoundaryRuns(rope, 10, 14), "a four");
+        Assert.AreEqual(6, PartnerDirector.BoundaryRuns(rope, 10, 16), "a six");
+        // "5nb" / "7nb": the umpire signals the no-ball, but the four or six is still off his bat.
+        Assert.AreEqual(4, PartnerDirector.BoundaryRuns(rope, 0, 4), "a four off a no-ball");
+        Assert.AreEqual(6, PartnerDirector.BoundaryRuns(rope, 0, 6), "a six off a no-ball");
+        Assert.AreEqual(0, PartnerDirector.BoundaryRuns(rope, 10, 10), "byes over the rope are not his");
+        Assert.AreEqual(0, PartnerDirector.BoundaryRuns(eGameState.InGame_BallFielded, 10, 14), "four run, not over the rope");
+    }
 }
