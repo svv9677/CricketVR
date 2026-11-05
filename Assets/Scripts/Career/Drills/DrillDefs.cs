@@ -10,8 +10,8 @@ using K = eBowlerKind;
 /// inside [DeliveryShape.MinLine, MaxLine] so a drill ball is never a wide by line.
 ///
 ///   Yorkers            Defence, vs Pace. Every ball at the toes, on the stumps or wide of off.
-///   Leave outside off  Judgement, Defence. Eight wide of off stump to leave, four on the stumps
-///                      (good length, in the corridor) to play.
+///   Leave outside off  Judgement, Defence. Eight wide of off stump to leave, four around off
+///                      stump (good length, in the corridor) to play.
 ///   Short ball         vs Pace, Power, Judgement. Bouncers and back of a length; three short and
 ///                      wide (loose balls, so Judgement sees them).
 ///   Spin               vs Spin, Timing, Defence. Six from the off-spinner, six from the leg-spinner.
@@ -57,7 +57,7 @@ public static class DrillDefs
     private static readonly DrillDef Leave = new DrillDef
     {
         id = eDrill.LeaveOutsideOff, name = "Leave outside off", title = "LEAVING DRILL",
-        blurb = "Eight wide of off stump to leave alone, four on the stumps to play. Know where your off stump is.",
+        blurb = "Eight wide of off stump to leave alone, four around off stump to play. Know where your off stump is.",
         feeds = new[] { Judgement, Defence },
         balls = new[]
         {

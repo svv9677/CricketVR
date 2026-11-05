@@ -298,7 +298,6 @@ public class DrillTests
         };
         CollectionAssert.AreEqual(new[] { a, b }, DrillScoring.AttemptBalls(balls, eDrill.Spin, 2));
         Assert.AreEqual(0, DrillScoring.AttemptBalls(null, eDrill.Spin, 2).Count);
-        b.drillAttempt = 2;
         Assert.AreEqual(2, DrillScoring.Tally(DrillDefs.For(eDrill.Spin), DrillScoring.AttemptBalls(balls, eDrill.Spin, 2)).attempt);
     }
 
