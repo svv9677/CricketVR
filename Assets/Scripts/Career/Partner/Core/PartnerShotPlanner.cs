@@ -17,7 +17,9 @@ using UnityEngine;
 ///     to the fielder the search found, else an edge to the keeper or the slips (within EdgeCone of
 ///     the incoming line at EdgeSpeedMin..Max of its speed), else nothing is given (a dot).
 ///   * Runs: the searched direction from the real contact point, nudged NudgeDegrees either way
-///     if it no longer works from there, played with the shot that fits its height and direction.
+///     (toward straight first) if it no longer works from there, played with the shot that fits
+///     its height and direction. The search keeps him straight - down the ground in the V -
+///     unless nothing there lands the intent (PartnerDirectionSearch), so most are drives.
 /// No shot is aimed within HumanClearance of the career player's head at the other end, and exit
 /// speeds are capped (SpeedCap): 45 m/s for a six, 38 for a four, 30 otherwise.
 /// </summary>
@@ -39,6 +41,10 @@ public static class PartnerShotPlanner
     /// The longest Meet follows a delivery.
     public const float MeetTime = 3f;
     public const int MaxCandidates = PartnerDirectionSearch.MaxCandidates;
+    /// The V he plays in, degrees either side of straight (PartnerDirectionSearch.StraightArc).
+    public const float StraightArc = PartnerDirectionSearch.StraightArc;
+    /// Which of the search's arcs a FieldSets angle is in: 0 straight (the V), 1 square, 2 fine.
+    public static int ArcOf(float angle) => PartnerDirectionSearch.Arc(angle);
     public const float HumanClearance = 0.8f;
     /// A dot is a ball fielded inside this (HUD: 2 s), with room to spare.
     public const float DotWithin = 1.7f;
@@ -238,7 +244,9 @@ public static class PartnerShotPlanner
         }
         if (height > 1.6f) return angle < 0f ? PartnerShot.Pull : PartnerShot.Leave;
         if (angle >= 60f) return PartnerShot.Cut;
-        if (angle <= -30f && angle >= -120f) return PartnerShot.Pull;
+        // Down the ground off the back foot is a punch (a Drive), not a pull: the pull starts
+        // where the V ends (was -30, which made a push to mid-on a horizontal-bat shot).
+        if (angle < -PartnerDirectionSearch.StraightArc && angle >= -120f) return PartnerShot.Pull;
         if (angle < -120f) return PartnerShot.Glance;
         return elevation > 15f ? PartnerShot.Loft : PartnerShot.Drive;
     }
@@ -246,13 +254,14 @@ public static class PartnerShotPlanner
     private static Vector3 Cap(Vector3 exit, int intent) => Vector3.ClampMagnitude(exit, SpeedCap(intent));
 
     /// The searched exit from the real contact: as it is if it still gives the intent, else nudged
-    /// either way (at most three tries); never one that passes too near the player's head, which
-    /// is turned further off if it must. If every turn passes within HumanClearance of him, the shot
+    /// either way (at most three tries), toward straight first so a shot planned in the V stays in
+    /// it; never one that passes too near the player's head, which is turned further off - away
+    /// from him first - if it must. If every turn passes within HumanClearance of him, the shot
     /// is given up for a push back down the ground (DeadBatPush); if even that comes near him, the
     /// push or the turn, whichever passes further from him.
     private static Vector3 Revalidate(int intent, Vector3 contact, Vector3 exit, in FieldSnapshot f, List<BallFlight.Sample> s, out FieldResult result)
     {
-        float[] turns = { 0f, NudgeDegrees, -NudgeDegrees, 2f * NudgeDegrees, 16f, -16f, 30f, -30f };
+        float[] turns = Turns(contact, exit, f);
         bool human = PartnerField.HasHuman(f);
         Vector3 clear = exit, widest = exit;
         FieldResult clearResult = default, widestResult = default;
@@ -278,6 +287,21 @@ public static class PartnerShotPlanner
         }
         result = haveClear ? clearResult : widestResult;
         return haveClear ? clear : widest;
+    }
+
+    /// Revalidate's turns, degrees about world up (a turn t moves a FieldSets angle by t x offSign):
+    /// the shot as planned, the three nudges that may still give the intent - toward straight
+    /// first - then the wider turns that only take it off the player, away from his head first.
+    private static float[] Turns(Vector3 contact, Vector3 exit, in FieldSnapshot f)
+    {
+        float o = f.offSign < 0f ? -1f : 1f, angle = AngleOf(exit, f.offSign);
+        float toStraight = -Mathf.Sign(angle) * o;
+        float away = PartnerField.HasHuman(f) ? Mathf.Sign(angle - AngleOf(f.nonStrikerHead - contact, f.offSign)) * o : 1f;
+        return new[]
+        {
+            0f, toStraight * NudgeDegrees, -toStraight * NudgeDegrees, toStraight * 2f * NudgeDegrees,
+            away * 16f, -away * 16f, away * 30f, -away * 30f,
+        };
     }
 
     /// Straight back down the pitch along the ground, slowly (ExitFor(0, -4, 10): either hand).

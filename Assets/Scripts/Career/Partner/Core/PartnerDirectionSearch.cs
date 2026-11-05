@@ -7,14 +7,30 @@ using UnityEngine;
 /// before the ball is bowled, so it plans from a nominal contact point; Plan re-checks it from the
 /// real one.
 ///
-/// Candidates, cheapest first, never more than MaxCandidates in all:
-///   1. Targets: for runs the gaps between the fielders (widest first, the order shuffled so he
-///      does not always pick the same one); for a dot the ring fielders themselves (a firm push
-///      straight at one); for a catch each fielder in front of square, at the elevation that brings
+/// He bats like an orthodox, mostly-straight batter (2026-11-05, "the nonstriker shots look weird,
+/// make him play more straight shots"): searched across the whole field he played a third of his
+/// runs as glances and a fifth of them within 40 degrees of straight. So the field is searched in
+/// three arcs, and a wider one only when nothing in the narrower ones lands the intent:
+///   0. Straight: the V, mid-off to mid-on (within StraightArc of straight) - drives, pushes and
+///      defence.
+///   1. Square: the off side out to SquareOff (cover, point: the cut) and the leg side out to
+///      SquareLeg (midwicket: the on-drive and the pull).
+///   2. Fine: what is left, out to FinestAngle - where the glances and the sweeps go.
+/// In each arc, cheapest first, never more than MaxCandidates in all:
+///   1. Targets: for runs the gaps between the fielders inside the arc (widest first, the order
+///      shuffled so he does not always pick the same one); for a dot the ring fielders in it (a
+///      firm push straight at one); for a catch each fielder in it, at the elevation that brings
 ///      the ball to him at catching height.
-///   2. Unless a target already did it comfortably: a sweep every 10 degrees from a random start.
-///   3. A refinement around the best so far: 2 degrees either way, a little harder or softer,
-///      higher or flatter.
+///   2. Unless a target already did it comfortably: a sweep across the arc from a random start,
+///      closer together in the straight arc, where he means to play.
+/// Then a refinement around the best so far: 2 degrees either way, a little harder or softer,
+/// higher or flatter. A shot that lands the intent always beats one that does not, and among
+/// those that do the straighter arc wins before the margin does.
+///
+/// The career player stands at the non-striker's end, just off straight: a shot passing within
+/// PartnerShotPlanner.HumanClearance of his head is never taken. Rather than just dropping it, the
+/// search tries it again turned away from him (HumanNudge, twice at most), so the straight shots
+/// near him stay straight but go past him.
 /// Angles are FieldSets': 0 straight back past the bowler, off side positive.
 /// </summary>
 internal sealed class PartnerDirectionSearch
@@ -24,17 +40,32 @@ internal sealed class PartnerDirectionSearch
     public const float Comfortable = 0.6f;
     /// Most of the field is in front of square: no shot is aimed finer than this.
     public const float FinestAngle = 160f;
+    /// The V he plays in: this far either side of straight (mid-off to mid-on).
+    public const float StraightArc = 40f;
+    /// Where the square arc ends: on the off side past point (a cut), on the leg side at
+    /// midwicket (finer than that is sweep and glance country).
+    public const float SquareOff = 120f, SquareLeg = 60f;
+    /// How far a shot that passes too near the player's head is turned away from him to try again.
+    public const float HumanNudge = 5f;
+    /// Retries turned away from the player, per shot and in all.
+    private const int NudgesPerShot = 2, NudgeBudget = 40;
+    /// Among shots that miss the intent (a three, which most fields do not give anywhere), how
+    /// much an arc further out costs, in Score's units (a run off the intent is 2): half a run, so
+    /// a straight two or four beats a glanced two.
+    private const float ArcPenalty = 1f;
 
-    internal struct Candidate { public float angle, elevation, speed; }
+    internal struct Candidate { public float angle, elevation, speed; public int nudges; }
 
     private readonly int intent;
     private readonly FieldSnapshot f;
     private readonly Vector3 contact;
     private readonly System.Random rng;
     private readonly List<BallFlight.Sample> scratch = new List<BallFlight.Sample>(1024);
+    private readonly Queue<Candidate> nudged = new Queue<Candidate>();
     private ShotDirection best;
     private Candidate bestCandidate;
     private float bestScore = float.NegativeInfinity, bestMargin;
+    private int bestArc, nudgesLeft = NudgeBudget;
     private bool any;
 
     public int Tried { get; private set; }
@@ -49,13 +80,33 @@ internal sealed class PartnerDirectionSearch
         best = new ShotDirection { intent = intent, wicket = PartnerWicket.None, valid = false };
     }
 
+    /// Which arc a direction is in: 0 straight (the V), 1 square, 2 fine.
+    public static int Arc(float angle)
+    {
+        if (Mathf.Abs(angle) <= StraightArc) return 0;
+        return (angle > 0f ? angle <= SquareOff : -angle <= SquareLeg) ? 1 : 2;
+    }
+
+    /// The stretches of FieldSets angle (lo, hi) that make up an arc.
+    private static Vector2[] Ranges(int arc)
+    {
+        switch (arc)
+        {
+            case 0: return new[] { new Vector2(-StraightArc, StraightArc) };
+            case 1: return new[] { new Vector2(StraightArc, SquareOff), new Vector2(-SquareLeg, -StraightArc) };
+            default: return new[] { new Vector2(SquareOff, FinestAngle), new Vector2(-FinestAngle, -SquareLeg) };
+        }
+    }
+
     /// Exit speeds (m/s) and elevations (degrees) the search tries for an intent.
     private static void Grid(int intent, out float[] speeds, out float[] elevations)
     {
         switch (intent)
         {
             case 0: speeds = new[] { 10f, 13f, 16f, 19f }; elevations = new[] { -6f, -1f }; break;
-            case 1: speeds = new[] { 9f, 12f, 15f, 18f, 21f }; elevations = new[] { -6f, 2f }; break;
+            // 24 and 27: driven hard to the man in the deep in the V for one, which on most fields
+            // is the only straight single (measured 2026-11-05: on 13 of the 18 test fields).
+            case 1: speeds = new[] { 9f, 12f, 15f, 18f, 21f, 24f, 27f }; elevations = new[] { -6f, 2f }; break;
             case 2: speeds = new[] { 11f, 13f, 15f, 17f }; elevations = new[] { -4f, 3f, 10f }; break;
             case 3: speeds = new[] { 14f, 17f, 20f, 24f }; elevations = new[] { -3f, 5f }; break;
             case 4: speeds = new[] { 24f, 28f, 32f, 36f, 38f }; elevations = new[] { -3f, 4f, 10f }; break;
@@ -64,15 +115,30 @@ internal sealed class PartnerDirectionSearch
         }
     }
 
-    /// Every candidate in order; lazy, because the refinement reads the best so far.
+    private bool Landed => any && best.valid;
+
+    /// Every candidate in order; lazy, because the widening and the refinement read the best so far.
     public IEnumerable<Candidate> Candidates()
     {
         if (intent == PartnerIntent.LeaveWide) yield break;
-        foreach (Candidate c in Targets()) yield return c;
-        if (!(any && best.valid && bestMargin >= Comfortable))
-            foreach (Candidate c in Sweep()) yield return c;
+        for (int arc = 0; arc <= 2 && !(arc > 0 && Landed); arc++)
+        {
+            foreach (Candidate c in WithNudges(Targets(arc))) yield return c;
+            if (!(Landed && bestMargin >= Comfortable))
+                foreach (Candidate c in WithNudges(Sweep(arc))) yield return c;
+        }
         if (any)
             foreach (Candidate c in Refine(bestCandidate)) yield return c;
+    }
+
+    /// The candidates, each followed by any retries Try queued for it (turned off the player).
+    private IEnumerable<Candidate> WithNudges(IEnumerable<Candidate> list)
+    {
+        foreach (Candidate c in list)
+        {
+            yield return c;
+            while (nudged.Count > 0) yield return nudged.Dequeue();
+        }
     }
 
     /// Try one candidate; false once the budget is spent.
@@ -84,14 +150,19 @@ internal sealed class PartnerDirectionSearch
         Vector3 exit = PartnerShotPlanner.ExitFor(c.angle, c.elevation, c.speed, f.offSign);
         PartnerField.Assessment a = PartnerField.Assess(contact, exit, f, scratch);
         if (PartnerField.HasHuman(f) && a.result.closestToHuman < PartnerShotPlanner.HumanClearance)
+        {
+            NudgeOffThePlayer(c);
             return true;
+        }
         bool match = PartnerShotPlanner.Realises(intent, a, out float margin);
         float score = PartnerShotPlanner.Score(intent, a, match, margin);
-        if (score > bestScore)
+        int arc = Arc(c.angle);
+        if (Better(match, arc, score))
         {
             any = true;
             bestScore = score;
             bestMargin = margin;
+            bestArc = arc;
             bestCandidate = c;
             best = new ShotDirection
             {
@@ -103,16 +174,37 @@ internal sealed class PartnerDirectionSearch
         return true;
     }
 
-    private IEnumerable<Candidate> Targets()
+    /// Landing the intent first; then, among those that do, the straighter arc, then the margin;
+    /// among those that do not, the nearer miss, an arc further out costing ArcPenalty.
+    private bool Better(bool match, int arc, float score)
+    {
+        if (!any) return true;
+        if (match != best.valid) return match;
+        if (match && arc != bestArc) return arc < bestArc;
+        if (match) return score > bestScore;
+        return score - ArcPenalty * arc > bestScore - ArcPenalty * bestArc;
+    }
+
+    /// Queue the shot again turned away from the player's head (his bearing from the bat).
+    private void NudgeOffThePlayer(Candidate c)
+    {
+        if (c.nudges >= NudgesPerShot || nudgesLeft <= 0) return;
+        nudgesLeft--;
+        float away = c.angle >= AngleTo(f.nonStrikerHead) ? 1f : -1f;
+        nudged.Enqueue(new Candidate { angle = c.angle + away * HumanNudge, elevation = c.elevation, speed = c.speed, nudges = c.nudges + 1 });
+    }
+
+    private IEnumerable<Candidate> Targets(int arc)
     {
         Grid(intent, out float[] speeds, out float[] elevations);
         if (intent == CareerSim.Wicket)
         {
             foreach (int j in Shuffled(Fielders(true)))
-                foreach (Candidate c in CatchesAt(f.fielders[j])) yield return c;
+                if (Arc(AngleTo(f.fielders[j])) == arc)
+                    foreach (Candidate c in CatchesAt(f.fielders[j])) yield return c;
             yield break;
         }
-        List<float> aims = intent == 0 ? RingAngles() : Gaps();
+        List<float> aims = intent == 0 ? RingAngles(arc) : Gaps(arc);
         foreach (float aim in aims)
             foreach (float s in speeds)
                 foreach (float e in elevations)
@@ -122,16 +214,30 @@ internal sealed class PartnerDirectionSearch
                     };
     }
 
-    private IEnumerable<Candidate> Sweep()
+    /// Across the arc. In the V, where he means to play, every 4 degrees from its very edge (a
+    /// straight single is often only to be had there, past mid-on or mid-off) with four shots at
+    /// each, walking through the whole speed x elevation grid from a random place so every pair
+    /// is tried at several angles. Further out, every 10 degrees from a random start, three shots
+    /// of random speed and elevation at each.
+    private IEnumerable<Candidate> Sweep(int arc)
     {
         Grid(intent, out float[] speeds, out float[] elevations);
-        float start = -FinestAngle + (float)rng.NextDouble() * 10f;
-        for (float angle = start; angle <= FinestAngle; angle += 10f)
-            for (int k = 0; k < 3; k++)
-                yield return new Candidate
+        bool straight = arc == 0;
+        float step = straight ? 4f : 10f;
+        int each = straight ? 4 : 3, pairs = speeds.Length * elevations.Length, next = rng.Next(pairs);
+        foreach (Vector2 r in Ranges(arc))
+        {
+            float start = r.x + (float)rng.NextDouble() * (straight ? 1f : step);
+            for (float angle = start; angle <= r.y; angle += step)
+                for (int k = 0; k < each; k++)
                 {
-                    angle = angle, speed = speeds[rng.Next(speeds.Length)], elevation = elevations[rng.Next(elevations.Length)],
-                };
+                    int pair = straight ? next++ % pairs : rng.Next(pairs);
+                    yield return new Candidate
+                    {
+                        angle = angle, speed = speeds[pair % speeds.Length], elevation = elevations[pair / speeds.Length],
+                    };
+                }
+        }
     }
 
     private IEnumerable<Candidate> Refine(Candidate b)
@@ -163,21 +269,23 @@ internal sealed class PartnerDirectionSearch
 
     private float Off => f.offSign < 0f ? -1f : 1f;
 
-    /// Straight at the fielders saving the single (inside the circle, not the close catchers).
-    private List<float> RingAngles()
+    /// Straight at the fielders saving the single (inside the circle, not the close catchers) in
+    /// this arc.
+    private List<float> RingAngles(int arc)
     {
         var aims = new List<float>();
         foreach (int j in Shuffled(Fielders(false)))
         {
             float d = new Vector2(f.fielders[j].x - contact.x, f.fielders[j].z - contact.z).magnitude;
-            if (d > 8f && d < FieldSets.RingFurthest + 4f) aims.Add(AngleTo(f.fielders[j]));
+            float angle = AngleTo(f.fielders[j]);
+            if (d > 8f && d < FieldSets.RingFurthest + 4f && Arc(angle) == arc) aims.Add(angle);
         }
         return aims;
     }
 
-    /// The middle of every gap of 15 degrees or more between fielders, widest first, shuffled
-    /// among the wide ones so the same gap is not always the one.
-    private List<float> Gaps()
+    /// The middle of every gap of 15 degrees or more between fielders, as much of it as lies in
+    /// this arc, widest first, shuffled among the wide ones so the same gap is not always the one.
+    private List<float> Gaps(int arc)
     {
         var angles = new List<float>();
         foreach (int j in Fielders(false)) angles.Add(AngleTo(f.fielders[j]));
@@ -185,11 +293,13 @@ internal sealed class PartnerDirectionSearch
         angles.Add(FinestAngle + 10f);
         angles.Sort();
         var gaps = new List<Vector2>();   // (middle, width)
+        Vector2[] ranges = Ranges(arc);
         for (int i = 1; i < angles.Count; i++)
-        {
-            float w = angles[i] - angles[i - 1];
-            if (w >= 15f) gaps.Add(new Vector2(0.5f * (angles[i] + angles[i - 1]), w + 20f * (float)rng.NextDouble()));
-        }
+            foreach (Vector2 r in ranges)
+            {
+                float lo = Mathf.Max(angles[i - 1], r.x), hi = Mathf.Min(angles[i], r.y), w = hi - lo;
+                if (w >= 15f) gaps.Add(new Vector2(0.5f * (lo + hi), w + 20f * (float)rng.NextDouble()));
+            }
         gaps.Sort((x, y) => y.y.CompareTo(x.y));
         var aims = new List<float>();
         for (int i = 0; i < gaps.Count && i < 6; i++) aims.Add(gaps[i].x);
