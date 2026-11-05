@@ -126,7 +126,7 @@ public partial class Bat : MonoBehaviour
         Vector3 ballNow = ball != null ? ball.transform.position : Vector3.zero;
 
         bool live = ball != null && !ball.isKinematic && !hasHitBall && !holdingStill &&
-                    inst.gameState == eGameState.InGame_DeliverBallLoop;
+                    inst.gameState == eGameState.InGame_DeliverBallLoop && !ContactSuspended;
         if (live && havePreviousPose && (ballNow - previousBallPosition).sqrMagnitude < 9f)
             TrySweep(inst, ball, ballNow);
 

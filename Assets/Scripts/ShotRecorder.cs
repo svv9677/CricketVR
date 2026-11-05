@@ -206,7 +206,9 @@ public class ShotRecorder : MonoBehaviour
 
         float now = Time.time - startTime;
         Transform bat = main.theBat.transform;
-        Camera eye = Camera.main;
+        // No helmet while the partner bats (he wears his own): the player's head is then at the
+        // non-striker's end, and a zero rotation is "no helmet" (ShotRecording).
+        Camera eye = Striker.IsPartner ? null : Camera.main;
         var sample = new ShotRecording.Sample
         {
             ball = main.theBall.transform.position,

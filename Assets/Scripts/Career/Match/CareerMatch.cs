@@ -7,8 +7,8 @@ using UnityEngine.SceneManagement;
 /// order (CareerMatchSession.Plan, set up by the career hub). Built when the match scene loads, only
 /// for a career match - Quick Match is the game as it always was.
 ///
-/// He plays only his own balls. Everything else is simulated (CareerSim) and scored through HUD,
-/// so the scoreboard, the bowlers' figures and MatchFlow's ending all work as in any match:
+/// He plays only his own balls (and watches his partner's from the other end: CareerMatchPartner). The
+/// rest is simulated (CareerSim) and scored by HUD, so the scoreboard and MatchFlow work as in any match:
 ///   * his partners' balls - whenever a partner is on strike between balls, his balls are simulated
 ///     one after another until the career player is on strike again (or the innings is over), and a
 ///     catch-up card says what happened ("While you were at the other end" / "You come in at 45/4");
@@ -158,7 +158,7 @@ public partial class CareerMatch : MonoBehaviour
             return;
         if (youOut && !restDone)
             FinishInnings(hud);
-        else if (!InningsOver(hud) && !StrikerIsYou(hud))
+        else if (!InningsOver(hud) && !StrikerIsYou(hud) && !PartnerWatch.Live)
             CatchUp(hud);
         else
             Hold(false);
@@ -219,13 +219,13 @@ public partial class CareerMatch : MonoBehaviour
             if (s != eGameState.InGame_Ready)
                 return;
             releasePending = false;
-            // A partner on strike: his balls are simulated in Update; no ball may start before then.
-            if (rosterApplied && !MatchFlow.Over && !InningsOver(hud) && !StrikerIsYou(hud))
+            // A partner on strike: his balls are simulated in Update (unless watched); none may start first.
+            if (rosterApplied && !MatchFlow.Over && !InningsOver(hud) && !StrikerIsYou(hud) && !PartnerWatch.Live)
                 Hold(true);
         }
     }
 
-    /// A wicket off a real ball (the career player's: only he faces them) is HUD's: its dismissal
+    /// A wicket off a real ball (his, or a watched partner's) is HUD's: its dismissal
     /// line says how. Looked for wherever the scoreboard may have moved - before MatchFlow ends on it.
     private void DetectRealWicket(HUD hud)
     {
@@ -239,8 +239,8 @@ public partial class CareerMatch : MonoBehaviour
             youOut = true;
     }
 
-    /// A ball he faced, settled: into the career, the ratings recomputed, saved. Partners' balls
-    /// are never bowled, but only a ball he was on strike for counts, whatever comes through. Even
+    /// A ball he faced, settled: into the career, the ratings recomputed, saved. A partner's ball never
+    /// comes (BallLedger), and only a ball he was on strike for counts, whatever comes through. Even
     /// after the match has ended: the last ball can end it before it is settled here.
     private void OnFaced(BallRecord r)
     {
@@ -307,7 +307,7 @@ public partial class CareerMatch : MonoBehaviour
         int cap = CareerMatchLogic.BatchCap(hud.TotalOvers * 6, Bowled(hud));
         bool wasIn = YouAtCrease(hud);
         int n = 0;
-        while (!CareerMatchLogic.StopBatch(StrikerIsYou(hud), youOut, InningsOver(hud), n, cap) && hud.CurrentBatsman != null)
+        while (!CareerMatchLogic.StopBatch(YourTurn(hud), youOut, InningsOver(hud), n, cap) && hud.CurrentBatsman != null)
         {
             SimulateOne(hud, batch);
             n++;

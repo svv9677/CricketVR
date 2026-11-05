@@ -46,8 +46,10 @@ public class WideCollider : MonoBehaviour
         float side = leg ? -offSign : offSign;
 
         float line = (leg ? LegSideWideLine : OffSideWideLine) + BallDiameter();
-        // Distance the batter has stepped toward this side, beyond normal stance drift.
-        float step = Mathf.Max(0f, player.position.z * side - StanceTolerance);
+        // Distance the batter has stepped toward this side, beyond normal stance drift. The striker's:
+        // the partner's guard when he is on strike (the player is then at the other end).
+        float pz = Striker.TryStanceZ(out float sz) ? sz : player.position.z;
+        float step = Mathf.Max(0f, pz * side - StanceTolerance);
         float innerFace = line + step;
 
         float centreZ = side * (innerFace + boxCollider.size.z * transform.lossyScale.z / 2f);

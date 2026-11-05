@@ -363,6 +363,11 @@ public class BallLedger : MonoBehaviour
         RealMissBowled(r);
         if (r.end != eBallEnd.Dead)
             ballsSinceWicket = r.Out ? 0 : ballsSinceWicket + 1;
+        // A career partner's ball, played while the player watched from the other end (phase 3): it
+        // still counts toward the situation above (a wicket just fell), but it is not a ball the
+        // player faced, so it never reaches his ratings.
+        if (PartnerWatch.PartnersBall(striker, HUD.Instance != null ? HUD.Instance.Human : null))
+            return;
         BallFeed.Raise(r);
     }
 

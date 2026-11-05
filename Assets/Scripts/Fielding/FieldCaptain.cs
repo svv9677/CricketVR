@@ -62,6 +62,9 @@ public class FieldCaptain : MonoBehaviour
     /// since the last read: they are not the batter's, so the next read only catches up with the
     /// score and puts nothing in the book.
     private bool simulatedSince;
+    /// This ball is a career partner's, played while the player watches (phase 3): not the player's
+    /// either, so it is read like the simulated ones - the score caught up, nothing in the book.
+    private bool partnerBall;
     // The ball being bowled: who by, where, and what came of it.
     private eSwingType bowledBy;
     private float bowledLine;
@@ -125,6 +128,8 @@ public class FieldCaptain : MonoBehaviour
                 bowledBand = inst.currentBowlingConfig != null ? inst.currentBowlingConfig.lengthBand : eLengthBand.GoodLength;
                 struck = falseShot = false;
                 shotAngle = float.NaN;
+                HUD hud = HUD.Instance;
+                partnerBall = hud != null && PartnerWatch.PartnersBall(hud.CurrentBatsman, hud.Human);
                 break;
             case eGameState.InGame_BallHit:
                 Vector3 v = inst.theBallRigidBody.linearVelocity;
@@ -172,7 +177,7 @@ public class FieldCaptain : MonoBehaviour
             book.NewBatter();
             return true;
         }
-        if (simulatedSince)
+        if (simulatedSince || partnerBall)
             return CatchUp(hud);
         int runs = hud.Runs - lastRuns;
         bool wicket = hud.Wickets > lastWickets;

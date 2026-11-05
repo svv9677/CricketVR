@@ -191,7 +191,7 @@ public class Ball : MonoBehaviour
     {
         Camera eye = Camera.main;
         float eyes = eye != null ? eye.transform.position.y : BallFlight.GroundY(new Vector3(BallDelivery.BatsmanStumpsX, 0f, 0f)) + StandingEyes;
-        return eyes + EyesToHeadTop;
+        return Striker.HeadTopY(eyes + EyesToHeadTop);   // the partner's head, when he is the striker
     }
 
     public void PlayTrail()

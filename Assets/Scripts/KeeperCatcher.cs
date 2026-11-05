@@ -515,11 +515,11 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
         body.lookTarget = Vector3.Lerp(ball + bodyRoot.forward * 2f + Vector3.up * 0.5f, BatterHead(), lookUp * lookUp * (3f - 2f * lookUp));
     }
 
-    /// Where the batter's eyes are: the player's head, or a standing batter at the crease.
+    /// Where the batter's eyes are: the player's head, a standing batter at the crease, or the partner's (Striker).
     private static Vector3 BatterHead()
     {
         Camera eye = Camera.main;
-        return eye != null ? eye.transform.position : new Vector3(BallDelivery.BatsmanStumpsX - 1f, 1.6f, 0f);
+        return Striker.HeadPosition(eye != null ? eye.transform.position : new Vector3(BallDelivery.BatsmanStumpsX - 1f, 1.6f, 0f));
     }
 
     // ---- The take ------------------------------------------------------------------------------------
