@@ -8,8 +8,10 @@ using UnityEngine.UI;
 /// Tools > CricketVR > Build Menu Prefabs. Builds the opening-menu prefab under
 /// Assets/Resources/Prefabs/UI, in the UIStyle look with the vibrant menu accents:
 ///   * MenuRoot - the world-space host with the screen stack, used in all three scenes, holding
-///     MainMenuScreen (Quick Match with overs steppers, Practice in Nets, Settings) and
-///     PauseScreen (Resume, Settings, Main Menu, plus the leave-match confirm row).
+///     MainMenuScreen (Quick Match with overs steppers, Settings, and - MainMenuExtras - Match
+///     Setup, Customise, Career, Results and the last match's score), PauseScreen (Resume,
+///     Settings, Main Menu, plus the leave-match confirm row), MatchSetupScreen, CustomiseScreen,
+///     CareerScreen (a placeholder) and MatchResultScreen.
 ///
 /// The settings screen is NOT built here: it is the existing SettingsPanel prefab from
 /// Tools > CricketVR > Build Player UI, attached as a third screen by the scene builders.
@@ -74,10 +76,17 @@ public static class MenuPrefabBuilder
 
         MainMenuScreen main = BuildMainMenu(panel.transform);
         PauseScreen pause = BuildPause(panel.transform);
+        MenuScreen[] more =
+        {
+            BuildMatchSetup(panel.transform), BuildCustomise(panel.transform),
+            BuildCareer(panel.transform), BuildResult(panel.transform),
+        };
 
         // MenuRoot.Awake switches screens off at runtime, but Awake does not run in the editor,
-        // so leave only the main menu on: otherwise the prefab shows both screens stacked.
+        // so leave only the main menu on: otherwise the prefab shows every screen stacked.
         pause.gameObject.SetActive(false);
+        foreach (MenuScreen m in more)
+            m.gameObject.SetActive(false);
 
         var so = new SerializedObject(menu);
         so.FindProperty("panel").objectReferenceValue = panel;
@@ -85,9 +94,11 @@ public static class MenuPrefabBuilder
         so.FindProperty("backdrop").objectReferenceValue = backdrop;
         so.FindProperty("showBackdrop").boolValue = true;
         SerializedProperty screens = so.FindProperty("screens");
-        screens.arraySize = 2;
+        screens.arraySize = 2 + more.Length;
         screens.GetArrayElementAtIndex(0).objectReferenceValue = main;
         screens.GetArrayElementAtIndex(1).objectReferenceValue = pause;
+        for (int i = 0; i < more.Length; i++)
+            screens.GetArrayElementAtIndex(2 + i).objectReferenceValue = more[i];
         so.ApplyModifiedProperties();
 
         return root;
@@ -155,13 +166,160 @@ public static class MenuPrefabBuilder
         _ = fewer;
         _ = more;
 
+        // The rest of the game, beside Rao's screen rather than in it (MainMenuExtras): the match
+        // Quick Match starts, then the other screens, then the last match's scorecard.
+        MainMenuExtras extras = go.AddComponent<MainMenuExtras>();
+        TextMeshProUGUI setupLine = WorldPanelBuilder.Line(column, "5 overs · Medium bowling", UIStyle.HintSize, FontStyles.Normal,
+                                                           UIStyle.TextMuted, 28f, TextAlignmentOptions.Center);
+        Transform pair = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
+        UIControls.ActionButton(pair, "Match Setup", extras.OnMatchSetup, false);
+        UIControls.ActionButton(pair, "Career", extras.OnCareer, false);
+        pair = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
+        UIControls.ActionButton(pair, "Customise", extras.OnCustomise, false);
+        UIControls.ActionButton(pair, "Results", extras.OnResults, false);
+
         UIControls.ActionButton(column, "Settings", screen.OnSettings, false);
+        UIControls.Divider(column);
+        TextMeshProUGUI last = WorldPanelBuilder.Line(column, "No matches played yet", UIStyle.LabelSize, FontStyles.Bold,
+                                                      UIStyle.Text, 34f, TextAlignmentOptions.Center);
+        TextMeshProUGUI lastDetail = WorldPanelBuilder.Line(column, "", UIStyle.HintSize, FontStyles.Normal,
+                                                            UIStyle.Text, 28f, TextAlignmentOptions.Center);
 
         var so = new SerializedObject(screen);
         so.FindProperty("oversLabel").objectReferenceValue = overs;
         so.ApplyModifiedProperties();
+        var eso = new SerializedObject(extras);
+        eso.FindProperty("lastMatch").objectReferenceValue = last;
+        eso.FindProperty("lastDetail").objectReferenceValue = lastDetail;
+        eso.FindProperty("setup").objectReferenceValue = setupLine;
+        eso.ApplyModifiedProperties();
         return screen;
     }
+
+    // ---- Match Setup, Customise, Career, Result ---------------------------------------------------
+
+    private static MenuScreen BuildMatchSetup(Transform parent)
+    {
+        Transform column = ScreenColumn(parent, "MatchSetupScreen", out GameObject go);
+        MatchSetupScreen screen = go.AddComponent<MatchSetupScreen>();
+        SetScreenName(screen, "setup");
+        Title(column, "Match Setup", "Your innings, your way");
+
+        WorldPanelBuilder.Section(column, "Overs");
+        Transform row = WorldPanelBuilder.Column(column, false, UIStyle.Unit);
+        WorldPanelBuilder.NoForceExpand(row);
+        UIControls.ActionButton(row, "‹", screen.OnFewerOvers, false, UIStyle.Control, StepperWidth);
+        TextMeshProUGUI overs = WorldPanelBuilder.Line(row, "5 overs", UIStyle.LabelSize, FontStyles.Bold, UIStyle.Text,
+                                                       UIStyle.Control, TextAlignmentOptions.Center);
+        UIControls.ActionButton(row, "›", screen.OnMoreOvers, false, UIStyle.Control, StepperWidth);
+
+        WorldPanelBuilder.Section(column, "Match");
+        SegmentedControl type = UIControls.Segmented(column, new[] { "Bat first", "Chase" }, screen.OnMatchType);
+        TextMeshProUGUI typeHint = Hint(column);
+        WorldPanelBuilder.Section(column, "Bowling difficulty");
+        SegmentedControl bowling = UIControls.Segmented(column, new[] { "Easy", "Medium", "Hard", "Pro" }, screen.OnBowling);
+        TextMeshProUGUI bowlingHint = Hint(column);
+        WorldPanelBuilder.Section(column, "Bat shield");
+        SegmentedControl shield = UIControls.Segmented(column, new[] { "Wide", "Medium", "Off" }, screen.OnShield);
+        TextMeshProUGUI shieldHint = Hint(column);
+
+        UIControls.Divider(column);
+        Transform actions = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
+        UIControls.ActionButton(actions, "Back", screen.OnBack, false);
+        Button start = UIControls.ActionButton(actions, "Start Match", screen.OnStartMatch, true);
+        start.colors = UIStyle.MenuColors(true);
+
+        var so = new SerializedObject(screen);
+        so.FindProperty("oversLabel").objectReferenceValue = overs;
+        so.FindProperty("matchType").objectReferenceValue = type;
+        so.FindProperty("matchTypeHint").objectReferenceValue = typeHint;
+        so.FindProperty("bowling").objectReferenceValue = bowling;
+        so.FindProperty("bowlingHint").objectReferenceValue = bowlingHint;
+        so.FindProperty("shield").objectReferenceValue = shield;
+        so.FindProperty("shieldHint").objectReferenceValue = shieldHint;
+        so.ApplyModifiedProperties();
+        return screen;
+    }
+
+    private static MenuScreen BuildCustomise(Transform parent)
+    {
+        Transform column = ScreenColumn(parent, "CustomiseScreen", out GameObject go);
+        CustomiseScreen screen = go.AddComponent<CustomiseScreen>();
+        SetScreenName(screen, "customise");
+        Title(column, "Customise", "The ground for your next match");
+
+        WorldPanelBuilder.Section(column, "Crowd");
+        SegmentedControl crowd = UIControls.Segmented(column, new[] { "Packed", "Half full", "Empty" }, screen.OnCrowd);
+        WorldPanelBuilder.Section(column, "Pitch");
+        SegmentedControl pitch = UIControls.Segmented(column, new[] { "Flat", "Green", "Dusty" }, screen.OnPitch);
+        TextMeshProUGUI pitchHint = Hint(column);
+
+        UIControls.Divider(column);
+        UIControls.ActionButton(column, "Back", screen.OnBack, false);
+
+        var so = new SerializedObject(screen);
+        so.FindProperty("crowd").objectReferenceValue = crowd;
+        so.FindProperty("pitch").objectReferenceValue = pitch;
+        so.FindProperty("pitchHint").objectReferenceValue = pitchHint;
+        so.ApplyModifiedProperties();
+        return screen;
+    }
+
+    private static MenuScreen BuildCareer(Transform parent)
+    {
+        Transform column = ScreenColumn(parent, "CareerScreen", out GameObject go);
+        CareerScreen screen = go.AddComponent<CareerScreen>();
+        SetScreenName(screen, "career");
+        Title(column, "Career", "Coming soon");
+        WorldPanelBuilder.Text(column, "Start at your local club and bat your way up: county, then your country. " +
+                                       "Every innings counts toward your record.", UIStyle.LabelSize, FontStyles.Normal,
+                               UIStyle.Text, 100f);
+        foreach (string stage in new[] { "1   Club cricket", "2   County", "3   International" })
+            WorldPanelBuilder.Line(column, stage + "   <color=#98A2B3>· locked</color>", UIStyle.LabelSize, FontStyles.Normal,
+                                   UIStyle.TextMuted, 40f, TextAlignmentOptions.Left);
+        UIControls.Divider(column);
+        UIControls.ActionButton(column, "Back", screen.OnBack, false);
+        return screen;
+    }
+
+    private static MenuScreen BuildResult(Transform parent)
+    {
+        Transform column = ScreenColumn(parent, "MatchResultScreen", out GameObject go);
+        MatchResultScreen screen = go.AddComponent<MatchResultScreen>();
+        SetScreenName(screen, "result");
+        TextMeshProUGUI heading = WorldPanelBuilder.Text(column, "MATCH RESULT", UIStyle.TitleSize, FontStyles.Bold, UIStyle.Text, 58f);
+        TextMeshProUGUI score = WorldPanelBuilder.Text(column, "0/0", UIStyle.TitleSize * 1.6f, FontStyles.Bold, UIStyle.Text, 84f);
+        TextMeshProUGUI result = WorldPanelBuilder.Text(column, "", UIStyle.LabelSize, FontStyles.Bold, UIStyle.AccentText, 40f);
+        TextMeshProUGUI details = WorldPanelBuilder.Text(column, "", UIStyle.HintSize, FontStyles.Normal, UIStyle.Text, 64f);
+        UIControls.Divider(column);
+        TextMeshProUGUI ai = WorldPanelBuilder.Text(column, "", UIStyle.LabelSize, FontStyles.Normal, UIStyle.Text, 70f);
+        UIControls.Divider(column);
+        TextMeshProUGUI history = WorldPanelBuilder.Text(column, "", UIStyle.HintSize, FontStyles.Normal, UIStyle.Text, 96f);
+        Transform actions = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
+        UIControls.ActionButton(actions, "Home", screen.OnBack, false);
+        Button again = UIControls.ActionButton(actions, "Play Again", screen.OnPlayAgain, true);
+        again.colors = UIStyle.MenuColors(true);
+
+        var so = new SerializedObject(screen);
+        so.FindProperty("heading").objectReferenceValue = heading;
+        so.FindProperty("score").objectReferenceValue = score;
+        so.FindProperty("result").objectReferenceValue = result;
+        so.FindProperty("details").objectReferenceValue = details;
+        so.FindProperty("aiInnings").objectReferenceValue = ai;
+        so.FindProperty("history").objectReferenceValue = history;
+        so.ApplyModifiedProperties();
+        return screen;
+    }
+
+    private static void Title(Transform column, string title, string subtitle)
+    {
+        WorldPanelBuilder.Text(column, title, UIStyle.TitleSize, FontStyles.Bold, UIStyle.Text, 58f);
+        WorldPanelBuilder.Text(column, subtitle, UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 30f);
+        UIControls.Divider(column);
+    }
+
+    private static TextMeshProUGUI Hint(Transform column) =>
+        WorldPanelBuilder.Text(column, "", UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 30f, TextAlignmentOptions.Left);
 
     private static PauseScreen BuildPause(Transform parent)
     {

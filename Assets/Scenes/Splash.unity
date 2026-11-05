@@ -6663,18 +6663,13 @@ PrefabInstance:
     - target: {fileID: 3596837641863236571, guid: 8d48c1b47e6604ac8b4582c649d05733,
         type: 3}
       propertyPath: screens.Array.size
-      value: 3
+      value: 7
       objectReference: {fileID: 0}
     - target: {fileID: 3596837641863236571, guid: 8d48c1b47e6604ac8b4582c649d05733,
         type: 3}
-      propertyPath: 'screens.Array.data[2]'
+      propertyPath: 'screens.Array.data[6]'
       value: 
       objectReference: {fileID: 925394960}
-    - target: {fileID: 3596837641863236571, guid: 8d48c1b47e6604ac8b4582c649d05733,
-        type: 3}
-      propertyPath: 'screens.Array.data[3]'
-      value: 
-      objectReference: {fileID: 0}
     - target: {fileID: 3622236438491027018, guid: 8d48c1b47e6604ac8b4582c649d05733,
         type: 3}
       propertyPath: m_AnchorMax.x

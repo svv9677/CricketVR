@@ -222,6 +222,14 @@ public static class MenuSceneBuilder
         // two screens from the prefab, then this settings screen.
         var so = new SerializedObject(menu);
         SerializedProperty screens = so.FindProperty("screens");
+        // Start from the prefab's list: the scene's copy of it, saved by an earlier run, would
+        // otherwise hide screens added to the prefab since (Match Setup, Customise, ...).
+        if (PrefabUtility.IsPartOfPrefabInstance(menu))
+        {
+            PrefabUtility.RevertPropertyOverride(screens, InteractionMode.AutomatedAction);
+            so.Update();
+            screens = so.FindProperty("screens");
+        }
         var keep = new List<Object>();
         for (int i = 0; i < screens.arraySize; i++)
         {
