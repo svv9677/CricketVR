@@ -39,6 +39,7 @@ public static class LeagueBuilder
         s.yourTeam = yours.id;
         GiveKits(s.teams, kept, rng);
         s.fixtures = RoundRobin(s.teams, rung, rng);
+        Scouting.MarkScouts(s, rng);      // the games a scout (at International, the selectors) watches
         return s;
     }
 
@@ -417,7 +418,7 @@ public static class LeagueBuilder
 
     /// After the last league round: the final between the top two (added once, false if it exists
     /// or a league fixture is still to play). The top side is at home; a Pro League final is
-    /// under lights.
+    /// under lights; a scout watches every final.
     public static bool AddFinal(Season s)
     {
         if (s == null || s.teams.Count < 2 || s.fixtures.Count == 0) return false;
@@ -431,7 +432,7 @@ public static class LeagueBuilder
         s.fixtures.Add(new Fixture
         {
             round = last + 1, home = table[0].id, away = table[1].id, final = true,
-            night = Ladder.NightChance(s.rung) >= 0.5f, pitch = ePitch.Flat,
+            night = Ladder.NightChance(s.rung) >= 0.5f, pitch = ePitch.Flat, scout = true,
         });
         return true;
     }

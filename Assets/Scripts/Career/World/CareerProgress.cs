@@ -70,9 +70,15 @@ public static class CareerProgress
         return i < 0 ? null : p.season.fixtures[i];
     }
 
-    /// Everything the next match needs (null when there is none).
+    /// The next fixture is one he sits out (left out of the side, Selection): PlanNext gives no
+    /// plan for it, and PlayLeftOut plays it without him. NextFixture still names it.
+    public static bool LeftOutNext(CareerProfile p) => p != null && p.benchedFor > 0 && NextFixture(p) != null;
+
+    /// Everything the next match needs (null when there is none, or when he is left out of it).
     public static MatchPlan PlanNext(CareerProfile p, Random rng)
     {
+        if (LeftOutNext(p) || rng == null)
+            return null;
         Fixture f = NextFixture(p);
         Season s = p?.season;
         Team yours = s?.Yours, them = f == null ? null : s.Team(f.Opponent(s.yourTeam));
@@ -151,7 +157,13 @@ public static class CareerProgress
             || plan.yourTeam != s.yourTeam || f.Opponent(s.yourTeam) != plan.opponent)
             return;                       // not this season's, or already recorded: count it once
 
+        rng ??= new Random(plan.seed);
         InningsRecord rec = RecordInnings(p, s, plan, result);
+        if (s.rung == eRung.International)
+            p.caps++;
+        if (f.scout)
+            Scouting.Watch(p, rec, s.rung);
+        ExpireOffers(p);
         RecordFixture(s, f, plan, result, rec);
         PlayOutRounds(s, rng);
 
@@ -161,6 +173,41 @@ public static class CareerProgress
         int target = CareerProgressMath.TargetSlot(BattingRating(p), Form(p), s.Yours?.players ?? new List<SquadPlayer>());
         p.battingSlot = CareerProgressMath.NextSlot(p.battingSlot, target, Ladder.LowestSlot(p.rung));
         Milestones(p, rec);
+        Selection.AfterMatch(p);
+    }
+
+    /// The match he is left out of (LeftOutNext), played without him: simulated with a reserve in
+    /// his place, a left-out line in the record book (not in the stats), the rest of the round and
+    /// the final as after a match he played, and then he is back in the side.
+    public static void PlayLeftOut(CareerProfile p, Random rng)
+    {
+        if (!LeftOutNext(p))
+            return;
+        rng ??= new Random();
+        Season s = p.season;
+        Fixture f = NextFixture(p);
+        Team yours = s.Yours, them = s.Team(f.Opponent(s.yourTeam));
+        if (yours == null || them == null)
+        {
+            p.benchedFor = 0;             // nobody to sit out against: he plays
+            return;
+        }
+        Selection.SimulateWithout(s, f, p.nation, rng);
+        f.played = true;
+        bool home = f.home == s.yourTeam;
+        var rec = new InningsRecord
+        {
+            season = s.number, rung = s.rung, team = yours.name, opponent = them.name,
+            leftOut = true, how = "left out",
+            teamScore = home ? f.homeScore : f.awayScore,
+            won = f.winner == yours.id, tied = string.IsNullOrEmpty(f.winner),
+            result = f.result, date = CareerProgressMath.Today(),
+        };
+        p.AddInnings(rec);
+        ExpireOffers(p);
+        PlayOutRounds(s, rng);
+        p.benchedFor = Math.Max(0, p.benchedFor - 1);
+        Selection.BackIn(p, rec);
     }
 
     /// The line in the record book, and the career figures.
@@ -282,7 +329,14 @@ public static class CareerProgress
     }
 
     private static void Tell(CareerProfile p, eMessageKind kind, string title, string body) =>
-        p.AddMessage(new CareerMessage { kind = kind, from = Coach, title = title, body = body, date = CareerProgressMath.Today() });
+        Post(p, kind, Coach, title, body);
+
+    /// A message into the inbox, dated today.
+    internal static void Post(CareerProfile p, eMessageKind kind, string from, string title, string body)
+    {
+        p.inbox ??= new List<CareerMessage>();
+        p.AddMessage(new CareerMessage { kind = kind, from = from, title = title, body = body, date = CareerProgressMath.Today() });
+    }
 
     /// Form 0..99 over the last FormInnings innings (Unknown with none): runs and strike rate for
     /// the rung, survival.
@@ -297,15 +351,96 @@ public static class CareerProgress
         return RatingSet.Known(o) ? o : CareerProgressMath.BeginnerRating;
     }
 
-    /// Act on a message option (an offer's "join", "decline"); phase 4.
-    public static void Choose(CareerProfile p, CareerMessage m, MessageOption o, Random rng) { }
+    // ---- Offers and the season's end (phase 4) ------------------------------------------------
 
-    /// The season is over: review it, then start the next at the same rung with the same side
-    /// (phase 4 adds moving up or down, the scouts' offers and selection).
+    /// Put under an offer that lapsed: the new season began before it was answered.
+    public const string ExpiredNote = "This offer has lapsed: the new season has begun.";
+
+    /// The newest offer still waiting for an answer, or null.
+    public static CareerMessage PendingOffer(CareerProfile p)
+    {
+        if (p?.inbox == null)
+            return null;
+        for (int i = p.inbox.Count - 1; i >= 0; i--)
+            if (p.inbox[i] != null && p.inbox[i].kind == eMessageKind.Offer && !p.inbox[i].answered)
+                return p.inbox[i];
+        return null;
+    }
+
+    /// Every unanswered offer answered as lapsed (a match of the new season has been played).
+    private static void ExpireOffers(CareerProfile p)
+    {
+        if (p?.inbox == null)
+            return;
+        foreach (CareerMessage m in p.inbox)
+            if (m != null && m.kind == eMessageKind.Offer && !m.answered)
+            {
+                m.answered = true;
+                m.body = string.IsNullOrEmpty(m.body) ? ExpiredNote : m.body + "\n" + ExpiredNote;
+            }
+    }
+
+    /// His side has played (or sat him out of) a match this season.
+    private static bool Started(Season s) =>
+        s?.fixtures != null && s.fixtures.Exists(f => f != null && f.played && f.Involves(s.yourTeam));
+
+    /// Act on a message option: "join:<rung>:<side>" (a new season at that rung with that side,
+    /// from its lowest slot), "accept-callup" (International with his nation), "stay" (the offer
+    /// declined: the season at his rung goes on) or "ok". A move is taken only before the first
+    /// match of the season; after it the offer has lapsed. A message answered once stays answered.
+    public static void Choose(CareerProfile p, CareerMessage m, MessageOption o, Random rng)
+    {
+        if (p == null || m == null || o == null || m.answered || string.IsNullOrEmpty(o.action))
+            return;
+        rng ??= new Random();
+        string[] parts = o.action.Split(new[] { ':' }, 3);
+        bool join = parts[0] == "join" && parts.Length == 3 && int.TryParse(parts[1], out int r)
+                    && r >= 0 && r < Ladder.Rungs && parts[2].Trim().Length > 0;
+        bool callup = o.action == "accept-callup";
+        if (!join && !callup && o.action != "stay" && o.action != "ok")
+            return;                       // an action this version does not know: leave it unanswered
+        m.answered = true;
+        m.read = true;
+        if (!join && !callup)
+            return;
+        if (Started(p.season))
+        {
+            m.body = (m.body ?? "") + "\n" + ExpiredNote;
+            return;
+        }
+        ExpireOffers(p);                  // one move a season: any other offer is gone
+        if (callup)
+            Join(p, eRung.International, null, rng);
+        else
+            Join(p, (eRung)int.Parse(parts[1]), parts[2].Trim(), rng);
+    }
+
+    /// The season he is about to start replaced by one at `rung` with `side` (his nation's at
+    /// International), batting at the rung's lowest slot.
+    private static void Join(CareerProfile p, eRung rung, string side, Random rng)
+    {
+        Team t = rung == eRung.International ? null : LeagueBuilder.NewTeam(rung, side, p.nation, rng);
+        p.rung = rung;
+        p.battingSlot = Ladder.LowestSlot(rung);
+        p.benchedFor = 0;
+        p.scoutReports?.Clear();
+        p.season = LeagueBuilder.NewSeason(rung, p.seasonsPlayed + 1, p.nation, t, You(p), rng);
+        string name = p.season.Yours?.name ?? side;
+        bool top = Ladder.Top(rung);
+        Post(p, eMessageKind.Info, top ? "Selector" : "Captain", top ? $"Welcome to the {name} side" : $"Welcome to {name}",
+             $"{Ladder.Name(rung)} with {name}: you start at number {p.battingSlot} and earn your way up the order.");
+    }
+
+    /// The season is over: the review, then the next season begun at once (so the hub always has
+    /// a match). In order: at the top and still good enough, he stays; the rung above interested
+    /// (Scouting.Interested), its offer goes in the inbox and he stays until he accepts it; a poor
+    /// season below the rung's standard (Selection.ShouldRelegate) and he is released, down a rung
+    /// with a new side; else the same rung with the same side. The scouts' reports start again.
     public static void EndSeason(CareerProfile p, Random rng)
     {
         if (p == null)
             return;
+        rng ??= new Random();
         Season s = p.season;
         if (s == null || s.teams == null || s.teams.Count == 0)
         {
@@ -314,9 +449,27 @@ public static class CareerProgress
             return;
         }
         p.seasonsPlayed++;
-        Tell(p, eMessageKind.Info, $"Season {s.number} review", Review(p, s));
+        Tell(p, eMessageKind.Info, $"Season {s.number} review", CareerProgressMath.SeasonReview(p, s));
+        ExpireOffers(p);
 
+        eRung from = p.rung;
         Team keep = s.Yours;
+        string oldSide = keep?.name ?? "";
+        bool released = false;
+        if (Ladder.Top(p.rung) && !Selection.ShouldRelegate(p)) { }
+        else if (Scouting.Interested(p))
+            p.AddMessage(Scouting.Offer(p, rng));
+        else if (Selection.ShouldRelegate(p))
+        {
+            released = true;
+            keep = null;
+            p.rung = Ladder.Below(p.rung);
+            p.battingSlot = Ladder.LowestSlot(p.rung);
+        }
+        p.scoutReports ??= new List<float>();
+        p.scoutReports.Clear();
+        p.benchedFor = 0;
+
         if (keep != null)
         {
             keep.played = keep.won = keep.lost = keep.tied = keep.points = 0;
@@ -325,31 +478,7 @@ public static class CareerProgress
             if (you != null) { you.name = p.name; you.bat = BattingRating(p); }
         }
         p.season = LeagueBuilder.NewSeason(p.rung, p.seasonsPlayed + 1, p.nation, keep, You(p), rng);
-    }
-
-    /// "Club cricket, season 1: 143 runs at 23.8, strike rate 121. Harbour CC finished 3rd of 8."
-    private static string Review(CareerProfile p, Season s)
-    {
-        int runs = 0, balls = 0, outs = 0, inns = 0;
-        foreach (InningsRecord r in p.innings)
-        {
-            if (r == null || r.season != s.number || r.rung != s.rung || !r.batted)
-                continue;
-            inns++; runs += r.runs; balls += r.balls;
-            if (r.isOut) outs++;
-        }
-        float avg = outs > 0 ? runs / (float)outs : runs;
-        float sr = balls > 0 ? runs * 100f / balls : 0f;
-        string you = inns == 0 ? "You did not bat."
-            : $"{runs} runs in {inns} innings at {avg:0.0}, strike rate {sr:0}.";
-
-        Team yours = s.Yours;
-        List<Team> table = LeagueBuilder.Table(s);
-        int pos = yours == null ? 0 : table.FindIndex(t => t != null && t.id == s.yourTeam) + 1;
-        string side = pos > 0 ? $" {yours.name} finished {CareerProgressMath.Ordinal(pos)} of {table.Count}." : "";
-        Fixture final = s.fixtures.Find(f => f != null && f.final);
-        if (final != null && final.played && yours != null && final.Involves(s.yourTeam))
-            side += final.winner == yours.id || final.winner == yours.name ? " Champions - the final was won." : " The final was lost.";
-        return $"{Ladder.Name(s.rung)}, season {s.number}: {you}{side}";
+        if (released)
+            Selection.Released(p, oldSide, from);
     }
 }

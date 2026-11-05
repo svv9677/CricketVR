@@ -188,6 +188,42 @@ public static class CareerProgressMath
         return n;
     }
 
+    /// The season review: "Club cricket, season 1: 143 runs in 7 innings at 23.8, strike rate 121.
+    /// Harbour CC finished 3rd of 8. State scouts watched 3 matches and saw promise." Reads the
+    /// season's record-book lines and the scouts' reports (CareerProfile.scoutReports).
+    public static string SeasonReview(CareerProfile p, Season s)
+    {
+        if (p == null || s == null)
+            return "";
+        int runs = 0, balls = 0, outs = 0, inns = 0, missed = 0;
+        foreach (InningsRecord r in p.innings ?? new List<InningsRecord>())
+        {
+            if (r == null || r.season != s.number || r.rung != s.rung)
+                continue;
+            if (r.leftOut) missed++;
+            if (!r.batted)
+                continue;
+            inns++; runs += r.runs; balls += r.balls;
+            if (r.isOut) outs++;
+        }
+        float sr = balls > 0 ? runs * 100f / balls : 0f;
+        string avg = outs > 0 ? $"at {runs / (float)outs:0.0}" : "without being out";
+        string you = inns == 0 ? "You did not bat."
+            : $"{runs} runs in {inns} innings {avg}, strike rate {sr:0}.";
+        if (missed > 0)
+            you += missed == 1 ? " Left out of one match." : $" Left out of {missed} matches.";
+
+        Team yours = s.Yours;
+        List<Team> table = LeagueBuilder.Table(s);
+        int pos = yours == null ? 0 : table.FindIndex(t => t != null && t.id == s.yourTeam) + 1;
+        string side = pos > 0 ? $" {yours.name} finished {Ordinal(pos)} of {table.Count}." : "";
+        Fixture final = s.fixtures?.Find(f => f != null && f.final);
+        if (final != null && final.played && yours != null && final.Involves(s.yourTeam))
+            side += final.winner == yours.id || final.winner == yours.name ? " Champions - the final was won." : " The final was lost.";
+        string scouts = Scouting.Verdict(p.scoutReports, s.rung);
+        return $"{Ladder.Name(s.rung)}, season {s.number}: {you}{side}{(scouts.Length > 0 ? " " + scouts : "")}";
+    }
+
     /// Today, as the record book and the inbox date things.
     public static string Today() => DateTime.Now.ToString("yyyy-MM-dd");
 }
