@@ -114,6 +114,10 @@ public class ShotCard : MonoBehaviour
         // Only between balls, alongside the next-ball options: while a ball is being bowled or
         // is in play it is in the way.
         bool between = main == null || main.gameState == eGameState.InGame_Ready;
+        // A match has the batting card here instead (ScorecardPanel); the nets have none, so the
+        // last shot still shows there.
+        if (ScorecardPanel.ShownInstead(gameObject.scene))
+            between = false;
         if (panel.activeSelf != between)
             panel.SetActive(between);
     }
