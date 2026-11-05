@@ -21,7 +21,7 @@ What it writes (every clip mono, 44.1 kHz, peak -1 dBFS unless said):
   bails_{1..3}        bails clattering off and on to the ground
   boards_1            the ball into the advertising boards
   whoosh_{1..2}       a quick ball past the head
-  crowd_ooh_{1..4}      (the cheers are individual voices: build_crowd_voices.py)
+  crowd_four_{1..2}, crowd_six_{1..2}, crowd_wicket_{1..2}, crowd_ooh_{1..4}
 """
 import sys, wave
 import numpy as np
@@ -105,6 +105,8 @@ def main(out):
     ooh_aah, oh_dis, reactions = load("ooh_aah.mp3"), load("oh_disappointed.mp3"), load("crowd_reactions.mp3")
     g1, g2 = load("glove1.mp3"), load("glove2.mp3")
     oro = load("oroboros.mp3"); tennis = load("tennis_grass.mp3"); wood = load("woodfoley.mp3")
+    cheer1, cheer2, roar = load("cheer1.mp3"), load("cheer2.mp3"), load("roar.mp3")
+    excited = load("excited.mp3")
 
     # Footsteps on grass: the rustle of real steps (de-noised by gating, high-passed) over a heel.
     rustles = [cut(run, t, 160) for t in (1.19, 1.60, 2.00)] + [cut(walk, t, 160) for t in (0.98, 1.33, 2.17)]
@@ -181,7 +183,12 @@ def main(out):
         save(fade(a + 0.8 * b, 2, 30), f"{out}/whoosh_{i}.wav", db=-3)
 
     # The crowd's reactions, over Rao's looping crowd (CrowdController).
-    # (The cheers are individual voices now: build_crowd_voices.py, CrowdVoices.)
+    save(fade(cut(cheer1, 1.0, 5000), 60, 1500), f"{out}/crowd_four_1.wav")
+    save(fade(cut(cheer2, 1.5, 5000), 60, 1500), f"{out}/crowd_four_2.wav")
+    save(fade(cut(roar, 0.5, 5500), 40, 1800), f"{out}/crowd_six_1.wav")
+    save(fade(cut(excited, 0.4, 6500), 30, 1800), f"{out}/crowd_six_2.wav")
+    save(fade(cut(excited, 7.2, 6000), 30, 1800), f"{out}/crowd_wicket_1.wav")
+    save(fade(cut(excited, 22.3, 6000), 30, 1800), f"{out}/crowd_wicket_2.wav")
     # Beaten close to the stumps: "ooh!" - real crowds' oohs, starting on the sound so it comes
     # with the moment, not after it.
     for i, (src, t, ms) in enumerate([(ooh_aah, 0.1, 1900), (ooh_aah, 3.5, 1900), (oh_dis, 0.1, 1600),

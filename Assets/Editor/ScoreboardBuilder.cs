@@ -19,13 +19,13 @@ using UnityEngine.UI;
 ///   [ Bumrah                    Fast   2.3-14-1             ]
 ///   [ THIS OVER   1  •  4  W                                ]
 ///
-/// Dark board, white figures, grey labels, gold for the striker and boundaries. 1.9x the old size
-/// (1.3x was still too small from the crease, 2026-11-05).
+/// Dark board, white figures, grey labels, gold for the striker and boundaries. 1.6x the old size
+/// (1.3x was too small from the crease, 1.9x a little too big, 2026-11-05).
 /// </summary>
 public static class ScoreboardBuilder
 {
     private const string Path = "Main/Displays/Scorecard Display/HUD";
-    private const float Grow = 1.9f;
+    private const float Grow = 1.6f;
     /// Canvas width, px: fills the frame (42.8 m at 0.009 m/px) with a margin.
     private const float Width = 4500f;
     /// Where the board's centre goes: 70 m out from the middle (from 80, in front of the upper

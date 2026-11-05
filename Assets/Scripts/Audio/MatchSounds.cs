@@ -66,8 +66,6 @@ public class MatchSounds : MonoBehaviour
             if (!player) continue;
             a.gameObject.AddComponent<Footsteps>().Init(a.GetComponent<UmpireSignals>() != null ? 0.4f : 1f);
         }
-        if (FindFirstObjectByType<CrowdVoices>() == null && MatchSetup.Crowd != eCrowd.Empty)
-            new GameObject("Crowd Voices").AddComponent<CrowdVoices>();
         Ball.Collided += OnBallCollided;
         BowlerGrip.Released += OnReleased;
         AnimatedFielder.DiveStarted += OnDive;
@@ -235,8 +233,9 @@ public class MatchSounds : MonoBehaviour
     {
         switch (o.Signal)
         {
-            // The crowd's cheers are people, one by one round the stands (CrowdVoices).
-            default: break;
+            case UmpireSignal.Four: GameSfx.Play2D("crowd_four", GameAudio.Channel.Crowd, 0.75f); break;
+            case UmpireSignal.Six: GameSfx.Play2D("crowd_six", GameAudio.Channel.Crowd, 0.95f); break;
+            case UmpireSignal.Out: GameSfx.Play2D("crowd_wicket", GameAudio.Channel.Crowd, 0.95f); break;
         }
     }
 
