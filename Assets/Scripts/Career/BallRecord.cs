@@ -3,6 +3,9 @@ using System;
 /// Where a measured ball was faced.
 public enum eBallSource { Trial, Nets, Drill, Match }
 
+/// The training drills in the nets (phase 5).
+public enum eDrill { None, Yorkers, LeaveOutsideOff, ShortBall, Spin, Gaps }
+
 /// What the batter did with it: played at it (and touched it), left it alone, or swung and missed
 /// (beaten). A ball that hits the bat only because the bat shield widened it - the real blade would
 /// have missed - is Missed (BallRecord.realOutcome).
@@ -59,6 +62,19 @@ public class BallRecord
     /// Runs to the batter (matches); in the nets, a runs-equivalent from the carry and direction.
     public int runs;
     public eHowOut howOut;
+
+    // ---- Drills (phase 5)
+    /// The drill and which attempt at it this ball belongs to (None / 0 outside a drill).
+    public eDrill drill;
+    public int drillAttempt;
+    /// Direction of the shot (deg, FieldSets.AngleOf convention, batter frame); real-blade Clean/Edge only.
+    public float shotAngle;
+    /// World height (m) of the contact; touched balls.
+    public float contactHeight;
+    /// Furthest the head moved toward the bowler (-X) after release (m): using the feet.
+    public float headStep;
+    /// Closest the ball's centre came to the head (m), untouched balls (99 = not measured).
+    public float headClearance = 99f;
 
     // ---- The situation (matches; false/0 in the nets)
     public bool pressure, wicketJustFell, chasing;

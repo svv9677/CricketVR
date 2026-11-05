@@ -133,6 +133,8 @@ public class CareerProfile
     /// A career match begun and not yet recorded: if the app dies mid-match it is recorded as left
     /// early the next time the career is opened (CareerMatchRecovery).
     public PendingMatch pending = new PendingMatch();
+    /// The drills: attempts, best and last scores, the training slot (phase 5).
+    public DrillBook drills = new DrillBook();
 
     public void AddInnings(InningsRecord r)
     {

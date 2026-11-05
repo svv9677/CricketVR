@@ -148,6 +148,8 @@ public static class CareerSaves
         p.scoutReports ??= new System.Collections.Generic.List<float>();
         p.unlocked ??= new System.Collections.Generic.List<string>();
         p.pending ??= new PendingMatch();
+        p.drills ??= new DrillBook();
+        p.drills.records ??= new System.Collections.Generic.List<DrillRecord>();
         if (p.battingSlot < 1 || p.battingSlot > Ladder.LowestSlot(p.rung)) p.battingSlot = Ladder.LowestSlot(p.rung);
         // JsonUtility gives an empty Season (not null) for a missing field: a season with no teams
         // is no season.

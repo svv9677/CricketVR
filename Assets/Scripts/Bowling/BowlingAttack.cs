@@ -25,6 +25,7 @@ public static class BowlingAttack
     private static void ResetStatics()
     {
         plan = null; planBowler = null; planOver = -1; lastWasBoundary = false;
+        ForceShape = null;
         overBowlers.Clear();
         if (subscribed) HUD.BallScored -= OnBallScored;
         subscribed = false;
@@ -46,6 +47,8 @@ public static class BowlingAttack
     /// once, whoever is on.
     public static eBowlerKind? ForceKind;
     public static eDelivery? ForceDelivery;
+    /// The career's drills: the length band and line window for the next ball, once (DeliveryShape).
+    public static DeliveryShape? ForceShape;
 
     public static BowlingParams Next(HUD hud, BowlingProfileManager profiles)
     {

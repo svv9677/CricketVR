@@ -1,6 +1,6 @@
 /// What a visit to the nets is for: free practice (nothing measured, the game as it always was),
 /// the career player's 30-ball trial, or measured practice for the career player.
-public enum eNetsMode { Free, Trial, Practice }
+public enum eNetsMode { Free, Trial, Practice, Drill }
 
 /// <summary>
 /// The career's reason for being in the nets, set from the career hub before the Nets scene loads
@@ -26,8 +26,29 @@ public static class NetsSession
     /// The trial just finished (the hub shows its result once), or null.
     public static RatingSet TrialResult;
 
+    /// The drill being run (Mode Drill), its attempt number, the ratings when it began, and its
+    /// result once finished (kept for the hub after the session ends; DrillRecorded: in the career).
+    public static eDrill Drill { get; private set; }
+    public static int DrillAttempt { get; private set; }
+    public static RatingSet DrillStartRatings;
+    public static DrillResult LastDrill;
+    public static bool DrillRecorded;
+
+    public static void BeginDrill(eDrill d, int attempt, RatingSet before)
+    {
+        Mode = eNetsMode.Drill;
+        Drill = d;
+        DrillAttempt = attempt;
+        TrialIndex = 0;
+        DrillStartRatings = before?.Clone();
+        LastDrill = null;
+        DrillRecorded = false;
+        SceneFader.Load(NetsScene);
+    }
+
     public static void BeginTrial()
     {
+        Drill = eDrill.None;
         Mode = eNetsMode.Trial;
         TrialIndex = 0;
         TrialResult = null;
@@ -36,6 +57,7 @@ public static class NetsSession
 
     public static void BeginPractice()
     {
+        Drill = eDrill.None;
         Mode = eNetsMode.Practice;
         SceneFader.Load(NetsScene);
     }
@@ -49,6 +71,7 @@ public static class NetsSession
         if (trialResult != null)
             TrialResult = trialResult;
         Mode = eNetsMode.Free;
+        Drill = eDrill.None;
         TrialIndex = 0;
     }
 
@@ -86,6 +109,7 @@ public static class NetsSession
         else
         {
             Mode = eNetsMode.Free;
+            Drill = eDrill.None;
             TrialIndex = 0;
         }
     }
@@ -98,5 +122,10 @@ public static class NetsSession
         ReturnToHub = false;
         TrialResult = null;
         leftPending = false;
+        Drill = eDrill.None;
+        DrillAttempt = 0;
+        DrillStartRatings = null;
+        LastDrill = null;
+        DrillRecorded = false;
     }
 }
