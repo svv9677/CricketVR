@@ -137,6 +137,10 @@ public class CareerScreensTests
         Assert.AreEqual("Tied", Plain(SeasonScreen.Outcome(s, tie, false)));
         Assert.AreEqual(" by 12 runs", SeasonScreen.Margin("Harbour CC won by 12 runs"));
         Assert.AreEqual("", SeasonScreen.Margin("Match tied"));
+        Assert.AreEqual(" by 4 wickets", SeasonScreen.Margin("Won by 4 wickets"));
+        Assert.AreEqual(" by 3 runs", SeasonScreen.Margin("Lost by 3 runs"));
+        Assert.AreEqual(" by 2 wickets", SeasonScreen.Margin("Stand by Me XI won by 2 wickets"), "a name with ' by ' in it");
+        Assert.AreEqual("", SeasonScreen.Margin("Unwon by nobody"), "only the whole word 'won'");
     }
 
     // ---- Result -------------------------------------------------------------------------------------
@@ -221,6 +225,18 @@ public class CareerScreensTests
         CareerResultScreen.RememberBefore(p);   // no slot active in a test: -1
         Assert.IsFalse(RatingSet.Known(CareerResultScreen.OverallBefore(-1)), "nothing for no slot");
         Assert.IsFalse(RatingSet.Known(CareerResultScreen.OverallBefore(0)), "nothing for another slot");
+    }
+
+    [Test]
+    public void ThePositionIsOnlyFromTheSeasonTheMatchWasIn()
+    {
+        var p = new CareerProfile { season = new Season { number = 2 } };
+        CareerResultScreen.RememberBefore(p);   // no slot active in a test: -1
+        Assert.AreSame(p.season, CareerResultScreen.SeasonPlayed(p, -1), "the same season");
+        p.season = new Season { number = 3 };
+        Assert.IsNull(CareerResultScreen.SeasonPlayed(p, -1), "the season has moved on since the match");
+        Assert.AreSame(p.season, CareerResultScreen.SeasonPlayed(p, 0), "nothing remembered for another slot");
+        CareerResultScreen.RememberBefore(null);
     }
 
     // ---- Every string -------------------------------------------------------------------------------

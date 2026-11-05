@@ -28,12 +28,26 @@ public class CareerResultScreen : MenuScreen
     // so the result can say what the match did to it. Kept with the slot it belongs to.
     private static float overallBefore = RatingSet.Unknown;
     private static int beforeSlot = -1;
+    // The season the match was played in: if recording it ended that season and started the next,
+    // the new season's empty table says nothing about this match, so no position is shown.
+    private static int beforeSeason = -1;
 
     /// The hub calls this as a match begins.
     public static void RememberBefore(CareerProfile p)
     {
         overallBefore = p?.ratings != null ? p.ratings.Overall : RatingSet.Unknown;
         beforeSlot = CareerSaves.Active;
+        beforeSeason = p?.season != null ? p.season.number : -1;
+    }
+
+    /// The season the last match of `slot` was played in, if it is still the current one; null
+    /// when the career has moved on to a new season since (or nothing was remembered for it).
+    public static Season SeasonPlayed(CareerProfile p, int slot)
+    {
+        Season s = p?.season;
+        if (s == null || slot != beforeSlot || beforeSeason < 0)
+            return s;
+        return s.number == beforeSeason ? s : null;
     }
 
     /// The overall remembered for `slot` as its last match began (Unknown if none was).
@@ -62,7 +76,7 @@ public class CareerResultScreen : MenuScreen
         Set(inningsDetail, r.batted ? InningsDetail(r.fours, r.sixes, r.isOut, r.retired, r.how) : "");
         Set(scores, ScoresLine(r, plan, batFirst));
         Set(ratings, p == null ? "" : RatingsLine(OverallBefore(CareerSaves.Active), Overall(p), CareerProgress.Form(p)));
-        Set(position, PositionLine(p?.season));
+        Set(position, PositionLine(SeasonPlayed(p, CareerSaves.Active)));
     }
 
     private static float Overall(CareerProfile p) => p.ratings != null ? p.ratings.Overall : RatingSet.Unknown;

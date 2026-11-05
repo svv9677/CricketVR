@@ -47,7 +47,8 @@ public class SeasonScreen : MenuScreen
         for (int i = 0; i < tableRows.Length; i++)
             Set(tableRows[i], i < table.Count ? TableRow(i + 1, table[i], table[i].id == s.yourTeam) : "");
         List<Fixture> fixtures = s != null ? YourFixtures(s) : new List<Fixture>();
-        Fixture next = s != null ? FirstUnplayed(fixtures, s.yourTeam) : null;
+        // The hub's next match, so the two screens never disagree about which one it is.
+        Fixture next = s != null ? CareerProgress.NextFixture(p) : null;
         for (int i = 0; i < fixtureRows.Length; i++)
             Set(fixtureRows[i], i < fixtures.Count ? FixtureLine(s, fixtures[i], fixtures[i] == next)
                               : i == 0 ? $"<color={Muted}>No fixtures yet.</color>" : "");
@@ -139,14 +140,23 @@ public class SeasonScreen : MenuScreen
         return !string.IsNullOrEmpty(t.shortName) ? t.shortName : Clip(t.name);
     }
 
-    /// " by 12 runs" out of "Harbour CC won by 12 runs" ("" when the result gives no margin).
+    /// " by 12 runs" out of "Harbour CC won by 12 runs" or "Won by 4 wickets" ("" when the result
+    /// gives no margin). It looks for the whole word "won by" / "lost by", not just " by ", so a
+    /// side whose name has " by " in it is not split there.
     public static string Margin(string result)
     {
         if (string.IsNullOrEmpty(result))
             return "";
-        int at = result.IndexOf(" by ", System.StringComparison.Ordinal);
-        return at >= 0 ? result.Substring(at) : "";
+        foreach (string verb in MarginVerbs)
+        {
+            int at = result.IndexOf(verb, System.StringComparison.OrdinalIgnoreCase);
+            if (at == 0 || at > 0 && result[at - 1] == ' ')
+                return result.Substring(at + verb.IndexOf(' '));
+        }
+        return "";
     }
+
+    private static readonly string[] MarginVerbs = { "won by ", "lost by " };
 
     /// The player's side's fixtures, round by round, the final last; at most Rows of them. A final
     /// he is not in is listed too, once it is drawn.
@@ -163,7 +173,4 @@ public class SeasonScreen : MenuScreen
             list.RemoveRange(Rows, list.Count - Rows);
         return list;
     }
-
-    private static Fixture FirstUnplayed(List<Fixture> fixtures, string yourTeam) =>
-        fixtures.Find(f => !f.played && f.Involves(yourTeam));
 }

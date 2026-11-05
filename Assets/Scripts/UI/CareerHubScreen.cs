@@ -123,6 +123,15 @@ public class CareerHubScreen : MenuScreen
             Set(nextSlot, "");
             return;
         }
+        if (next == null && !s.finished)
+        {
+            // Between the league rounds and the final (or the rest of the round still to come):
+            // not over, just nothing for his side to play yet.
+            Set(nextTitle, "Waiting for the other results");
+            Set(nextDetail, "Your next match appears here once it is drawn.");
+            Set(nextSlot, "");
+            return;
+        }
         if (next == null)
         {
             Set(nextTitle, "Season complete");

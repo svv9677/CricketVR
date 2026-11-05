@@ -25,15 +25,8 @@ public class MainMenuExtras : MonoBehaviour
     private void OnEnable()
     {
         Refresh();
-        // Back from a career session in the nets: straight to the career hub, ahead of any match
-        // result. The flag is only cleared once the hub is actually pushed (ShowCareerHub): this
-        // screen can be switched on and off again while the menu sets itself up, which stops the
-        // coroutine, and the next OnEnable must still see the flag. With no career loaded the
-        // flag is stale, so it is dropped here and cannot fire on a later, unrelated return.
-        // A pending match result is put off, not discarded: it shows the next time this screen
-        // opens.
         // Back from a career match comes first of all: its result over the hub (the same rules
-        // for the flag as the nets').
+        // for the flag as the nets', below).
         if (CareerMatchSession.ReturnToHub)
         {
             if (CareerSaves.Current != null)
@@ -43,6 +36,13 @@ public class MainMenuExtras : MonoBehaviour
             }
             CareerMatchSession.ReturnToHub = false;
         }
+        // Back from a career session in the nets: straight to the career hub, ahead of any match
+        // result. The flag is only cleared once the hub is actually pushed (ShowCareerHub): this
+        // screen can be switched on and off again while the menu sets itself up, which stops the
+        // coroutine, and the next OnEnable must still see the flag. With no career loaded the
+        // flag is stale, so it is dropped here and cannot fire on a later, unrelated return.
+        // A pending match result is put off, not discarded: it shows the next time this screen
+        // opens.
         if (NetsSession.ReturnToHub)
         {
             if (CareerSaves.Current != null)
@@ -102,9 +102,11 @@ public class MainMenuExtras : MonoBehaviour
     }
 
     /// The career match's result over the hub over the slots: Continue goes to the hub, Back from
-    /// there to the slots, then here. The career result is this match's scorecard, so a quick-match
-    /// result left pending by the same match is not shown after it, and a nets return asked for
-    /// earlier is met by the hub this opens.
+    /// there to the slots, then here. A pending quick-match result can only be this same match's
+    /// (the match scene's MatchFlow.End adds every match it plays to MatchHistory, and
+    /// MatchResultScreen clears the flag whenever it is shown, so an older one was already seen
+    /// on the way into the career), so it is dropped rather than put off: the career result is
+    /// this match's scorecard. A nets return asked for earlier is met by the hub this opens.
     private IEnumerator ShowCareerResult()
     {
         yield return null;
