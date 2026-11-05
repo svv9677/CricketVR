@@ -52,6 +52,8 @@ public class MatchFlow : MonoBehaviour
     /// What the other side and the player's side are called on the card and the status line ("AI"
     /// and "You" in a Quick Match; the career's two sides by name).
     public static string OpponentName = "AI", YourName = "You";
+    /// A career chase's target when rain revised it (0: the AI's runs + 1). Cleared by ClearOverrides.
+    public static int TargetOverride;
 
     /// The status line again now (a career match's simulated balls change the score without a
     /// state change, so the line would wait for the next real ball). Does not check for the end.
@@ -70,6 +72,7 @@ public class MatchFlow : MonoBehaviour
         CardNote = null;
         OpponentName = "AI";
         YourName = "You";
+        TargetOverride = 0;
     }
 
     private static MatchFlow instance;
@@ -108,7 +111,7 @@ public class MatchFlow : MonoBehaviour
         if (MatchSetup.Type == eMatchType.Chase)
         {
             AIFirst = PlayAI(GameSettings.Overs, 0, MatchSetup.Bowling, rng);
-            Target = AIFirst.runs + 1;
+            Target = TargetOverride > 0 ? TargetOverride : AIFirst.runs + 1;
         }
         else
             Target = 0;

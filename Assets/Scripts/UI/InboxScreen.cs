@@ -111,7 +111,7 @@ public class InboxScreen : MenuScreen
         return fromNewest < count ? count - 1 - fromNewest : -1;
     }
 
-    /// "OFFER", "SELECTION", "SCOUT", "COACH", "MILESTONE"; "NEWS" for the rest (the season review).
+    /// "OFFER", "SELECTION", "SCOUT", "COACH", "MILESTONE", "GOAL", "LOCKER"; "NEWS" for the rest (the season review).
     public static string Tag(eMessageKind kind) => kind switch
     {
         eMessageKind.Offer => "OFFER",
@@ -119,16 +119,20 @@ public class InboxScreen : MenuScreen
         eMessageKind.Scout => "SCOUT",
         eMessageKind.Coach => "COACH",
         eMessageKind.Milestone => "MILESTONE",
+        eMessageKind.Goal => "GOAL",
+        eMessageKind.Locker => "LOCKER",
         _ => "NEWS",
     };
 
-    /// The tag's colour: offers pink, selection orange, scouts the accent, milestones green.
+    /// The tag's colour: offers pink, selection orange, scouts and the locker the accent, milestones and goals green.
     public static string TagColour(eMessageKind kind) => kind switch
     {
         eMessageKind.Offer => Pink,
         eMessageKind.Selection => Bad,
         eMessageKind.Scout => Accent,
         eMessageKind.Milestone => Good,
+        eMessageKind.Goal => Good,
+        eMessageKind.Locker => Accent,
         _ => Muted,
     };
 

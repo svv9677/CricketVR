@@ -221,7 +221,8 @@ public static class CareerProgressMath
         if (final != null && final.played && yours != null && final.Involves(s.yourTeam))
             side += final.winner == yours.id || final.winner == yours.name ? " Champions - the final was won." : " The final was lost.";
         string scouts = Scouting.Verdict(p.scoutReports, s.rung);
-        return $"{Ladder.Name(s.rung)}, season {s.number}: {you}{side}{(scouts.Length > 0 ? " " + scouts : "")}";
+        string goals = CoachGoals.ReviewLine(s);
+        return $"{Ladder.Name(s.rung)}, season {s.number}: {you}{side}{(scouts.Length > 0 ? " " + scouts : "")}{(goals.Length > 0 ? " " + goals : "")}";
     }
 
     /// Today, as the record book and the inbox date things.

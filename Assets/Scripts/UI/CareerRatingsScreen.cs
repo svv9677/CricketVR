@@ -86,6 +86,9 @@ public class CareerRatingsScreen : MenuScreen
             : $"<color={Muted}>Coach:</color>  Show me {NetsSession.TrialBalls} balls in the nets and your ratings start from how you really bat.";
     }
 
+    /// The Records screen (phase 7), from the button beside Back.
+    public void OnRecords() { if (Root != null) Root.Push("careerRecords"); }
+
     private static string Round(float v) => Mathf.RoundToInt(v).ToString(CultureInfo.InvariantCulture);
 
     private static void Set(TextMeshProUGUI text, string value)

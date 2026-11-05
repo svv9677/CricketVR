@@ -104,6 +104,7 @@ public partial class CareerMatch : MonoBehaviour
         CareerMatchSession.ApplyOverrides();
         BallFeed.Faced += OnFaced;
         MatchFlow.Ended += OnEnded;
+        Bat.ShotStruck += OnShotStruck;   // phase 7: the player's sixes, for the records (CareerMatchMoments)
         subscribed = true;
     }
 
@@ -113,6 +114,7 @@ public partial class CareerMatch : MonoBehaviour
         {
             BallFeed.Faced -= OnFaced;
             MatchFlow.Ended -= OnEnded;
+            Bat.ShotStruck -= OnShotStruck;
             subscribed = false;
         }
         if (main != null)
@@ -155,6 +157,8 @@ public partial class CareerMatch : MonoBehaviour
         // Not under the pause menu either: the cards would come up over it.
         bool menuOpen = MenuRoot.Instance != null && MenuRoot.Instance.IsOpen;
         if (main.gameState != eGameState.InGame_Ready || OverBreak.Blocking || menuOpen || (MatchGate.Blocking && !holding))
+            return;
+        if (SituationIntro())   // phase 7: the situation's card before the first ball (CareerMatchSituation)
             return;
         if (youOut && !restDone)
             FinishInnings(hud);
@@ -248,7 +252,7 @@ public partial class CareerMatch : MonoBehaviour
             return;
         youAtRelease = false;
         if (!boundaryTaken)
-            CountBoundary(strikerAtRelease, r.end == eBallEnd.Four ? 4 : r.end == eBallEnd.Six ? 6 : 0);
+            YourBoundary(strikerAtRelease, r.end == eBallEnd.Four ? 4 : r.end == eBallEnd.Six ? 6 : 0);
         CareerProfile p = CareerSaves.Current;
         if (p == null)
             return;
@@ -330,8 +334,7 @@ public partial class CareerMatch : MonoBehaviour
     private void SimulateOne(HUD hud, Batch batch)
     {
         Batsman b = hud.CurrentBatsman;
-        float aggression = CareerSim.Aggression(hud.Runs, hud.Wickets, Bowled(hud), hud.TotalOvers * 6, MatchFlow.Target);
-        int code = CareerSim.Ball(b.Rating, plan.bowling, aggression, rng);
+        int code = NextCode(hud, b);   // scripted while a collapse is replayed (CareerMatchSituation)
         string how = null;
         if (code == CareerSim.Wicket)
         {
@@ -339,7 +342,9 @@ public partial class CareerMatch : MonoBehaviour
             how = CareerSim.HowOut(bowler, CareerMatchLogic.PickFielder(fielders, bowler, rng), rng);
         }
         int wicketsBefore = hud.Wickets;
+        int bowledBefore = hud.BowledBalls != null ? hud.BowledBalls.Count : 0;
         hud.ScoreSimulatedBall(code, how);
+        ScriptTaken(bowledBefore, hud);
         if (hud.Wickets > wicketsBefore)
         {
             outs[b] = !string.IsNullOrEmpty(how) ? how : CareerMatchLogic.CleanHow(b.Name, hud.LastDismissal);
@@ -407,7 +412,7 @@ public partial class CareerMatch : MonoBehaviour
         // The last ball can end the match before BallFeed has settled it: its boundary from the score.
         if (youAtRelease && strikerAtRelease != null && !boundaryTaken)
         {
-            CountBoundary(strikerAtRelease, strikerAtRelease.Runs - runsAtRelease);
+            YourBoundary(strikerAtRelease, strikerAtRelease.Runs - runsAtRelease);
             boundaryTaken = true;
         }
         HUD hud = Hud();

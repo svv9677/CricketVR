@@ -46,6 +46,10 @@ public class CareerHubScreen : MenuScreen
     /// "Partner's innings: Watch | Skip" - watch the partner bat from the non-striker's end, or skip
     /// to the next ball you face (CareerProfile.watchPartner).
     [SerializeField] private SegmentedControl watchPartner;
+    // Phase 7: Goals ("Goals 1/3") and the Locker, on the row with Back.
+    [SerializeField] private TextMeshProUGUI goalsLabel;
+    [SerializeField] private Button goals;
+    [SerializeField] private Button locker;
 
     private bool showedTrial;
     // How the match he was left out of went, said once on the banner (until the hub goes).
@@ -69,6 +73,9 @@ public class CareerHubScreen : MenuScreen
             CareerProgress.EnsureSeason(p, new System.Random());
             CareerSaves.SaveCurrent();
         }
+        // Phase 7 upkeep: the season's coach goals made and brought up to date, kit earned granted.
+        if (p != null && CareerUpkeep.Run(p))
+            CareerSaves.SaveCurrent();
         Refresh();
     }
 
@@ -93,6 +100,9 @@ public class CareerHubScreen : MenuScreen
         if (primary != null) primary.interactable = p != null;
         if (nets != null) nets.interactable = p != null && p.trialDone;
         ShowInbox(p);
+        Set(goalsLabel, CoachGoalsText.HubButton(p?.season));
+        if (goals != null) goals.interactable = p != null && p.trialDone;
+        if (locker != null) locker.interactable = p != null;
         if (watchPartner != null) watchPartner.SetValueWithoutNotify(WatchIndex(p == null || p.watchPartner));
         if (p == null)
         {
@@ -310,6 +320,7 @@ public class CareerHubScreen : MenuScreen
             if (p.season != null && p.season.finished)
             {
                 CareerProgress.EndSeason(p, rng);
+                CareerUpkeep.Run(p);   // the new season's goals
                 CareerSaves.SaveCurrent();
                 Refresh();
             }
@@ -339,6 +350,10 @@ public class CareerHubScreen : MenuScreen
     }
 
     public void OnRatings() => Push("careerRatings");
+
+    public void OnGoals() => Push("careerGoals");
+
+    public void OnLocker() => Push("careerLocker");
 
     public void OnSeason() => Push("careerSeason");
 

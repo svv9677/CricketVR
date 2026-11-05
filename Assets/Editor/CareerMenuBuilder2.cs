@@ -66,7 +66,14 @@ public static class CareerMenuBuilder2
         WatchPartnerRow(column, screen, so);
 
         UIControls.Divider(column);
-        UIControls.ActionButton(column, "Back", screen.OnBack, false);
+        // Back, Goals and Locker share the row Back had alone (phase 7): the hub keeps its height.
+        Transform actions = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
+        UIControls.ActionButton(actions, "Back", screen.OnBack, false);
+        Button goals = UIControls.ActionButton(actions, "Goals", screen.OnGoals, false);
+        Button locker = UIControls.ActionButton(actions, "Locker", screen.OnLocker, false);
+        so.FindProperty("goals").objectReferenceValue = goals;
+        so.FindProperty("goalsLabel").objectReferenceValue = UIControls.LabelOf(goals);
+        so.FindProperty("locker").objectReferenceValue = locker;
 
         so.FindProperty("banner").objectReferenceValue = banner;
         so.FindProperty("primary").objectReferenceValue = primary;
@@ -189,7 +196,9 @@ public static class CareerMenuBuilder2
                                UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 28f, TextAlignmentOptions.Left);
 
         UIControls.Divider(column);
-        UIControls.ActionButton(column, "Back", screen.OnBack, false);
+        Transform actions = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
+        UIControls.ActionButton(actions, "Records", screen.OnRecords, false);
+        UIControls.ActionButton(actions, "Back", screen.OnBack, false);
 
         so.FindProperty("subtitle").objectReferenceValue = subtitle;
         so.FindProperty("verdict").objectReferenceValue = verdict;
@@ -225,7 +234,7 @@ public static class CareerMenuBuilder2
     }
 
     /// "Label ......... 54 Solid" over a thin bar whose fill CareerRatingsScreen sizes to rating / 99.
-    private static void RatingCell(Transform parent, string label, bool bold, out Image fill, out TextMeshProUGUI value)
+    internal static void RatingCell(Transform parent, string label, bool bold, out Image fill, out TextMeshProUGUI value)
     {
         Transform cell = WorldPanelBuilder.Column(parent, true, 6f);
         Transform line = CareerMenuBuilder.Row(cell, UIStyle.Unit);
@@ -317,6 +326,13 @@ public static class CareerMenuBuilder2
             WorldPanelBuilder.Line(column, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text, 34f, TextAlignmentOptions.Center);
         so.FindProperty("position").objectReferenceValue =
             WorldPanelBuilder.Line(column, "", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.Text, 34f, TextAlignmentOptions.Center);
+        // Phase 7: records broken, a coach's goal reached - each hidden unless there is one.
+        TextMeshProUGUI best = WorldPanelBuilder.Line(column, "", UIStyle.HintSize + 2f, FontStyles.Bold, UIStyle.AccentText, 30f, TextAlignmentOptions.Center);
+        best.gameObject.SetActive(false);
+        so.FindProperty("best").objectReferenceValue = best;
+        TextMeshProUGUI goal = WorldPanelBuilder.Line(column, "", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.Text, 30f, TextAlignmentOptions.Center);
+        goal.gameObject.SetActive(false);
+        so.FindProperty("goal").objectReferenceValue = goal;
         // The scout's report, three lines at most (a scout's runs to about 160 characters, its
         // verdict last), shown only when one was watching.
         TextMeshProUGUI scout = WorldPanelBuilder.Text(column, "", UIStyle.HintSize + 2f, FontStyles.Normal, UIStyle.Text, 84f);

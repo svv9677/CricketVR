@@ -40,9 +40,12 @@ public class MatchPlan
     public eRung scoutFrom;
     /// Phase 7 situations: start the innings at this score (a collapse to rescue), overs cut by rain.
     public int startRuns, startWickets;
+    /// Phase 7: the target cut by rain (0: none); a collapse's scripted CareerSim codes, played before he comes in.
+    public int revisedTarget;
+    public List<int> collapse = new List<int>();
     public int seed;
 
-    public int Target => theirs != null && !batFirst ? theirs.runs + 1 : 0;
+    public int Target => !batFirst && theirs != null ? (revisedTarget > 0 ? revisedTarget : theirs.runs + 1) : 0;
 }
 
 /// <summary>How a career match went, from the match scene (CareerMatch) to CareerProgress.</summary>
@@ -60,6 +63,12 @@ public class CareerMatchResult
     /// He left the match before it ended (the pause menu): his innings counts as retired out and
     /// the rest of the match is simulated.
     public bool abandoned;
+    /// Phase 7 records: copied from MatchState (CareerMatchLogic.Build).
+    public int ballsToFifty, ballsToHundred;
+    public float longestSix;
+    public string sixStamp = "";
+    /// Records this match broke (CareerRecords.AfterMatch; empty on a first innings).
+    public List<eRecord> bests = new List<eRecord>();
 }
 
 /// <summary>A career match begun and not yet recorded (CareerMatchRecovery): the plan, and the
@@ -72,4 +81,7 @@ public class PendingMatch
     public int runs, balls, fours, sixes, teamRuns, teamWickets, teamBalls;
     public bool batted, isOut;
     public string how = "";
+    public int ballsToFifty, ballsToHundred;
+    public float longestSix;
+    public string sixStamp = "";
 }

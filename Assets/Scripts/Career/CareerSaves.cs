@@ -58,6 +58,7 @@ public static class CareerSaves
     public static void Create(int slot, CareerProfile p)
     {
         if (!Valid(slot)) throw new ArgumentOutOfRangeException(nameof(slot));
+        ReplayVault.DeleteSlot(slot);   // a new career: the old one's record clips go
         if (string.IsNullOrEmpty(p.created))
             p.created = DateTime.Now.ToString("yyyy-MM-dd");
         Write(slot, p);
@@ -79,6 +80,7 @@ public static class CareerSaves
         TryDelete(PathFor(slot));
         TryDelete(BackupFor(slot));
         TryDelete(PathFor(slot) + ".tmp");
+        ReplayVault.DeleteSlot(slot);
         if (slot == active) Deactivate();
     }
 
@@ -147,6 +149,9 @@ public static class CareerSaves
         p.inbox ??= new System.Collections.Generic.List<CareerMessage>();
         p.scoutReports ??= new System.Collections.Generic.List<float>();
         p.unlocked ??= new System.Collections.Generic.List<string>();
+        p.batFinish ??= ""; p.kitTrim ??= ""; p.gloves ??= "";
+        p.recordBook ??= new CareerRecordBook();
+        p.recordBook.reached ??= new System.Collections.Generic.List<string>();
         p.pending ??= new PendingMatch();
         p.drills ??= new DrillBook();
         p.drills.records ??= new System.Collections.Generic.List<DrillRecord>();
@@ -155,11 +160,16 @@ public static class CareerSaves
         // is no season.
         if (p.season != null && (p.season.teams == null || p.season.teams.Count == 0))
             p.season = null;
+        if (p.season != null) p.season.goals ??= new System.Collections.Generic.List<SeasonGoal>();
+        if (p.season != null && !p.season.situationsDealt)
+            CareerSituations.Deal(p.season, p.pending is { active: true, plan: not null } ? p.pending.plan.fixture : -1);
+        if (p.pending?.plan != null) p.pending.plan.collapse ??= new System.Collections.Generic.List<int>();
         p.look ??= new CareerAppearance();
         p.ratings ??= new RatingSet();
         p.trialRatings ??= new RatingSet();
         p.balls ??= new System.Collections.Generic.List<BallRecord>();
         p.totals ??= new CareerTotals();
+        if (p.version < 3) CareerRecords.Backfill(p);
         p.version = CareerProfile.CurrentVersion;
         return p;
     }

@@ -24,6 +24,9 @@ public class CareerResultScreen : MenuScreen
     [SerializeField] private TextMeshProUGUI ratings;
     [SerializeField] private TextMeshProUGUI position;
     [SerializeField] private TextMeshProUGUI scout;
+    // Phase 7: records this match broke; a coach's goal reached. Each is shown only when there is one.
+    [SerializeField] private TextMeshProUGUI best;
+    [SerializeField] private TextMeshProUGUI goal;
 
     // The overall as the player walked out (statics survive the scene loads, like NetsSession's),
     // so the result can say what the match did to it. Kept with the slot it belongs to.
@@ -32,6 +35,8 @@ public class CareerResultScreen : MenuScreen
     // The season the match was played in: if recording it ended that season and started the next,
     // the new season's empty table says nothing about this match, so no position is shown.
     private static int beforeSeason = -1;
+    // The season's coach goals already done as the match began, so the result names only new ones.
+    private static List<string> goalsDoneBefore;
 
     /// The hub calls this as a match begins.
     public static void RememberBefore(CareerProfile p)
@@ -39,6 +44,7 @@ public class CareerResultScreen : MenuScreen
         overallBefore = p?.ratings != null ? p.ratings.Overall : RatingSet.Unknown;
         beforeSlot = CareerSaves.Active;
         beforeSeason = p?.season != null ? p.season.number : -1;
+        goalsDoneBefore = CoachGoals.DoneIds(p?.season);
     }
 
     /// The season the last match of `slot` was played in, if it is still the current one; null
@@ -54,6 +60,9 @@ public class CareerResultScreen : MenuScreen
     /// The overall remembered for `slot` as its last match began (Unknown if none was).
     public static float OverallBefore(int slot) => slot >= 0 && slot == beforeSlot ? overallBefore : RatingSet.Unknown;
 
+    /// The goal ids done as `slot`'s last match began (null when none was remembered for it).
+    public static List<string> GoalsDoneBefore(int slot) => slot >= 0 && slot == beforeSlot ? goalsDoneBefore : null;
+
     public override void OnShow()
     {
         CareerMatchResult r = CareerMatchSession.LastResult;
@@ -68,6 +77,7 @@ public class CareerResultScreen : MenuScreen
             Set(ratings, "");
             Set(position, "");
             ShowScout("");
+            ShowLine(best, ""); ShowLine(goal, "");
             return;
         }
         bool batFirst = BattedFirst(r, plan);
@@ -80,6 +90,8 @@ public class CareerResultScreen : MenuScreen
         Set(ratings, p == null ? "" : RatingsLine(OverallBefore(CareerSaves.Active), Overall(p), CareerProgress.Form(p)));
         Set(position, PositionLine(SeasonPlayed(p, CareerSaves.Active)));
         ShowScout(ScoutLine(plan, LastInnings(p, plan)));
+        ShowLine(best, p == null ? "" : CareerRecordsScreen.BestLine(r.bests, p.recordBook));
+        ShowLine(goal, p == null ? "" : CoachGoalsText.Reached(SeasonPlayed(p, CareerSaves.Active), GoalsDoneBefore(CareerSaves.Active)));
     }
 
     /// The scout's line, only there when he was.
@@ -89,6 +101,14 @@ public class CareerResultScreen : MenuScreen
             return;
         scout.text = line;
         scout.gameObject.SetActive(!string.IsNullOrEmpty(line));
+    }
+
+    /// A line shown only when it has something to say (phase 7's best and goal lines).
+    private static void ShowLine(TextMeshProUGUI t, string line)
+    {
+        if (t == null) return;
+        t.text = line ?? "";
+        t.gameObject.SetActive(!string.IsNullOrEmpty(line));
     }
 
     private static float Overall(CareerProfile p) => p.ratings != null ? p.ratings.Overall : RatingSet.Unknown;

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 /// What a fixture asks of the batting side beyond "bat" (phase 7 fills these in; Normal until then).
 public enum eSituation { Normal, Chase, RainShortened, Rescue, Final }
 
-public enum eMessageKind { Info, Offer, Selection, Scout, Coach, Milestone }
+public enum eMessageKind { Info, Offer, Selection, Scout, Coach, Milestone, Goal, Locker }
 
 /// <summary>One player in a squad: a name, how well he bats (0..99, the same scale as the career
 /// player's ratings), and what he bowls. The career player himself is in his team's squad with
@@ -80,6 +80,8 @@ public class Season
     public bool finished;
     /// Coach goals for this season (phase 7).
     public List<SeasonGoal> goals = new List<SeasonGoal>();
+    /// The season's situations have been dealt to its fixtures (phase 7, CareerSituations.Deal).
+    public bool situationsDealt;
 
     public Team Team(string id) => teams.Find(t => t.id == id);
     public Team Yours => Team(yourTeam);
@@ -103,6 +105,8 @@ public class InningsCard
 {
     public string team = "";
     public int runs, wickets, balls, overs, target;
+    /// Phase 7: the chaser's target was cut by rain (set only on the chasing card).
+    public bool revised;
     public List<int> overRuns = new List<int>(), overWickets = new List<int>();
     public List<BatterLine> batting = new List<BatterLine>();
 
@@ -129,6 +133,13 @@ public class InningsRecord
     /// A scout was watching, and what he made of it (0..1; phase 4).
     public bool scouted;
     public float impression;
+    /// Phase 7: the situation, the overs his side had (rain), the target chased (0 batting first).
+    public eSituation situation;
+    public int overs, target;
+    /// Phase 7 records: balls to 50 / 100 (0 = not reached), the longest six's real-blade carry (m), its clip stamp.
+    public int ballsToFifty, ballsToHundred;
+    public float longestSix;
+    public string sixStamp = "";
     public string date = "";
 
     public float StrikeRate => balls > 0 ? runs * 100f / balls : 0f;
@@ -169,6 +180,8 @@ public class CareerMessage
     public string date = "";
 }
 
+public enum eGoalKind { Runs, StrikeRate, Rating, Drills, ScoutedScore, Boundaries }
+
 /// A coach goal for the season (phase 7).
 [Serializable]
 public class SeasonGoal
@@ -176,4 +189,8 @@ public class SeasonGoal
     public string id = "", text = "";
     public float target, progress;
     public bool done;
+    public eGoalKind kind;
+    public int stat = -1, minBalls;
+    public float baseline;
+    public string doneDate = "";
 }

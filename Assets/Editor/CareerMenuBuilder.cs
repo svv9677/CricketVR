@@ -205,7 +205,7 @@ public static class CareerMenuBuilder
     }
 
     /// "Label   ‹  [swatch] value  ›": the arrows wired to `onStep` with -1 and +1.
-    private static TextMeshProUGUI StepperRow(Transform column, string label, UnityAction<int> onStep, bool swatch,
+    internal static TextMeshProUGUI StepperRow(Transform column, string label, UnityAction<int> onStep, bool swatch,
                                               out Image swatchFill)
     {
         Transform row = LabelledRow(column, label);
@@ -261,7 +261,7 @@ public static class CareerMenuBuilder
     }
 
     /// A button in UIControls.ActionButton's look whose click passes `argument` (a slot, a step).
-    private static Button IntButton(Transform parent, string label, UnityAction<int> onClick, int argument, float width)
+    internal static Button IntButton(Transform parent, string label, UnityAction<int> onClick, int argument, float width)
     {
         Button button = PlainButton(parent, label, width);
         UnityEventTools.AddIntPersistentListener(button.onClick, onClick, argument);

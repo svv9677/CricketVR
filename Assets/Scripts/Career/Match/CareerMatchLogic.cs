@@ -31,6 +31,10 @@ public class MatchState
     public readonly List<int> overRuns = new List<int>(), overWickets = new List<int>();
     /// The score when the over now being bowled began.
     public int overStartRuns, overStartWickets;
+    /// Phase 7 records (ObserveMoments / NoteSix): balls to 50 / 100, the longest six's carry and clip stamp.
+    public int ballsToFifty, ballsToHundred;
+    public float longestSix;
+    public string sixStamp = "";
 
     public MatchBatter Striker => At(striker);
     public MatchBatter Runner => At(runner);
@@ -48,7 +52,7 @@ public class MatchState
 /// the career match shows. The balls themselves come from CareerSim; nothing here makes them easier
 /// or harder.
 /// </summary>
-public static class CareerMatchLogic
+public static partial class CareerMatchLogic
 {
     public const string NotOut = "not out", RetiredOut = "retired out", DidNotBat = "did not bat";
 
@@ -286,6 +290,8 @@ public static class CareerMatchLogic
             r.batted = you.batted; r.isOut = you.isOut; r.retired = you.retired;
             r.how = you.isOut ? you.how : you.batted ? NotOut : DidNotBat;
         }
+        r.ballsToFifty = s.ballsToFifty; r.ballsToHundred = s.ballsToHundred;
+        r.longestSix = s.longestSix; r.sixStamp = s.sixStamp ?? "";
         r.result = ResultText(yours, theirs, plan == null || plan.batFirst, plan?.yourTeamName, plan?.opponentName,
                               out r.won, out r.tied);
         return r;

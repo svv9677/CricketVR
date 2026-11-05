@@ -97,7 +97,7 @@ public static class CareerProgress
             crowd = Ladder.Crowd(rung),
             venue = Ladder.Venue(rung),
             pitch = f.pitch,
-            situation = f.situation,
+            situation = CareerSituations.Of(f),
             scout = f.scout,
             scoutFrom = Ladder.Above(rung),
         };
@@ -110,6 +110,7 @@ public static class CareerProgress
         FillOrder(p, yours, plan);
         plan.bowlers = CareerProgressMath.PickBowlers(them);
         plan.seed = rng.Next();
+        CareerSituations.Apply(plan, yours, them);   // phase 7: chase, rain, rescue, final (Normal: nothing)
         return plan;
     }
 
@@ -159,6 +160,7 @@ public static class CareerProgress
 
         rng ??= new Random(plan.seed);
         InningsRecord rec = RecordInnings(p, s, plan, result);
+        CareerSituations.Stamp(rec, plan);
         if (s.rung == eRung.International)
             p.caps++;
         if (f.scout)
@@ -172,7 +174,8 @@ public static class CareerProgress
             you.bat = BattingRating(p);
         int target = CareerProgressMath.TargetSlot(BattingRating(p), Form(p), s.Yours?.players ?? new List<SquadPlayer>());
         p.battingSlot = CareerProgressMath.NextSlot(p.battingSlot, target, Ladder.LowestSlot(p.rung));
-        Milestones(p, rec);
+        result.bests = CareerRecords.AfterMatch(p, rec, result);
+        CoachGoals.Update(p);
         Selection.AfterMatch(p);
     }
 
@@ -228,6 +231,7 @@ public static class CareerProgress
             how = !string.IsNullOrEmpty(r.how) ? r.how : !r.batted ? "did not bat" : retired ? "retired out" : isOut ? "out" : "not out",
             teamScore = CareerProgressMath.ScoreLine(r.yours),
             won = r.won, tied = r.tied,
+            ballsToFifty = r.ballsToFifty, ballsToHundred = r.ballsToHundred, longestSix = r.longestSix, sixStamp = r.sixStamp ?? "",
             date = CareerProgressMath.Today(),
         };
         rec.result = !string.IsNullOrEmpty(r.result) ? r.result
@@ -308,24 +312,6 @@ public static class CareerProgress
             final.played = true;
         }
         s.finished = final.played;
-    }
-
-    /// A short word in the inbox after a milestone: the first fifty, a hundred, ducks in a row.
-    private static void Milestones(CareerProfile p, InningsRecord r)
-    {
-        if (!r.batted)
-            return;
-        string score = $"{r.runs}{(r.isOut ? "" : "*")} off {r.balls} balls against {r.opponent}";
-        if (r.runs >= 100)
-            Tell(p, eMessageKind.Milestone, p.stats.hundreds == 1 ? "Your first hundred" : "Another hundred",
-                 score + ". Raise the bat - that is a day you will remember.");
-        else if (r.runs >= 50 && p.stats.fifties == 1)
-            Tell(p, eMessageKind.Milestone, "Your first fifty", score + ". The side will remember it at selection.");
-
-        int ducks = CareerProgressMath.DuckStreak(p.innings);
-        if (ducks >= 2)
-            Tell(p, eMessageKind.Coach, ducks == 2 ? "Two ducks in a row" : ducks + " ducks in a row",
-                 "It happens to everyone. Next time watch the ball onto the bat and look for a single to get off the mark.");
     }
 
     private static void Tell(CareerProfile p, eMessageKind kind, string title, string body) =>
@@ -425,6 +411,7 @@ public static class CareerProgress
         p.benchedFor = 0;
         p.scoutReports?.Clear();
         p.season = LeagueBuilder.NewSeason(rung, p.seasonsPlayed + 1, p.nation, t, You(p), rng);
+        CoachGoals.Ensure(p);
         string name = p.season.Yours?.name ?? side;
         bool top = Ladder.Top(rung);
         Post(p, eMessageKind.Info, top ? "Selector" : "Captain", top ? $"Welcome to the {name} side" : $"Welcome to {name}",
@@ -448,6 +435,7 @@ public static class CareerProgress
             EnsureSeason(p, rng);
             return;
         }
+        CoachGoals.Update(p);   // the season's last word on its goals, before the review
         p.seasonsPlayed++;
         Tell(p, eMessageKind.Info, $"Season {s.number} review", CareerProgressMath.SeasonReview(p, s));
         ExpireOffers(p);
@@ -478,6 +466,7 @@ public static class CareerProgress
             if (you != null) { you.name = p.name; you.bat = BattingRating(p); }
         }
         p.season = LeagueBuilder.NewSeason(p.rung, p.seasonsPlayed + 1, p.nation, keep, You(p), rng);
+        CoachGoals.Ensure(p);
         if (released)
             Selection.Released(p, oldSide, from);
     }

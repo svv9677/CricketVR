@@ -106,6 +106,7 @@ public sealed class ReplayActors
         piece.gameObject.AddComponent<MeshFilter>().sharedMesh = source.sharedMesh;
         var copy = piece.gameObject.AddComponent<MeshRenderer>();
         copy.sharedMaterials = liveRenderer.sharedMaterials;
+        ReplayBatterLook.Dress(copy);   // phase 7 locker: shell and trim (no change by default)
         copy.shadowCastingMode = ShadowCastingMode.Off;
         copy.forceRenderingOff = true;
         stand.Add(copy);        // shown and hidden with the other stand-ins (SetReplayView)
@@ -119,7 +120,7 @@ public sealed class ReplayActors
         head.transform.localScale = new Vector3(0.165f, 0.21f, 0.19f);
         var skin = head.GetComponent<MeshRenderer>();
         var skinMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "Batter Head" };
-        skinMaterial.SetColor("_BaseColor", new Color(0.5f, 0.34f, 0.25f));
+        skinMaterial.SetColor("_BaseColor", ReplayBatterLook.Skin);
         skin.sharedMaterial = skinMaterial;
         skin.shadowCastingMode = ShadowCastingMode.Off;
         skin.forceRenderingOff = true;

@@ -127,7 +127,10 @@ public class CareerProfile
     public bool watchPartner = true;
     /// Unlocked cosmetic ids (phase 7) and the ones in use.
     public List<string> unlocked = new List<string>();
-    public string batFinish = "", kitTrim = "";
+    /// batFinish is a Bat cosmetic id, kitTrim a Trim id, gloves a Gloves id (CosmeticCatalog); "" means the default.
+    public string batFinish = "", kitTrim = "", gloves = "";
+    /// Coach goals reached, all seasons (unlocks locker kit).
+    public int goalsDone;
     /// The international side has picked him (top rung) - caps.
     public int caps;
     /// A career match begun and not yet recorded: if the app dies mid-match it is recorded as left
@@ -135,6 +138,8 @@ public class CareerProfile
     public PendingMatch pending = new PendingMatch();
     /// The drills: attempts, best and last scores, the training slot (phase 5).
     public DrillBook drills = new DrillBook();
+    /// Records and milestones (phase 7, CareerRecords).
+    public CareerRecordBook recordBook = new CareerRecordBook();
 
     public void AddInnings(InningsRecord r)
     {
