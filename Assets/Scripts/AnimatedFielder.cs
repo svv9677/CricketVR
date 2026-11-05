@@ -399,7 +399,8 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             // Close to it on the ground, he snaps down rather than easing (HumanoidReach.quickness).
             reach.quickness = ground ? Mathf.Lerp(1f, SnapDown, Mathf.InverseLerp(0.9f, 0.4f, eta)) : 1f;
         }
-        else if (live && inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall &&
+        else if (live && animatedFielderManagementScript != null && animatedFielderManagementScript.HasSeenBall &&
+                 inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall &&
                  FlatDistance(ball, transform.position) < ReachRadius + HandsAhead && InFrontOfFeet(ball))
         {
             // A ball that has stopped (or all but) beside him: the prediction for it is a single

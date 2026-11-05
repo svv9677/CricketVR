@@ -17,11 +17,21 @@ using UnityEngine;
 /// </summary>
 public partial class AnimatedFielder
 {
-    /// How far beyond his normal reach a dive gets his hands, metres.
-    private const float DiveReach = 2.5f;
+    /// How far beyond his normal reach a dive gets his hands, metres: 2.6 m from his feet in all
+    /// (ReachRadius 1.1 + this), a full-length dive for a 1.8 m man. It was 2.5 (3.6 m in all),
+    /// and they flew for balls no fielder gets near (2026-11-03, played).
+    private const float DiveReach = 1.5f;
     /// Push-off to landing, and how far through it the arms meet the ball.
     private const float DiveFlight = 0.55f, DiveCatchPoint = 0.7f;
     private const float DiveLead = DiveFlight * DiveCatchPoint;
+    /// A dive is timed to the ball: the arms meet it when it arrives, the whole dive quicker for a
+    /// ball that is nearly on him - but no quicker than this (a body cannot be thrown out faster).
+    /// And only if the hands can get there in the time: at most DiveReach beyond his reach in a
+    /// full-length DiveLead, proportionally less in less. Launched with 0.15 s to go at a ball 2.5 m
+    /// away, the dive took its usual 0.39 s to reach out and he landed after it had gone - he dived
+    /// and never touched it (reported 2026-11-03: "diving but not picking up the ball").
+    private const float QuickestDive = 0.36f, LatestDive = 0.12f;
+    private float diveFlight = DiveFlight;
     /// Sliding on along the grass after landing: how long, and how far at most.
     private const float DiveSlideTime = 0.35f, DiveMaxSlide = 0.9f;
     /// Hips above the feet standing; hips above the grass lying on his side; hips to fingertips
@@ -30,8 +40,11 @@ public partial class AnimatedFielder
     private const float DiveLie = 0.45f, DiveLieWithBall = 0.55f, DiveRise = 0.6f;
     /// Only for a ball this low - not one over his head.
     private const float DiveMaxHeight = 2.2f;
-    /// Chance a diving take sticks: just out of reach, and at full stretch.
-    private const float DiveStickShort = 0.85f, DiveStickFull = 0.5f;
+    /// Chance a diving take sticks: just out of reach, and this far from his feet (m). Measured
+    /// from the feet, not as a share of DiveReach: when the dive was shortened (2.5 -> 1.5) a share
+    /// made every dive still in range count as more of a stretch, and a 2 m dive that held 72% of
+    /// the time held 64% - catches went down that the shorter dive was never meant to change.
+    private const float DiveStickShort = 0.85f, DiveStickFull = 0.5f, DiveStickFullAt = 3.6f;
     private const float DiveSpillBlock = 0.4f;
 
     private bool diving;
@@ -71,7 +84,7 @@ public partial class AnimatedFielder
                 if (holdingBall)
                     ragdoll.HugBall();
                 else if (!inst.theBallRigidBody.isKinematic && inst.gameState == eGameState.InGame_BallHitLoop &&
-                         Time.time < diveStart + DiveFlight * DiveCatchPoint + DiveReachOnAfter)
+                         Time.time < diveStart + diveFlight * DiveCatchPoint + DiveReachOnAfter)
                 {
                     Vector3 ball = inst.theBall.transform.position;
                     ragdoll.ReachFor((ball - divePoint).sqrMagnitude < 1f ? ball : divePoint, 0.1f);
@@ -89,10 +102,10 @@ public partial class AnimatedFielder
         float stayDown = holdingBall ? DiveLieWithBall : DiveLie;
         float roll;
         Vector3 hips;
-        if (t < DiveFlight)
+        if (t < diveFlight)
         {
             // In the air.
-            float s = t / DiveFlight;
+            float s = t / diveFlight;
             float c = DiveCatchPoint;
             roll = ReachMath.DiveRoll(s, c, diveRoll);
             float across = diveReachOut * (1f - (1f - s) * (1f - s)) / (1f - (1f - c) * (1f - c));
@@ -165,7 +178,7 @@ public partial class AnimatedFielder
             return false;
         if (holdingBall)
             return false;   // the normal hold: give, then in to the chest
-        bool reaching = diveLanded < 0f && Time.time < diveStart + DiveFlight * DiveCatchPoint + 0.15f;
+        bool reaching = diveLanded < 0f && Time.time < diveStart + diveFlight * DiveCatchPoint + 0.15f;
         reach.handTarget = divePoint;
         reach.weight = reaching ? 1f : Mathf.MoveTowards(reach.weight, 0.3f, Time.deltaTime * 3f);
         reach.quickness = 2.5f;   // arms flung out, not eased (eased, a keeper's were 0.3 m short)
@@ -191,9 +204,12 @@ public partial class AnimatedFielder
         Vector3 body = transform.position + Vector3.up * 1f;
         if (!animatedFielderManagementScript.PredictPass(body, ReachRadius + DiveReach, out point, out eta))
             return false;
-        if (eta > DiveLead || eta < 0.05f || point.y - transform.position.y > DiveMaxHeight)
+        if (eta > DiveLead || eta < LatestDive || point.y - transform.position.y > DiveMaxHeight)
             return false;
         float away = FlatDistance(point, transform.position);
+        // Can the hands get there in time? Beyond his reach, a full dive gets DiveReach in DiveLead.
+        if (away - ReachRadius > DiveReach * Mathf.Clamp01(eta / DiveLead))
+            return false;
         // Within reach on his feet - less when he is still running and cannot stop and stretch
         // (filmed: 1 m off the ball at the end of a chase, he ran on and it went 0.5 m past his hands).
         if (away <= (speed > 2f ? 1.2f : ReachRadius + 0.2f))
@@ -211,6 +227,8 @@ public partial class AnimatedFielder
         diveStart = Time.time;
         diveLanded = -1f;
         divePoint = point;
+        // The arms meet it as it gets there (DiveCatchPoint of the way through the flight).
+        diveFlight = Mathf.Clamp(eta / DiveCatchPoint, QuickestDive, DiveFlight);
         if (ragdoll == null)
             ragdoll = GetComponent<FielderRagdoll>();
         ragdollDown = false;
@@ -225,7 +243,7 @@ public partial class AnimatedFielder
         Vector3 right = diveFacing * Vector3.right;
         Vector3 offset = Flat(point - transform.position);
         diveSide = Mathf.Sign(Vector3.Dot(offset, right));
-        diveStretch = Mathf.InverseLerp(ReachRadius, ReachRadius + DiveReach, offset.magnitude);
+        diveStretch = Mathf.InverseLerp(ReachRadius, DiveStickFullAt, offset.magnitude);
         diveDir = offset.sqrMagnitude > 1e-4f ? offset.normalized : right * diveSide;
         diveFrom = transform.position;
         // How the body meets it: flat out for a low ball, more upright (and off the ground) for a
@@ -238,7 +256,7 @@ public partial class AnimatedFielder
         // The hips travel the rest of the way out: the hands reach HipsToHands along the body.
         diveReachOut = Mathf.Max(0.2f, offset.magnitude - HipsToHands * Mathf.Sin(a));
         // Carried on along the grass by the speed of the dive.
-        diveSlide = Mathf.Min(DiveMaxSlide, 0.25f * diveReachOut / DiveFlight * DiveSlideTime + 0.15f);
+        diveSlide = Mathf.Min(DiveMaxSlide, 0.25f * diveReachOut / diveFlight * DiveSlideTime + 0.15f);
         hasTarget = false;
         speed = 0f;
     }

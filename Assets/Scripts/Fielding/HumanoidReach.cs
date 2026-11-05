@@ -121,6 +121,9 @@ public partial class HumanoidReach : MonoBehaviour
         limits.maxDrop = maxPelvisDrop / scale; limits.maxHinge = maxHipHinge; limits.maxSpine = maxSpineFlex;
         handPos = leftHand.position;
         ready = true;
+        // Nothing of the arms through the body, whatever the clip and the IK did (BodySelfCollision).
+        if (!TryGetComponent(out BodySelfCollision _))
+            gameObject.AddComponent<BodySelfCollision>();
     }
 
     private void CacheBones()

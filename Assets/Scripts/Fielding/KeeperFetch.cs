@@ -32,6 +32,16 @@ public partial class KeeperCatcher
     /// Into and out of the run, seconds; the run's legs slowed while it blends out.
     private const float RunBlend = 0.2f, StopBlend = 0.25f, StoppingAnimSpeed = 0.4f;
 
+    /// A ball rolling away from him, slowly: he jogs after it, comes up alongside at its own pace and
+    /// scoops it on the move, as a keeper does. He used to plan the meeting at his running speed
+    /// but walk anything under RunFrom at StepSpeed, so a ball rolling away at 1-2 m/s stayed just
+    /// out of reach and he crept after it, re-planned every 0.1 s, until it stopped (reported
+    /// 2026-11-03: "weirdly steps towards it slowly slowly until the ball stops").
+    private const float ChaseFrom = 10f, ChaseBehind = 0.62f, ChaseGain = 3.5f, ChaseRunAbove = 2.2f;
+    private const float ChaseMaxBallSpeed = 6f, ChaseMatched = 0.7f;
+    private bool chasing;
+    private Vector3 chaseVelocity;
+
     private bool fetching;      // running to fetchTarget
     private bool running;       // on the run animation (else stepping, or stood)
     private bool away;          // off his mark this delivery (stance code off)
@@ -61,8 +71,9 @@ public partial class KeeperCatcher
 
     private void ClearFetch()
     {
-        fetching = away = running = false;
+        fetching = away = running = chasing = false;
         fetchSpeed = 0f;
+        chaseVelocity = Vector3.zero;
         if (anim != null)
             anim.SetInteger("Action", 0);
         if (body != null)
@@ -154,6 +165,8 @@ public partial class KeeperCatcher
         if (fetching && !holding && !rb.isKinematic && rb.linearVelocity.sqrMagnitude < StillBall * StillBall &&
             new Vector2(ball.x - at.x, ball.z - at.z).magnitude < PickUpReachStart + stopShort)
             fetchTarget = ball;
+        if (Chase(rb, ball, ref at, dt))
+            return;
         Vector3 to = fetchTarget - at;
         to.y = 0f;
         float distance = to.magnitude - stopShort;
@@ -200,6 +213,68 @@ public partial class KeeperCatcher
             anim.speed = anim.IsInTransition(0) ? StoppingAnimSpeed : 1f;
             StepFeet(dt);
         }
+    }
+
+    /// Going away from him on the ground, not too quick, and near: chase it (see ChaseFrom).
+    private bool ShouldChase(Rigidbody rb, Vector3 ball, Vector3 at)
+    {
+        if (!fetching || holding || rb.isKinematic || ball.y > 0.35f)
+            return false;
+        Vector3 v = rb.linearVelocity; v.y = 0f;
+        Vector3 off = ball - at; off.y = 0f;
+        float speed = v.magnitude;
+        if (speed < StillBall || speed > ChaseMaxBallSpeed || off.magnitude > ChaseFrom || off.sqrMagnitude < 1e-4f)
+            return false;
+        // Away from him, or across him (not coming to him: that one he waits for).
+        return Vector3.Dot(v / speed, off.normalized) > -0.2f;
+    }
+
+    /// Chasing a ball rolling away: run at its pace plus what closes the gap, to a spot just behind
+    /// it on his side, so it stays in front of his hands as he bends for it. True while chasing.
+    private bool Chase(Rigidbody rb, Vector3 ball, ref Vector3 at, float dt)
+    {
+        chasing = ShouldChase(rb, ball, at);
+        if (!chasing)
+        {
+            chaseVelocity = Vector3.zero;
+            return false;
+        }
+        Vector3 vb = rb.linearVelocity; vb.y = 0f;
+        Vector3 off = ball - at; off.y = 0f;
+        Vector3 spot = ball - off.normalized * ChaseBehind;
+        Vector3 gap = spot - at; gap.y = 0f;
+        Vector3 wanted = Vector3.ClampMagnitude(vb + gap * ChaseGain, RunSpeed);
+        chaseVelocity = Vector3.MoveTowards(chaseVelocity, wanted, FetchAccel * dt);
+        at += chaseVelocity * dt;
+        bodyRoot.position = new Vector3(at.x, BallFlight.GroundY(at), at.z);
+        bodyRoot.rotation = Quaternion.RotateTowards(bodyRoot.rotation, Quaternion.LookRotation(off), FetchTurnRate * dt);
+        fetchSpeed = chaseVelocity.magnitude;
+        body.quickness = 2f;
+        // Quick enough to be a run: the run cycle at his speed; slower, his planted steps.
+        if (!running && fetchSpeed > ChaseRunAbove)
+            StartRun();
+        else if (running && fetchSpeed < ChaseRunAbove - 0.4f)
+            StopRun();
+        if (running)
+        {
+            anim.speed = Mathf.Clamp(fetchSpeed / AnimatedRun, 0.3f, 2.4f);
+            body.feetOverride = false;
+        }
+        else
+        {
+            anim.speed = anim.IsInTransition(0) ? StoppingAnimSpeed : 1f;
+            StepFeet(dt);
+        }
+        return true;
+    }
+
+    /// Moving with the ball near enough its pace that, to his hands, it is still.
+    private bool MatchedToBall()
+    {
+        if (!chasing)
+            return false;
+        Vector3 vb = Main.Instance.theBallRigidBody.linearVelocity; vb.y = 0f;
+        return (vb - chaseVelocity).magnitude < ChaseMatched;
     }
 
     private void StartRun()
@@ -277,14 +352,16 @@ public partial class KeeperCatcher
         // over it, head at the grass, gloves never on it (filmed).
         Vector3 local = bodyRoot.InverseTransformPoint(ball);
         bool inFront = local.z > PickUpNear && local.z < PickUpFar && Mathf.Abs(local.x) < PickUpSide;
-        bool settled = fetchSpeed < 0.3f;
-        if (!inFront && d < PickUpReachStart)
+        bool settled = fetchSpeed < 0.3f || MatchedToBall();
+        if (!inFront && d < PickUpReachStart && !chasing)
         {
             // Not where his hands can take it: step to it (upright), to have it in front again.
             fetching = true;
             fetchTarget = ball;
         }
-        body.handTarget = ball;
+        // Chasing, a little ahead of it: the hands' spring trails a moving target.
+        Vector3 vb = Main.Instance.theBallRigidBody.linearVelocity; vb.y = 0f;
+        body.handTarget = chasing ? ball + Vector3.ClampMagnitude(vb * 0.09f, 0.2f) : ball;
         body.weight = inFront && settled ? 1f : 0f;
     }
 

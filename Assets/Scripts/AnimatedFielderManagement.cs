@@ -22,11 +22,22 @@ using UnityEngine;
 /// only when it actually meets his hands (AnimatedFielder -> Gather). A ball that beats the hands
 /// carries on, and the next re-plan sends the backup after it.
 ///
+/// Seeing it late. A fielder sees the ball as it was SeeingDelay ago - a human's reaction time,
+/// the keeper's (KeeperCatcher.ReactionTime) - never as it is: every plan, every reach and every
+/// dive is predicted from where the ball was then (the samples kept in `seen`). So nobody moves
+/// until that long after the hit, and a ball that changes course - off a fielder's hands, off the
+/// stumps - is still read on its old line for that long. Before, a man at short leg or slip had
+/// the ball's whole path the instant it left the bat and his hands were waiting for it: a 30 m/s
+/// edge 5 m away was caught, every time, in under a fifth of a second.
+///
 /// Class name kept from the old intercept-time sorter so the scene component stays wired.
 /// </summary>
 public class AnimatedFielderManagement : MonoBehaviour
 {
     public const float ReactionTime = 0.15f;
+    /// How old the ball a fielder sees is, s: human visual reaction time (0.2-0.25 s), the same
+    /// as the keeper's reaction to a deflection.
+    public const float SeeingDelay = 0.22f;
     /// How far from his feet a fielder can get his hands to the ball (a squat and a lean), used
     /// for planning only - the take itself needs the hands on the ball.
     public const float CatchRadius = 1.2f;
@@ -50,10 +61,15 @@ public class AnimatedFielderManagement : MonoBehaviour
     private float nextPlan;
     private bool tracking;
     private float boundaryRadius = 56f;
+    /// The rope's distance from the middle of the pitch (from the boundary collider).
+    public float BoundaryRadius => boundaryRadius;
     /// When the current path was simulated: path sample times count from here.
     private float planTime;
     /// Whoever has called this ball.
     private IFielder caller;
+    /// The ball's recent states, oldest first, for seeing it SeeingDelay late; and when it was hit.
+    private readonly List<BallFlight.Sample> seen = new List<BallFlight.Sample>(64);
+    private float hitAt;
 
     void Start()
     {
@@ -76,6 +92,9 @@ public class AnimatedFielderManagement : MonoBehaviour
         CatchJudge.Boundary = boundaryRadius;
         if (GetComponent<CatchJudge>() == null)
             gameObject.AddComponent<CatchJudge>();
+        // The field is set for the batter between balls (FieldCaptain).
+        if (GetComponent<FieldCaptain>() == null)
+            gameObject.AddComponent<FieldCaptain>();
     }
 
     private void OnDestroy()
@@ -106,6 +125,8 @@ public class AnimatedFielderManagement : MonoBehaviour
         {
             tracking = true;
             path.Clear();
+            seen.Clear();
+            hitAt = Time.time;
             nextPlan = 0f;
             caller = null;
         }
@@ -130,21 +151,48 @@ public class AnimatedFielderManagement : MonoBehaviour
         Rigidbody ball = inst.theBallRigidBody;
         if (ball.isKinematic)
             return;
+        Remember(ball);
 
-        if (Time.time >= nextPlan)
+        if (Time.time >= nextPlan && Seen(out BallFlight.Sample then))
         {
             nextPlan = Time.time + ReplanInterval;
-            Plan(ball.position, ball.linearVelocity);
+            Plan(then.position, then.velocity, then.time);
         }
     }
 
-    /// Plan who goes where, from the ball's current state.
-    private void Plan(Vector3 position, Vector3 velocity)
+    /// Keep this step's ball, and drop what is too old to be the one seen.
+    private void Remember(Rigidbody ball)
+    {
+        seen.Add(new BallFlight.Sample { position = ball.position, velocity = ball.linearVelocity, time = Time.time });
+        while (seen.Count > 2 && seen[1].time <= Time.time - SeeingDelay)
+            seen.RemoveAt(0);
+    }
+
+    /// The ball as the fielders see it now: as it was SeeingDelay ago. Nothing until that long
+    /// after the hit - before then, what they see is still the delivery.
+    private bool Seen(out BallFlight.Sample then)
+    {
+        then = default;
+        float at = Time.time - SeeingDelay;
+        if (at < hitAt || seen.Count == 0)
+            return false;
+        then = seen[0];
+        for (int i = 1; i < seen.Count && seen[i].time <= at; i++)
+            then = seen[i];
+        return true;
+    }
+
+    /// True while the fielders have seen the ball come off the bat at all.
+    public bool HasSeenBall => tracking && Time.time - hitAt >= SeeingDelay;
+
+    /// Plan who goes where, from the ball as it was seen (at time `seenAt`): path times count from
+    /// then, so a plan is already SeeingDelay old when it is made.
+    private void Plan(Vector3 position, Vector3 velocity, float seenAt)
     {
         float edge = boundaryRadius + 1f;
         BallFlight.Simulate(position, velocity, BallFlight.DeliveryEffects.None, PredictTime, path,
             s => new Vector2(s.position.x, s.position.z).magnitude > edge, PredictStep);
-        planTime = Time.time;
+        planTime = seenAt;
         if (path.Count == 0)
             return;
 
@@ -219,7 +267,8 @@ public class AnimatedFielderManagement : MonoBehaviour
     {
         Vector3 at = f.Position;
         float speed = f.RunSpeed;
-        float head = f.HasTarget ? 0f : ReactionTime;
+        // Path times are from the plan, which is SeeingDelay old: that much has already gone.
+        float head = (f.HasTarget ? 0f : ReactionTime) + (Time.time - planTime);
         for (int i = 0; i < path.Count; i++)
         {
             BallFlight.Sample s = path[i];
@@ -280,7 +329,7 @@ public class AnimatedFielderManagement : MonoBehaviour
                 BallFlight.Sample s = path[i];
                 if (new Vector2(s.position.x, s.position.z).magnitude > boundaryRadius)
                     break;
-                float late = ReactionTime + new Vector2(s.position.x - at.x, s.position.z - at.z).magnitude / f.RunSpeed - s.time;
+                float late = ReactionTime + (Time.time - planTime) + new Vector2(s.position.x - at.x, s.position.z - at.z).magnitude / f.RunSpeed - s.time;
                 if (late < bestLate)
                 {
                     bestLate = late;

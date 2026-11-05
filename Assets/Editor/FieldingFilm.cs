@@ -64,7 +64,13 @@ public static class FieldingFilm
     /// (positive to his right as he faces the bat).
     public static void AtFielder(int number, Kind kind, float side = 0f, float pace = 20f)
     {
-        Vector3 start = Constants.fieldingPositions[number - 1];
+        // Where he stands now: the captain sets the field (FieldCaptain), so the scene's fixed
+        // positions are only where the first ball finds him. Suspended while filming, so the
+        // field cannot change under the shots.
+        FieldCaptain.Suspended = true;
+        GameObject live = Application.isPlaying ? GameObject.Find($"AFielder_0{number}") : null;
+        AnimatedFielder af = live != null ? live.GetComponent<AnimatedFielder>() : null;
+        Vector3 start = af != null ? af.StartPosition : Constants.fieldingPositions[number - 1];
         start.y = BallFlight.GroundY(start);
         Vector3 toBat = Flat(BatPoint - start).normalized;
         Vector3 right = Vector3.Cross(Vector3.up, toBat);
@@ -81,7 +87,7 @@ public static class FieldingFilm
                 // Rolls to a stop about a metre in front of him.
                 from.y = 0.1f;
                 float run = Flat(target - from).magnitude - 1f;
-                v = Flat(target - from).normalized * Mathf.Sqrt(2f * BallFlight.RollingDecel * run);
+                v = Flat(target - from).normalized * Mathf.Sqrt(2f * BallFlight.OutfieldRollingDecel * run);
                 break;
         }
         shots.Add(new Shot
@@ -228,6 +234,7 @@ public static class FieldingFilm
     private static void Finish()
     {
         EditorApplication.update -= Tick;
+        FieldCaptain.Suspended = false;
         Time.timeScale = 1f;
         if (cam != null) Object.DestroyImmediate(cam.gameObject);
         if (rt != null) { rt.Release(); Object.DestroyImmediate(rt); }
@@ -321,7 +328,7 @@ public static class FieldingFilm
                     (shots[index].delivery && !shots[index].loose && !taken && (s == eGameState.InGame_BallMissed || s == eGameState.InGame_BallMissedLoop) && elapsed > 1.5f);
         if (!over)
             return;
-        report.Add($"{shots[index].name}: {(takenAt >= 0f ? $"TAKEN at {takenAt - shotStart:F2}s" : "NOT TAKEN")} " +
+        report.Add($"{shots[index].name}: {(takenAt >= 0f ? $"TAKEN at {takenAt - shotStart:F2}s by {inst.currentFielderName}" : "NOT TAKEN")}{(divers.Length > 0 ? $" [dived: {divers}]" : "")} " +
                    $"closest to hands {closest:F2} m at {closestAt:F2}s ({closestWho}, reach {closestWeight:F2}, {closestNote}); " +
                    $"worst arm clip {worstClip * 100f:F1} cm ({worstClipWhere}) at {worstClipAt:F2}s");
         Next();
@@ -361,6 +368,7 @@ public static class FieldingFilm
         closestAt = closestWeight = 0f;
         closestWho = "nobody";
         closestNote = "";
+        divers = "";
         worstClip = 0f;
         worstClipWhere = "none";
         worstClipAt = 0f;
@@ -374,9 +382,15 @@ public static class FieldingFilm
 
     /// Follow the man going for it (the keeper on a keeper shot; otherwise the fielder with a
     /// target or the ball, nearest the ball), and note how close it came to his hands.
+    private static readonly FieldInfo DivingField = typeof(AnimatedFielder).GetField("diving", BindingFlags.NonPublic | BindingFlags.Instance);
+    private static string divers = "";
+
     private static void Track(Shot shot)
     {
         Main inst = Main.Instance;
+        foreach (AnimatedFielder f in AnimatedFielder.All)
+            if (f != null && DivingField != null && (bool)DivingField.GetValue(f) && !divers.Contains(f.name))
+                divers += (divers.Length > 0 ? "," : "") + f.name;
         Vector3 ball = inst.theBall.transform.position;
         HumanoidReach reach = null;
         string who = null, note = "";
