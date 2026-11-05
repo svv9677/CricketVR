@@ -14,9 +14,10 @@ using UnityEngine.SceneManagement;
 ///   fielding      every player's footsteps (Footsteps), the thud of a dive landing, a grunt on a
 ///                 hard throw, the ball into the gloves at the other end
 ///   the stumps    Stump's own sound, and the bails clattering off
-///   the rope      the ball into the advertising boards
+///   the rope      the ball into the advertising boards (the picket fence at the club ground)
 ///   the crowd     over Rao's looping crowd (CrowdController): cheering a four, roaring a six or a
-///                 wicket, an "ooh" when the ball beats the bat close to the stumps
+///                 wicket, an "ooh" when the ball beats the bat close to the stumps; at the club
+///                 ground a few spectators' applause and no "ooh" (VenueRules)
 ///
 /// Made for each scene that has a Main; it listens for events (Ball.Collided, BowlerGrip.Released,
 /// AnimatedFielder.DiveStarted, Bail.KnockedOff, HUD.BallScored) and watches the ball, and plays
@@ -122,7 +123,8 @@ public class MatchSounds : MonoBehaviour
             c.rigidbody == null)
         {
             lastBoardsAt = Time.time;
-            GameSfx.Play("boards", at, GameAudio.Channel.Stumps, Mathf.Clamp01(impact / 15f), 1f, 3f, 110f);
+            GameSfx.Play(VenueRules.BoardsGroup(MatchVenue.Current, GameSfx.Has), at, GameAudio.Channel.Stumps,
+                         Mathf.Clamp01(impact / 15f), 1f, 3f, 110f);
         }
     }
 
@@ -229,14 +231,12 @@ public class MatchSounds : MonoBehaviour
 
     // ---- The crowd ---------------------------------------------------------------------------
 
+    /// The stadium cheers a four, roars a six or a wicket; the club ground claps (VenueRules).
     private void OnScored(BallOutcome o)
     {
-        switch (o.Signal)
-        {
-            case UmpireSignal.Four: GameSfx.Play2D("crowd_four", GameAudio.Channel.Crowd, 0.75f); break;
-            case UmpireSignal.Six: GameSfx.Play2D("crowd_six", GameAudio.Channel.Crowd, 0.95f); break;
-            case UmpireSignal.Out: GameSfx.Play2D("crowd_wicket", GameAudio.Channel.Crowd, 0.95f); break;
-        }
+        VenueRules.Reaction r = VenueRules.ForSignal(MatchVenue.Current, MatchSetup.Crowd, o.Signal);
+        if (r.group != null)
+            GameSfx.Play2D(r.group, GameAudio.Channel.Crowd, r.volume);
     }
 
     private void OnState()
@@ -256,7 +256,8 @@ public class MatchSounds : MonoBehaviour
         if (p.x < BallDelivery.BatsmanStumpsX - 0.5f) return;
         oohDone = true;
         bool close = Mathf.Abs(p.z) < 0.4f && p.y < 1.3f;
-        if (close && !main.theBallScript.wide && Random.value < 0.65f)
-            GameSfx.Play2D("crowd_ooh", GameAudio.Channel.Crowd, 0.6f, Random.Range(0.97f, 1.04f));
+        float ooh = VenueRules.OohVolume(MatchVenue.Current);     // none from a few on the benches
+        if (close && !main.theBallScript.wide && Random.value < 0.65f && ooh > 0f)
+            GameSfx.Play2D("crowd_ooh", GameAudio.Channel.Crowd, ooh, Random.Range(0.97f, 1.04f));
     }
 }

@@ -35,7 +35,22 @@ public static class StadiumLighting
     private static void ResetStatics()
     {
         key = null; glows = null; sceneSun = null; savedLightmaps.Clear(); dimmed.Clear(); Applied = eTimeOfDay.Afternoon;
+        glowPoints = null; glowSize = StadiumGlowSize;
     }
+
+    /// Where the night's floodlight glows hang, and how big each is: null for the stadium's ring of
+    /// eight on the roof rim (BankRadius, BankHeight), else one glow at each point (the club ground's
+    /// pylon heads). Set by StadiumConditions before every Apply, so a club match never leaves its
+    /// glows to the next stadium match.
+    public static void SetGlowBanks(Vector3[] points, Vector2 size)
+    {
+        glowPoints = points;
+        glowSize = size;
+    }
+
+    private static readonly Vector2 StadiumGlowSize = new Vector2(13f, 5.5f);
+    private static Vector3[] glowPoints;
+    private static Vector2 glowSize = StadiumGlowSize;
 
     public static string Name(eTimeOfDay t) => t == eTimeOfDay.Afternoon ? "Afternoon" : t == eTimeOfDay.Evening ? "Golden hour" : "Night";
 
@@ -156,18 +171,15 @@ public static class StadiumLighting
         mat.SetInt("_ZWrite", 0);
         mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
         mat.renderQueue = 3100;
-        const int Banks = 8;
-        for (int i = 0; i < Banks; i++)
+        Vector3[] banks = glowPoints ?? RoofRim();
+        for (int i = 0; i < banks.Length; i++)
         {
-            float a = (i + 0.5f) * Mathf.PI * 2f / Banks;
             var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
             Object.Destroy(q.GetComponent<Collider>());
             q.name = "Bank " + i;
             q.transform.SetParent(glows.transform, false);
-            // Hung under the roof's inner edge, where the banks are (at 86 m they were inside the
-            // canopy and never seen).
-            q.transform.position = new Vector3(Mathf.Cos(a) * BankRadius, BankHeight, Mathf.Sin(a) * BankRadius);
-            q.transform.localScale = new Vector3(13f, 5.5f, 1f);
+            q.transform.position = banks[i];
+            q.transform.localScale = new Vector3(glowSize.x, glowSize.y, 1f);
             var r = q.GetComponent<MeshRenderer>();
             r.sharedMaterial = mat;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -177,6 +189,20 @@ public static class StadiumLighting
     }
 
     public static float BankRadius = 70f, BankHeight = 36f;
+
+    /// The stadium's eight banks, hung under the roof's inner edge, where the banks are (at 86 m
+    /// they were inside the canopy and never seen).
+    private static Vector3[] RoofRim()
+    {
+        const int Banks = 8;
+        var at = new Vector3[Banks];
+        for (int i = 0; i < Banks; i++)
+        {
+            float a = (i + 0.5f) * Mathf.PI * 2f / Banks;
+            at[i] = new Vector3(Mathf.Cos(a) * BankRadius, BankHeight, Mathf.Sin(a) * BankRadius);
+        }
+        return at;
+    }
 
     /// Under floodlights the field is the bright thing and the stands fall away: the stadium's
     /// structure and its crowd drawn darker (property blocks - their materials are not touched).

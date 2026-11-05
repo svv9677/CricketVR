@@ -16,6 +16,10 @@ using UnityEngine.SceneManagement;
 /// The light is never touched: the scene's own sun, sky and Rao's clouds. The crowd: Packed as
 /// is; Half the upper tier empty and the noise down; Empty no one, and only a murmur.
 ///
+/// The ground: the stadium, or the club ground (ClubGroundVenue: the club's prefab in place of the
+/// stadium, its own spectators and ambience, its glows on the pylons at night). MatchVenue says
+/// which for the rest of the match.
+///
 /// Materials are copied before they are changed: in the editor, changing the shared ones would
 /// write into the assets.
 /// </summary>
@@ -61,10 +65,21 @@ public static class StadiumConditions
         Current = For(match ? MatchSetup.Pitch : ePitch.Flat);
         BallFlight.SetPitch(Current.restitution, Current.grip);
         if (!match)
+        {
+            MatchVenue.Set(eVenue.Stadium);
             return;
+        }
         ApplyPitch(Current);
-        ApplyCrowd(MatchSetup.Crowd);
+        // The ground: the career plan's, else the Quick Match setting. The club ground falls back to
+        // the stadium, as it is, when its prefab is not there (ClubGroundVenue logs it).
+        MatchVenue.Set(VenueRules.Resolve(CareerMatchSession.Active,
+                                          CareerMatchSession.Plan != null ? CareerMatchSession.Plan.venue : eVenue.Stadium,
+                                          MatchSetup.Venue));
+        ClubGround club = MatchVenue.IsClub ? ClubGroundVenue.Dress(scene, MatchSetup.Crowd) : null;
+        if (club == null) { MatchVenue.Set(eVenue.Stadium); ApplyCrowd(MatchSetup.Crowd); }
+        StadiumLighting.SetGlowBanks(club != null ? club.GlowPoints() : null, VenueRules.GlowSize(MatchVenue.Current));
         StadiumLighting.Apply(MatchSetup.TimeOfDay);
+        if (club != null) club.SetNight(MatchSetup.TimeOfDay == eTimeOfDay.Night);
     }
 
     private static void ApplyPitch(Pitch p)

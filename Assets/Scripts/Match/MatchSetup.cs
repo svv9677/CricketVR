@@ -14,12 +14,13 @@ public enum ePitch { Flat, Green, Dusty }
 ///             plans (BowlingLevels);
 ///   type      set a total in the overs, or chase a target set from the overs and the bowling;
 ///   stadium   the crowd (StadiumConditions); the light is always the scene's own;
-///   pitch     flat, green (bounce and seam for the quicks) or dusty (low, slow, turning).
+///   pitch     flat, green (bounce and seam for the quicks) or dusty (low, slow, turning);
+///   venue     the stadium or the club ground (ClubGroundVenue).
 /// </summary>
 public static class MatchSetup
 {
     private const string KeyBowling = "match_bowling", KeyType = "match_type", KeyCrowd = "match_crowd", KeyPitch = "match_pitch",
-                         KeyTime = "match_time";
+                         KeyTime = "match_time", KeyVenue = "match_venue";
 
     public static eBowlingLevel Bowling
     {
@@ -52,10 +53,19 @@ public static class MatchSetup
         set { PlayerPrefs.SetInt(KeyPitch, (int)value); PlayerPrefs.Save(); }
     }
 
+    /// The ground a Quick Match is played at (StadiumConditions; a career match takes its plan's).
+    /// The stadium unless the player picks the club ground.
+    public static eVenue Venue
+    {
+        get => (eVenue)PlayerPrefs.GetInt(KeyVenue, (int)eVenue.Stadium);
+        set { PlayerPrefs.SetInt(KeyVenue, (int)value); PlayerPrefs.Save(); }
+    }
+
     public static string Name(eBowlingLevel l) => l == eBowlingLevel.Easy ? "Easy" : l == eBowlingLevel.Medium ? "Medium"
                                                : l == eBowlingLevel.Hard ? "Hard" : "Pro";
     public static string Name(eCrowd c) => c == eCrowd.Packed ? "Packed" : c == eCrowd.Half ? "Half full" : "Empty";
     public static string Name(ePitch p) => p == ePitch.Flat ? "Flat" : p == ePitch.Green ? "Green" : "Dusty";
+    public static string Name(eVenue v) => VenueRules.Name(v);
 
     public static string Hint(eBowlingLevel l)
     {
