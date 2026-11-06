@@ -8,8 +8,8 @@ using UnityEngine.UI;
 /// (ReplayControls). It appears where the player is looking whenever the game is ready for the
 /// next delivery and goes away the moment the ball is on its way. The laser pointer clicks it;
 /// A still bowls the next ball. While the career player watches his partner bat it says so -
-/// "PARTNER ON STRIKE" - and the ball comes on its own (NonStrikerView); it is away while the view
-/// blinks to the other end, and comes back there.
+/// "PARTNER ON STRIKE" - and A bowls his ball too, from the non-striker's end; it is away while the
+/// view blinks to the other end (NonStrikerView), and comes back there.
 ///
 /// The panel is a prefab (Assets/Resources/Prefabs/UI/NextBallMenu.prefab, built by
 /// Tools > CricketVR > Build Player UI) with its buttons wired to the On* methods below - nothing

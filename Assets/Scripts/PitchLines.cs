@@ -44,6 +44,8 @@ public static class PitchLines
     /// they read as scratched marks, not more creases.
     private static readonly float[] GuardZ = { -0.09525f, 0f, 0.09525f };
     private const float GuardLength = 0.3f, GuardWidth = 0.025f;
+    /// The lines' shader: flat colour, biased in front of the pitch (PitchBlend's own bias hid them).
+    public const string LinesShader = "CricketVR/PitchLines";
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
@@ -65,7 +67,9 @@ public static class PitchLines
         GameObject battingEnd = GameObject.Find("Main/Stumps_BattingEnd");
         GameObject bowlingEnd = GameObject.Find("Main/Stumps_BowlingEnd");
         GameObject markings = GameObject.Find("Main/Pitch/Pitch Markings");
-        Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
+        // Its own unlit shader: the pitch's depth bias hid the far creases from the crease
+        // (Resources/Shaders/PitchLines.shader).
+        Shader unlit = Shader.Find(LinesShader);
         if (battingEnd == null || bowlingEnd == null || unlit == null)
             return;
         // The texture's lines are replaced, not doubled - first, so the lines below are laid on the

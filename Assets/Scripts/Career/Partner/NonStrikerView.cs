@@ -6,8 +6,8 @@ using UnityEngine.SceneManagement;
 /// <summary>
 /// Moves the career player between the ends as the strike changes while he is watching his partner
 /// (phase 3): a short blink to black, the rig placed at the other end, his bat off or on, the
-/// partner to the crease or to the non-striker's spot; and bowls the next ball on its own while the
-/// partner is on strike.
+/// partner to the crease or to the non-striker's spot. The partner's balls are not bowled on their
+/// own: the next-ball card comes up at the non-striker's end and A (or Next ball) bowls, as at the crease.
 ///
 /// Built with a career match, and only when the player's "Partner's innings" is Watch
 /// (CareerProfile.watchPartner); with Skip there is none, and the match cuts from his ball to his
@@ -19,13 +19,10 @@ using UnityEngine.SceneManagement;
 ///     time (pause-proof). It is not Rao's SceneFader, which belongs to scene loads.
 ///   * At black: PlayerEnd.Set, XRRigSetup.PlaceAtEnd, Bat.ContactSuspended (his bat must not
 ///     touch the partner's ball), PartnerBatter.TakeStrike or StandAtNonStriker.
-///   * The partner's ball comes 1.5 s after Ready (and after any blink), unless something is in the
-///     way - settings, grip calibration, the over break, the catch-up gate, a replay - in which case
-///     it waits until 1.5 s after that clears. Main.StartNextBall still checks its own gates.
 /// </summary>
 public class NonStrikerView : MonoBehaviour
 {
-    public const float FadeSeconds = 0.25f, HoldSeconds = 0.2f, AutoBowlDelay = 1.5f;
+    public const float FadeSeconds = 0.25f, HoldSeconds = 0.2f;
     public const float BlinkSeconds = FadeSeconds + HoldSeconds + FadeSeconds;
 
     /// Mid-blink (the screen going to or coming back from black).
@@ -33,7 +30,6 @@ public class NonStrikerView : MonoBehaviour
 
     private Main main;
     private bool subscribed;
-    private float bowlAt;
     private XRRigSetup rig;
 
     private GameObject blackQuad;
@@ -67,7 +63,6 @@ public class NonStrikerView : MonoBehaviour
 
     private void Start()
     {
-        bowlAt = Time.unscaledTime + AutoBowlDelay;
         main = Main.Instance;
         if (main == null)
             return;
@@ -89,8 +84,6 @@ public class NonStrikerView : MonoBehaviour
     private void OnGameState()
     {
         eGameState s = main.gameState;
-        if (s == eGameState.InGame_Ready)
-            bowlAt = Time.unscaledTime + AutoBowlDelay;
         if (s == eGameState.InGame_ResetToReady || s == eGameState.InGame_Ready)
             CheckEnd();
     }
@@ -103,7 +96,6 @@ public class NonStrikerView : MonoBehaviour
         // being built): looked at every frame there, a static read.
         if (BetweenBalls(main.gameState))
             CheckEnd();
-        AutoBowl();
     }
 
     /// Blink to the other end if the player is at the wrong one; else just keep the partner at his.
@@ -152,7 +144,6 @@ public class NonStrikerView : MonoBehaviour
             yield return null;
         }
         Blinking = false;
-        bowlAt = Time.unscaledTime + AutoBowlDelay;
     }
 
     /// The player, his bat and the partner to their places for this end.
@@ -178,31 +169,6 @@ public class NonStrikerView : MonoBehaviour
         else
             partner.StandAtNonStriker();
     }
-
-    // ---- Bowling the partner's ball ---------------------------------------------------------------
-
-    private void AutoBowl()
-    {
-        eGameState s = main.gameState;
-        bool live = PartnerWatch.Live;
-        if (s != eGameState.InGame_Ready || !live || !PlayerEnd.NonStriker)
-            return;
-        float now = Time.unscaledTime;
-        if (Held())
-        {
-            bowlAt = Mathf.Max(bowlAt, now + AutoBowlDelay);
-            return;
-        }
-        if (!MayAutoBowl(s, live, PlayerEnd.NonStriker, false, now, bowlAt))
-            return;
-        // Again in 1.5 s should the ball somehow not start (a gate of Main's own).
-        bowlAt = now + AutoBowlDelay;
-        main.StartNextBall();
-    }
-
-    /// Something the player is doing, or the match is showing, comes before the next ball.
-    private bool Held() =>
-        Blinking || PanelOpen() || OverBreak.Blocking || MatchFlow.Over || MatchGate.Blocking;
 
     /// A panel or replay in front of the player at this end: settings, grip calibration, the over
     /// break card, a shot replay, the career's catch-up card ("You come in at 28/4": MatchGate).
@@ -306,9 +272,4 @@ public class NonStrikerView : MonoBehaviour
     /// yet bowled (A pressed during the blink) - the bowler is still running in.
     public static bool CanChangeEnds(eGameState s) =>
         BetweenBalls(s) || s == eGameState.InGame_SelectDelivery || s == eGameState.InGame_SelectDeliveryLoop;
-
-    /// The partner's next ball comes now: waiting at Ready, the partner on strike with the player at
-    /// the other end, nothing in the way, and the delay run out.
-    public static bool MayAutoBowl(eGameState s, bool live, bool atNonStriker, bool held, float now, float bowlAt) =>
-        s == eGameState.InGame_Ready && live && atNonStriker && !held && now >= bowlAt;
 }

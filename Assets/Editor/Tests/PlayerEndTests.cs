@@ -152,19 +152,6 @@ public class PlayerEndTests
     }
 
     [Test]
-    public void ThePartnersBallComesAfterTheDelayAndOnlyWhenNothingIsInTheWay()
-    {
-        const float readyAt = 10f, bowlAt = readyAt + NonStrikerView.AutoBowlDelay;
-        Assert.AreEqual(1.5f, NonStrikerView.AutoBowlDelay);
-        Assert.IsTrue(NonStrikerView.MayAutoBowl(eGameState.InGame_Ready, true, true, false, bowlAt, bowlAt));
-        Assert.IsFalse(NonStrikerView.MayAutoBowl(eGameState.InGame_Ready, true, true, false, bowlAt - 0.01f, bowlAt), "too soon");
-        Assert.IsFalse(NonStrikerView.MayAutoBowl(eGameState.InGame_Ready, true, true, true, bowlAt + 5f, bowlAt), "held");
-        Assert.IsFalse(NonStrikerView.MayAutoBowl(eGameState.InGame_Ready, false, true, false, bowlAt + 5f, bowlAt), "the player on strike bowls his own");
-        Assert.IsFalse(NonStrikerView.MayAutoBowl(eGameState.InGame_Ready, true, false, false, bowlAt + 5f, bowlAt), "not before he is at the other end");
-        Assert.IsFalse(NonStrikerView.MayAutoBowl(eGameState.InGame_ResetToReadyLoop, true, true, false, bowlAt + 5f, bowlAt), "only at Ready");
-    }
-
-    [Test]
     public void OnlyAPlayerWhoWatchesGetsTheView()
     {
         Assert.IsTrue(NonStrikerView.Watching(new CareerProfile()), "Watch is the default");
