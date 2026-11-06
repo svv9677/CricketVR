@@ -65,6 +65,12 @@ public class NetsTrial : MonoBehaviour
 
     private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
 
+    /// The pause card's "End session" in the career nets (PauseScreen calls it): ends this session
+    /// the way its mode allows and takes the player back to the career. False when there is no
+    /// career nets session to end, and the caller leaves as it always has.
+    /// Contract only (2026-11-05): the nets-session work fills it in.
+    public static bool TryEndFromPause() => false;
+
     private static void Build(Scene scene)
     {
         if (scene.name != NetsSession.NetsScene || !NetsSession.Career || FindFirstObjectByType<NetsTrial>() != null)

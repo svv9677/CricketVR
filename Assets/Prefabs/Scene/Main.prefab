@@ -25627,10 +25627,6 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 2182298934216921163}
-    - targetCorrespondingSourceObject: {fileID: 4473874555812223598, guid: d6f844229baae431f8b28c64cde5687a,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 474641265340611183}
   m_SourcePrefab: {fileID: 100100000, guid: d6f844229baae431f8b28c64cde5687a, type: 3}
 --- !u!4 &4822279328833922699 stripped
 Transform:
@@ -25763,18 +25759,6 @@ TrailRenderer:
   m_Autodestruct: 0
   m_Emitting: 1
   m_ApplyActiveColorSpace: 0
---- !u!114 &474641265340611183
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5307489053856939057}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BallContactLogger
 --- !u!1001 &8707229830113736763
 PrefabInstance:
   m_ObjectHideFlags: 0
