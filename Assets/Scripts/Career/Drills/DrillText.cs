@@ -21,12 +21,12 @@ public static class DrillText
     {
         eDrillTag.DugOut, eDrillTag.GoodLeave, eDrillTag.Pulled, eDrillTag.Ducked, eDrillTag.Evaded,
         eDrillTag.UsedFeet, eDrillTag.Swept, eDrillTag.PlayedTurn, eDrillTag.Gap, eDrillTag.OverTop,
-        eDrillTag.Six, eDrillTag.Survived,
+        eDrillTag.Six, eDrillTag.Survived, eDrillTag.InTheV, eDrillTag.Blocked, eDrillTag.Boundary, eDrillTag.Scored,
     };
     private static readonly eDrillTag[] BadTags =
     {
         eDrillTag.Bowled, eDrillTag.LeftStraight, eDrillTag.HitHead, eDrillTag.Caught, eDrillTag.Fished,
-        eDrillTag.Edged, eDrillTag.Fielder, eDrillTag.Beaten, eDrillTag.Wasted,
+        eDrillTag.Edged, eDrillTag.Fielder, eDrillTag.Beaten, eDrillTag.Wasted, eDrillTag.Mistimed,
     };
 
     /// "Yorker", "Leaving", ... for "Yorker drill complete".
@@ -37,6 +37,11 @@ public static class DrillText
         eDrill.ShortBall => "Short-ball",
         eDrill.Spin => "Spin",
         eDrill.Gaps => "Gaps",
+        eDrill.StraightHitting => "Straight-hitting",
+        eDrill.Swing => "Swing",
+        eDrill.PowerHitting => "Power-hitting",
+        eDrill.DeathOvers => "Death-overs",
+        eDrill.SoftHands => "Soft-hands",
         _ => "Training",
     };
 
@@ -174,7 +179,7 @@ public static class DrillText
                      : bad == eDrillTag.Wasted ? "Every ball is a scoring chance here. Look to put each one away."
                      : "Watch it onto the bat first. The gap will still be there.";
             default:
-                return "Keep at it.";
+                return DrillTextMore.Work(d, bad);
         }
     }
 
@@ -201,6 +206,10 @@ public static class DrillText
         eDrillTag.Gap => $"You found {n} gaps.",
         eDrillTag.OverTop => $"You cleared the ring safely {n} times.",
         eDrillTag.Six => $"{n} sixes!",
+        eDrillTag.InTheV => $"{n} hit straight, in the V.",
+        eDrillTag.Blocked => $"{n} killed dead with soft hands.",
+        eDrillTag.Boundary => $"{n} boundaries.",
+        eDrillTag.Scored => $"You scored off {n} of them.",
         _ => $"{n} played well.",
     };
 
@@ -227,6 +236,11 @@ public static class DrillText
         eDrillTag.OverTop => "Over the top",
         eDrillTag.Six => "Six",
         eDrillTag.Wasted => "Wasted",
+        eDrillTag.InTheV => "In the V",
+        eDrillTag.Blocked => "Dead bat",
+        eDrillTag.Boundary => "Boundary",
+        eDrillTag.Mistimed => "Mistimed",
+        eDrillTag.Scored => "Scored",
         _ => "",
     };
 

@@ -4,7 +4,8 @@ using System;
 public enum eBallSource { Trial, Nets, Drill, Match }
 
 /// The training drills in the nets (phase 5).
-public enum eDrill { None, Yorkers, LeaveOutsideOff, ShortBall, Spin, Gaps }
+/// The training drills in the nets (phase 5; the second five 2026-11-06, appended so saves keep their numbers).
+public enum eDrill { None, Yorkers, LeaveOutsideOff, ShortBall, Spin, Gaps, StraightHitting, Swing, PowerHitting, DeathOvers, SoftHands }
 
 /// What the batter did with it: played at it (and touched it), left it alone, or swung and missed
 /// (beaten). A ball that hits the bat only because the bat shield widened it - the real blade would
@@ -52,6 +53,9 @@ public class BallRecord
     /// BatContact quality 0..1 on the (possibly widened) bat; the same contact on the real blade.
     public float quality, realQuality;
     public eRealContact realContact;
+    /// BatContact.ContactKind on the real blade as an int (RealBlade), -1 when not touched or the
+    /// real blade would have missed: the word the career shows for the contact (ShotReading).
+    public int realKind = -1;
     /// Exit speed (m/s), launch angle (deg, + up), projected carry (m) for a struck ball.
     public float exitSpeed, launchDeg, carry;
     /// Peak bat speed (m/s) while the ball was arriving; closest bat-to-ball distance (m).

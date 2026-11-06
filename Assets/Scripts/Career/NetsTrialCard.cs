@@ -72,32 +72,11 @@ public class NetsTrialCard
     public const string ResultHeading = "Trial complete";
     public const string PracticeHeading = "Practice done";
 
-    /// What the last ball measured, in plain words: "Last ball: middled - four".
-    public static string LastBall(BallRecord r)
-    {
-        if (r == null)
-            return "";
-        string how = r.action == eBallAction.Left ? "left alone"
-                   : r.action == eBallAction.Missed ? "missed"
-                   : r.realContact == eRealContact.Clean ? "middled"
-                   : r.realContact == eRealContact.Edge ? "edged" : "played";
-        string end = r.end switch
-        {
-            eBallEnd.Four => "four",
-            eBallEnd.Six => "six",
-            eBallEnd.Out => "out",
-            eBallEnd.Runs => r.runs == 1 ? "1 run" : $"{r.runs} runs",
-            eBallEnd.Wide => "wide",
-            eBallEnd.NoBall => "no ball",
-            _ => "dot",
-        };
-        return $"Last ball: {how} - {end}";
-    }
-
-    /// Under the progress: the last ball, and how to finish (B opens the pause card).
-    public static string Footer(string lastBall) =>
-        "\n<size=60%><color=#E5E7EB>" + Latin1(lastBall) + "</color>\n" +
-        "<color=#98A2B3>B, then End session, to finish</color></size>";
+    /// Under the progress: the last ball's reading (ShotReading.Read, already rich text), and how
+    /// to finish (B opens the pause card).
+    public static string Footer(string reading) =>
+        "\n<size=58%>" + (string.IsNullOrEmpty(reading) ? "" : Latin1(reading) + "\n") +
+        "<size=85%><color=#98A2B3>B, then End session, to finish</color></size></size>";
 
     /// "Timing  62  Strong", or "Timing  --" when it is not measured yet.
     public static string RatingLine(int index, float rating)

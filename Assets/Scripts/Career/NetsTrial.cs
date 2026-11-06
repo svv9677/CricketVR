@@ -405,7 +405,7 @@ public class NetsTrial : MonoBehaviour
 
     private void ShowProgress()
     {
-        string foot = NetsTrialCard.Footer(NetsTrialCard.LastBall(lastBall));
+        string foot = NetsTrialCard.Footer(ShotReading.Read(lastBall));
         if (drill != null)
             ui.ShowProgress(NetsTrialCard.Latin1(drill.ProgressText(NetsSession.TrialIndex, CareerSaves.Current)) + foot);
         else if (mode == eNetsMode.Trial && plan != null)

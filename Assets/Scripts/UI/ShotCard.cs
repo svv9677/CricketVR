@@ -154,11 +154,16 @@ public class ShotCard : MonoBehaviour
     /// A struck ball. Distance is left to SetDistance, which may arrive before or after this.
     public void ShowShot(ShotInfo info)
     {
-        float q = Mathf.Clamp01(info.quality);
-        Set(contact, string.IsNullOrEmpty(info.contactLabel) ? UIFormat.Contact(q, info.edge) : info.contactLabel);
-        if (contact != null)
-            contact.color = info.edge ? poorColor : q >= 0.7f ? goodColor : q >= 0.35f ? okColor : poorColor;
-        SetQuality(q);
+        if (ModeMenus.IsCareer(ModeMenus.Current))
+            ShowCareerContact(info);
+        else
+        {
+            float q = Mathf.Clamp01(info.quality);
+            Set(contact, string.IsNullOrEmpty(info.contactLabel) ? UIFormat.Contact(q, info.edge) : info.contactLabel);
+            if (contact != null)
+                contact.color = info.edge ? poorColor : q >= 0.7f ? goodColor : q >= 0.35f ? okColor : poorColor;
+            SetQuality(q);
+        }
         Set(ballSpeed, UIFormat.Kmh(info.ballSpeedIn));
         // What it was: "Off-cutter · 132 km/h".
         BowlingParams cfg = Main.Instance != null ? Main.Instance.currentBowlingConfig : null;
@@ -166,6 +171,24 @@ public class ShotCard : MonoBehaviour
         Set(delivery, $"{what}  ·  {Mathf.RoundToInt(info.ballSpeedIn * UIFormat.KmhPerMps)} km/h");
         Set(batSpeed, UIFormat.Kmh(info.batSpeed));
         Set(exitSpeed, UIFormat.Kmh(info.exitSpeed));
+    }
+
+    /// The career's contact: the real blade's (ShotReading, as the nets text and every rating read
+    /// it), so the card and the nets never disagree. When the bat shield made more of it than the
+    /// real blade would have, that is said underneath, small: "wide bat: good contact".
+    private void ShowCareerContact(ShotInfo info)
+    {
+        int realKind = info.realContact == eRealContact.WouldHaveMissed ? -1 : (int)info.realKind;
+        string word = ShotReading.ContactWord(info.realContact, realKind, info.realQuality);
+        bool clean = ShotReading.IsClean(info.realContact, realKind);
+        float q = Mathf.Clamp01(info.realQuality);
+        string shield = string.IsNullOrEmpty(info.contactLabel) ? UIFormat.Contact(info.quality, info.edge) : info.contactLabel;
+        if (!string.Equals(shield, word, System.StringComparison.OrdinalIgnoreCase))
+            word += "<size=45%><color=#98A2B3>  wide bat: " + shield.ToLowerInvariant() + "</color></size>";
+        Set(contact, word);
+        if (contact != null)
+            contact.color = !clean ? poorColor : q >= 0.7f ? goodColor : okColor;
+        SetQuality(q);
     }
 
     /// Where the ball first lands (carry), or where a six would have come down.

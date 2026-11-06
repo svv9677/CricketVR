@@ -244,6 +244,7 @@ public class BallLedger : MonoBehaviour
         rec.quality = info.quality;
         rec.realQuality = info.realQuality;
         rec.realContact = info.realContact;
+        rec.realKind = info.realContact == eRealContact.WouldHaveMissed ? -1 : (int)info.realKind;
         rec.contactHeight = info.contactPoint.y;
         // The shot as the real blade would have played it (the shield's wider bat is livelier and
         // heavier off the extra width): what power, carry and the nets' runs are measured from.

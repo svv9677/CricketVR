@@ -54,6 +54,11 @@ public static class DrillScoring
             case eDrill.ShortBall: return Short(r);
             case eDrill.Spin: return SpinBall(r);
             case eDrill.Gaps: return Gap(d, r);
+            case eDrill.StraightHitting: return DrillScoringMore.Straight(r);
+            case eDrill.Swing: return DrillScoringMore.Swing(r);
+            case eDrill.PowerHitting: return DrillScoringMore.Power(r);
+            case eDrill.DeathOvers: return DrillScoringMore.Death(r);
+            case eDrill.SoftHands: return DrillScoringMore.SoftHands(r);
             default: return S(0f, eDrillTag.None);
         }
     }

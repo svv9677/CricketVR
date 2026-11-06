@@ -27,10 +27,10 @@ public class DrillCoachTests
         Assert.AreEqual(eDrill.Yorkers, DrillCoach.Recommend(new RatingSet()));
         Assert.AreEqual(eDrill.Yorkers, DrillCoach.Recommend(null));
         Assert.AreEqual(eDrill.Gaps, DrillCoach.Recommend(Ratings(50f, 0)));
-        Assert.AreEqual(eDrill.ShortBall, DrillCoach.Recommend(Ratings(50f, 1)));
+        Assert.AreEqual(eDrill.PowerHitting, DrillCoach.Recommend(Ratings(50f, 1)));
         Assert.AreEqual(eDrill.Yorkers, DrillCoach.Recommend(Ratings(50f, 2)));
         Assert.AreEqual(eDrill.Spin, DrillCoach.Recommend(Ratings(50f, 3)));
-        Assert.AreEqual(eDrill.Yorkers, DrillCoach.Recommend(Ratings(50f, 4)));
+        Assert.AreEqual(eDrill.SoftHands, DrillCoach.Recommend(Ratings(50f, 4)));
         Assert.AreEqual(eDrill.LeaveOutsideOff, DrillCoach.Recommend(Ratings(50f, 5)));
         RatingSet temper = Ratings(50f, 6);
         temper.spin = 30f;

@@ -4,7 +4,7 @@ using D = eDelivery;
 using K = eBowlerKind;
 
 /// <summary>
-/// The five training drills, as data: twelve balls each, every one a ball that bowler really bowls
+/// The training drills, as data (the second five in DrillDefsMore): twelve balls each, every one a ball that bowler really bowls
 /// (NetsTrialPlan.Valid), at the length band and in the line window the drill is about. The window
 /// is metres from middle stump at the stumps, batter's frame, off side + (DeliveryShape), always
 /// inside [DeliveryShape.MinLine, MaxLine] so a drill ball is never a wide by line.
@@ -25,7 +25,7 @@ using K = eBowlerKind;
 /// </summary>
 public static class DrillDefs
 {
-    public const int BallsPerDrill = 12, Count = 5;
+    public const int BallsPerDrill = 12, Count = 10;
 
     // RatingSet indexes.
     private const int Timing = 0, Power = 1, Pace = 2, Spin = 3, Defence = 4, Judgement = 5;
@@ -146,7 +146,11 @@ public static class DrillDefs
     };
 
     /// In the order of the drills screen's rows.
-    public static readonly DrillDef[] All = { Yorkers, Leave, ShortBall, SpinDrill, Gaps };
+    public static readonly DrillDef[] All =
+    {
+        Yorkers, Leave, ShortBall, SpinDrill, Gaps,
+        DrillDefsMore.Straight, DrillDefsMore.Swing, DrillDefsMore.PowerHitting, DrillDefsMore.Death, DrillDefsMore.SoftHands,
+    };
 
     public static DrillDef For(eDrill d) => Array.Find(All, x => x.id == d);
 

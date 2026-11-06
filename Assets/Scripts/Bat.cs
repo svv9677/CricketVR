@@ -232,6 +232,7 @@ public partial class Bat : MonoBehaviour
             contactPoint = contactCentre,
             realQuality = real.quality,
             realContact = real.contact,
+            realKind = real.kind,
             realExitVelocity = real.exitVelocity,
         });
 
