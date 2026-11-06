@@ -57,5 +57,35 @@ public static class ScenePrefabs
         EditorSceneManager.SaveScene(scene);
         AssetDatabase.SaveAssets();
         Debug.Log($"[ScenePrefabs] {made} roots saved as prefabs in {Folder}, {kept} already prefabs.");
+        UseInSplash();
+    }
+
+    private const string SplashPath = "Assets/Scenes/Splash.unity";
+    /// The pieces Splash shares with the match scene. Its rig, UI and light are its own (a menu
+    /// backdrop, no crease), so only these are swapped for the shared prefab.
+    private static readonly string[] SharedWithSplash = { "Fader" };
+
+    /// Splash's own plain copies of the shared pieces (the Fader that MenuSceneBuilder made there)
+    /// become instances of the match scene's prefabs, in the same place in the hierarchy.
+    /// MenuSceneBuilder only makes a Fader where there is no SceneFader, so it leaves the instance.
+    private static void UseInSplash()
+    {
+        var splash = EditorSceneManager.OpenScene(SplashPath, OpenSceneMode.Single);
+        int swapped = 0;
+        foreach (string name in SharedWithSplash)
+        {
+            GameObject plain = System.Array.Find(splash.GetRootGameObjects(), g => g.name == name);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{Folder}/{name}.prefab");
+            if (plain == null || prefab == null || PrefabUtility.IsAnyPrefabInstanceRoot(plain))
+                continue;
+            int index = plain.transform.GetSiblingIndex();
+            Object.DestroyImmediate(plain);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, splash);
+            instance.transform.SetSiblingIndex(index);
+            swapped++;
+        }
+        EditorSceneManager.MarkSceneDirty(splash);
+        EditorSceneManager.SaveScene(splash);
+        Debug.Log($"[ScenePrefabs] Splash: {swapped} plain copies swapped for the shared prefabs.");
     }
 }

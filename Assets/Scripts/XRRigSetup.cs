@@ -147,6 +147,16 @@ public class XRRigSetup : MonoBehaviour
 
     private readonly RecentreGate _recentre = new RecentreGate();
 
+    /// The settings' "Recentre at the crease": down the pitch becomes the way the head points now
+    /// (saved, as an Oculus-button recentre does), and the player is placed with it. Looking
+    /// straight up or down keeps the saved direction and only slides him back onto the spot.
+    public void RecentreHere()
+    {
+        if (cameraTransform != null)
+            RoomFacing.Capture(transform, cameraTransform, out _);
+        PlaceAtCrease();
+    }
+
     /// The player at this end (career, watching his partner: NonStrikerView), placed now.
     public void PlaceAtEnd(bool nonStriker)
     {

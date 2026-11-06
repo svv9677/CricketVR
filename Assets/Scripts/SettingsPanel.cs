@@ -325,12 +325,13 @@ public partial class SettingsPanel : MonoBehaviour
         Refresh();
     }
 
-    /// Put the player back at the crease, facing the bowler, as at the start.
+    /// Put the player back at the crease, facing the bowler: the way he faces now becomes down the
+    /// pitch, in every scene from here on (RoomFacing, XRRigSetup.RecentreHere).
     public void OnRecentre()
     {
         XRRigSetup rig = FindFirstObjectByType<XRRigSetup>();
         if (rig != null)
-            rig.PlaceAtCrease();
+            rig.RecentreHere();
     }
 
     public void OnMasterVolume(float v) => OnVolume(GameAudio.Channel.Master, v);
