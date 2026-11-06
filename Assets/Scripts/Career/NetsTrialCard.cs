@@ -22,7 +22,9 @@ using UnityEngine.UI;
 public class NetsTrialCard
 {
     /// The progress line: metres ahead (toward the bowler), to the side, and above the eyes.
-    private const float ProgressAhead = 7f, ProgressSide = 2.8f, ProgressUp = 0.7f, ProgressSize = 3f;
+    // Near enough to read at a glance and on the leg side of the dock, out of the ball's line (it
+    // stood 7 m down the pitch, small, and against the side net once the nets were 6 m wide).
+    private const float ProgressAhead = 3f, ProgressSide = -1.8f, ProgressUp = 0.25f, ProgressSize = 1.4f;
     /// The result card, as MatchFlow places its own.
     private const float CardAhead = 1.5f, CardBelow = 0.1f, CardBigger = 1.4f;
     /// The plain-text fallback for the card.
@@ -68,6 +70,34 @@ public class NetsTrialCard
         $"<b>NETS PRACTICE</b>\n<size=70%><color=#98A2B3>{measured} ball{(measured == 1 ? "" : "s")} measured</color></size>";
 
     public const string ResultHeading = "Trial complete";
+    public const string PracticeHeading = "Practice done";
+
+    /// What the last ball measured, in plain words: "Last ball: middled - four".
+    public static string LastBall(BallRecord r)
+    {
+        if (r == null)
+            return "";
+        string how = r.action == eBallAction.Left ? "left alone"
+                   : r.action == eBallAction.Missed ? "missed"
+                   : r.realContact == eRealContact.Clean ? "middled"
+                   : r.realContact == eRealContact.Edge ? "edged" : "played";
+        string end = r.end switch
+        {
+            eBallEnd.Four => "four",
+            eBallEnd.Six => "six",
+            eBallEnd.Out => "out",
+            eBallEnd.Runs => r.runs == 1 ? "1 run" : $"{r.runs} runs",
+            eBallEnd.Wide => "wide",
+            eBallEnd.NoBall => "no ball",
+            _ => "dot",
+        };
+        return $"Last ball: {how} - {end}";
+    }
+
+    /// Under the progress: the last ball, and how to finish (B opens the pause card).
+    public static string Footer(string lastBall) =>
+        "\n<size=60%><color=#E5E7EB>" + Latin1(lastBall) + "</color>\n" +
+        "<color=#98A2B3>B, then End session, to finish</color></size>";
 
     /// "Timing  62  Strong", or "Timing  --" when it is not measured yet.
     public static string RatingLine(int index, float rating)
@@ -132,7 +162,7 @@ public class NetsTrialCard
     public void ShowProgress(string text)
     {
         if (progress == null)
-            progress = MakeText("Nets Trial Progress", ProgressSize, new Vector2(10f, 2.4f));
+            progress = MakeText("Nets Trial Progress", ProgressSize, new Vector2(4.5f, 1.6f));
         progress.text = text;
         SetProgressVisible(progressPlaced && !progressHidden);
     }

@@ -149,6 +149,7 @@ public static class CareerSaves
         p.inbox ??= new System.Collections.Generic.List<CareerMessage>();
         p.scoutReports ??= new System.Collections.Generic.List<float>();
         p.unlocked ??= new System.Collections.Generic.List<string>();
+        if (p.difficulty == eDifficulty.None) p.difficulty = eDifficulty.Medium;   // saves from before it was chosen
         p.batFinish ??= ""; p.kitTrim ??= ""; p.gloves ??= "";
         p.recordBook ??= new CareerRecordBook();
         p.recordBook.reached ??= new System.Collections.Generic.List<string>();

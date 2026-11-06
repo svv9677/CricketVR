@@ -14,7 +14,8 @@ public static class CareerSettingsGuard
     private const string KeyPending = "career_restore_pending", KeyHand = "career_restore_hand",
                          KeyBowling = "career_restore_bowling", KeyOvers = "career_restore_overs",
                          KeyType = "career_restore_type", KeyCrowd = "career_restore_crowd",
-                         KeyPitch = "career_restore_pitch", KeyTime = "career_restore_time";
+                         KeyPitch = "career_restore_pitch", KeyTime = "career_restore_time",
+                         KeyDifficulty = "career_restore_difficulty";
 
     /// The career's settings are in force (and the player's own are waiting to go back).
     public static bool Pending => PlayerPrefs.GetInt(KeyPending, 0) == 1;
@@ -23,6 +24,7 @@ public static class CareerSettingsGuard
     public static void Apply(eBattingStyle hand, eBowlingLevel level)
     {
         Remember();
+        ApplyDifficulty();
         MatchSetup.Bowling = level;
         GameSettings.BattingStyle = hand;
     }
@@ -32,6 +34,7 @@ public static class CareerSettingsGuard
                                   eCrowd crowd, ePitch pitch, eTimeOfDay time)
     {
         Remember();
+        ApplyDifficulty();
         MatchSetup.Bowling = level;
         MatchSetup.Type = type;
         MatchSetup.Crowd = crowd;
@@ -39,6 +42,15 @@ public static class CareerSettingsGuard
         MatchSetup.TimeOfDay = time;
         GameSettings.Overs = overs;
         GameSettings.BattingStyle = hand;
+    }
+
+    /// The career's difficulty (bat width), chosen when the player was created and fixed for the
+    /// career; a career with none set (none loaded, or a test) leaves the player's own.
+    private static void ApplyDifficulty()
+    {
+        CareerProfile p = CareerSaves.Current;
+        if (p != null && p.difficulty != eDifficulty.None)
+            GameSettings.Difficulty = p.difficulty;
     }
 
     /// The player's own, written down once: applying again before a restore (the scene restarted
@@ -54,6 +66,7 @@ public static class CareerSettingsGuard
         PlayerPrefs.SetInt(KeyCrowd, (int)MatchSetup.Crowd);
         PlayerPrefs.SetInt(KeyPitch, (int)MatchSetup.Pitch);
         PlayerPrefs.SetInt(KeyTime, (int)MatchSetup.TimeOfDay);
+        PlayerPrefs.SetInt(KeyDifficulty, (int)GameSettings.Difficulty);
         PlayerPrefs.SetInt(KeyPending, 1);
         PlayerPrefs.Save();
     }
@@ -72,6 +85,7 @@ public static class CareerSettingsGuard
         MatchSetup.Pitch = (ePitch)PlayerPrefs.GetInt(KeyPitch, (int)MatchSetup.Pitch);
         MatchSetup.TimeOfDay = (eTimeOfDay)PlayerPrefs.GetInt(KeyTime, (int)MatchSetup.TimeOfDay);
         GameSettings.Overs = PlayerPrefs.GetInt(KeyOvers, GameSettings.Overs);
+        GameSettings.Difficulty = (eDifficulty)PlayerPrefs.GetInt(KeyDifficulty, (int)GameSettings.Difficulty);
         try
         {
             GameSettings.BattingStyle = (eBattingStyle)PlayerPrefs.GetInt(KeyHand, (int)eBattingStyle.RightHanded);

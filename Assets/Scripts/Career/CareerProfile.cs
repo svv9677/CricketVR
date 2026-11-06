@@ -94,6 +94,9 @@ public class CareerProfile
     /// Nations.All code ("IND", "AUS", ...).
     public string nation = "IND";
     public eBattingStyle hand = eBattingStyle.RightHanded;
+    /// The bat's width for the whole career (Easy wide, Hard narrow), chosen when he is created and
+    /// put in force by CareerSettingsGuard; the settings do not offer it in career (ModeMenus).
+    public eDifficulty difficulty = eDifficulty.Medium;
     public CareerAppearance look = new CareerAppearance();
     /// Local date the career was started ("2026-11-05").
     public string created = "";

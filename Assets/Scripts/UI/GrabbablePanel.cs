@@ -26,7 +26,9 @@ public class GrabbablePanel : MonoBehaviour
     private Vector3 heldPosition;      // in the aim's frame
     private Quaternion heldRotation;
 
-    private string Key => "panel_pose_" + saveKey;
+    /// Splash's panels keep their own poses: a menu moved by the crease in a match must not reopen
+    /// there in Splash, ten metres from the player (it read as an empty menu screen).
+    private string Key => "panel_pose_" + (gameObject.scene.name == NetsSession.SplashScene ? "splash_" : "") + saveKey;
 
     /// Put the panel where the player last left it. False if it has never been moved.
     public bool Restore()

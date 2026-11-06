@@ -16,6 +16,8 @@ public class CreateLookScreen : MenuScreen
 
     [SerializeField] private TextMeshProUGUI nation;
     [SerializeField] private SegmentedControl hand;
+    [Tooltip("Easy / Medium / Hard: the bat's width for the whole career.")]
+    [SerializeField] private SegmentedControl difficulty;
     [SerializeField] private TextMeshProUGUI skin;
     [SerializeField] private Image skinSwatch;
     [SerializeField] private TextMeshProUGUI kit;
@@ -45,6 +47,7 @@ public class CreateLookScreen : MenuScreen
         string nationName = Nations.Name(p.nation);
         if (nation != null) nation.text = nationName;
         if (hand != null) hand.SetValueWithoutNotify(p.hand == eBattingStyle.LeftHanded ? 1 : 0);
+        if (difficulty != null) difficulty.SetValueWithoutNotify(DifficultyIndex(p.difficulty));
         if (skin != null) skin.text = Appearance.SkinNames[skinIndex];
         if (skinSwatch != null) skinSwatch.color = Appearance.SkinTones[skinIndex];
         if (kit != null) kit.text = Appearance.KitNames[kitIndex];
@@ -69,6 +72,19 @@ public class CreateLookScreen : MenuScreen
         CareerProfile p = CareerDraft.Profile;
         if (p == null) return;
         p.hand = i == 1 ? eBattingStyle.LeftHanded : eBattingStyle.RightHanded;
+        Refresh();
+    }
+
+    /// Easy, Medium, Hard (0..2) for the segmented control; anything else reads as Medium.
+    public static int DifficultyIndex(eDifficulty d) => d == eDifficulty.Easy ? 0 : d == eDifficulty.Hard ? 2 : 1;
+    public static eDifficulty DifficultyAt(int i) => i == 0 ? eDifficulty.Easy : i == 2 ? eDifficulty.Hard : eDifficulty.Medium;
+
+    /// The career's difficulty: chosen here, fixed for the career (CareerSettingsGuard).
+    public void OnDifficulty(int i)
+    {
+        CareerProfile p = CareerDraft.Profile;
+        if (p == null) return;
+        p.difficulty = DifficultyAt(i);
         Refresh();
     }
 

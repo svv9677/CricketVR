@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// The dock that comes up in front of the player between balls: who is bowling (with Change),
@@ -99,8 +100,23 @@ public class NextBallMenu : MonoBehaviour
         // the stumps' left as he sees them, AnimatedBowler).
         bowlerLabel.text = $"{shownBowler.Name}\n<size=62%><color=#98A2B3>{type}{(newOver ? "  ·  right-arm over" : "")}</color></size>";
         if (header != null)
-            header.text = Header(freeHit, partner, newOver);
+            header.text = !freeHit && ModeMenus.IsNets(ModeMenus.Current) ? ModeMenus.NetsHeading(ModeMenus.Current)
+                                                                         : Header(freeHit, partner, newOver);
     }
+
+    /// Change bowler only where the player may choose (ModeMenus.CanChangeBowler): not in a career
+    /// match, where the captain picks, nor in a nets trial or drill, which bowl their plan.
+    private void ApplyMode()
+    {
+        if (changeBowler == null)
+            foreach (Button b in panel.GetComponentsInChildren<Button>(true))
+                if (b.name == "Change bowler")
+                    changeBowler = b.gameObject;
+        if (changeBowler != null)
+            changeBowler.SetActive(ModeMenus.CanChangeBowler(ModeMenus.Current));
+    }
+
+    private GameObject changeBowler;
 
     /// The card's heading: a free hit first (who can't be out), then the partner on strike, then
     /// the match's first over; otherwise just "BOWLER".
@@ -141,6 +157,7 @@ public class NextBallMenu : MonoBehaviour
         if (grab != null)
             grab.Restore();
         shownBowler = null;
+        ApplyMode();
         panel.SetActive(true);
         shown = true;
     }

@@ -65,11 +65,48 @@ public class NetsTrial : MonoBehaviour
 
     private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
 
-    /// The pause card's "End session" in the career nets (PauseScreen calls it): ends this session
+    /// The pause card's "End session" in the career nets (PauseModeAdapter calls it): ends this session
     /// the way its mode allows and takes the player back to the career. False when there is no
     /// career nets session to end, and the caller leaves as it always has.
-    /// Contract only (2026-11-05): the nets-session work fills it in.
-    public static bool TryEndFromPause() => false;
+    public static bool TryEndFromPause()
+    {
+        NetsTrial t = FindFirstObjectByType<NetsTrial>();
+        if (t == null || !NetsSession.Career)
+            return false;
+        t.EndFromPause();
+        return true;
+    }
+
+    /// Practice: the summary card (the ratings as measured now), then back to the career. The trial
+    /// and a drill: back to the career at once, the trial still to take and the drill attempt
+    /// unscored (only a finished session records either; the balls faced stay measured).
+    private void EndFromPause()
+    {
+        if (leaving || finished)
+            return;
+        if (MenuRoot.Instance != null && MenuRoot.Instance.IsOpen)
+            MenuRoot.Instance.Close();
+        if (mode == eNetsMode.Practice)
+        {
+            finished = true;
+            finishedAt = Time.time;
+            CareerProfile p = CareerSaves.Current;
+            HoldInMenu();
+            ui.HideProgress();
+            string body = NetsTrialCard.PracticeText(practiceBalls) + "\n\n" +
+                          NetsTrialCard.ResultBody(p != null ? p.ratings : null, null);
+            ui.ShowResult(NetsTrialCard.PracticeHeading, body, Continue);
+            return;
+        }
+        leaving = true;
+        ui.HideProgress();
+        BowlingAttack.ForceKind = null;
+        BowlingAttack.ForceDelivery = null;
+        BowlingAttack.ForceShape = null;
+        NetsSession.End();
+        RestoreSettings();
+        SceneFader.Load(NetsSession.SplashScene);
+    }
 
     private static void Build(Scene scene)
     {
@@ -197,6 +234,7 @@ public class NetsTrial : MonoBehaviour
         CareerProfile p = CareerSaves.Current;
         if (p == null)
             return;
+        lastBall = r;
         bool advances = Measure(p, r, mode);
         CareerSaves.SaveCurrent();
         if (plan != null)
@@ -367,13 +405,16 @@ public class NetsTrial : MonoBehaviour
 
     private void ShowProgress()
     {
+        string foot = NetsTrialCard.Footer(NetsTrialCard.LastBall(lastBall));
         if (drill != null)
-            ui.ShowProgress(NetsTrialCard.Latin1(drill.ProgressText(NetsSession.TrialIndex, CareerSaves.Current)));
+            ui.ShowProgress(NetsTrialCard.Latin1(drill.ProgressText(NetsSession.TrialIndex, CareerSaves.Current)) + foot);
         else if (mode == eNetsMode.Trial && plan != null)
-            ui.ShowProgress(NetsTrialCard.ProgressText(NetsSession.TrialIndex + 1, Planned().kind));
+            ui.ShowProgress(NetsTrialCard.ProgressText(NetsSession.TrialIndex + 1, Planned().kind) + foot);
         else if (mode == eNetsMode.Practice)
-            ui.ShowProgress(NetsTrialCard.PracticeText(practiceBalls));
+            ui.ShowProgress(NetsTrialCard.PracticeText(practiceBalls) + foot);
     }
+
+    private BallRecord lastBall;
 
     /// The player's own hand and bowling level back, once (both setters save to PlayerPrefs). The hand
     /// last: changing it re-applies the settings into Main, which may be mid-teardown on a scene change.

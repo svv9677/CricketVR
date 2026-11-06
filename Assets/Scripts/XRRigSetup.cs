@@ -127,7 +127,14 @@ public class XRRigSetup : MonoBehaviour
             _recentre.Captured();
             _placed = false;
         }
-        // Only in a match (CricketVR, Nets): Splash has no crease, just the menu.
+        // Splash has no crease, just the menu: the room's down-the-pitch is turned to face it once.
+        if (!_placed && cameraTransform != null && Main.Instance == null)
+        {
+            if (_placeDelayFrames-- <= 0)
+                FaceMenu();
+            return;
+        }
+        // Only in a match (CricketVR, Nets).
         if (_placed || cameraTransform == null || Main.Instance == null)
             return;
         // A few frames in, so the first tracked head pose is in.
@@ -155,6 +162,21 @@ public class XRRigSetup : MonoBehaviour
         if (cameraTransform != null)
             RoomFacing.Capture(transform, cameraTransform, out _);
         PlaceAtCrease();
+    }
+
+    /// Splash: the wall the player bats facing (RoomFacing) faces the menu, so after a match he
+    /// finds it in front of him rather than beside or behind him. He is turned, not moved. Nothing
+    /// saved yet (first launch): left as the headset has it.
+    private void FaceMenu()
+    {
+        _placed = true;
+        if (!RoomFacing.TryLoad(out float saved) || !MenuLayout.TryGet(MenuLayout.Menu, out Vector3 spot, out _))
+            return;
+        Vector3 head = cameraTransform.position;
+        Vector3 toMenu = Vector3.ProjectOnPlane(spot - head, Vector3.up);
+        if (toMenu.sqrMagnitude < 1e-4f)
+            return;
+        RoomFacing.Place(transform, cameraTransform, saved, toMenu.normalized, new Vector2(head.x, head.z));
     }
 
     /// The player at this end (career, watching his partner: NonStrikerView), placed now.

@@ -179,6 +179,10 @@ public static class CareerMenuBuilder
         TextMeshProUGUI nation = StepperRow(column, "Nationality", screen.OnNation, false, out _);
         Transform handRow = LabelledRow(column, "Batting");
         SegmentedControl hand = UIControls.Segmented(handRow, new[] { "Right", "Left" }, screen.OnHand);
+        Transform difficultyRow = LabelledRow(column, "Difficulty");
+        SegmentedControl difficulty = UIControls.Segmented(difficultyRow, new[] { "Easy", "Medium", "Hard" }, screen.OnDifficulty);
+        WorldPanelBuilder.Line(column, "How wide your bat is. Fixed for this career.", UIStyle.LabelSize - 4f, FontStyles.Normal,
+                               UIStyle.TextMuted, 30f, TextAlignmentOptions.Center);
         TextMeshProUGUI skin = StepperRow(column, "Skin tone", screen.OnSkin, true, out Image skinSwatch);
         TextMeshProUGUI kit = StepperRow(column, "Kit colour", screen.OnKit, true, out Image kitSwatch);
         TextMeshProUGUI number = StepperRow(column, "Shirt number", screen.OnNumber, false, out _);
@@ -194,6 +198,7 @@ public static class CareerMenuBuilder
         var so = new SerializedObject(screen);
         so.FindProperty("nation").objectReferenceValue = nation;
         so.FindProperty("hand").objectReferenceValue = hand;
+        so.FindProperty("difficulty").objectReferenceValue = difficulty;
         so.FindProperty("skin").objectReferenceValue = skin;
         so.FindProperty("skinSwatch").objectReferenceValue = skinSwatch;
         so.FindProperty("kit").objectReferenceValue = kit;

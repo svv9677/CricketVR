@@ -203,8 +203,46 @@ public partial class SettingsPanel : MonoBehaviour
             foreach (GameObject row in matchOnly)
                 if (row != null && row.activeSelf != inMatch)
                     row.SetActive(inMatch);
+        HideCareerRows(inMatch);
         if (inMatch)
             RefreshBowling(m);
+    }
+
+    /// The career plays to its own settings (hand and difficulty from the player's creation, the
+    /// rung's bowling, the match's overs: CareerSettingsGuard), so in a career match and the career
+    /// nets those rows, the Bowling, Fielding and Match pages and Restart are not offered at all.
+    /// Grip, View & Comfort, Audio and the debug overlay stay.
+    private void HideCareerRows(bool inMatch)
+    {
+        bool career = ModeMenus.IsCareer(ModeMenus.Current);
+        if (careerRows == null)
+            careerRows = CareerRows();
+        foreach (GameObject row in careerRows)
+        {
+            bool matchOnlyRow = matchOnly != null && System.Array.IndexOf(matchOnly, row) >= 0;
+            bool on = !career && (!matchOnlyRow || inMatch);
+            if (row != null && row.activeSelf != on)
+                row.SetActive(on);
+        }
+    }
+
+    private GameObject[] careerRows;
+
+    /// The rows the career hides, found from the controls they hold and the category labels.
+    private GameObject[] CareerRows()
+    {
+        var rows = new System.Collections.Generic.List<GameObject>();
+        if (hand != null) rows.Add(hand.transform.parent.gameObject);
+        if (difficultyLevel != null) rows.Add(difficultyLevel.transform.parent.gameObject);
+        foreach (UnityEngine.UI.Button b in panel.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+        {
+            TMP_Text label = b.GetComponentInChildren<TMP_Text>(true);
+            string t = label != null ? label.text : "";
+            if (t.StartsWith("<b>Bowling</b>") || t.StartsWith("<b>Fielding</b>") || t.StartsWith("<b>Match</b>") ||
+                b.name == "Restart the scene")
+                rows.Add(b.gameObject);
+        }
+        return rows.ToArray();
     }
 
     private void RefreshBowling(Main m)
