@@ -13,7 +13,7 @@ using UnityEngine.UI;
 /// scroll view, so the inbox pages rather than scrolls; the rows keep their places when a page is
 /// short, so the card keeps its height. Built by Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
-public class InboxScreen : MenuScreen
+public class InboxScreen : CareerDeckScreen
 {
     public const int PerPage = 5;
     private const string Muted = "#98A2B3", Good = "#22C55E", Bad = "#FF6B4A", Accent = "#8AB8FF", Pink = "#F43F8E";
@@ -48,6 +48,7 @@ public class InboxScreen : MenuScreen
 
     public override void OnShow()
     {
+        base.OnShow();
         if (startAtNewest)
             page = 0;
         startAtNewest = false;

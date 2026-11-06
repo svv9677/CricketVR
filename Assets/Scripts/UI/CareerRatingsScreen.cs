@@ -10,7 +10,7 @@ using UnityEngine.UI;
 /// first measured. The ratings only describe how the player bats; nothing here changes how the game
 /// plays. Built by Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
-public class CareerRatingsScreen : MenuScreen
+public class CareerRatingsScreen : CareerDeckScreen
 {
     private const string Muted = "#98A2B3";
 
@@ -22,6 +22,7 @@ public class CareerRatingsScreen : MenuScreen
 
     public override void OnShow()
     {
+        base.OnShow();
         CareerProfile p = CareerSaves.Current;
         if (p == null)
         {

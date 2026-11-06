@@ -12,8 +12,13 @@ using UnityEngine.UI;
 /// restart of the scene bowls the same shuffled plan) and goes to the nets. The ratings only
 /// measure: a drill bowls the balls that test one or two of them, nothing more. There is no scroll
 /// view, so the card holds exactly these six rows. Built by Tools > CricketVR > Build Menu Prefabs.
+///
+/// 2026-11-06, as floating panels (CareerDeckScreen; CareerDeckTraining builds it): the coach and
+/// measured practice on the left, the drills as a grid of tiles in the middle (name and best), and
+/// the chosen drill on the right - what it is, what it feeds, last and best, and Start. A tile
+/// chooses; Start goes. The coach's pick is chosen when the screen opens.
 /// </summary>
-public class CareerDrillsScreen : MenuScreen
+public class CareerDrillsScreen : CareerDeckScreen
 {
     public const int Rows = DrillDefs.Count;
     public const string LockedText = "Take your nets trial first. It sets the ratings the drills build on.";
@@ -29,6 +34,15 @@ public class CareerDrillsScreen : MenuScreen
     // The drill rows themselves, switched off for a drill DrillDefs does not have.
     [SerializeField] private GameObject[] rows = new GameObject[0];
     [SerializeField] private Button practice;
+    // The chosen drill's panel.
+    [SerializeField] private TextMeshProUGUI chosenTitle;
+    [SerializeField] private TextMeshProUGUI chosenPick;
+    [SerializeField] private TextMeshProUGUI chosenBlurb;
+    [SerializeField] private TextMeshProUGUI chosenStats;
+    [SerializeField] private Button chosenStart;
+
+    private int chosen;
+    private static readonly Color TileColour = new Color32(0x25, 0x2B, 0x35, 0xFF), ChosenColour = new Color32(0x3B, 0x82, 0xF6, 0xFF);
 
     // A Start was pressed and the nets are loading: a second press must not begin a second attempt.
     private bool leaving;
@@ -39,7 +53,10 @@ public class CareerDrillsScreen : MenuScreen
 
     public override void OnShow()
     {
+        base.OnShow();
         leaving = false;
+        int pick = System.Array.FindIndex(DrillDefs.All, d => d.id == CoachPick(CareerSaves.Current));
+        chosen = pick >= 0 ? pick : 0;
         Refresh();
     }
 
@@ -58,6 +75,28 @@ public class CareerDrillsScreen : MenuScreen
             practice.interactable = open;
         for (int i = 0; i < Rows; i++)
             ShowRow(i, DrillAt(i), p, pick, open);
+        ShowChosen(p, pick, open);
+    }
+
+    /// The chosen drill's panel, and its tile lit.
+    private void ShowChosen(CareerProfile p, eDrill pick, bool open)
+    {
+        DrillDef d = DrillAt(chosen);
+        for (int i = 0; i < starts.Length; i++)
+            if (starts[i] != null)
+            {
+                ColorBlock c = starts[i].colors;
+                c.normalColor = i == chosen ? ChosenColour : TileColour;
+                c.selectedColor = c.normalColor;
+                starts[i].colors = c;
+            }
+        Set(chosenTitle, d != null ? NetsTrialCard.Latin1(d.name) : "");
+        if (chosenPick != null)
+            chosenPick.gameObject.SetActive(d != null && d.id == pick);
+        Set(chosenBlurb, d != null ? NetsTrialCard.Latin1(d.blurb) : "");
+        Set(chosenStats, d == null ? "" : ChosenStats(d, p != null ? RecordOf(p.drills, d.id) : null));
+        if (chosenStart != null)
+            chosenStart.interactable = open && d != null;
     }
 
     private void ShowRow(int i, DrillDef d, CareerProfile p, eDrill pick, bool open)
@@ -67,9 +106,8 @@ public class CareerDrillsScreen : MenuScreen
         if (d == null)
             return;
         bool coachPick = d.id == pick;
-        Set(At(names, i), RowName(d, coachPick));
-        // The pick is marked once, on the name line (RowName); the detail line is last/best only.
-        Set(At(details, i), p == null ? "" : DrillText.RowDetail(d, RecordOf(p.drills, d.id), false));
+        Set(At(names, i), TileName(d, coachPick));
+        Set(At(details, i), p == null ? "" : TileDetail(RecordOf(p.drills, d.id)));
         Button start = At(starts, i);
         if (start != null)
             start.interactable = open;
@@ -115,7 +153,36 @@ public class CareerDrillsScreen : MenuScreen
         return coachPick ? $"{name}  <color={Pink}><size=80%>· COACH'S PICK</size></color>" : name;
     }
 
+    /// A tile's name: bold, with a small pink PICK on the coach's pick.
+    public static string TileName(DrillDef d, bool coachPick) =>
+        $"<b>{NetsTrialCard.Latin1(d?.name)}</b>" + (coachPick ? $"  <color={Pink}><size=70%>PICK</size></color>" : "");
+
+    /// A tile's small line: "Best 72", or "New" for one never finished.
+    public static string TileDetail(DrillRecord r) =>
+        r == null || r.attempts <= 0 ? "New" : $"Best {r.best}";
+
+    /// The chosen panel's lines: what it feeds, then last and best (or not tried).
+    public static string ChosenStats(DrillDef d, DrillRecord r)
+    {
+        string tried = r == null || r.attempts <= 0 ? "Not tried yet"
+                     : $"Last {r.last}  ·  Best {r.best}  ·  {r.attempts} attempt{(r.attempts == 1 ? "" : "s")}";
+        return NetsTrialCard.Latin1(DrillText.Feeds(d) + "\n" + tried + $"\n{DrillDefs.BallsPerDrill} balls");
+    }
+
     // ---- Wired in the prefab ------------------------------------------------------------------
+
+    /// A tile: choose that drill (Start begins it).
+    public void OnChoose(int index)
+    {
+        if (DrillAt(index) == null)
+            return;
+        chosen = index;
+        Refresh();
+    }
+
+    /// The chosen drill's Start.
+    public void OnStartChosen() => OnStart(chosen);
+
 
     /// Measured practice: the free nets with every ball measured (NetsSession Practice).
     public void OnPractice()

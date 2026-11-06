@@ -13,8 +13,9 @@ public static class CareerLockerMenuBuilder
 {
     public static MenuScreen BuildLocker(Transform parent)
     {
-        Transform column = MenuPrefabBuilder.ScreenColumn(parent, "CareerLockerScreen", out GameObject go);
+        Transform column = CareerDeckBuilder.CentreScreen(parent, "CareerLockerScreen", out GameObject go);
         CareerLockerScreen screen = go.AddComponent<CareerLockerScreen>();
+        CareerDeckBuilder.TabBar(go, screen, CareerDeckScreen.LockerTab);
         MenuPrefabBuilder.SetScreenName(screen, "careerLocker");
         MenuPrefabBuilder.Title(column, "Locker", "Cosmetic only. Nothing here changes how you bat.");
 

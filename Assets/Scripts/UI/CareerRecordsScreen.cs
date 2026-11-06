@@ -13,7 +13,7 @@ using UnityEngine.UI;
 /// theatre; it is on only when the clip is saved (ReplayVault.Has) and stays off if the theatre
 /// says no. The records only measure what he did. Built by Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
-public class CareerRecordsScreen : MenuScreen
+public class CareerRecordsScreen : CareerDeckScreen
 {
     /// The record rows, in order; the Milestones row comes after them.
     public static readonly eRecord[] RecordRows =
@@ -36,6 +36,7 @@ public class CareerRecordsScreen : MenuScreen
 
     public override void OnShow()
     {
+        base.OnShow();
         leaving = false;
         Refresh();
     }

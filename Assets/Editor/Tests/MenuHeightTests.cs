@@ -12,13 +12,17 @@ using UnityEngine.UI;
 /// card (MenuPrefabBuilder: WorldPanelBuilder.MakeCard + FitContent on the panel), so a screen's
 /// height is the card's preferred height with that screen the only one on. There is no scroll
 /// view, so a screen taller than its budget runs off the card.
-///   * Records no taller than the drills screen, whose shape it copies;
+///   * Records no taller than Match Setup (it copied the old drills card, which is panels now);
 ///   * the career result with its scout, best and goal lines all showing no taller than Match
 ///     Setup (measured here, not the plan's unverified 854);
 ///   * Goals within 640 px, Locker within 600 px;
 ///   * the hub (Back | Goals | Locker on Back's old row) no taller than Match Setup - the hub at
 ///     f7106ca, before phase 7, cannot be measured from a test, so Match Setup stands in;
 ///   * no row on those screens wider than the card's inside (760 - 2 x 32 = 696 px).
+///
+/// 2026-11-06: the career screens are floating panels (CareerDeckScreen) beside the card, not
+/// columns in it. For them a screen's height is its tallest panel's (the tab bar aside), and a row
+/// must fit its own panel's inside; the budgets are unchanged.
 /// </summary>
 public class MenuHeightTests
 {
@@ -65,6 +69,8 @@ public class MenuHeightTests
     /// at once. The screen is left on, laid out, for a width check.
     private static float Height(MenuScreen screen, Action<MenuScreen> prepare = null)
     {
+        if (screen is CareerDeckScreen)
+            return PanelsHeight(screen, prepare);
         RectTransform card = Card(screen);
         foreach (Transform child in card)
             child.gameObject.SetActive(child == screen.transform);
@@ -74,6 +80,37 @@ public class MenuHeightTests
         Assert.Greater(h, 0f, $"{screen.ScreenName} measures");
         TestContext.WriteLine($"{screen.ScreenName}: {h:0.#} px");
         return h;
+    }
+
+    /// A floating-panel screen's panels (its canvases but the tab bar), each a card fitting its height.
+    private static List<RectTransform> Panels(MenuScreen screen)
+    {
+        var panels = new List<RectTransform>();
+        foreach (Transform child in screen.transform)
+            if (child.name != "Tabs" && child.GetComponent<Canvas>() != null)
+            {
+                Assert.IsNotNull(child.GetComponent<VerticalLayoutGroup>(), $"{screen.ScreenName}/{child.name} lays out its lines");
+                Assert.IsNotNull(child.GetComponent<ContentSizeFitter>(), $"{screen.ScreenName}/{child.name} fits its height");
+                panels.Add((RectTransform)child);
+            }
+        Assert.Greater(panels.Count, 0, $"{screen.ScreenName} has panels");
+        return panels;
+    }
+
+    /// The tallest panel's preferred height, laid out at once (the screen left on for a width check).
+    private static float PanelsHeight(MenuScreen screen, Action<MenuScreen> prepare)
+    {
+        screen.gameObject.SetActive(true);
+        prepare?.Invoke(screen);
+        float tallest = 0f;
+        foreach (RectTransform panel in Panels(screen))
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
+            tallest = Mathf.Max(tallest, LayoutUtility.GetPreferredHeight(panel));
+        }
+        Assert.Greater(tallest, 0f, $"{screen.ScreenName} measures");
+        TestContext.WriteLine($"{screen.ScreenName}: tallest panel {tallest:0.#} px");
+        return tallest;
     }
 
     /// The object a screen's serialized field points at (a TextMeshProUGUI, a GameObject ...).
@@ -117,6 +154,17 @@ public class MenuHeightTests
     /// column, each line in it, and every horizontal row anywhere under it.
     private static void RowsFit(MenuScreen screen)
     {
+        if (screen is CareerDeckScreen)
+        {
+            foreach (RectTransform panel in Panels(screen))
+            {
+                float inside = panel.rect.width - 2f * 32f;
+                foreach (HorizontalLayoutGroup row in panel.GetComponentsInChildren<HorizontalLayoutGroup>(false))
+                    Assert.LessOrEqual(((RectTransform)row.transform).rect.width, inside + Slack,
+                                       $"{screen.ScreenName}: {Path(row.transform, screen.transform)} is wider than its panel");
+            }
+            return;
+        }
         var rows = new List<RectTransform> { (RectTransform)screen.transform };
         foreach (Transform child in screen.transform)
             rows.Add((RectTransform)child);
@@ -144,13 +192,15 @@ public class MenuHeightTests
     // ---- Heights ----------------------------------------------------------------------------------
 
     [Test]
-    public void Records_IsNoTallerThanTheDrillsScreen()
+    public void Records_IsNoTallerThanMatchSetup()
     {
+        // It copied the drills card's shape; the drills are floating panels now (2026-11-06), so the
+        // budget is the one the hub has: Match Setup's height.
         WithMenu(s =>
         {
-            float drills = Height(s[Drills]);
+            float setup = Height(s[Setup]);
             float records = Height(s[Records]);
-            Assert.LessOrEqual(records, drills + Slack, $"records {records:0.#} px, drills {drills:0.#} px");
+            Assert.LessOrEqual(records, setup + Slack, $"records {records} px, setup {setup} px");
         });
     }
 

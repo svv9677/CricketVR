@@ -10,7 +10,7 @@ using UnityEngine.UI;
 /// The goals only measure: nothing here changes how the game plays. Built by Tools > CricketVR >
 /// Build Menu Prefabs (CareerGoalsMenuBuilder).
 /// </summary>
-public class CareerGoalsScreen : MenuScreen
+public class CareerGoalsScreen : CareerDeckScreen
 {
     public const int Rows = 3;
 
@@ -26,7 +26,11 @@ public class CareerGoalsScreen : MenuScreen
 
     private void OnDisable() => CareerSaves.Saved -= Refresh;
 
-    public override void OnShow() => Refresh();
+    public override void OnShow()
+    {
+        base.OnShow();
+        Refresh();
+    }
 
     private void Refresh()
     {

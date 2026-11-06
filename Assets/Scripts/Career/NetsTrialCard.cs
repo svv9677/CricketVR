@@ -41,6 +41,11 @@ public class NetsTrialCard
 
     private readonly Transform parent;
     private TextMeshPro progress, fallback;
+    /// A dark panel behind the progress and the last ball's reading, so the lines read against the
+    /// stands and the net (2026-11-06: grey on a busy stadium was hard to make out).
+    private SpriteRenderer progressBack;
+    private const float BackPadding = 0.12f;
+    private static readonly Color BackColour = new Color(0.06f, 0.07f, 0.09f, 0.82f);
     private GameObject card;
     private TMP_Text heading, body;
     private Vector3 baseScale;
@@ -76,7 +81,7 @@ public class NetsTrialCard
     /// to finish (B opens the pause card).
     public static string Footer(string reading) =>
         "\n<size=58%>" + (string.IsNullOrEmpty(reading) ? "" : Latin1(reading) + "\n") +
-        "<size=85%><color=#98A2B3>B, then End session, to finish</color></size></size>";
+        "<size=50%><color=#98A2B3>B, then End session, to finish</color></size></size>";
 
     /// "Timing  62  Strong", or "Timing  --" when it is not measured yet.
     public static string RatingLine(int index, float rating)
@@ -143,7 +148,26 @@ public class NetsTrialCard
         if (progress == null)
             progress = MakeText("Nets Trial Progress", ProgressSize, new Vector2(4.5f, 1.6f));
         progress.text = text;
+        FitBack();
         SetProgressVisible(progressPlaced && !progressHidden);
+    }
+
+    /// The backing panel sized to the text as it renders, just behind it.
+    private void FitBack()
+    {
+        if (progressBack == null)
+        {
+            var go = new GameObject("Back", typeof(SpriteRenderer));
+            go.transform.SetParent(progress.transform, false);
+            progressBack = go.GetComponent<SpriteRenderer>();
+            progressBack.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 4f, 4f), new Vector2(0.5f, 0.5f), 4f);
+            progressBack.color = BackColour;
+            progressBack.sortingOrder = OverTheScoreboard - 1;
+        }
+        progress.ForceMeshUpdate();
+        Bounds b = progress.textBounds;
+        progressBack.transform.localPosition = new Vector3(b.center.x, b.center.y, 0.02f);
+        progressBack.transform.localScale = new Vector3(b.size.x + 2f * BackPadding, b.size.y + 2f * BackPadding, 1f);
     }
 
     /// Off to the side of the net toward the bowler, facing the player: readable at a glance between

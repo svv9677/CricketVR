@@ -10,7 +10,7 @@ using UnityEngine.UI;
 /// matches, career nets and their replays, and nothing here changes how he bats. Built by Tools >
 /// CricketVR > Build Menu Prefabs (CareerLockerMenuBuilder); each stepper is wired with -1 and +1.
 /// </summary>
-public class CareerLockerScreen : MenuScreen
+public class CareerLockerScreen : CareerDeckScreen
 {
     public const string Muted = "#98A2B3";
     /// A locked item's swatch: its colour, faded.
@@ -33,6 +33,7 @@ public class CareerLockerScreen : MenuScreen
 
     public override void OnShow()
     {
+        base.OnShow();
         CareerProfile p = CareerSaves.Current;
         if (p != null && CareerUpkeep.Run(p))   // kit earned since the hub last looked
             CareerSaves.SaveCurrent();
