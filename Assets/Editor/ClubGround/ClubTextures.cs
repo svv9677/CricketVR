@@ -115,6 +115,11 @@ public static class ClubTextures
         m.SetColor("_BaseColor", Color.white);
         m.SetFloat("_Smoothness", 0.1f);
         m.SetFloat("_SpecularHighlights", 0f);
+        // The float alone left the keyword on, with Simple Lit's default grey specular colour: a
+        // broad grey sheen over every club material that washed the brown fence out to a pale
+        // pink and greyed the trees and buildings (2026-11-05).
+        m.DisableKeyword("_SPECULAR_COLOR");
+        m.SetColor("_SpecColor", Color.black);
         m.SetFloat("_ReceiveShadows", 0f);
         m.EnableKeyword("_RECEIVE_SHADOWS_OFF");
         m.SetFloat("_Cull", twoSided ? (float)CullMode.Off : (float)CullMode.Back);

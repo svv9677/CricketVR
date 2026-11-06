@@ -3,16 +3,15 @@ using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
 /// Tools > CricketVR > Build Scorecard Panel. Builds the match's batting card (ScorecardPanel) as
 /// Assets/Resources/Prefabs/UI/ScorecardPanel.prefab, in the UIStyle look of the other floating
-/// panels, then opens CricketVR.unity and puts one instance of it under "UI", just after the
-/// ShotCard it stands in for, and saves the scene. Run again, it rebuilds the prefab and replaces
-/// the instance (never a second one). The nets (Nets.unity) are left alone: they keep the
-/// last-shot card.
+/// panels, then puts one instance of it in the shared UI prefab (Assets/Prefabs/Scene/UI.prefab,
+/// ScenePrefabs), just after the ShotCard it stands in for. Run again, it rebuilds the prefab and
+/// replaces the instance (never a second one). Both scenes hold the UI prefab; the nets keep the
+/// last-shot card, as ScorecardPanel.ShowsCard is false there.
 ///
 /// Read from about 3.5 m, like the shot card, so the same 2 mm per canvas px: 24 px batter lines
 /// are 48 mm tall. Eleven lines, the heading and the foot come to about 590 px (1.2 m), under the
@@ -21,7 +20,7 @@ using UnityEngine.UI;
 public static class ScorecardPanelBuilder
 {
     public const string PrefabPath = "Assets/Resources/Prefabs/UI/ScorecardPanel.prefab";
-    private const string ScenePath = "Assets/Scenes/CricketVR.unity";
+    private static string UIPrefabPath => ScenePrefabs.Folder + "/UI.prefab";
     private const string RootName = "ScorecardPanel";
     private const float MetresPerPixel = 0.002f;
     public const float Width = 700f;
@@ -39,19 +38,20 @@ public static class ScorecardPanelBuilder
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
         GameObject prefab = BuildPrefab();
-        Scene scene = SceneManager.GetActiveScene();
-        if (scene.path != ScenePath)
-            scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-        Transform ui = FindRoot(scene, "UI");
-        if (ui == null)
+        // Into the shared UI prefab (ScenePrefabs), not one scene: the match scene and the nets
+        // both hold an instance of it, so both get the card (the nets never show it:
+        // ScorecardPanel.ShowsCard).
+        GameObject ui = PrefabUtility.LoadPrefabContents(UIPrefabPath);
+        try
         {
-            Debug.LogError("[ScorecardPanelBuilder] CricketVR.unity has no UI root: run Tools > CricketVR > Build Player UI first.");
-            return;
+            Place(prefab, ui.transform);
+            PrefabUtility.SaveAsPrefabAsset(ui, UIPrefabPath);
         }
-        Place(prefab, ui);
-        EditorSceneManager.MarkSceneDirty(scene);
-        EditorSceneManager.SaveScene(scene);
-        Debug.Log($"[ScorecardPanelBuilder] {PrefabPath} built and placed under UI in CricketVR.unity.");
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(ui);
+        }
+        Debug.Log($"[ScorecardPanelBuilder] {PrefabPath} built and placed in {UIPrefabPath}, after the ShotCard.");
     }
 
     /// One instance under `ui`, just after the ShotCard: any earlier one goes first.
@@ -181,14 +181,6 @@ public static class ScorecardPanelBuilder
             r.FindPropertyRelative("balls").objectReferenceValue = views[i].balls;
         }
         so.ApplyModifiedPropertiesWithoutUndo();
-    }
-
-    private static Transform FindRoot(Scene scene, string name)
-    {
-        foreach (GameObject go in scene.GetRootGameObjects())
-            if (go.name == name)
-                return go.transform;
-        return null;
     }
 
     /// The card's height in canvas px, from the sizes above: padding, the heading, two dividers,

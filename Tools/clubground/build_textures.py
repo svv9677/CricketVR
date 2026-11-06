@@ -303,8 +303,9 @@ def picket(path, rng):
     rgb = np.where(alpha[..., None] > 0.01, rgb, STAIN * 0.85)    # no pale fringe as it mips
     save(path, rgb, alpha)
 
-# The fence's stain: a mid oak-brown preservative over sawn softwood, sRGB ~(124, 86, 54) on average.
-STAIN, STAIN_DARK = lin((128, 90, 57)), lin((92, 60, 36))
+# The fence's stain: a dark walnut-brown preservative over sawn softwood, sRGB ~(92, 60, 36) on average
+# (a mid oak read pale tan in the afternoon sun; 2026-11-05).
+STAIN, STAIN_DARK = lin((98, 64, 39)), lin((64, 40, 23))
 
 def stained_wood(rng, shape, boards, which, vertical):
     """Stained timber: grain streaks along each board (vertical pickets, or horizontal rails), the

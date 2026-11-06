@@ -43,6 +43,7 @@ public static class NetsSceneBuilder
     private const string MeshPath = Folder + "/NetMeshes.asset";
     private const string PhysicsPath = Folder + "/NetDeadening.physicMaterial";
     private const string PrefabPath = Folder + "/Practice Nets.prefab";
+    private const string StadiumScreen = "Stadium/784dfb2044aa49a5ba3580990ca3b420.fbx/RootNode/NMD_stD/NMD_stD_display_0";
 
     // The tunnel, in the scene's frame (the pitch runs along x, batting stumps at x = 10.3).
     private const float HalfWidth = 3f, Height = 3.2f, FrontX = 2f, BackX = 14.5f;
@@ -125,6 +126,15 @@ public static class NetsSceneBuilder
             c.enabled = false;
             n++;
         }
+        // The stadium model's own screen behind it, blank white, that the board covers in a match.
+        GameObject screen = GameObject.Find(StadiumScreen);
+        if (screen != null && screen.TryGetComponent(out Renderer r2))
+        {
+            r2.enabled = false;
+            n++;
+        }
+        else
+            Debug.LogError($"[NetsSceneBuilder] {StadiumScreen} not found: the stadium model has changed.");
         return n;
     }
 
