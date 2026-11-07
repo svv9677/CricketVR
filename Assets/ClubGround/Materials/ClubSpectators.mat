@@ -12,7 +12,8 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
-  m_InvalidKeywords: []
+  m_InvalidKeywords:
+  - _PREKEYED_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
@@ -25,7 +26,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: ca4133584899e45d098a38dc531cdf40, type: 3}
+        m_Texture: {fileID: 2800000, guid: f5253c9a6f6cb4180857735ac4e4df46, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BumpMap:
@@ -117,6 +118,7 @@ Material:
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _PeoplePerRepeat: 50
+    - _PreKeyed: 1
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _Smoothness: 0

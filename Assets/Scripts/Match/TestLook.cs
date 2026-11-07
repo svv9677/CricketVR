@@ -22,7 +22,10 @@ public class TestLook : MonoBehaviour
     public static readonly Color RedLeather = new Color(0.55f, 0.05f, 0.06f);
     public static readonly Color PinkLeather = new Color(0.95f, 0.36f, 0.6f);
     public static readonly Color Stitching = new Color(0.95f, 0.93f, 0.86f);
-    public static readonly Color Screen = new Color(0.96f, 0.96f, 0.95f);
+    /// The sightscreen: off-white, not paper white (2026-11-06: "seems a little too white").
+    public static readonly Color Screen = new Color(0.76f, 0.76f, 0.73f);
+    /// The ball's trail in a Test: the red ball's.
+    public static readonly Color Trail = new Color(0.75f, 0.08f, 0.08f, 0.6f);
     private const float DressForSeconds = 10f;
 
     private readonly HashSet<Renderer> dressed = new HashSet<Renderer>();
@@ -53,6 +56,7 @@ public class TestLook : MonoBehaviour
     {
         until = Time.time + DressForSeconds;
         SightScreen();
+        NoRedBehind();
     }
 
     /// Fielders come and go (the bowler's look copy, the keeper's): dressed as they appear.
@@ -103,9 +107,21 @@ public class TestLook : MonoBehaviour
             return;
         foreach (Renderer r in ball.GetComponentsInChildren<Renderer>(true))
         {
-            if (dressed.Contains(r) || r is TrailRenderer || r.sharedMaterial == null)
+            if (dressed.Contains(r) || r.sharedMaterial == null)
                 continue;
             dressed.Add(r);
+            if (r is TrailRenderer trail)
+            {
+                // The trail follows the ball: red (pink under lights), fading as before.
+                Color c = PinkBall ? PinkLeather : Trail;
+                trail.startColor = new Color(c.r, c.g, c.b, trail.startColor.a);
+                trail.endColor = new Color(c.r, c.g, c.b, trail.endColor.a);
+                var tm = new Material(trail.sharedMaterial) { name = "Test Ball Trail" };
+                if (tm.HasProperty("_BaseColor")) tm.SetColor("_BaseColor", new Color(c.r, c.g, c.b, tm.GetColor("_BaseColor").a));
+                if (tm.HasProperty("_Color")) tm.SetColor("_Color", new Color(c.r, c.g, c.b, tm.GetColor("_Color").a));
+                trail.sharedMaterial = tm;
+                continue;
+            }
             Material m = new Material(r.sharedMaterial) { name = PinkBall ? "Pink Ball" : "Red Ball" };
             Texture2D leather = Recolour(m.mainTexture, PinkBall ? PinkLeather : RedLeather);
             if (leather != null)
@@ -161,5 +177,104 @@ public class TestLook : MonoBehaviour
         m.color = Screen;
         if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", Screen);
         r.sharedMaterial = m;
+    }
+
+    // ---- Nothing red behind the bowler -----------------------------------------------------------
+
+    /// The roots whose textures are looked over: the stadium, its crowd, the club ground.
+    private static readonly string[] Backdrop = { "Stadium", "Crowd" };
+
+    /// A red ball against red hoardings or red shirts in the stand is lost at release (2026-11-06:
+    /// "ensure there's nothing red so that it doesn't distract the view when the bowler is
+    /// bowling"): every red in the ground's textures turned blue for a Test. The grass is left
+    /// alone; so are browns and oranges (the seats, the crowd's cut-out colour).
+    private static void NoRedBehind()
+    {
+        var done = new Dictionary<Texture, Texture2D>();
+        var roots = new List<GameObject>();
+        foreach (string name in Backdrop)
+            if (GameObject.Find(name) is GameObject g) roots.Add(g);
+        if (FindFirstObjectByType<ClubGround>() is ClubGround club)
+            roots.Add(club.gameObject);
+        foreach (GameObject root in roots)
+        {
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] mats = r.sharedMaterials;
+                bool changed = false;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    Material m = mats[i];
+                    Texture tex = m != null ? m.mainTexture : null;
+                    if (tex == null || tex.name.Contains("Ground") || tex.name.Contains("Grass"))
+                        continue;
+                    if (!done.TryGetValue(tex, out Texture2D blue))
+                        done[tex] = blue = tex.name.EndsWith("_Keyed") ? CrowdForTest(tex) : Derred(tex);
+                    if (blue == null)
+                        continue;
+                    mats[i] = new Material(m) { name = m.name + " (Test)" };
+                    mats[i].mainTexture = blue;
+                    if (mats[i].HasProperty("_BaseMap")) mats[i].SetTexture("_BaseMap", blue);
+                    changed = true;
+                }
+                if (changed)
+                    r.sharedMaterials = mats;
+            }
+        }
+    }
+
+    /// The crowd's atlas for a Test, baked beside its keyed one (CrowdKeyBaker); null if not there.
+    private static Texture2D CrowdForTest(Texture keyed) =>
+        Resources.Load<Texture2D>("Textures/" + keyed.name.Replace("_Keyed", "_KeyedTest"));
+
+    /// `source` with its reds turned blue; null when it has no red worth changing.
+    public static Texture2D Derred(Texture source)
+    {
+        Texture2D tex = Readable(source);
+        Color32[] px = tex.GetPixels32();
+        int reds = 0;
+        for (int i = 0; i < px.Length; i++)
+        {
+            Color32 c = px[i];
+            Color32 b = RedToBlue(c);
+            if (b.r != c.r || b.g != c.g || b.b != c.b)
+            {
+                px[i] = b;
+                reds++;
+            }
+        }
+        if (reds < px.Length / 500)     // a fleck here and there is not worth a texture
+        {
+            Object.Destroy(tex);
+            return null;
+        }
+        tex.SetPixels32(px);
+        tex.Apply(true);
+        return tex;
+    }
+
+    /// One pixel: a red (hue within about 18 degrees of red, saturated, not dark) to the same
+    /// shade of blue; anything else as it is.
+    public static Color32 RedToBlue(Color32 c)
+    {
+        Color.RGBToHSV(c, out float h, out float sat, out float v);
+        bool red = (h < 0.04f || h > 0.95f) && sat > 0.4f && v > 0.2f;
+        if (!red)
+            return c;
+        Color blue = Color.HSVToRGB(0.6f, sat, v);
+        return new Color32((byte)(blue.r * 255f), (byte)(blue.g * 255f), (byte)(blue.b * 255f), c.a);
+    }
+
+    private static Texture2D Readable(Texture source)
+    {
+        var rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(source, rt);
+        RenderTexture was = RenderTexture.active;
+        RenderTexture.active = rt;
+        var tex = new Texture2D(source.width, source.height, TextureFormat.RGBA32, true) { name = source.name + " (Test)" };
+        tex.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0);
+        RenderTexture.active = was;
+        RenderTexture.ReleaseTemporary(rt);
+        return tex;
     }
 }
