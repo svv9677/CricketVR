@@ -68,12 +68,14 @@ public sealed class DressingRoomMaterials
         return mat;
     }
 
+    /// A light panel: unlit, so it reads as lit whatever the lights (an emissive Simple Lit lost its
+    /// _EMISSION keyword to the build's material validation, 2026-11-06).
     private static Material Emissive(string name, Color c)
     {
         Material mat = Mat(name, c);
-        mat.EnableKeyword("_EMISSION");
-        mat.SetColor("_EmissionColor", c * 0.8f);
-        mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+        mat.shader = UnityEngine.Shader.Find("Universal Render Pipeline/Unlit");
+        mat.SetColor("_BaseColor", c);
+        EditorUtility.SetDirty(mat);
         return mat;
     }
 
