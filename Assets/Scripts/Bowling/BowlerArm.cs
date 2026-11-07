@@ -13,14 +13,28 @@ using UnityEngine;
 /// kind (left-arm orthodox spins like a leg-break), and the repertoire, the drills' "with the turn"
 /// and the delivery names are all written for right-arm spin.
 ///
-/// In a match a bowler keeps his arm (from his name, so the same side always has the same
-/// left-armers); in the nets, where the first bowler of a kind bowls every ball of it, the arm is
-/// drawn per ball so a session sees both.
+/// Which arm bowls is the player's choice (Settings > Bowling > Arm: Both, Right, Left; 2026-11-06:
+/// "i cant change bowler arm in settings"), in quick play and the free nets. With Both, a match
+/// bowler keeps his arm (from his name, so a side always has the same left-armers), and in the
+/// nets each change of pace bowler swaps the arm - Change bowler gives a left-armer every other
+/// time (it was a hidden 35% chance a ball). A career is always Both: its sides are its own.
 /// </summary>
 public static class BowlerArm
 {
-    /// The share of pace balls in the nets that come from a left-armer.
-    public const float NetsLeftShare = 0.35f;
+    public enum eSetting { Both, Right, Left }
+
+    public const string PrefKey = "bowler_arm";
+
+    /// The player's choice, saved.
+    public static eSetting Setting
+    {
+        get => (eSetting)Mathf.Clamp(PlayerPrefs.GetInt(PrefKey, (int)eSetting.Both), 0, 2);
+        set
+        {
+            PlayerPrefs.SetInt(PrefKey, (int)value);
+            PlayerPrefs.Save();
+        }
+    }
 
     /// Every ball from this arm while set (tests, and checking a left-armer in the editor).
     public static bool? Force;
@@ -35,8 +49,19 @@ public static class BowlerArm
         return Hash(name) % 3u == 1u;
     }
 
-    /// A nets ball: `roll` in [0, 1).
-    public static bool NetsBall(eBowlerKind kind, float roll) => CanBeLeftArm(kind) && roll < NetsLeftShare;
+    /// This ball's arm: spinners always right-arm; otherwise the setting, and with Both the
+    /// bowler's own in a match or the spell's in the nets (`spellLeft`, swapped each change).
+    public static bool Decide(eBowlerKind kind, string name, eSetting setting, bool nets, bool spellLeft)
+    {
+        if (!CanBeLeftArm(kind))
+            return false;
+        switch (setting)
+        {
+            case eSetting.Right: return false;
+            case eSetting.Left: return true;
+            default: return nets ? spellLeft : IsLeftArm(name, kind);
+        }
+    }
 
     /// FNV-1a: stable on every platform (string.GetHashCode is not).
     public static uint Hash(string s)

@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// The bowler's arm, ball by ball (BowlerArm). A left-armer is the world mirror image of a
+/// The bowler's arm, ball by ball (BowlerArm: the player's setting, the bowler's own, the nets' spell). A left-armer is the world mirror image of a
 /// right-armer across the pitch's centre line: his mark on the other side of the stumps, his
 /// action the humanoid's own mirror (the controller's Mirror bool on every state), the ball in his
 /// real left hand (BowlerGrip binds it), his right foot over the line (FrontFoot), and his run-up
@@ -28,6 +28,21 @@ public partial class AnimatedBowler
     public bool LeftArm { get; private set; }
 
     private AFInfo baseBowlerInfo;
+    /// The nets: this spell's arm, swapped each time a pace bowler comes on (BowlerArm).
+    private bool spellLeft;
+    private int lastBowlerIndex = -1;
+
+    /// A bowler has come on (HUD.SetBowler, through UpdateInfo): in the nets a new pace spell is
+    /// the other arm from the last, so Change bowler brings on a left-armer every other time.
+    private void BowlerCameOn(int index)
+    {
+        bool changed = lastBowlerIndex >= 0 && index != lastBowlerIndex;
+        lastBowlerIndex = index;
+        Bowler b = HUD.Instance != null && HUD.Instance.Bowlers != null && index >= 0 && index < HUD.Instance.Bowlers.Count
+            ? HUD.Instance.Bowlers[index] : null;
+        if (changed && b != null && BowlerArm.CanBeLeftArm(b.Kind))
+            spellLeft = !spellLeft;
+    }
     private Transform rightHand, leftHand;
     private Vector3 handLocal;
 
@@ -38,7 +53,10 @@ public partial class AnimatedBowler
         ResetSway();
         Bowler b = HUD.Instance != null ? HUD.Instance.CurrentBowler : null;
         bool nets = gameObject.scene.name == NetsSession.NetsScene;
-        bool left = BowlerArm.Force ?? (b != null && (nets ? BowlerArm.NetsBall(b.Kind, Random.value) : BowlerArm.IsLeftArm(b.Name, b.Kind)));
+        // A career's sides are its own: the player's choice is for quick play and the free nets.
+        bool career = CareerMatchSession.Active || NetsSession.Career;
+        BowlerArm.eSetting setting = career ? BowlerArm.eSetting.Both : BowlerArm.Setting;
+        bool left = BowlerArm.Force ?? (b != null && BowlerArm.Decide(b.Kind, b.Name, setting, nets, spellLeft));
         SetArm(left);
     }
 
@@ -86,9 +104,11 @@ public partial class AnimatedBowler
 
     // ---- The left-armer's run-up ------------------------------------------------------------------
 
-    /// Where a right-armer's root is as he lets go, from his mark (traced 2026-11-06: from z 2.32
-    /// he lets go at x -9.18, z 0.90); a left-armer's, mirrored.
-    public const float RunUpIn = 1.42f, RunUpEndX = -9.18f, MinEndZ = 0.3f;
+    /// Where a right-armer's root is as he lets go, from his mark (traced 2026-11-06: the quick's
+    /// mark at z 2.32 lets go at x -9.18, z 0.90 - 1.42 in; the medium-pacer's at 2.02, about
+    /// z 0.35 - 1.67 in); a left-armer's, mirrored. In between by the mark.
+    public const float RunUpIn = 1.42f, RunUpInNarrow = 1.67f, WideMark = 2.32f, NarrowMark = 2.02f;
+    public const float RunUpEndX = -9.18f, MinEndZ = 0.2f;
     /// The mirrored clip covers this much more ground than the right-arm one (traced: 15.9 m
     /// against 14.0 from the same mark), so its stride is scaled back by it.
     public const float StrideScale = 0.88f;
@@ -97,8 +117,12 @@ public partial class AnimatedBowler
 
     private float clipYaw, clipYawMean;
 
-    public static Vector3 RunUpEnd(Vector3 mark) =>
-        new Vector3(RunUpEndX, 0f, Mathf.Sign(mark.z) * Mathf.Max(MinEndZ, Mathf.Abs(mark.z) - RunUpIn));
+    public static Vector3 RunUpEnd(Vector3 mark)
+    {
+        float wide = Mathf.Abs(mark.z);
+        float inBy = Mathf.LerpUnclamped(RunUpInNarrow, RunUpIn, (wide - NarrowMark) / (WideMark - NarrowMark));
+        return new Vector3(RunUpEndX, 0f, Mathf.Sign(mark.z) * Mathf.Max(MinEndZ, wide - inBy));
+    }
 
     private void ResetSway() => clipYaw = clipYawMean = 0f;
 

@@ -11,7 +11,7 @@ using UnityEngine.UI;
 /// it belongs to, a new kind of setting gets a new page on the list:
 ///
 ///   Batting        hand, difficulty, bat power, grip
-///   Bowling        bowler type, speed, swing/drift, turn/seam, line, reset  (in a match only)
+///   Bowling        bowler type, arm, speed, swing/drift, turn/seam, line, reset  (in a match only)
 ///   Fielding       fielder speed
 ///   Match          overs
 ///   View & Comfort camera height (this session), recentre at the crease
@@ -63,7 +63,7 @@ public static class SettingsPanelBuilder
 
         Transform home = Page(card, SettingsPanel.HomePage, pages, names);
         Category(home, "Batting", "Hand, difficulty, grip", c.OnPageBatting);
-        matchOnly.Add(Category(home, "Bowling", "Bowler, speed, swing, turn, line", c.OnPageBowling).gameObject);
+        matchOnly.Add(Category(home, "Bowling", "Bowler, arm, speed, swing, turn, line", c.OnPageBowling).gameObject);
         Category(home, "Fielding", "Fielder speed", c.OnPageFielding);
         Category(home, "Match", "Overs", c.OnPageMatch);
         Category(home, "View & Comfort", "Camera height, recentre", c.OnPageView);
@@ -88,6 +88,10 @@ public static class SettingsPanelBuilder
         Transform bowler = Group(bowling);
         Label(bowler, "Bowler");
         c.bowler = UIControls.Segmented(bowler, labels, c.OnBowler);
+        // Which arm the pace bowlers bowl with (BowlerArm), from the next ball.
+        Transform arm = Group(bowling);
+        Label(arm, "Arm (pace bowlers)");
+        c.bowlerArm = UIControls.Segmented(arm, new[] { "Both", "Right", "Left" }, c.OnBowlerArm);
         c.speedRange = UIControls.Range(bowling, "Speed", 60f, 165f, 1f, c.OnSpeedRange);
         c.swingRange = UIControls.Range(bowling, "Swing", 0f, 1f, 0.05f, c.OnSwingRange);
         c.turnRange = UIControls.Range(bowling, "Turn", -0.1f, 1f, 0.01f, c.OnTurnRange);

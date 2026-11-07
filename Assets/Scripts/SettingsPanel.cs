@@ -39,6 +39,7 @@ public partial class SettingsPanel : MonoBehaviour
 
     [Header("Bowling")]
     public SegmentedControl bowler;            // UIFormat.BowlerTypes
+    public SegmentedControl bowlerArm;         // Both, Right, Left (BowlerArm.Setting)
     public RangeRow speedRange;                // km/h
     public RangeRow swingRange;                // 0..1 of the maximum swing
     public RangeRow turnRange;                 // 0..1 of BallFlight.MaxTurnDegrees
@@ -188,6 +189,8 @@ public partial class SettingsPanel : MonoBehaviour
         if (overlayToggle != null)
             overlayToggle.SetIsOnWithoutNotify(GameSettings.OverlayVisible);
         SetText(oversLabel, GameSettings.Overs == 1 ? "1 over" : $"{GameSettings.Overs} overs");
+        if (bowlerArm != null)
+            bowlerArm.SetValueWithoutNotify((int)BowlerArm.Setting);
         SetSlider(cameraHeightSlider, GameSettings.CameraHeight, $"{GameSettings.CameraHeight * 100f:+0;-0;0} cm");
         SetVolume(masterVolume, GameAudio.Channel.Master);
         SetVolume(batVolume, GameAudio.Channel.Bat);
@@ -331,6 +334,13 @@ public partial class SettingsPanel : MonoBehaviour
         if (M.theHUD != null) M.theHUD.SelectBowlerOfType(type);
         else M.swingType = type;
         M.ApplyTweaks();
+    }
+
+    /// Which arm the pace bowlers bowl with (BowlerArm): from the next ball.
+    public void OnBowlerArm(int index)
+    {
+        BowlerArm.Setting = (BowlerArm.eSetting)Mathf.Clamp(index, 0, 2);
+        Refresh();
     }
 
     public void OnSpeedRange(float lowKmh, float highKmh)

@@ -310,6 +310,7 @@ public partial class AnimatedBowler : MonoBehaviour
 
     public void UpdateInfo(int index)
     {
+        BowlerCameOn(index);
         baseBowlerInfo = myBowlers.data[index];
         currentBowlerInfo = LeftArm ? MirrorMark(baseBowlerInfo) : baseBowlerInfo;
     }
