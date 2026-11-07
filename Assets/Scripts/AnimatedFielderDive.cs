@@ -30,7 +30,12 @@ public partial class AnimatedFielder
     /// full-length DiveLead, proportionally less in less. Launched with 0.15 s to go at a ball 2.5 m
     /// away, the dive took its usual 0.39 s to reach out and he landed after it had gone - he dived
     /// and never touched it (reported 2026-11-03: "diving but not picking up the ball").
-    private const float QuickestDive = 0.36f, LatestDive = 0.12f;
+    /// The latest a dive may start is when the quickest one still meets the ball (2026-11-06: at
+    /// 0.12 s the hands, 0.25 s out, met only the spot the ball had passed - "his hands aren't going
+    /// towards the ball and he's not catching it, even if the ball is slow").
+    private const float QuickestDive = 0.36f, LatestDive = QuickestDive * DiveCatchPoint;
+    /// How far (m) the hands may be re-aimed from the launch's point during the dive.
+    private const float ReAimWithin = 1f;
     private float diveFlight = DiveFlight;
     /// Sliding on along the grass after landing: how long, and how far at most.
     private const float DiveSlideTime = 0.35f, DiveMaxSlide = 0.9f;
@@ -179,6 +184,13 @@ public partial class AnimatedFielder
         if (holdingBall)
             return false;   // the normal hold: give, then in to the chest
         bool reaching = diveLanded < 0f && Time.time < diveStart + diveFlight * DiveCatchPoint + 0.15f;
+        // The hands follow the ball as the dive goes (it was aimed once, at the launch, from a
+        // prediction a fifth of a second old): the point on its path nearest him now, if it is
+        // still about where he dived to.
+        if (reaching && animatedFielderManagementScript != null &&
+            animatedFielderManagementScript.PredictPass(transform.position + Vector3.up, ReachRadius + DiveReach, out Vector3 now, out _) &&
+            (now - divePoint).sqrMagnitude < ReAimWithin * ReAimWithin)
+            divePoint = now;
         reach.handTarget = divePoint;
         reach.weight = reaching ? 1f : Mathf.MoveTowards(reach.weight, 0.3f, Time.deltaTime * 3f);
         reach.quickness = 2.5f;   // arms flung out, not eased (eased, a keeper's were 0.3 m short)
@@ -214,8 +226,11 @@ public partial class AnimatedFielder
         // (filmed: 1 m off the ball at the end of a chase, he ran on and it went 0.5 m past his hands).
         if (away <= (speed > 2f ? 1.2f : ReachRadius + 0.2f))
             return false;
-        // His run is taking him there in time: no need.
-        if (hasTarget && FlatDistance(target, point) < 0.6f && FlatDistance(transform.position, target) < RunSpeed * eta * 0.8f)
+        // His run is taking him there in time: no need. Judged on the speed he is at and can build
+        // to, not his top speed - a man still getting going was taken to arrive and only let go of
+        // the run when it was too late to dive.
+        float canRun = Mathf.Min(RunSpeed * eta, speed * eta + 0.5f * Acceleration * eta * eta);
+        if (hasTarget && FlatDistance(target, point) < 0.6f && FlatDistance(transform.position, target) < canRun * 0.8f)
             return false;
         return true;
     }
