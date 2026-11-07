@@ -18,18 +18,17 @@ public class PartnerScoreTests
     }
 
     [Test]
-    public void FieldedTheIntendedRunsAreScored()
+    public void HeRunsWhatTheFieldingAllowsUpToWhatHeMeant()
     {
-        for (int intent = 0; intent <= 3; intent++)
-        {
-            PartnerScore.Arm(intent);
-            Assert.AreEqual(intent, PartnerScore.Fielded(0), "fielded quickly");
-            Assert.AreEqual(intent, PartnerScore.Fielded(3), "fielded slowly");
-        }
+        PartnerScore.Arm(2);
+        Assert.AreEqual(0, PartnerScore.Fielded(0), "fielded in two seconds: no run, though he meant two");
+        Assert.AreEqual(1, PartnerScore.Fielded(1), "a one, not a pinched two");
+        Assert.AreEqual(2, PartnerScore.Fielded(2));
+        Assert.AreEqual(2, PartnerScore.Fielded(3), "no greedy third");
+        PartnerScore.Arm(0);
+        Assert.AreEqual(0, PartnerScore.Fielded(2), "he meant to block it: no run");
         PartnerScore.Arm(4);
-        Assert.AreEqual(4, PartnerScore.Fielded(1), "a four he meant, stopped inside the rope: all run");
-        PartnerScore.Arm(6);
-        Assert.AreEqual(4, PartnerScore.Fielded(2));
+        Assert.AreEqual(2, PartnerScore.Fielded(2), "a four stopped inside the rope: what they can run");
     }
 
     [Test]

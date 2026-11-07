@@ -9,8 +9,9 @@
 /// decided the runs: a single became two, a dismissal the ball could not produce became a dot, and
 /// he batted on. Now the draw is what the ball is scored as wherever the picture allows it:
 ///
-///   ball fielded after bouncing   the intended runs (0 to 3); a four or six he meant, fielded
-///                                 inside the rope, an all-run four; a wicket he meant, run out
+///   ball fielded after bouncing   what the fielding clock gives, up to the runs he meant (he
+///                                 never takes on a run the ball does not allow, nor greeds an
+///                                 extra one); a wicket he meant, run out
 ///   ball through to the keeper    a wicket he meant: the faint nick he played at, caught behind;
 ///                                 anything else a dot (no wide: those stay the umpire's)
 ///   over the rope, a catch,       as the game saw them - they are in plain view
@@ -49,7 +50,10 @@ public static class PartnerScore
             LastHow = "run out";
             return -1;
         }
-        return Intent >= 4 ? 4 : UnityEngine.Mathf.Clamp(Intent, 0, 3);
+        // He runs what the fielding gives him, never more than he set out to: a ball fielded in
+        // two seconds is no run even if he meant two (2026-11-06: "it looks like a one, it's a
+        // two... be sensible"), and a single he meant stays a single however slow the fielder.
+        return Intent >= 4 ? timed : UnityEngine.Mathf.Min(timed, UnityEngine.Mathf.Max(0, Intent));
     }
 
     /// The ball went through to the keeper (not a wide).
