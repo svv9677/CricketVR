@@ -254,19 +254,25 @@ public class CareerScreensTests
     /// The hub as Tools > CricketVR > Build Menu Prefabs builds it: the toggle is the screen's
     /// watchPartner and reports to OnWatchPartner. Needs the editor (it builds UI objects).
     [Test]
-    public void TheHubsToggleIsWiredToOnWatchPartner()
+    public void ThePrematchToggleIsWiredToOnWatchPartner()
     {
-        var parent = new UnityEngine.GameObject("Hub build test");
+        // The Watch | Skip toggle moved off the hub to the pre-match steps (2026-11-06).
+        var parent = new UnityEngine.GameObject("Prematch build test");
         try
         {
-            MenuScreen screen = CareerMenuBuilder2.BuildHub(parent.transform);
+            MenuScreen screen = CareerDeckPrematch.Build(parent.transform);
             var so = new UnityEditor.SerializedObject(screen);
             var watch = so.FindProperty("watchPartner").objectReferenceValue as SegmentedControl;
-            Assert.IsNotNull(watch, "CareerHubScreen.watchPartner is wired");
+            Assert.IsNotNull(watch, "CareerPrematchScreen.watchPartner is wired");
             Assert.AreEqual(CareerHubScreen.WatchOptions.Length, watch.Count);
             Assert.AreEqual(1, watch.onValueChanged.GetPersistentEventCount());
             Assert.AreSame(screen, watch.onValueChanged.GetPersistentTarget(0));
-            Assert.AreEqual(nameof(CareerHubScreen.OnWatchPartner), watch.onValueChanged.GetPersistentMethodName(0));
+            Assert.AreEqual(nameof(CareerPrematchScreen.OnWatchPartner), watch.onValueChanged.GetPersistentMethodName(0));
+            Assert.IsNotNull(so.FindProperty("stepMatch").objectReferenceValue, "the match step");
+            Assert.IsNotNull(so.FindProperty("stepInnings").objectReferenceValue, "the innings step");
+            var hub = new UnityEditor.SerializedObject(CareerMenuBuilder2.BuildHub(parent.transform));
+            Assert.IsNull(hub.FindProperty("watchPartner").objectReferenceValue, "not on the hub");
+            Assert.IsNull(hub.FindProperty("playerName").objectReferenceValue, "no player card on the hub");
         }
         finally
         {

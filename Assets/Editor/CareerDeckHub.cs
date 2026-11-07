@@ -5,17 +5,19 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// The career hub as floating panels (CareerDeckBuilder; CareerHubScreen's fields):
+/// The career hub (CareerHubScreen's fields), decluttered 2026-11-06 ("I just need to know what the
+/// match is against and then have everything sequential"): one panel in the middle -
 ///
-///   Left    YOUR PLAYER - the kit bar and the name, "#18 · India · Right-hand bat", the level and
-///           season, the overall and the form as two big tiles, and the trial / left-out banner.
-///   Centre  NEXT MATCH - who against (big), the round and format, where you bat, a scout watching;
-///           the one big button (the nets trial, Play match, Sim, the next season); and whether to
-///           watch your partner's innings.
-///   Right   CLUB NEWS - an offer waiting, unread messages and the newest titles, the coach's goals;
-///           Main menu.
-///   Top     the tabs: Home lit; Training, Season, Ratings, Inbox (with the unread count), Goals (with
-///           the goals reached), Locker.
+///   NEXT MATCH
+///   vs Marston Green CC
+///   A Pro League scout is watching           (only when one is)
+///   An offer is waiting in your inbox        (only when one is)
+///   [ Play match ]                            (the trial, Sim, the next season as before)
+///   Main menu
+///
+/// and the tab bar over it: Home lit; Training, Season, Ratings, Inbox (with the unread count),
+/// Goals, Locker. Play match opens the match's details step by step (CareerPrematchScreen). The
+/// player card and the club news are no longer here (Ratings and Inbox have them).
 /// </summary>
 public static class CareerDeckHub
 {
@@ -26,9 +28,7 @@ public static class CareerDeckHub
         MenuPrefabBuilder.SetScreenName(screen, CareerDeckScreen.Hub);
         var so = new SerializedObject(screen);
 
-        Player(CareerDeckBuilder.Panel(go, "Player", CareerDeckBuilder.Slot.Left), so);
         NextMatch(CareerDeckBuilder.Panel(go, "Next Match", CareerDeckBuilder.Slot.Centre), screen, so);
-        News(CareerDeckBuilder.Panel(go, "News", CareerDeckBuilder.Slot.Right), screen, so);
 
         Dictionary<string, Button> tabs = CareerDeckBuilder.TabBar(go, screen, CareerDeckScreen.Hub);
         CareerDeckBuilder.Bind(so, "nets", tabs[CareerDeckScreen.Training]);
@@ -40,50 +40,24 @@ public static class CareerDeckHub
         return screen;
     }
 
-    private static void Player(Transform panel, SerializedObject so)
-    {
-        CareerDeckBuilder.Heading(panel, "Your player");
-        Transform who = CareerMenuBuilder.Row(panel, UIStyle.Gap);
-        CareerDeckBuilder.Bind(so, "kitBar", CareerMenuBuilder.Swatch(who, 12f, 64f, 2f));
-        TextMeshProUGUI name = WorldPanelBuilder.Line(who, "Player", UIStyle.TitleSize, FontStyles.Bold, UIStyle.Text, 64f,
-                                                      TextAlignmentOptions.Left);
-        name.GetComponent<LayoutElement>().flexibleWidth = 1f;
-        name.enableAutoSizing = true;
-        name.fontSizeMin = UIStyle.LabelSize;
-        name.fontSizeMax = UIStyle.TitleSize;
-        CareerDeckBuilder.Bind(so, "playerName", name);
-        CareerDeckBuilder.Bind(so, "playerDetail", CareerDeckBuilder.Body(panel, "", UIStyle.TextMuted));
-        Transform level = CareerMenuBuilder.Row(panel, UIStyle.Gap);
-        TextMeshProUGUI stage = WorldPanelBuilder.Line(level, "Club cricket", UIStyle.LabelSize, FontStyles.Bold, UIStyle.AccentText, 36f,
-                                                       TextAlignmentOptions.Left);
-        stage.GetComponent<LayoutElement>().flexibleWidth = 1f;
-        CareerDeckBuilder.Bind(so, "stage", stage);
-        CareerDeckBuilder.Bind(so, "season", WorldPanelBuilder.Line(level, "Season 1", UIStyle.LabelSize, FontStyles.Normal, UIStyle.TextMuted,
-                                                                    36f, TextAlignmentOptions.Right, 160f));
-        UIControls.Divider(panel);
-        Transform tiles = WorldPanelBuilder.Column(panel, false, UIStyle.Gap);
-        CareerDeckBuilder.Bind(so, "overallChip", CareerDeckBuilder.StatTile(tiles, "OVERALL", out TextMeshProUGUI grade));
-        CareerDeckBuilder.Bind(so, "overallGrade", grade);
-        CareerDeckBuilder.Bind(so, "formChip", CareerDeckBuilder.StatTile(tiles, "FORM", out _));
-        TextMeshProUGUI banner = CareerDeckBuilder.Body(panel, "", UIStyle.Text, 64f);
-        banner.gameObject.SetActive(false);
-        CareerDeckBuilder.Bind(so, "banner", banner);
-    }
-
     private static void NextMatch(Transform panel, CareerHubScreen screen, SerializedObject so)
     {
         CareerDeckBuilder.Heading(panel, "Next match");
-        TextMeshProUGUI title = WorldPanelBuilder.Line(panel, "", UIStyle.TitleSize + 4f, FontStyles.Bold, UIStyle.Text, 64f,
+        TextMeshProUGUI title = WorldPanelBuilder.Line(panel, "", UIStyle.TitleSize + 8f, FontStyles.Bold, UIStyle.Text, 76f,
                                                        TextAlignmentOptions.Left);
         title.enableAutoSizing = true;
         title.fontSizeMin = UIStyle.LabelSize;
-        title.fontSizeMax = UIStyle.TitleSize + 4f;
+        title.fontSizeMax = UIStyle.TitleSize + 8f;
         CareerDeckBuilder.Bind(so, "nextTitle", title);
-        CareerDeckBuilder.Bind(so, "nextDetail", CareerDeckBuilder.Body(panel, "", UIStyle.TextMuted));
-        CareerDeckBuilder.Bind(so, "nextSlot", CareerDeckBuilder.Body(panel, "", UIStyle.AccentText, 36f, 0f, FontStyles.Bold));
-        TextMeshProUGUI scout = CareerDeckBuilder.Body(panel, "", UIStyle.MenuPrimary, 36f, 0f, FontStyles.Bold);
+        TextMeshProUGUI scout = CareerDeckBuilder.Body(panel, "", UIStyle.MenuPrimary, 40f, 0f, FontStyles.Bold);
         scout.gameObject.SetActive(false);
         CareerDeckBuilder.Bind(so, "nextScout", scout);
+        TextMeshProUGUI offer = CareerDeckBuilder.Body(panel, "", UIStyle.AccentText, 40f, 0f, FontStyles.Bold);
+        offer.gameObject.SetActive(false);
+        CareerDeckBuilder.Bind(so, "offerLine", offer);
+        TextMeshProUGUI banner = CareerDeckBuilder.Body(panel, "", UIStyle.Text, 64f);
+        banner.gameObject.SetActive(false);
+        CareerDeckBuilder.Bind(so, "banner", banner);
 
         Button primary = UIControls.ActionButton(panel, $"Take your nets trial · {NetsSession.TrialBalls} balls", screen.OnPrimary, true, 96f);
         primary.colors = UIStyle.MenuColors(true);
@@ -96,26 +70,6 @@ public static class CareerDeckHub
         TextMeshProUGUI locked = WorldPanelBuilder.Line(panel, "The trial sets your ratings before your first match.", UIStyle.HintSize + 2f,
                                                         FontStyles.Normal, UIStyle.TextMuted, 30f, TextAlignmentOptions.Center);
         CareerDeckBuilder.Bind(so, "locked", locked);
-
-        UIControls.Divider(panel);
-        Transform row = CareerMenuBuilder.Row(panel, UIStyle.Gap);
-        WorldPanelBuilder.Line(row, "Partner's innings", UIStyle.LabelSize - 2f, FontStyles.Normal, UIStyle.TextMuted, UIStyle.Control,
-                               TextAlignmentOptions.Left, 240f);
-        SegmentedControl watch = UIControls.Segmented(row, CareerHubScreen.WatchOptions, screen.OnWatchPartner);
-        watch.GetComponent<LayoutElement>().flexibleWidth = 1f;
-        CareerDeckBuilder.Bind(so, "watchPartner", watch);
-    }
-
-    private static void News(Transform panel, CareerHubScreen screen, SerializedObject so)
-    {
-        CareerDeckBuilder.Heading(panel, "Club news");
-        TextMeshProUGUI offer = CareerDeckBuilder.Body(panel, "", UIStyle.Text, 64f, 0f, FontStyles.Bold);
-        offer.gameObject.SetActive(false);
-        CareerDeckBuilder.Bind(so, "offerLine", offer);
-        TextMeshProUGUI news = CareerDeckBuilder.Body(panel, "", UIStyle.Text, 200f);
-        news.alignment = TextAlignmentOptions.TopLeft;
-        CareerDeckBuilder.Bind(so, "news", news);
-        UIControls.ActionButton(panel, "Open inbox", screen.OnInbox, false);
         UIControls.Divider(panel);
         UIControls.ActionButton(panel, "Main menu", screen.OnMainMenu, false);
     }

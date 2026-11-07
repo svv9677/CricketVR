@@ -24,6 +24,12 @@ using UnityEngine.UI;
 /// Training, Season, Ratings, Inbox, Goals and Locker now live. The fields are the same; where they
 /// sit is CareerDeckHub's.
 ///
+/// 2026-11-06, decluttered ("I just need to know what the match is against and then have everything
+/// sequential"): the hub is one panel - who the match is against, a scout when one is coming, an
+/// offer when one waits, and the button. The player card and the club news are gone from it (the
+/// Ratings and Inbox tabs have them; their fields here are simply unbound), and Play match opens
+/// the match's details one step at a time (CareerPrematchScreen).
+///
 /// Built by Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
 public class CareerHubScreen : CareerDeckScreen
@@ -398,8 +404,17 @@ public class CareerHubScreen : CareerDeckScreen
             SimLeftOut(p, rng);
             return;
         }
-        // The fixture's own rng (the toss, their innings, the situation), so the match is the one the
-        // tile previewed; `rng` stays for the new season and the match he sits out.
+        // The match: its details one step at a time before it starts (CareerPrematchScreen).
+        Push(CareerPrematchScreen.Name);
+    }
+
+    /// Start the next match (the pre-match screen's Play match). The fixture's own rng (the toss,
+    /// their innings, the situation), so the match is the one the screens previewed.
+    public static void PlayNextMatch()
+    {
+        CareerProfile p = CareerSaves.Current;
+        if (p == null || CareerProgress.NextFixture(p) == null)
+            return;
         MatchPlan plan = CareerProgress.PlanNext(p, CareerSituations.PlanRng(p));
         if (plan == null)
             return;

@@ -82,6 +82,7 @@ public static class MenuPrefabBuilder
             BuildMatchSetup(panel.transform), BuildCustomise(panel.transform),
             CareerMenuBuilder.BuildSlots(panel.transform), CareerMenuBuilder.BuildCreatePlayer(panel.transform),
             CareerMenuBuilder.BuildCreateLook(panel.transform), CareerMenuBuilder2.BuildHub(panel.transform),
+            CareerDeckPrematch.Build(panel.transform),
             CareerMenuBuilder2.BuildRatings(panel.transform), CareerMenuBuilder2.BuildSeason(panel.transform),
             CareerMenuBuilder2.BuildResult(panel.transform),
             CareerMenuBuilder3.BuildInbox(panel.transform), CareerMenuBuilder3.BuildMessage(panel.transform),
