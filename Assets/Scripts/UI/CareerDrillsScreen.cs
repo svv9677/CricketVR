@@ -93,7 +93,7 @@ public class CareerDrillsScreen : CareerDeckScreen
         Set(chosenTitle, d != null ? NetsTrialCard.Latin1(d.name) : "");
         if (chosenPick != null)
             chosenPick.gameObject.SetActive(d != null && d.id == pick);
-        Set(chosenBlurb, d != null ? NetsTrialCard.Latin1(d.blurb) : "");
+        Set(chosenBlurb, d != null ? GoalText(d) : "");
         Set(chosenStats, d == null ? "" : ChosenStats(d, p != null ? RecordOf(p.drills, d.id) : null));
         if (chosenStart != null)
             chosenStart.interactable = open && d != null;
@@ -160,6 +160,18 @@ public class CareerDrillsScreen : CareerDeckScreen
     /// A tile's small line: "Best 72", or "New" for one never finished.
     public static string TileDetail(DrillRecord r) =>
         r == null || r.attempts <= 0 ? "New" : $"Best {r.best}";
+
+    /// The chosen panel's goal, in place of the drill's blurb (2026-11-06: "a clear goal for each
+    /// drill and a better criteria"): "Goal: dig out 8 of 12 yorkers" over what makes a ball count.
+    public static string GoalText(DrillDef d)
+    {
+        DrillGoals.Goal g = DrillGoals.For(d.id);
+        if (g.text.Length == 0)
+            return NetsTrialCard.Latin1(d.blurb);
+        return NetsTrialCard.Latin1($"<b>Goal: {g.text}</b>\n<size=85%>A ball counts when you {LowerFirst(g.rule)}.</size>");
+    }
+
+    private static string LowerFirst(string s) => s.Length == 0 ? s : char.ToLowerInvariant(s[0]) + s.Substring(1);
 
     /// The chosen panel's lines: what it feeds, then last and best (or not tried).
     public static string ChosenStats(DrillDef d, DrillRecord r)

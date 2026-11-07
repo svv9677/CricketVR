@@ -51,20 +51,66 @@ public static class DrillText
     internal static string MessageTitle(DrillResult d) =>
         NetsTrialCard.Latin1($"{Noun(d.drill)} drill: {d.score}, {d.grade}");
 
-    /// ballNumber is 1-based: the ball about to be bowled; `next` its bowler; `running` the score
-    /// so far (0..100) and `last` how the last ball went (None before the first).
-    public static string ProgressText(DrillDef d, int ballNumber, eBowlerKind next, float running, eDrillTag last)
+    /// The nets' left-hand text before a drill ball - kept to what the player chases (2026-11-06:
+    /// "too much text on the left side"): the drill and ball, the bowler, the goal with how many
+    /// count so far and what is still needed, the rule for a ball to count, and the last ball -
+    /// whether it counted and why, with how hard it was hit. `ballNumber` is 1-based (the ball
+    /// about to be bowled), `hits` the balls that have counted, `last` the last ball (null before
+    /// the first) and `lastTag` what DrillScoring made of it.
+    public static string ProgressText(DrillDef d, int ballNumber, eBowlerKind next, int hits, BallRecord last, eDrillTag lastTag)
     {
         int n = Mathf.Clamp(ballNumber, 1, DrillDefs.BallsPerDrill);
+        DrillGoals.Goal goal = DrillGoals.For(d != null ? d.id : eDrill.None);
         var sb = new StringBuilder();
         sb.Append("<b>").Append(d != null ? d.title : "DRILL").Append("</b>  Ball ").Append(n).Append(" of ").Append(DrillDefs.BallsPerDrill);
-        sb.Append("\n<size=70%><color=").Append(Grey).Append('>').Append(NetsTrialCard.KindLabel(next));
-        if (n > 1)
-            sb.Append(Dot).Append("Score ").Append(Mathf.RoundToInt(Mathf.Clamp(running, 0f, 100f)));
-        if (last != eDrillTag.None)
-            sb.Append(Dot).Append("Last: ").Append(TagLabel(last));
-        sb.Append("</color></size>");
+        sb.Append("\n<size=70%><color=").Append(Grey).Append('>').Append(NetsTrialCard.KindLabel(next)).Append("</color></size>");
+        if (goal.text.Length > 0)
+        {
+            sb.Append("\n<size=70%><b>").Append(goal.text).Append("</b>").Append(Dot).Append(GoalProgress(goal, hits, n - 1)).Append("</size>");
+            sb.Append("\n<size=60%><color=").Append(Grey).Append('>').Append(goal.rule).Append("</color></size>");
+        }
+        if (lastTag != eDrillTag.None)
+            sb.Append("\n<size=70%>Last: ").Append(LastLine(d, last, lastTag)).Append("</size>");
         return NetsTrialCard.Latin1(sb.ToString());
+    }
+
+    /// "3 of 8, 5 more from 9 balls"; "Goal met (9)"; "out of reach: 3 of 8".
+    public static string GoalProgress(DrillGoals.Goal goal, int hits, int faced)
+    {
+        int left = Mathf.Max(0, DrillDefs.BallsPerDrill - faced);
+        if (hits >= goal.target)
+            return "<color=" + GoodColour + ">Goal met (" + hits + ")</color>";
+        int need = goal.target - hits;
+        if (need > left)
+            return "<color=" + BadColour + ">out of reach: " + hits + " of " + goal.target + "</color>";
+        return "<b>" + hits + "</b> of " + goal.target + ", " + need + " more from " + left + " ball" + (left == 1 ? "" : "s");
+    }
+
+    /// "+1 Dug out · 104 km/h" in blue, or "Edged · doesn't count" in orange.
+    private static string LastLine(DrillDef d, BallRecord last, eDrillTag tag)
+    {
+        eDrill id = d != null ? d.id : eDrill.None;
+        bool counted = DrillGoals.Counts(id, last, tag);
+        string why = DrillGoals.Why(id, last, tag, counted);
+        string speed = last != null && last.action == eBallAction.Played && last.exitSpeed > 0f
+            ? Dot + Mathf.RoundToInt(last.exitSpeed * 3.6f) + " km/h" : "";
+        return counted
+            ? "<color=" + GoodColour + "><b>+1</b> " + why + "</color>" + speed
+            : "<color=" + BadColour + ">" + why + "</color>" + speed + Dot + "doesn't count";
+    }
+
+    private const string GoodColour = "#8AB8FF", BadColour = "#F2A65A";
+
+    /// The result card's first line: the goal met or missed, how many counted, what it needed.
+    public static string GoalLine(DrillResult r)
+    {
+        DrillGoals.Goal goal = DrillGoals.For(r.drill);
+        if (goal.text.Length == 0)
+            return "";
+        bool met = r.hits >= goal.target;
+        return "<b><color=" + (met ? GoodColour : BadColour) + ">" + (met ? "Goal met" : "Goal missed") + "</color></b>  " +
+               r.hits + " of " + DrillDefs.BallsPerDrill + " counted (needed " + goal.target + ")\n" +
+               "<size=70%><color=" + Grey + ">" + goal.text + ": " + goal.rule + "</color></size>";
     }
 
     /// The result card: the score and grade, how the balls went, the best, the ratings the drill
@@ -74,7 +120,10 @@ public static class DrillText
         var sb = new StringBuilder();
         if (r == null)
             return "<size=70%><color=" + Grey + ">Press A to continue</color></size>";
-        sb.Append("Score  <b>").Append(r.score).Append("</b> / 100  ").Append(r.grade).Append('\n');
+        string goalLine = GoalLine(r);
+        if (goalLine.Length > 0)
+            sb.Append(goalLine).Append('\n');
+        sb.Append("<size=80%>Score  <b>").Append(r.score).Append("</b> / 100  ").Append(r.grade).Append("</size>\n");
         string tags = TopTags(r, 3);
         if (tags.Length > 0)
             sb.Append("<size=75%>").Append(tags).Append("</size>\n");

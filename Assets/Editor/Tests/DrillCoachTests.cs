@@ -147,7 +147,8 @@ public class DrillCoachTests
                 foreach (int i in d.feeds)
                     StringAssert.Contains(RatingSet.Names[i], body, c.name);
                 StringAssert.Contains("(+3)", body, c.name);
-                AssertLatin1(DrillText.ProgressText(d, 4, eBowlerKind.LegSpin, r.score, c.tag), c.name);
+                AssertLatin1(DrillText.ProgressText(d, 4, eBowlerKind.LegSpin, 2, c.r, c.tag), c.name);
+                StringAssert.Contains("counted (needed", body, c.name);
             }
             AssertLatin1(DrillText.Feeds(d), d.name);
             AssertLatin1(DrillText.RowDetail(d, null, true), d.name);
@@ -166,15 +167,24 @@ public class DrillCoachTests
         Assert.AreEqual("Yorker drill complete", DrillText.Heading(new DrillResult { drill = eDrill.Yorkers }));
         Assert.AreEqual("Feeds Defence · vs Pace", DrillText.Feeds(y));
 
-        string first = DrillText.ProgressText(y, 1, eBowlerKind.Fast, 0f, eDrillTag.None);
+        string first = DrillText.ProgressText(y, 1, eBowlerKind.Fast, 0, null, eDrillTag.None);
         StringAssert.Contains("YORKER DRILL", first);
         StringAssert.Contains("Ball 1 of 12", first);
         StringAssert.Contains("Fast bowler", first);
+        StringAssert.Contains("Dig out 8 of 12 yorkers", first);
+        StringAssert.Contains("<b>0</b> of 8, 8 more from 12 balls", first);
         StringAssert.DoesNotContain("Score", first);
-        string later = DrillText.ProgressText(y, 4, eBowlerKind.Medium, 63.4f, eDrillTag.DugOut);
+        StringAssert.DoesNotContain("Last", first);
+        var dug = new BallRecord { action = eBallAction.Played, realContact = eRealContact.Clean, exitSpeed = 20f, end = eBallEnd.Runs, runs = 1 };
+        string later = DrillText.ProgressText(y, 4, eBowlerKind.Medium, 3, dug, eDrillTag.DugOut);
         StringAssert.Contains("Ball 4 of 12", later);
-        StringAssert.Contains("Score 63", later);
-        StringAssert.Contains("Last: Dug out", later);
+        StringAssert.Contains("<b>3</b> of 8, 5 more from 9 balls", later);
+        StringAssert.Contains("<b>+1</b> Dug out", later);
+        StringAssert.Contains("72 km/h", later);
+        var edged = new BallRecord { action = eBallAction.Played, realContact = eRealContact.Edge, exitSpeed = 10f };
+        StringAssert.Contains("Edged</color> · 36 km/h · doesn't count", DrillText.ProgressText(y, 5, eBowlerKind.Fast, 3, edged, eDrillTag.Edged));
+        StringAssert.Contains("Goal met (8)", DrillText.ProgressText(y, 11, eBowlerKind.Fast, 8, dug, eDrillTag.DugOut));
+        StringAssert.Contains("out of reach: 2 of 8", DrillText.ProgressText(y, 8, eBowlerKind.Fast, 2, edged, eDrillTag.Edged));
 
         StringAssert.Contains("Not tried yet", DrillText.RowDetail(y, null, false));
         string row = DrillText.RowDetail(y, new DrillRecord { drill = eDrill.Yorkers, attempts = 2, last = 64, best = 72 }, true);

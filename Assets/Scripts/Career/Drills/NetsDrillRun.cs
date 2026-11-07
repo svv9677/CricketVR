@@ -29,6 +29,7 @@ public sealed class NetsDrillRun
     private DrillFieldMarkers markers;
     private FieldSets.Position[] shownField;
     private eDrillTag lastTag;
+    private BallRecord lastBall;
 
     /// The drill (null for one DrillDefs does not have: the plan is then empty).
     public DrillDef Def { get; }
@@ -82,6 +83,7 @@ public sealed class NetsDrillRun
         if (Def == null || r == null)
             return;
         lastTag = DrillScoring.Score(Def, r).tag;
+        lastBall = r;
         FieldSets.Position[] field = DrillDefs.FieldFor(Def, r.bowlerKind);
         if (field == null || markers == null)
             return;
@@ -89,16 +91,15 @@ public sealed class NetsDrillRun
         markers.Highlight(j.call == eGapCall.Fielder || j.call == eGapCall.Caught ? j.fielder : null);
     }
 
-    /// The progress line before ball `i` (0-based): which ball of how many, who bowls it, the
-    /// score so far (from this attempt's balls in the career) and how the last one went.
+    /// The progress text before ball `i` (0-based): which ball of how many, who bowls it, the goal
+    /// and how many have counted (from this attempt's balls in the career), and the last ball.
     public string ProgressText(int i, CareerProfile p)
     {
         if (Def == null || balls.Length == 0)
             return "";
         IList<BallRecord> soFar = p != null ? DrillScoring.AttemptBalls(p.balls, id, attempt) : new List<BallRecord>();
-        float running = DrillScoring.Running(Def, soFar);
         int ballNumber = Mathf.Clamp(i + 1, 1, balls.Length);
-        return DrillText.ProgressText(Def, ballNumber, balls[Clamp(i)].kind, running, lastTag);
+        return DrillText.ProgressText(Def, ballNumber, balls[Clamp(i)].kind, DrillGoals.Hits(Def, soFar), lastBall, lastTag);
     }
 
     /// The attempt is over: scored from its balls in the career, with the ratings when it began and

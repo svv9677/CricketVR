@@ -102,6 +102,21 @@ public static class ShotReading
         return NetsTrialCard.Latin1(sb.ToString());
     }
 
+    /// The nets' short reading (2026-11-06: "too much text on the left side"): the verdict with
+    /// how hard it was hit, and the coach's one line. Read keeps all four for the record.
+    public static string Brief(BallRecord r)
+    {
+        if (r == null)
+            return "";
+        var sb = new StringBuilder(Verdict(r));
+        if (r.action == eBallAction.Played && r.exitSpeed > 0f)
+            sb.Append(Dot).Append(Mathf.RoundToInt(r.exitSpeed * 3.6f)).Append(" km/h");
+        string tip = ShotTips.For(r);
+        if (tip.Length > 0)
+            sb.Append('\n').Append("<color=").Append(Grey).Append("><i>").Append(tip).Append("</i></color>");
+        return NetsTrialCard.Latin1(sb.ToString());
+    }
+
     /// "Middled · FOUR", coloured by how it went.
     public static string Verdict(BallRecord r)
     {

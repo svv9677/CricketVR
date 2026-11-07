@@ -104,6 +104,8 @@ public static class DrillScoring
             DrillBallScore s = Score(d, attempt[i]);
             sum += s.value;
             res.tags[(int)s.tag]++;
+            if (DrillGoals.Counts(res.drill, attempt[i], s.tag))
+                res.hits++;
         }
         res.balls = n;
         res.attempt = n > 0 ? attempt[0].drillAttempt : 0;

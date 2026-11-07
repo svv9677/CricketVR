@@ -40,6 +40,8 @@ public sealed class DrillResult
 {
     public eDrill drill;
     public int attempt, score, balls, best;
+    /// The balls that counted toward the drill's goal (DrillGoals), of `balls`.
+    public int hits;
     public bool newBest;
     public string grade = "";
     /// Counts per eDrillTag.

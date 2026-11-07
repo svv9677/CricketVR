@@ -405,7 +405,8 @@ public class NetsTrial : MonoBehaviour
 
     private void ShowProgress()
     {
-        string foot = NetsTrialCard.Footer(ShotReading.Read(lastBall));
+        // A drill's own text says how the last ball went against its goal; no second reading.
+        string foot = NetsTrialCard.Footer(drill != null ? null : ShotReading.Brief(lastBall));
         if (drill != null)
             ui.ShowProgress(NetsTrialCard.Latin1(drill.ProgressText(NetsSession.TrialIndex, CareerSaves.Current)) + foot);
         else if (mode == eNetsMode.Trial && plan != null)
