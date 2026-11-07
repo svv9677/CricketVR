@@ -13,7 +13,8 @@ using UnityEngine.SceneManagement;
 ///     contact armed (PartnerContact);
 ///   * InGame_ResetToReady: back to his stance, and one log line comparing what he meant with what
 ///     the game made of it ("[Partner] intent=.. shot=.. got=..", for tuning in the headset).
-/// The game's own fielding, catching and scoring decide every ball: the intent only picks the shot.
+/// The game's fielding and catching play every ball; what it is scored as is the intent wherever
+/// the picture allows (PartnerScore), so watching him scores like simulating him.
 ///
 /// Built with the career match; does nothing on a ball that is not the partner's (PartnerWatch), so
 /// with watching off the match is exactly phase 2's.
@@ -120,6 +121,7 @@ public class PartnerDirector : MonoBehaviour
                 runsAtRelease = striker != null ? striker.Runs : 0;
                 // A fresh ball: no plan or contact from the last one left for this one's log line.
                 shotPlan = default;
+                PartnerScore.Disarm();
                 if (contact != null)
                     contact.Arm(default);
                 break;
@@ -255,6 +257,7 @@ public class PartnerDirector : MonoBehaviour
             shotPlan = new ShotPlan { intent = dir.intent, shot = PartnerShot.Leave };
         }
         HasPlan = true;
+        PartnerScore.Arm(shotPlan.intent);   // what HUD scores the ball as (PartnerScore)
         if (contact == null)
             contact = GetComponent<PartnerContact>();
         contact.Arm(shotPlan);
@@ -296,6 +299,7 @@ public class PartnerDirector : MonoBehaviour
 
     private void Finish()
     {
+        PartnerScore.Disarm();
         EndSteps();
         if (contact != null)
             contact.Disarm();
