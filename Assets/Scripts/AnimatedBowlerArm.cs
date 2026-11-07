@@ -64,7 +64,9 @@ public partial class AnimatedBowler
         if (b == null)
             return false;
         bool nets = gameObject.scene.name == NetsSession.NetsScene;
-        bool career = CareerMatchSession.Active || NetsSession.Career;
+        // The player's choice is for the free nets; a match's sides (quick play or a career) are
+        // their own, half left-arm.
+        bool career = CareerMatchSession.Active || NetsSession.Career || !nets;
         BowlerArm.eSetting setting = career ? BowlerArm.eSetting.Both : BowlerArm.Setting;
         HUD hud = HUD.Instance;
         int index = hud != null && hud.Bowlers != null ? hud.Bowlers.IndexOf(b) : -1;

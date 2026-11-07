@@ -64,8 +64,10 @@ public class MainMenuExtras : MonoBehaviour
             }
             NetsSession.ReturnToHub = false;
         }
+        // The results page is gone (2026-11-06: "the results page is completely blank... just take
+        // it off"): the match's own card says how it went; the last match is on this screen.
         if (MatchHistory.ResultPending)
-            StartCoroutine(ShowResult());
+            MatchHistory.ResultPending = false;
     }
 
     private void Update()

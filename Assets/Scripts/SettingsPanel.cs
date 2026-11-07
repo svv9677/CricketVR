@@ -217,17 +217,23 @@ public partial class SettingsPanel : MonoBehaviour
     /// Grip, View & Comfort, Audio and the debug overlay stay.
     private void HideCareerRows(bool inMatch)
     {
-        bool career = ModeMenus.IsCareer(ModeMenus.Current);
+        ePlayMode mode = ModeMenus.Current;
+        bool career = ModeMenus.IsCareer(mode);
         if (careerRows == null)
             careerRows = CareerRows();
         foreach (GameObject row in careerRows)
         {
             bool matchOnlyRow = matchOnly != null && System.Array.IndexOf(matchOnly, row) >= 0;
-            bool on = !career && (!matchOnlyRow || inMatch);
+            // Quick play keeps the batting rows and Restart; the bowling, fielding and match pages
+            // are the free nets' (ModeMenus.ShowsMatchTuning).
+            bool tuning = tuningRows != null && tuningRows.Contains(row);
+            bool on = !career && (!matchOnlyRow || inMatch) && (!tuning || ModeMenus.ShowsMatchTuning(mode));
             if (row != null && row.activeSelf != on)
                 row.SetActive(on);
         }
     }
+
+    private System.Collections.Generic.HashSet<GameObject> tuningRows;
 
     private GameObject[] careerRows;
 
@@ -241,9 +247,11 @@ public partial class SettingsPanel : MonoBehaviour
         {
             TMP_Text label = b.GetComponentInChildren<TMP_Text>(true);
             string t = label != null ? label.text : "";
-            if (t.StartsWith("<b>Bowling</b>") || t.StartsWith("<b>Fielding</b>") || t.StartsWith("<b>Match</b>") ||
-                b.name == "Restart the scene")
+            bool tuning = t.StartsWith("<b>Bowling</b>") || t.StartsWith("<b>Fielding</b>") || t.StartsWith("<b>Match</b>");
+            if (tuning || b.name == "Restart the scene")
                 rows.Add(b.gameObject);
+            if (tuning)
+                (tuningRows ??= new System.Collections.Generic.HashSet<GameObject>()).Add(b.gameObject);
         }
         return rows.ToArray();
     }
@@ -373,8 +381,8 @@ public partial class SettingsPanel : MonoBehaviour
         Refresh();
     }
 
-    /// Put the player back at the crease, facing the bowler: the way he faces now becomes down the
-    /// pitch, in every scene from here on (RoomFacing, XRRigSetup.RecentreHere).
+    /// Put the player back at the crease on his saved anchor (XRRigSetup.RecentreHere); holding the
+    /// Oculus button sets a new one.
     public void OnRecentre()
     {
         XRRigSetup rig = FindFirstObjectByType<XRRigSetup>();
@@ -396,8 +404,23 @@ public partial class SettingsPanel : MonoBehaviour
     }
     public void OnOverlay(bool on) => GameSettings.OverlayVisible = on;
     public void OnToggleAdvanced() { if (advanced != null) SetAdvanced(!advanced.activeSelf); }
-    public void OnCalibrateGrip() => M.onCalibrateGrip();
-    public void OnResetGrip() => M.onResetGrip();
+    /// Calibrating needs the bat in hand, so from the main menu it opens the free nets with the
+    /// calibration already running (GripCalibrationOnArrival); in a match or the nets, here and now.
+    public void OnCalibrateGrip()
+    {
+        if (M != null)
+            M.onCalibrateGrip();
+        else
+            GripCalibrationOnArrival.Request();
+    }
+
+    public void OnResetGrip()
+    {
+        if (M != null)
+            M.onResetGrip();
+        else
+            BatGripCalibration.ClearSaved();
+    }
     /// Done: back to whoever opened Settings - the pause card, the main menu, or (opened from
     /// between balls) closed. Only without a menu in the scene does Main close it.
     public void OnClose()

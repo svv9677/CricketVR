@@ -252,6 +252,13 @@ public class BatGripCalibration : MonoBehaviour
     {
         bat.SetGrabOffset(true, defaultLeftPosition, defaultLeftEuler);
         bat.SetGrabOffset(false, defaultRightPosition, defaultRightEuler);
+        ClearSaved();
+    }
+
+    /// Forget the saved grip (both hands): the scene's own offsets from the next time a bat is held.
+    /// The main menu's Reset, where there is no bat to put back.
+    public static void ClearSaved()
+    {
         PlayerPrefs.DeleteKey(Constants.PP_GripLeftPosition);
         PlayerPrefs.DeleteKey(Constants.PP_GripLeftEuler);
         PlayerPrefs.DeleteKey(Constants.PP_GripRightPosition);

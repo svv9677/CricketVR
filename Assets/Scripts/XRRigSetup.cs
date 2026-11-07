@@ -155,15 +155,12 @@ public class XRRigSetup : MonoBehaviour
 
     private readonly RecentreGate _recentre = new RecentreGate();
 
-    /// The settings' "Recentre at the crease": down the pitch becomes the way the head points now
-    /// (saved, as an Oculus-button recentre does), and the player is placed with it. Looking
-    /// straight up or down keeps the saved direction and only slides him back onto the spot.
-    public void RecentreHere()
-    {
-        if (cameraTransform != null && RoomFacing.Capture(transform, cameraTransform, out _))
-            RoomSpot.Capture(transform, cameraTransform);
-        PlaceAtCrease();
-    }
+    /// The settings' "Recentre at the crease": back onto the saved anchor - the room's spot on this
+    /// end's spot, its down-the-pitch facing the far end - exactly as every scene and end places
+    /// him. It used to take a new anchor from wherever he stood and looked, so each press moved the
+    /// ground under him (2026-11-06: "it should be centering to the actual boundaries and the
+    /// previous saved thing"). A new anchor is the Oculus button's (held), as before.
+    public void RecentreHere() => PlaceAtCrease();
 
     /// Splash: the wall the player bats facing (RoomFacing) faces the menu, so after a match he
     /// finds it in front of him rather than beside or behind him, and his room spot is on the

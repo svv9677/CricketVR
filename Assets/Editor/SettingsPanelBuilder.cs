@@ -79,7 +79,7 @@ public static class SettingsPanelBuilder
         Transform grip = InlineField(batting, "Grip");
         UIControls.ActionButton(grip, "Calibrate", c.OnCalibrateGrip, false);
         UIControls.ActionButton(grip, "Reset", c.OnResetGrip, false, UIStyle.Control, 140f);
-        matchOnly.Add(grip.gameObject);
+        // Shown in the main menu too (2026-11-06): Calibrate there opens the nets to do it.
 
         Transform bowling = Page(card, "bowling", pages, names);
         var labels = new string[UIFormat.BowlerTypes.Length];
