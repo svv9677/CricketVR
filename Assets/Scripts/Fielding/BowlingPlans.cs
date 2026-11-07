@@ -49,7 +49,7 @@ public static class BowlingPlans
     /// The plan being bowled now (FieldCaptain sets it between balls), or null: plain bowling.
     public static BowlingPlan Active;
 
-    static P Slip(int n) => new P(n == 1 ? "First slip" : "Second slip", K.Slip, 170f, n);
+    static P Slip(int n) => new P(n == 1 ? "First slip" : n == 2 ? "Second slip" : "Third slip", K.Slip, 170f, n);
     /// A ring fielder a few metres inside the circle at his angle (FieldSets.RingPlace), or at `d`.
     static P Ring(string n, float a, float d = 0f) => new P(n, K.Ring, a, d);
     static P Close(string n, float a, float d) => new P(n, K.Close, a, d);
@@ -165,10 +165,11 @@ public static class BowlingPlans
     /// The plan applies to this bowler (a pace plan is not bowled by a spinner).
     public static bool Fits(BowlingPlan plan, eSwingType bowler) => plan != null && plan.spin == FieldSets.IsSpin(bowler);
 
-    /// Catchers an attacking field adds, in order, if the plan's field has none there.
+    /// Catchers an attacking field adds, in order, if the plan's field has none there - as many as
+    /// the format's attack allows (FormatRules.MaxCatchers: a Test's new ball gets the third slip).
     public static P[] Catchers(bool spin) => spin
-        ? new[] { Slip(1), Close("Short leg", -95f, 4.5f), Close("Silly point", 80f, 4f) }
-        : new[] { Slip(1), Slip(2), Close("Gully", 130f, 14f) };
+        ? new[] { Slip(1), Close("Short leg", -95f, 4.5f), Close("Silly point", 80f, 4f), Close("Leg slip", -165f, 3f) }
+        : new[] { Slip(1), Slip(2), Close("Gully", 130f, 14f), Slip(3) };
 
     // ---- What a plan bowls, by the zones BatterBook keeps -------------------------------------
 

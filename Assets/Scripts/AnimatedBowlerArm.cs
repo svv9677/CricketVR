@@ -51,13 +51,20 @@ public partial class AnimatedBowler
     private void ChooseArm()
     {
         ResetSway();
-        Bowler b = HUD.Instance != null ? HUD.Instance.CurrentBowler : null;
-        bool nets = gameObject.scene.name == NetsSession.NetsScene;
         // A career's sides are its own: the player's choice is for quick play and the free nets.
+        SetArm(WillBowlLeftArm(HUD.Instance != null ? HUD.Instance.CurrentBowler : null));
+    }
+
+    /// The arm he will bowl his next ball with, without choosing it (the next-ball card's "left-arm
+    /// over"): what ChooseArm will decide, for the bowler on now.
+    public bool WillBowlLeftArm(Bowler b)
+    {
+        if (b == null)
+            return false;
+        bool nets = gameObject.scene.name == NetsSession.NetsScene;
         bool career = CareerMatchSession.Active || NetsSession.Career;
         BowlerArm.eSetting setting = career ? BowlerArm.eSetting.Both : BowlerArm.Setting;
-        bool left = BowlerArm.Force ?? (b != null && BowlerArm.Decide(b.Kind, b.Name, setting, nets, spellLeft));
-        SetArm(left);
+        return BowlerArm.Force ?? BowlerArm.Decide(b.Kind, b.Name, setting, nets, spellLeft);
     }
 
     public void SetArm(bool left)

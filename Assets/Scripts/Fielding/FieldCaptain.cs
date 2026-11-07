@@ -16,7 +16,9 @@ using UnityEngine;
 /// bowls, less the edges and wickets they have given (BatterBook.Cost; a line or length not seen
 /// yet is assumed to go at the batter's overall rate). The cheapest plan is the likeliest pick,
 /// not a certainty (Temperature), so a batter cannot sit on one line. A new batter gets the
-/// attacking plans; the last overs of a match, the yorker and wide-of-off plans.
+/// attacking plans; and each plan's cost is moved by how the format bowls in this phase of the
+/// innings (FormatRules.PlanBias): the corridor and the slips with a Test's new ball, yorkers and
+/// wide yorkers at a T20's death, spin to contain through an ODI's middle overs.
 ///
 /// The field. The plan's own field, then:
 ///   * attack (new batter, or a run of dot balls): catchers in - slips and gully for pace, short
@@ -28,9 +30,10 @@ using UnityEngine;
 ///     boundaries, the ring if in ones and twos;
 ///   * a batter milking the ones and twos with no boundaries: the ring comes in a few metres to
 ///     cut off the single (FieldSets.RingInFor1s), as captains walk the ring in.
-/// The limits it is set under (FieldSets.Valid): two outside the circle in the powerplay (the first
-/// 30% of the overs, six of twenty, ten of fifty), then five (four through an ODI's middle overs);
-/// five on the leg side; two behind square on it.
+/// The limits it is set under (FieldSets.Valid, FormatRules): two outside the circle in the
+/// powerplay (3 of ten, 6 of twenty, 10 of fifty), then five (four through an ODI's middle overs),
+/// no limit in a Test; five on the leg side; two behind square on it. How aggressive the field is
+/// follows the format too: a Test attacks, a limited-overs death defends.
 ///
 /// When: as the last ball ends (InGame_ResetToReady), so the fielders walk to their new places
 /// while the ball comes back; and again at the start of the next ball if the bowler or the batting
@@ -38,12 +41,10 @@ using UnityEngine;
 /// </summary>
 public class FieldCaptain : MonoBehaviour
 {
-    private const int NewBatterBalls = 8, DotsToAttack = 6;
-    private const float DefendStrikeRate = 150f, AttackStrikeRate = 60f;
-    private const int DefendBoundaries = 2;
+    private const int NewBatterBalls = 8;
     /// A sector needs this many (faded) runs before he moves someone for it; at most this many moves.
     private const float HotSector = 4f;
-    private const int MaxMoves = 2, MaxCatchers = 2, MaxPushBack = 2;
+    private const int MaxMoves = 2, MaxPushBack = 2;
     /// How much he likes to stay with the plan he is on. How firmly he goes for the cheapest plan
     /// is the bowling level's (BowlingLevels.Level.temperature): plans that much dearer (runs a
     /// ball) are e times less likely. An Easy attack has no plans at all.
@@ -211,18 +212,22 @@ public class FieldCaptain : MonoBehaviour
 
     private bool NewBatter => book.BallsSinceWicket < NewBatterBalls;
 
-    private bool DeathOvers
+    /// Where the innings is (FormatRules): the powerplay, middle or death of a limited-overs
+    /// innings, or a Test's new, old or reversing ball.
+    private static eGamePhase PhaseNow
     {
         get
         {
             HUD hud = HUD.Instance;
-            return hud != null && hud.TotalOvers >= 3 && hud.TotalOvers - hud.Overs <= 1;
+            return hud != null ? FormatRules.Phase(hud.Overs, hud.TotalOvers) : eGamePhase.Middle;
         }
     }
+
 
     private BowlingPlan ChoosePlan(eSwingType bowler)
     {
         BowlingPlan[] plans = BowlingPlans.For(bowler);
+        eGamePhase phase = PhaseNow;
         var weights = new float[plans.Length];
         float best = float.MaxValue;
         var costs = new float[plans.Length];
@@ -231,8 +236,7 @@ public class FieldCaptain : MonoBehaviour
             float c = book.Cost(BowlingPlans.Share(plans[i], bowler), bowler);
             if (NewBatter && (plans[i] == BowlingPlans.AttackStumps || plans[i] == BowlingPlans.OffStump ||
                               plans[i] == BowlingPlans.Flight)) c -= 0.15f;
-            if (DeathOvers && (plans[i] == BowlingPlans.Yorkers || plans[i] == BowlingPlans.WideOff ||
-                               plans[i] == BowlingPlans.Darts)) c -= 0.3f;
+            c += FormatRules.PlanBias(plans[i], phase);   // how this format bowls now (FormatRules)
             if (plans[i] == plan) c -= Stick;
             costs[i] = c;
             best = Mathf.Min(best, c);
@@ -252,27 +256,17 @@ public class FieldCaptain : MonoBehaviour
     private FieldSets.Plan ChooseAggression()
     {
         book.Recent(out float strikeRate, out int boundaries, out int balls);
-        if (NewBatter || book.DotsInARow >= DotsToAttack || (balls >= 6 && strikeRate < AttackStrikeRate))
-            return FieldSets.Plan.Attack;
-        if (DeathOvers || (balls >= 6 && (strikeRate >= DefendStrikeRate || boundaries >= DefendBoundaries)))
-            return FieldSets.Plan.Defend;
-        return FieldSets.Plan.Standard;
+        return FormatRules.Aggression(PhaseNow, NewBatter, book.DotsInARow, balls, strikeRate, boundaries);
     }
 
     // ---- The field ----------------------------------------------------------------------------
 
-    /// Overs of the powerplay for a match of `total` overs: six of twenty, ten of fifty, 30% of a
-    /// shorter one (none in a one-over match).
-    public static int PowerplayOvers(int total) =>
-        total >= 50 ? 10 : total >= 20 ? 6 : total >= 2 ? Mathf.Max(1, Mathf.RoundToInt(total * 0.3f)) : 0;
+    /// Overs of the powerplay for a match of `total` overs (FormatRules: 3 of ten, 6 of twenty,
+    /// 10 of fifty, none in a Test).
+    public static int PowerplayOvers(int total) => FormatRules.PowerplayOvers(total);
 
-    /// Most outside the circle in this over (0-based) of a `total`-over match.
-    public static int MaxOutsideIn(int over, int total)
-    {
-        if (over < PowerplayOvers(total)) return 2;
-        if (total > 20 && over < total - 10) return 4;
-        return FieldSets.MaxOutside;
-    }
+    /// Most outside the circle in this over (0-based) of a `total`-over match (no limit in a Test).
+    public static int MaxOutsideIn(int over, int total) => FormatRules.MaxOutside(over, total);
 
     private float RingIn()
     {
@@ -317,7 +311,7 @@ public class FieldCaptain : MonoBehaviour
         BatterBook.Record record = book.For(bowler);
         var layout = new FieldPlan(plan.field, g, record);
         if (aggression == FieldSets.Plan.Attack)
-            layout.AddCatchers(BowlingPlans.Catchers(plan.spin), MaxCatchers);
+            layout.AddCatchers(BowlingPlans.Catchers(plan.spin), FormatRules.MaxCatchers(PhaseNow));
         else if (aggression == FieldSets.Plan.Defend)
             layout.PushBack(MaxPushBack);
         layout.Adapt(MaxMoves, HotSector);

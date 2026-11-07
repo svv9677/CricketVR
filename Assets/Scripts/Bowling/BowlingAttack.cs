@@ -6,9 +6,10 @@ using UnityEngine;
 ///   * Next - this ball: the over plan (OverPlanner) says stock ball or variation, then MakeDelivery
 ///     turns that into the line, length, pace and movement BallDelivery bowls.
 ///   * PickNextBowler - the captain's bowling change at the end of an over: never the same bowler
-///     twice running, nobody over his quota (a fifth of the overs, as in a real match), seamers in
-///     the powerplay and at the death, spinners through the middle, and a bowler who is on keeps
-///     his spell going from his end for a few overs. It replaces bowling the eight in a fixed
+///     twice running, nobody over his quota (a fifth of the overs; none in a Test), seamers in
+///     the powerplay and at the death (a Test's new and reversing ball), spinners through the
+///     middle, and a bowler who is on keeps his spell going from his end for as long as the
+///     format's spells run (FormatRules). It replaces bowling the eight in a fixed
 ///     rotation, which made every innings the same order of types.
 /// </summary>
 public static class BowlingAttack
@@ -66,7 +67,10 @@ public static class BowlingAttack
         Bowler bowler = hud.CurrentBowler;
         if (plan == null || planBowler != bowler || planOver != hud.Overs)
         {
-            plan = new OverPlanner(bowler.Kind, BowlerRepertoire.VariationsFor(MatchSetup.Bowling), () => Random.value);
+            // Fewer variations in a Test, most at the death (FormatRules).
+            float variations = BowlerRepertoire.VariationsFor(MatchSetup.Bowling) *
+                               FormatRules.VariationScale(FormatRules.Phase(hud.Overs, hud.TotalOvers));
+            plan = new OverPlanner(bowler.Kind, variations, () => Random.value);
             planBowler = bowler;
             planOver = hud.Overs;
         }
@@ -199,8 +203,9 @@ public static class BowlingAttack
 
     // ---- Next over ---------------------------------------------------------------------------
 
-    /// Most overs one bowler may bowl: a fifth of the innings (4 of 20, 10 of 50), at least one.
-    public static int Quota(int totalOvers) => Mathf.Max(1, Mathf.CeilToInt(totalOvers / 5f));
+    /// Most overs one bowler may bowl: a fifth of the innings (4 of 20, 10 of 50), at least one;
+    /// no limit in a Test (FormatRules).
+    public static int Quota(int totalOvers) => FormatRules.Quota(totalOvers);
 
     public static int OversBowled(Bowler b) => (b.Balls + 5) / 6;
 
@@ -211,9 +216,8 @@ public static class BowlingAttack
     public static int PickNextBowler(IList<Bowler> bowlers, Bowler last, int over, int totalOvers, System.Func<float> rand01)
     {
         int quota = Quota(totalOvers);
-        int powerplay = FieldCaptain.PowerplayOvers(totalOvers);
-        int death = totalOvers >= 5 ? Mathf.Max(1, Mathf.RoundToInt(totalOvers * 0.2f)) : 0;
-        bool seamPhase = over < Mathf.Max(1, powerplay) || over >= totalOvers - death;
+        // Seam with the new ball and at the death (or a Test's new and reversing ball), spin between.
+        bool seamPhase = over == 0 || FormatRules.SeamPhase(FormatRules.Phase(over, totalOvers));
         Bowler twoAgo = overBowlers.Count >= 2 ? overBowlers[overBowlers.Count - 2] : null;
 
         float total = 0f;
@@ -225,8 +229,11 @@ public static class BowlingAttack
             if (OversBowled(b) >= quota) continue;
             bool spin = BowlerRepertoire.IsSpin(b.Kind);
             float w = seamPhase ? (spin ? 0.35f : 3f) : (spin ? 2.5f : 1f);
-            // Keep a bowler on for his spell, from his end (every other over), up to 4 overs.
-            if (b == twoAgo && SpellLength(b) < 4) w *= 2.5f;
+            // Keep a bowler on for his spell, from his end (every other over), as long as the
+            // format's spells run (FormatRules.MaxSpell: 2-3 overs in a T20, 6 for a Test quick).
+            int spell = SpellLength(b);
+            if (b == twoAgo && spell < FormatRules.MaxSpell(spin, totalOvers)) w *= 2.5f;
+            else if (b == twoAgo) w *= 0.2f;   // his spell is done: rest him
             // A bowler taking wickets stays on; one going for plenty comes off.
             if (b.Balls > 0)
             {

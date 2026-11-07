@@ -96,9 +96,9 @@ public class NextBallMenu : MonoBehaviour
         shownFreeHit = freeHit;
         shownPartner = partner;
         string type = BowlerRepertoire.KindName(shownBowler.Kind);
-        // Every bowling action in the game is right-arm, over the wicket (the run-ups come in on
-        // the stumps' left as he sees them, AnimatedBowler).
-        bowlerLabel.text = $"{shownBowler.Name}\n<size=62%><color=#98A2B3>{type}{(newOver ? "  ·  right-arm over" : "")}</color></size>";
+        // Over the wicket, right- or left-arm (AnimatedBowlerArm: the arm he will bowl with).
+        string arm = AnimatedBowler.Instance != null && AnimatedBowler.Instance.WillBowlLeftArm(shownBowler) ? "left" : "right";
+        bowlerLabel.text = $"{shownBowler.Name}\n<size=62%><color=#98A2B3>{type}{(newOver ? $"  ·  {arm}-arm over" : "")}</color></size>";
         if (header != null)
             header.text = !freeHit && ModeMenus.IsNets(ModeMenus.Current) ? ModeMenus.NetsHeading(ModeMenus.Current)
                                                                          : Header(freeHit, partner, newOver);
@@ -114,9 +114,30 @@ public class NextBallMenu : MonoBehaviour
                     changeBowler = b.gameObject;
         if (changeBowler != null)
             changeBowler.SetActive(ModeMenus.CanChangeBowler(ModeMenus.Current));
+        // A Test: Declare beside it (MatchFlow.Declare), made from the Change bowler button.
+        if (declare == null && changeBowler != null && MatchFlow.Test)
+        {
+            declare = Instantiate(changeBowler, changeBowler.transform.parent);
+            declare.name = "Declare";
+            Button b = declare.GetComponent<Button>();
+            b.onClick = new Button.ButtonClickedEvent();
+            b.onClick.AddListener(OnDeclare);
+            TMPro.TMP_Text label = declare.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (label != null)
+                label.text = "Declare";
+        }
+        if (declare != null)
+            declare.SetActive(MatchFlow.CanDeclare);
     }
 
-    private GameObject changeBowler;
+    private GameObject changeBowler, declare;
+
+    /// Declare the innings (a Test): the card goes, MatchFlow takes it from there.
+    public void OnDeclare()
+    {
+        Hide();
+        MatchFlow.Declare();
+    }
 
     /// The card's heading: a free hit first (who can't be out), then the partner on strike, then
     /// the match's first over; otherwise just "BOWLER".
