@@ -55,21 +55,32 @@ public class BowlerGrip : MonoBehaviour
 
     private static readonly string[] FingerNames = { "Thumb", "Index", "Middle", "Ring", "Pinky" };
 
-    /// He bowls left-arm: the whole bowler mirrored, so these right-hand bones show as his left.
-    private bool Mirrored => bowler != null && bowler.LeftArm;
-
     private void Awake()
     {
         animator = GetComponent<Animator>();
         bowler = GetComponent<AnimatedBowler>();
-        hand = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.RightHand) : null;
-        if (hand == null)
-        {
+        if (!Bind(false))
             enabled = false;
-            return;
-        }
+    }
+
+    /// The bowling hand's bones: the right, or a left-armer's left (AnimatedBowlerArm: his action
+    /// is the humanoid's mirror, so the left hand is a real left hand). False when the rig has no
+    /// such hand or fingers (grips off).
+    private bool Bind(bool left)
+    {
+        if (hand != null)
+            for (int f = 0; f < 5; f++)
+                for (int j = 0; j < 3; j++)
+                    if (bones[f, j] != null)
+                        bones[f, j].localRotation = neutral[f, j];   // the old hand let go
+        leftHand = left;
+        string side = left ? "LeftHand" : "RightHand";
+        hand = animator != null && animator.isHuman
+            ? animator.GetBoneTransform(left ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand) : null;
+        if (hand == null)
+            return false;
         forearm = hand.parent;
-        string prefix = hand.name.Substring(0, hand.name.Length - "RightHand".Length) + "RightHand";
+        string prefix = hand.name.Substring(0, hand.name.Length - side.Length) + side;
         for (int f = 0; f < 5; f++)
             for (int j = 0; j < 4; j++)
                 bones[f, j] = FindDeep(hand, prefix + FingerNames[f] + (j + 1));
@@ -78,8 +89,7 @@ public class BowlerGrip : MonoBehaviour
             if (bones[f, 0] == null || bones[f, 3] == null)
             {
                 Debug.LogWarning($"BowlerGrip: no {FingerNames[f]} bones under {hand.name}; grips off.", this);
-                enabled = false;
-                return;
+                return false;
             }
             for (int j = 0; j < 3; j++)
                 neutral[f, j] = lastWritten[f, j] = bones[f, j].localRotation;
@@ -90,7 +100,11 @@ public class BowlerGrip : MonoBehaviour
             offset = bowler.HandTransform;
             offsetLocal = offset.localPosition;
         }
+        return true;
     }
+
+    /// The left hand is bound (a left-armer).
+    private bool leftHand;
 
     private void Start()
     {
@@ -120,6 +134,11 @@ public class BowlerGrip : MonoBehaviour
         if (inst == null || bowler == null)
             return;
         bool carrying = bowler.CarryingBall;
+        if (bowler.LeftArm != leftHand && !Bind(bowler.LeftArm))
+        {
+            enabled = false;
+            return;
+        }
         if (carrying && !wasCarrying)
             grip = BowlerGrips.For(inst.currentBowlingConfig);
         if (!carrying && wasCarrying)
@@ -177,9 +196,8 @@ public class BowlerGrip : MonoBehaviour
     {
         fwd = (bones[2, 0].position - hand.position).normalized;
         side = Vector3.ProjectOnPlane(bones[1, 0].position - bones[4, 0].position, fwd).normalized;
-        // A left-armer is this bowler mirrored (BowlerArm): a mirror flips a cross product, so his
-        // palm is the other way round.
-        palm = Mirrored ? Vector3.Cross(side, fwd) : Vector3.Cross(fwd, side);
+        // The left hand is the right's mirror image, and a mirror flips a cross product.
+        palm = leftHand ? Vector3.Cross(side, fwd) : Vector3.Cross(fwd, side);
     }
 
     private Quaternion SeamRotation(Vector3 fwd, Vector3 palm, Vector3 side, float into, float offSign)
@@ -220,12 +238,12 @@ public class BowlerGrip : MonoBehaviour
         Vector3 right = Vector3.Cross(Vector3.up, travel);
         // Swing: the seam angled toward the slips (outswing) or fine leg (inswing). A turn about
         // up by +a takes the seam's line from the batter toward the bowler's right (-off side).
-        // Under a left-armer's mirror every turn of the hand shows mirrored: his own (palm, roll)
-        // should, but the seam's toward the batter's off side must not, so it is turned back.
-        float seamTurn = -grip.seamAngle * offSign * (Mirrored ? -1f : 1f);
+        float seamTurn = -grip.seamAngle * offSign;
+        // The hand's own turns mirror for a left hand; the seam's, toward the batter's off side, do not.
+        float own = leftHand ? -1f : 1f;
         Quaternion q = Quaternion.AngleAxis(seamTurn * w, Vector3.up) *
-                       Quaternion.AngleAxis(grip.palmTurn * w, Vector3.up) *
-                       Quaternion.AngleAxis(grip.roll * w, travel) *      // + is clockwise from behind: off-break
+                       Quaternion.AngleAxis(grip.palmTurn * own * w, Vector3.up) *
+                       Quaternion.AngleAxis(grip.roll * own * w, travel) *      // + is clockwise from behind: off-break
                        Quaternion.AngleAxis(grip.snap * w, right);       // + takes the fingers forward over the ball
         hand.rotation = q * hand.rotation;
     }
@@ -313,7 +331,10 @@ public class BowlerGrip : MonoBehaviour
     {
         for (int j = 0; j < 3; j++)
         {
-            Quaternion q = neutral[f, j] * Quaternion.Euler(curl * CurlDegrees[j], 0f, j == 0 ? spread : 0f);
+            // The left hand's knuckles spread the other way about their local Z (measured on the rig;
+            // the curl about X is the same on both hands).
+            float splay = j == 0 ? (leftHand ? -spread : spread) : 0f;
+            Quaternion q = neutral[f, j] * Quaternion.Euler(curl * CurlDegrees[j], 0f, splay);
             bones[f, j].localRotation = q;
             lastWritten[f, j] = q;
         }

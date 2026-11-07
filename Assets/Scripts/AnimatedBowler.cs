@@ -141,6 +141,7 @@ public partial class AnimatedBowler : MonoBehaviour
         animator.applyRootMotion = true;
         animator.speed = 1f;
         animator.SetInteger("Action", 0);
+        ApplyMirror();   // the bowling controller back: its Mirror bool is new (AnimatedBowlerArm)
     }
 
     void LateUpdate()
@@ -310,7 +311,7 @@ public partial class AnimatedBowler : MonoBehaviour
     public void UpdateInfo(int index)
     {
         baseBowlerInfo = myBowlers.data[index];
-        currentBowlerInfo = LeftArm ? Mirrored(baseBowlerInfo) : baseBowlerInfo;
+        currentBowlerInfo = LeftArm ? MirrorMark(baseBowlerInfo) : baseBowlerInfo;
     }
 
     /// <summary>
