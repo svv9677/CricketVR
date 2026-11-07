@@ -110,10 +110,11 @@ public class OverBreak : MonoBehaviour
     {
         if (!BuildCard())
             return;
-        string type = BowlerRepertoire.KindName(hud.CurrentBowler.Kind);
-        // Every bowling action in the game is right-arm, over the wicket.
+        // His arm, as the scorecard says it (half the bowlers are left-arm since 2026-11-06).
+        bool leftArm = AnimatedBowler.Instance != null && AnimatedBowler.Instance.WillBowlLeftArm(hud.CurrentBowler);
+        string type = BowlerArm.KindName(hud.CurrentBowler.Kind, leftArm);
         body.text = $"<b>{hud.CurrentBowler.Name}</b>\n<size=70%><color=#98A2B3>{type}</color></size>\n" +
-                    "<size=70%><color=#98A2B3>Right-arm, over the wicket</color></size>\n\n" +
+                    $"<size=70%><color=#98A2B3>{(leftArm ? "Over the wicket" : "Right-arm, over the wicket")}</color></size>\n\n" +
                     $"<size=60%><color=#98A2B3>Over {hud.Overs} complete   {hud.Runs}/{hud.Wickets}</color></size>";
         Place();
         card.SetActive(true);
