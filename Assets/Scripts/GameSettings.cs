@@ -19,7 +19,7 @@ using UnityEngine;
 public static class GameSettings
 {
     public const int MinOvers = 1;
-    public const int MaxOvers = 20;
+    public const int MaxOvers = 50;   // a 50-over ODI (MatchFormat); was 20
     public const int DefaultOvers = 5;
 
     /// Main's pre-existing defaults - see Main.Start's "Read Settings" block.

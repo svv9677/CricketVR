@@ -17,10 +17,12 @@ using UnityEngine.UI;
 /// HUD shows the state of the match beside the run rate (Status): "Need 23 off 14 · RRR 9.9" in a
 /// chase, "Over 3 of 5 · AI chases" otherwise.
 ///
+/// A Test (MatchFormat) is its own flow: two innings a side, cards between them (MatchFlowTest).
+///
 /// Built when the match scene loads, like OverBreak; its card is a copy of the next-ball card's
 /// panel so it looks and works the same (laser or A).
 /// </summary>
-public class MatchFlow : MonoBehaviour
+public partial class MatchFlow : MonoBehaviour
 {
     private const string MatchScene = "CricketVR", HomeScene = "Splash";
     private const float Ahead = 1.5f, Below = 0.1f, Bigger = 1.25f;
@@ -100,6 +102,7 @@ public class MatchFlow : MonoBehaviour
         Status = null;
         Target = 0;
         AIFirst = null;
+        Test = false;
         if (scene.name == MatchScene && FindFirstObjectByType<MatchFlow>() == null)
             SceneManager.MoveGameObjectToScene(new GameObject("Match Flow", typeof(MatchFlow)), scene);
     }
@@ -108,7 +111,9 @@ public class MatchFlow : MonoBehaviour
     {
         instance = this;
         rng = new System.Random(System.Environment.TickCount);
-        if (MatchSetup.Type == eMatchType.Chase)
+        if (IsTestMatch())
+            TestStart();   // two innings a side (MatchFlowTest)
+        else if (MatchSetup.Type == eMatchType.Chase)
         {
             AIFirst = PlayAI(GameSettings.Overs, 0, MatchSetup.Bowling, rng);
             Target = TargetOverride > 0 ? TargetOverride : AIFirst.runs + 1;
@@ -154,6 +159,12 @@ public class MatchFlow : MonoBehaviour
     {
         if (Over)
             return;
+        if (Test)
+        {
+            if (HUD.Instance != null)
+                TestCheck(HUD.Instance);
+            return;
+        }
         UpdateStatus();
         HUD hud = HUD.Instance;
         if (hud != null && Finished(hud, out string result))
@@ -192,6 +203,11 @@ public class MatchFlow : MonoBehaviour
         HUD hud = HUD.Instance;
         if (hud == null)
             return;
+        if (Test)
+        {
+            UpdateTestStatus(hud);
+            return;
+        }
         int balls = hud.Overs * 6 + hud.Balls, total = hud.TotalOvers * 6;
         if (Target > 0)
         {
@@ -292,6 +308,13 @@ public class MatchFlow : MonoBehaviour
 
     private void Update()
     {
+        if (betweenInnings)
+        {
+            // Between a Test's innings: A (or the card's button) goes on to the next.
+            if (Main.Instance != null && Main.Instance.GetButton(XRButton.A) && Time.time - overAt > 1f)
+                ContinueTest();
+            return;
+        }
         if (!Over || leaving)
             return;
         bool pressed = Main.Instance != null && Main.Instance.GetButton(XRButton.A) && Time.time - overAt > 1f;
@@ -377,10 +400,26 @@ public class MatchFlow : MonoBehaviour
         if (button != null)
         {
             button.onClick = new Button.ButtonClickedEvent();
-            button.onClick.AddListener(GoHome);
+            button.onClick.AddListener(OnCardButton);
         }
-        TMP_Text label = bowl.GetComponentInChildren<TMP_Text>(true);
-        if (label != null)
-            label.text = "Home  <size=75%>(A)</size>";
+        cardButtonLabel = bowl.GetComponentInChildren<TMP_Text>(true);
+        SetCardButton("Home  <size=75%>(A)</size>");
+    }
+
+    private TMP_Text cardButtonLabel;
+
+    private void SetCardButton(string text)
+    {
+        if (cardButtonLabel != null)
+            cardButtonLabel.text = text;
+    }
+
+    /// The card's one button: on to a Test's next innings, or home.
+    private void OnCardButton()
+    {
+        if (betweenInnings)
+            ContinueTest();
+        else
+            GoHome();
     }
 }

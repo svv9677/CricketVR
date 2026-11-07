@@ -57,6 +57,15 @@ public class MatchResultScreen : MenuScreen
 
     private void Final(MatchHistory.Record r)
     {
+        if (r.test)
+        {
+            // A Test: every innings, and won, lost, tied or drawn.
+            Set(heading, r.Won ? $"<color={Good}>YOU WON</color>" : r.tied ? $"<color={Blue}>MATCH TIED</color>"
+                       : r.drawn ? $"<color={Blue}>MATCH DRAWN</color>" : $"<color={Bad}>MATCH LOST</color>");
+            Set(score, $"<size=60%>{r.summary}</size>");
+            Set(result, r.result);
+            return;
+        }
         Set(heading, r.Won ? $"<color={Good}>YOU WON</color>" : r.tied ? $"<color={Blue}>MATCH TIED</color>"
                    : r.hasAI || r.target > 0 ? $"<color={Bad}>MATCH LOST</color>" : "INNINGS COMPLETE");
         Set(score, YourScore(r) + (r.hasAI && r.aiChased ? $"<size=55%>  <color={Muted}>v</color> AI {r.AIScore} <color={Muted}>({r.AIOversText})</color></size>" : ""));
@@ -112,7 +121,8 @@ public class MatchResultScreen : MenuScreen
         for (int i = 1; i < all.Count && i <= HistoryLines; i++)
         {
             MatchHistory.Record h = all[i];
-            string tag = h.Won ? $"<color={Good}>W</color>" : h.tied ? $"<color={Blue}>T</color>" : h.hasAI || h.target > 0 ? $"<color={Bad}>L</color>" : "-";
+            string tag = h.Won ? $"<color={Good}>W</color>" : h.tied ? $"<color={Blue}>T</color>" : h.drawn ? $"<color={Blue}>D</color>"
+                       : h.hasAI || h.target > 0 || h.test ? $"<color={Bad}>L</color>" : "-";
             sb.Append(i == 1 ? $"<color={Muted}>Earlier</color>\n" : "").Append(tag).Append("  ").Append(MatchHistory.Line(h)).Append('\n');
         }
         return sb.ToString().TrimEnd();

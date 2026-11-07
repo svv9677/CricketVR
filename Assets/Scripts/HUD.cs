@@ -507,7 +507,9 @@ public partial class HUD : MonoBehaviour
         txtBatsman2.text = CurrentRunner.Name;
         txtBatsman2Score.text = RunsAndBalls(CurrentRunner);
 
-        txtOvers.text = $"{Overs}.{Balls}<size=60%><color=#98A2B3> / {TotalOvers} ov</color></size>";
+        // A Test innings has no limit to show (FormatRules).
+        txtOvers.text = FormatRules.IsTest(TotalOvers) ? $"{Overs}.{Balls}<size=60%><color=#98A2B3> ov</color></size>"
+                                                       : $"{Overs}.{Balls}<size=60%><color=#98A2B3> / {TotalOvers} ov</color></size>";
         txtBowler.text = CurrentBowler.Name;
         // How he bowls and his figures - the captain's plan was more than a scoreboard should say.
         txtBowlerStyle.text = $"<color=#98A2B3>{BowlerRepertoire.KindName(CurrentBowler.Kind)}</color>   {Figures(CurrentBowler)}";

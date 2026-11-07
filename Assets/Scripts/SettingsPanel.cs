@@ -188,7 +188,7 @@ public partial class SettingsPanel : MonoBehaviour
         SetSlider(fielderSpeedSlider, GameSettings.FielderSpeed, $"{GameSettings.FielderSpeed:0.0}×");
         if (overlayToggle != null)
             overlayToggle.SetIsOnWithoutNotify(GameSettings.OverlayVisible);
-        SetText(oversLabel, GameSettings.Overs == 1 ? "1 over" : $"{GameSettings.Overs} overs");
+        SetText(oversLabel, MatchFormat.Label());
         if (bowlerArm != null)
             bowlerArm.SetValueWithoutNotify((int)BowlerArm.Setting);
         SetSlider(cameraHeightSlider, GameSettings.CameraHeight, $"{GameSettings.CameraHeight * 100f:+0;-0;0} cm");
@@ -363,8 +363,8 @@ public partial class SettingsPanel : MonoBehaviour
 
     public void OnFielderSpeed(float v) => GameSettings.FielderSpeed = Mathf.Round(v * 10f) / 10f;
 
-    public void OnFewerOvers() { GameSettings.Overs--; Refresh(); }
-    public void OnMoreOvers() { GameSettings.Overs++; Refresh(); }
+    public void OnFewerOvers() { MatchFormat.Previous(); Refresh(); }
+    public void OnMoreOvers() { MatchFormat.Next(); Refresh(); }
 
     /// This session only (not saved): whole centimetres.
     public void OnCameraHeight(float v)

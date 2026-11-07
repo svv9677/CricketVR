@@ -23,6 +23,9 @@ public static class MatchHistory
         public List<int> aiOverRuns = new List<int>(), aiOverWickets = new List<int>();
         /// Set when the result is decided (older records: from the chase alone).
         public bool won, tied;
+        /// A Test (MatchFlowTest): drawn, and every innings ("You 245 & 180   AI 312 & 114/4").
+        public bool test, drawn;
+        public string summary;
 
         public string Score => $"{runs}/{wickets}";
         public string OversText => $"{balls / 6}.{balls % 6}";
