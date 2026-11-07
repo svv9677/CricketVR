@@ -196,6 +196,17 @@ public class PartnerBatter : MonoBehaviour
         Settle();
     }
 
+    /// The side he last took at the non-striker's end (EndPose.NonStrikerSide).
+    private float standingSide = -1f;
+
+    /// A bowler of the other arm has come on: backing up, he crosses to the other side of the
+    /// stumps, out of the new run-up (between balls only).
+    public void KeepNonStrikerSide()
+    {
+        if (Ready && !OnStrike && !playing && standingSide != EndPose.NonStrikerSide)
+            StandAtNonStriker();
+    }
+
     /// At the non-striker's end: backing up, bat grounded, standing still, out of the bowler's way.
     public void StandAtNonStriker()
     {
@@ -203,6 +214,7 @@ public class PartnerBatter : MonoBehaviour
         if (!Ready)
             return;
         Quaternion facing = PartnerStance.NonStrikerFacing;
+        standingSide = EndPose.NonStrikerSide;
         transform.SetPositionAndRotation(new Vector3(PartnerStance.NonStrikerX, 0f, PartnerStance.NonStrikerZ), facing);
         body.Configure(PartnerBatterBody.Hold.RightHandOnTop, true, 0f, facing, facing);
         rest = PartnerStance.NonStriker(Grip, body.StandingHipsY);
@@ -256,6 +268,11 @@ public class PartnerBatter : MonoBehaviour
     {
         if (!Ready)
             return;
+        // Backing up between balls: across to the other side of the stumps if a bowler of the
+        // other arm has come on (EndPose.NonStrikerSide), out of his run-up.
+        Main m = Main.Instance;
+        if (!OnStrike && m != null && (m.gameState == eGameState.InGame_Ready || m.gameState == eGameState.InGame_ResetToReadyLoop))
+            KeepNonStrikerSide();
         SwingPose target = rest;
         if (playing)
         {

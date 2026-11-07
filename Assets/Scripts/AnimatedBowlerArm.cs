@@ -42,6 +42,9 @@ public partial class AnimatedBowler
             ? HUD.Instance.Bowlers[index] : null;
         if (changed && b != null)
             spellLeft = !spellLeft;
+        // The non-striker's side for this bowler (EndPose): away from his run-up.
+        if (b != null)
+            EndPose.SetBowlerArm(WillBowlLeftArm(b));
     }
     private Transform rightHand, leftHand;
     private Vector3 handLocal;
@@ -72,6 +75,7 @@ public partial class AnimatedBowler
     public void SetArm(bool left)
     {
         LeftArm = left;
+        EndPose.SetBowlerArm(left);
         if (baseBowlerInfo == null)
             baseBowlerInfo = currentBowlerInfo;
         if (baseBowlerInfo != null)

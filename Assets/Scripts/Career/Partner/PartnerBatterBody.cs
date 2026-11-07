@@ -286,9 +286,10 @@ public static class PartnerStance
     // ---- Backing up (non-striker's end) ------------------------------------------------------
     /// Just inside the bowler's popping crease (it is 1.22 in front of the stumps)...
     public const float NonStrikerX = BallDelivery.BowlerStumpsX + 1.05f;
-    /// ...on the -z side whichever hand: every bowler runs in on +z (AnimatedBowler), so this is
-    /// out of his path; the career player's own spot is EndPose.NonStrikerHeadXZ (z -1.6).
-    public const float NonStrikerZ = -1.3f;
+    /// ...on the side away from the bowler's run-up, whichever hand he bats (EndPose.NonStrikerSide:
+    /// -z for a right-armer, +z for a left-armer); the career player's own spot is
+    /// EndPose.NonStrikerHeadXZ (1.6 out).
+    public static float NonStrikerZ => 1.3f * EndPose.NonStrikerSide;
     /// His feet this far either side of the middle.
     public const float NonStrikerFeet = 0.14f;
     /// The bat grounded this far in front of him (its toe still behind the popping crease, 0.17
@@ -410,7 +411,9 @@ public static class PartnerStance
     /// on the top of the handle. The same for either hand (he is out of the bowler's way on -z).
     public static SwingPose NonStriker(in BatGrip g, float standingHipsY)
     {
-        Vector3 right = NonStrikerFacing * Vector3.right;    // -z: away from the pitch
+        Vector3 right = NonStrikerFacing * Vector3.right;    // his right: -z
+        // The bat out away from the pitch: at his right on -z, his left when he stands on +z.
+        Vector3 outward = right * -EndPose.NonStrikerSide;
         float l = NonStrikerBatLean * Mathf.Deg2Rad;
         Vector3 axis = new Vector3(-Mathf.Sin(l), Mathf.Cos(l), 0f);
         var p = new SwingPose
@@ -421,7 +424,7 @@ public static class PartnerStance
             rightFoot = new Vector3(NonStrikerX, AnkleHeight, NonStrikerZ) + right * NonStrikerFeet,
             look = LookAtStriker,
         };
-        Vector3 toe = new Vector3(NonStrikerX + NonStrikerBatAhead, BatToeHeight, NonStrikerZ) + right * NonStrikerBatOut;
+        Vector3 toe = new Vector3(NonStrikerX + NonStrikerBatAhead, BatToeHeight, NonStrikerZ) + outward * NonStrikerBatOut;
         HoldBat(ref p, g, toe, axis, Vector3.right);
         p.bottomHand = p.topHand;
         return p;

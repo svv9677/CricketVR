@@ -108,11 +108,14 @@ public class NonStrikerView : MonoBehaviour
         // per-frame check between balls tries again once it closes.
         if (PanelOpen())
             return;
-        if (PartnerWatch.Live != PlayerEnd.NonStriker)
-            StartCoroutine(Blink());
+        if (PartnerWatch.Live != PlayerEnd.NonStriker || (PlayerEnd.NonStriker && placedSide != EndPose.NonStrikerSide))
+            StartCoroutine(Blink());   // the other end, or the other side of it for a new bowler's arm
         else
             SyncPartner();
     }
+
+    /// The side of the stumps he was last put at the non-striker's end (EndPose.NonStrikerSide).
+    private float placedSide = -1f;
 
     // ---- The blink -------------------------------------------------------------------------------
 
@@ -154,6 +157,7 @@ public class NonStrikerView : MonoBehaviour
             rig = FindFirstObjectByType<XRRigSetup>();
         if (rig != null)
             rig.PlaceAtEnd(nonStriker);
+        placedSide = EndPose.NonStrikerSide;
         Bat.ContactSuspended = nonStriker;
         SyncPartner();
     }
@@ -162,8 +166,13 @@ public class NonStrikerView : MonoBehaviour
     private static void SyncPartner()
     {
         PartnerBatter partner = PartnerBatter.Instance;
-        if (partner == null || !partner.Ready || partner.OnStrike == PlayerEnd.NonStriker)
+        if (partner == null || !partner.Ready)
             return;
+        if (partner.OnStrike == PlayerEnd.NonStriker)
+        {
+            partner.KeepNonStrikerSide();
+            return;
+        }
         if (PlayerEnd.NonStriker)
             partner.TakeStrike();
         else
