@@ -14,7 +14,9 @@ using static ClubMeshKit;
 public static class ClubScoreboardBoard
 {
     /// The plate's bottom edge above the ground, and the weatherboard left above the frame.
-    public const float PlateBottom = 0.5f, AboveFrame = 0.2f, FrameBorder = 0.1f;
+    /// Raised (2026-11-06: "too far away and some of it is obscured"): at 0.5 m the fence, the
+    /// benches and the fielders hid its lower bands from the crease; at 2.6 m all of it clears them.
+    public const float PlateBottom = 2.6f, AboveFrame = 0.2f, FrameBorder = 0.1f;
     public static float PlateTop => PlateBottom + ClubScoreboardLayout.Height;
     /// The hut's walls: the frame's top, then a band of weatherboard under the eaves.
     public static float WallHeight => PlateTop + FrameBorder + AboveFrame;
