@@ -263,7 +263,7 @@ public class MatchSounds : MonoBehaviour
         if (p.x < BallDelivery.BatsmanStumpsX - 0.5f) return;
         oohDone = true;
         bool close = Mathf.Abs(p.z) < 0.4f && p.y < 1.3f;
-        float ooh = VenueRules.OohVolume(MatchVenue.Current);     // none from a few on the benches
+        float ooh = VenueRules.OohVolume(MatchVenue.Current, MatchSetup.Crowd);     // none from a few on the benches
         if (close && !main.theBallScript.wide && Random.value < 0.65f && ooh > 0f)
             GameSfx.Play2D("crowd_ooh", GameAudio.Channel.Crowd, ooh, Random.Range(0.97f, 1.04f));
     }
