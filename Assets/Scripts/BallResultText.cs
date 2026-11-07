@@ -133,7 +133,18 @@ public class BallResultText : MonoBehaviour
                 break;
             case UmpireSignal.None:
                 // Runs off the bat: a small figure, and nothing at all for a dot.
-                if (outcome.Label == "0") { showing = false; hiddenAt = Time.time; return; }
+                if (outcome.Label == "0")
+                {
+                    // Only a result still up fades; one already gone stays gone. Restarting the fade
+                    // on a hidden one brought the last ball's "2" back to fade out again after a dot
+                    // (2026-11-06).
+                    if (showing)
+                    {
+                        showing = false;
+                        hiddenAt = Time.time;
+                    }
+                    return;
+                }
                 size = RunsScale;
                 break;
         }
