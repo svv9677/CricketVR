@@ -383,7 +383,8 @@ public class BowlerGrip : MonoBehaviour
         Frame(out Vector3 fwd, out Vector3 palm, out Vector3 side);
         Vector3 travel = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
         BowlingParams p = inst.currentBowlingConfig;
-        float turn = p != null ? p.Effects(inst.BattingStyle == eBattingStyle.LeftHanded ? -1f : 1f).turnDegrees : 0f;
+        float off = (inst.BattingStyle == eBattingStyle.LeftHanded ? -1f : 1f) * (p != null ? BowlerArm.EffectSign(p.swingType, bowler.LeftArm) : 1f);
+        float turn = p != null ? p.Effects(off).turnDegrees : 0f;
         releaseSpin = BowlerGrips.Spin(grip, travel, SeamAxisWorld(fwd, palm, side), turn);
         ballVisual.Release(releaseSpin);
     }

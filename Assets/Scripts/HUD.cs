@@ -512,7 +512,8 @@ public partial class HUD : MonoBehaviour
                                                        : $"{Overs}.{Balls}<size=60%><color=#98A2B3> / {TotalOvers} ov</color></size>";
         txtBowler.text = CurrentBowler.Name;
         // How he bowls and his figures - the captain's plan was more than a scoreboard should say.
-        txtBowlerStyle.text = $"<color=#98A2B3>{BowlerRepertoire.KindName(CurrentBowler.Kind)}</color>   {Figures(CurrentBowler)}";
+        bool leftArm = AnimatedBowler.Instance != null && AnimatedBowler.Instance.WillBowlLeftArm(CurrentBowler);
+        txtBowlerStyle.text = $"<color=#98A2B3>{BowlerArm.KindName(CurrentBowler.Kind, leftArm)}</color>   {Figures(CurrentBowler)}";
 
         if (ShotCard.Instance != null)
             ShotCard.Instance.SetScore(Runs, Wickets, Overs, Balls, BowledBalls);

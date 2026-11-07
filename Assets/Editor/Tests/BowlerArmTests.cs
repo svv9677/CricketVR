@@ -9,40 +9,40 @@ using UnityEngine;
 public class BowlerArmTests
 {
     [Test]
-    public void OnlyPaceBowlersBowlLeftArm()
+    public void ASideHasAsManyLeftArmersAsRightArmers()
     {
-        Assert.IsTrue(BowlerArm.CanBeLeftArm(eBowlerKind.Fast));
-        Assert.IsTrue(BowlerArm.CanBeLeftArm(eBowlerKind.Medium));
-        foreach (eBowlerKind k in new[] { eBowlerKind.OffSpin, eBowlerKind.LegSpin, eBowlerKind.Mystery })
+        foreach (string first in new[] { "Bumrah", "Pranav", "Starc", "" })
         {
-            Assert.IsFalse(BowlerArm.CanBeLeftArm(k), k.ToString());
-            Assert.IsFalse(BowlerArm.Decide(k, "Spinner", BowlerArm.eSetting.Left, true, true), k + ": even set to left-arm");
-            for (int i = 0; i < 50; i++)
-                Assert.IsFalse(BowlerArm.IsLeftArm("Bowler " + i, k));
+            int left = 0;
+            for (int i = 0; i < 8; i++)
+                if (BowlerArm.IsLeftArm(i, first)) left++;
+            Assert.AreEqual(4, left, first);
+            Assert.AreNotEqual(BowlerArm.IsLeftArm(0, first), BowlerArm.IsLeftArm(1, first), "every other one");
         }
-    }
-
-    [Test]
-    public void AMatchBowlerKeepsHisArmAndAboutAThirdAreLeftArm()
-    {
-        Assert.AreEqual(BowlerArm.IsLeftArm("Bhuvneshwar", eBowlerKind.Medium), BowlerArm.IsLeftArm("Bhuvneshwar", eBowlerKind.Medium));
-        Assert.IsTrue(BowlerArm.IsLeftArm("Bhuvneshwar", eBowlerKind.Medium), "the quick match has a left-armer");
-        int left = 0;
-        for (int i = 0; i < 300; i++)
-            if (BowlerArm.IsLeftArm("Seamer " + i, eBowlerKind.Fast))
-                left++;
-        Assert.That(left, Is.InRange(70, 130), "about one in three");
+        Assert.IsFalse(BowlerArm.IsLeftArm(-1, "Bumrah"), "not in the side");
     }
 
     [Test]
     public void TheSettingDecidesAndBothFollowsTheBowlerOrTheSpell()
     {
-        Assert.IsFalse(BowlerArm.Decide(eBowlerKind.Fast, "Bhuvneshwar", BowlerArm.eSetting.Right, false, true));
-        Assert.IsTrue(BowlerArm.Decide(eBowlerKind.Fast, "Bumrah", BowlerArm.eSetting.Left, false, false));
-        Assert.IsTrue(BowlerArm.Decide(eBowlerKind.Medium, "Bhuvneshwar", BowlerArm.eSetting.Both, false, false), "his own arm in a match");
-        Assert.IsFalse(BowlerArm.Decide(eBowlerKind.Fast, "Bumrah", BowlerArm.eSetting.Both, false, true));
-        Assert.IsTrue(BowlerArm.Decide(eBowlerKind.Fast, "Bumrah", BowlerArm.eSetting.Both, true, true), "the nets: the spell's arm");
-        Assert.IsFalse(BowlerArm.Decide(eBowlerKind.Fast, "Bhuvneshwar", BowlerArm.eSetting.Both, true, false));
+        Assert.IsFalse(BowlerArm.Decide(BowlerArm.eSetting.Right, false, true, true));
+        Assert.IsTrue(BowlerArm.Decide(BowlerArm.eSetting.Left, true, false, false), "spinners too");
+        Assert.IsTrue(BowlerArm.Decide(BowlerArm.eSetting.Both, false, false, true), "his own arm in a match");
+        Assert.IsFalse(BowlerArm.Decide(BowlerArm.eSetting.Both, false, true, false));
+        Assert.IsTrue(BowlerArm.Decide(BowlerArm.eSetting.Both, true, true, false), "the nets: the spell's arm");
+    }
+
+    [Test]
+    public void ALeftArmSpinnerTurnsItTheOtherWay()
+    {
+        Assert.AreEqual(-1f, BowlerArm.EffectSign(eSwingType.OffSpin, true), "left-arm orthodox: away from the right-hander");
+        Assert.AreEqual(-1f, BowlerArm.EffectSign(eSwingType.LegSpin, true));
+        Assert.AreEqual(1f, BowlerArm.EffectSign(eSwingType.OffSpin, false));
+        Assert.AreEqual(1f, BowlerArm.EffectSign(eSwingType.OutSwing, true), "pace: judged against the batter");
+        Assert.AreEqual(1f, BowlerArm.EffectSign(eSwingType.Pace, true));
+        Assert.AreEqual("Left-arm orthodox", BowlerArm.KindName(eBowlerKind.OffSpin, true));
+        Assert.AreEqual("Left-arm fast", BowlerArm.KindName(eBowlerKind.Fast, true));
+        Assert.AreEqual(BowlerRepertoire.KindName(eBowlerKind.LegSpin), BowlerArm.KindName(eBowlerKind.LegSpin, false));
     }
 
     [Test]
@@ -71,12 +71,12 @@ public class BowlerArmTests
     }
 
     [Test]
-    public void ALeftArmersRunUpEndsOnTheMirrorOfARightArmers()
+    public void ALeftArmersRunUpEndsOnTheMirrorOfARightArmersAndClearOfTheStumps()
     {
         Vector3 quick = AnimatedBowler.RunUpEnd(new Vector3(-23f, 0f, -2.32f));
         Assert.AreEqual(-0.90f, quick.z, 0.01f, "the quick's mark: the right-armer let go at z 0.90");
         Vector3 medium = AnimatedBowler.RunUpEnd(new Vector3(-23f, 0f, -2.02f));
-        Assert.AreEqual(-0.35f, medium.z, 0.01f, "the medium-pacer's: at about 0.35");
+        Assert.LessOrEqual(medium.z, -AnimatedBowler.LeftClear + 1e-4f, "never on the stumps");
         Assert.Less(AnimatedBowler.RunUpEnd(new Vector3(-23f, 0f, 2.32f)).z * quick.z, 0f, "mirrored, the other side");
     }
 }

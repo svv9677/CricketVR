@@ -234,7 +234,9 @@ public partial class Main
         float offSign = battingStyle == eBattingStyle.LeftHanded ? -1f : 1f;
         float speedMps = currentBowlingConfig.speedX / Constants.ConfigImpulseMass;
         float targetLine = offSign * currentBowlingConfig.speedZ;
-        BallFlight.DeliveryEffects effects = currentBowlingConfig.Effects(offSign);
+        // A left-arm spinner's turn and drift are his fingers' mirror image (BowlerArm.EffectSign).
+        bool leftArm = bowler != null && bowler.LeftArm;
+        BallFlight.DeliveryEffects effects = currentBowlingConfig.Effects(offSign * BowlerArm.EffectSign(currentBowlingConfig.swingType, leftArm));
         theBallScript.deliveryEffects = effects;
         BallDelivery.Solution delivery = BallDelivery.Solve(
             releaseFrom, currentBowlingConfig.length, speedMps, targetLine, effects,

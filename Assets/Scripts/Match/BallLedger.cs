@@ -161,6 +161,7 @@ public class BallLedger : MonoBehaviour
             level = (int)MatchSetup.Bowling,
             shield = (int)main.Difficulty,
             bowlerKind = cfg != null ? cfg.kind : eBowlerKind.Fast,
+            leftArm = AnimatedBowler.Instance != null && AnimatedBowler.Instance.LeftArm,
             delivery = cfg != null ? cfg.delivery : eDelivery.Stock,
             lengthBand = cfg != null ? cfg.lengthBand : eLengthBand.GoodLength,
         };

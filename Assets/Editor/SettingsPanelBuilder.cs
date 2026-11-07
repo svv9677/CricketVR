@@ -90,7 +90,7 @@ public static class SettingsPanelBuilder
         c.bowler = UIControls.Segmented(bowler, labels, c.OnBowler);
         // Which arm the pace bowlers bowl with (BowlerArm), from the next ball.
         Transform arm = Group(bowling);
-        Label(arm, "Arm (pace bowlers)");
+        Label(arm, "Bowler's arm");
         c.bowlerArm = UIControls.Segmented(arm, new[] { "Both", "Right", "Left" }, c.OnBowlerArm);
         c.speedRange = UIControls.Range(bowling, "Speed", 60f, 165f, 1f, c.OnSpeedRange);
         c.swingRange = UIControls.Range(bowling, "Swing", 0f, 1f, 0.05f, c.OnSwingRange);

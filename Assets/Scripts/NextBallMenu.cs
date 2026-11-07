@@ -95,9 +95,10 @@ public class NextBallMenu : MonoBehaviour
         shownNewOver = newOver;
         shownFreeHit = freeHit;
         shownPartner = partner;
-        string type = BowlerRepertoire.KindName(shownBowler.Kind);
+        bool leftArm = AnimatedBowler.Instance != null && AnimatedBowler.Instance.WillBowlLeftArm(shownBowler);
+        string type = BowlerArm.KindName(shownBowler.Kind, leftArm);
         // Over the wicket, right- or left-arm (AnimatedBowlerArm: the arm he will bowl with).
-        string arm = AnimatedBowler.Instance != null && AnimatedBowler.Instance.WillBowlLeftArm(shownBowler) ? "left" : "right";
+        string arm = leftArm ? "left" : "right";
         bowlerLabel.text = $"{shownBowler.Name}\n<size=62%><color=#98A2B3>{type}{(newOver ? $"  ·  {arm}-arm over" : "")}</color></size>";
         if (header != null)
             header.text = !freeHit && ModeMenus.IsNets(ModeMenus.Current) ? ModeMenus.NetsHeading(ModeMenus.Current)

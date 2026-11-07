@@ -36,6 +36,8 @@ public class BallRecord
 
     // ---- The delivery
     public eBowlerKind bowlerKind;
+    /// Bowled left-arm (a left-arm spinner turns it the other way: DrillScoring.TurnSide).
+    public bool leftArm;
     public eDelivery delivery;
     public eLengthBand lengthBand;
     public float speedKph;

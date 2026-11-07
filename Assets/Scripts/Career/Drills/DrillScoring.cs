@@ -193,7 +193,7 @@ public static class DrillScoring
         if (Clean(r))
         {
             bool sweep = r.contactHeight < SweepHeight && r.shotAngle >= SweepFrom && r.shotAngle <= SweepTo;
-            int turn = TurnSide(r.bowlerKind, r.delivery);
+            int turn = TurnSide(r.bowlerKind, r.delivery) * (r.leftArm ? -1 : 1);   // a left-armer's turns the other way
             bool withTurn = (turn != 0 ? Mathf.Sign(r.shotAngle) == turn && r.shotAngle != 0f : Mathf.Abs(r.shotAngle) < StraightOn)
                             || Runs(r) >= 4;
             float v = 0.6f + (feet || sweep ? 0.2f : 0f) + (withTurn ? 0.2f : 0f);

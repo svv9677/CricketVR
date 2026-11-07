@@ -336,7 +336,7 @@ public partial class SettingsPanel : MonoBehaviour
         M.ApplyTweaks();
     }
 
-    /// Which arm the pace bowlers bowl with (BowlerArm): from the next ball.
+    /// Which arm the bowlers bowl with, pace and spin (BowlerArm): from the next ball.
     public void OnBowlerArm(int index)
     {
         BowlerArm.Setting = (BowlerArm.eSetting)Mathf.Clamp(index, 0, 2);

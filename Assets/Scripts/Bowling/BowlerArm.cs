@@ -1,23 +1,19 @@
 using UnityEngine;
 
 /// <summary>
-/// Which arm a bowler bowls with (2026-11-06: "add left handed bowling please, just have to flip
-/// the animation or flip the person"). A left-armer is the right-arm bowler mirrored across the
-/// pitch: his animation plays mirrored (the humanoid Mirror on every bowling state), his mark is
-/// on the other side of the stumps (over the wicket for a left-armer: z < 0), and the ball rides
-/// his left hand, so it is released from that side and comes in at the angle a left-armer's does.
-/// Where the ball goes - its line, swing and length - is still the delivery's, judged against the
-/// batter, so an outswinger still leaves a right-hander.
+/// Which arm a bowler bowls with. A left-armer is the right-armer's world mirror image across the
+/// pitch (AnimatedBowlerArm: the humanoid's mirrored action, his mark on the other side, the ball in
+/// his left hand). The line, length and swing of a pace ball are still the delivery's, judged
+/// against the batter - an outswinger leaves a right-hander whoever bowls it - but a spinner's turn
+/// and drift are his fingers': a left-arm finger spinner's stock ball turns away from the
+/// right-hander (left-arm orthodox), a left-arm wrist spinner's into him (EffectSign).
 ///
-/// Pace only. A left-arm spinner's stock ball turns the other way to a right-armer's of the same
-/// kind (left-arm orthodox spins like a leg-break), and the repertoire, the drills' "with the turn"
-/// and the delivery names are all written for right-arm spin.
-///
-/// Which arm bowls is the player's choice (Settings > Bowling > Arm: Both, Right, Left; 2026-11-06:
-/// "i cant change bowler arm in settings"), in quick play and the free nets. With Both, a match
-/// bowler keeps his arm (from his name, so a side always has the same left-armers), and in the
-/// nets each change of pace bowler swaps the arm - Change bowler gives a left-armer every other
-/// time (it was a hidden 35% chance a ball). A career is always Both: its sides are its own.
+/// As many left-armers as right-armers, pace and spin alike (2026-11-06: "just as many lefty
+/// bowlers as there are righty bowlers... it should also be there for spin"). Which arm bowls is
+/// the player's choice (Settings > Bowling > Arm: Both, Right, Left) in quick play and the free
+/// nets. With Both, a match bowler keeps his arm (every other bowler in the side, IsLeftArm), and
+/// in the nets each change of bowler swaps it, so Change bowler gives a
+/// left-armer every other time. A career is always Both: its sides are its own.
 /// </summary>
 public static class BowlerArm
 {
@@ -39,27 +35,41 @@ public static class BowlerArm
     /// Every ball from this arm while set (tests, and checking a left-armer in the editor).
     public static bool? Force;
 
-    public static bool CanBeLeftArm(eBowlerKind k) => k == eBowlerKind.Fast || k == eBowlerKind.Medium;
+    /// A match bowler's arm by his place in the attack: every other one left-arm, so a side has as
+    /// many left-armers as right-armers (by name alone, 7 of the quick match's 8 came out left).
+    /// Which half is the side's own (its first bowler's name), so sides differ.
+    public static bool IsLeftArm(int index, string firstBowler) =>
+        index >= 0 && ((index + (int)(Hash(firstBowler ?? "") & 1u)) & 1) == 1;
 
-    /// A match bowler's arm: about one pace bowler in three, fixed by his name.
-    public static bool IsLeftArm(string name, eBowlerKind kind)
+    /// The batter's off-side sign as a delivery's turn and drift should see it (BowlingParams.Effects):
+    /// a left-arm spinner's are his fingers' mirror image; pace is judged against the batter alone.
+    public static float EffectSign(eSwingType family, bool leftArm) =>
+        leftArm && (family == eSwingType.OffSpin || family == eSwingType.LegSpin) ? -1f : 1f;
+
+    /// "Left-arm fast", "Left-arm orthodox", "Left-arm wrist spin"; a right-armer's plain kind.
+    public static string KindName(eBowlerKind k, bool leftArm)
     {
-        if (!CanBeLeftArm(kind) || string.IsNullOrEmpty(name))
-            return false;
-        return Hash(name) % 3u == 1u;
+        if (!leftArm)
+            return BowlerRepertoire.KindName(k);
+        switch (k)
+        {
+            case eBowlerKind.Fast: return "Left-arm fast";
+            case eBowlerKind.Medium: return "Left-arm medium";
+            case eBowlerKind.OffSpin: return "Left-arm orthodox";
+            case eBowlerKind.LegSpin: return "Left-arm wrist spin";
+            default: return "Left-arm mystery";
+        }
     }
 
-    /// This ball's arm: spinners always right-arm; otherwise the setting, and with Both the
-    /// bowler's own in a match or the spell's in the nets (`spellLeft`, swapped each change).
-    public static bool Decide(eBowlerKind kind, string name, eSetting setting, bool nets, bool spellLeft)
+    /// This ball's arm: the setting, and with Both the bowler's own in a match (`matchLeft`,
+    /// IsLeftArm) or the spell's in the nets (`spellLeft`, swapped each change).
+    public static bool Decide(eSetting setting, bool nets, bool spellLeft, bool matchLeft)
     {
-        if (!CanBeLeftArm(kind))
-            return false;
         switch (setting)
         {
             case eSetting.Right: return false;
             case eSetting.Left: return true;
-            default: return nets ? spellLeft : IsLeftArm(name, kind);
+            default: return nets ? spellLeft : matchLeft;
         }
     }
 

@@ -15,8 +15,8 @@ using UnityEngine;
 /// Its catch is the run-up: the mirrored clip's root motion turns him the wrong way and carries
 /// him further (traced: yaw about 105 deg against a right-armer's 98, out to z -5.6, and 13% more
 /// ground). So until he lets go he is steered (OnAnimatorMove): toward the mirror of where a
-/// right-armer from the same mark lets go (RunUpEnd), covering the clip's stride scaled to a
-/// right-armer's ground (StrideScale), facing that way with the clip's sway mirrored about it.
+/// right-armer from the same mark lets go (RunUpEnd), on the clip's own strides from a mark set back
+/// for the extra ground (MirrorMark), turning smoothly onto his line.
 /// After the release the clip moves him, its turns mirrored.
 /// </summary>
 public partial class AnimatedBowler
@@ -40,7 +40,7 @@ public partial class AnimatedBowler
         lastBowlerIndex = index;
         Bowler b = HUD.Instance != null && HUD.Instance.Bowlers != null && index >= 0 && index < HUD.Instance.Bowlers.Count
             ? HUD.Instance.Bowlers[index] : null;
-        if (changed && b != null && BowlerArm.CanBeLeftArm(b.Kind))
+        if (changed && b != null)
             spellLeft = !spellLeft;
     }
     private Transform rightHand, leftHand;
@@ -50,7 +50,6 @@ public partial class AnimatedBowler
     /// the nets - and his mark, action and hand to go with it.
     private void ChooseArm()
     {
-        ResetSway();
         // A career's sides are its own: the player's choice is for quick play and the free nets.
         SetArm(WillBowlLeftArm(HUD.Instance != null ? HUD.Instance.CurrentBowler : null));
     }
@@ -64,7 +63,10 @@ public partial class AnimatedBowler
         bool nets = gameObject.scene.name == NetsSession.NetsScene;
         bool career = CareerMatchSession.Active || NetsSession.Career;
         BowlerArm.eSetting setting = career ? BowlerArm.eSetting.Both : BowlerArm.Setting;
-        return BowlerArm.Force ?? BowlerArm.Decide(b.Kind, b.Name, setting, nets, spellLeft);
+        HUD hud = HUD.Instance;
+        int index = hud != null && hud.Bowlers != null ? hud.Bowlers.IndexOf(b) : -1;
+        string first = hud != null && hud.Bowlers != null && hud.Bowlers.Count > 0 ? hud.Bowlers[0].Name : "";
+        return BowlerArm.Force ?? BowlerArm.Decide(setting, nets, spellLeft, BowlerArm.IsLeftArm(index, first));
     }
 
     public void SetArm(bool left)
@@ -78,7 +80,6 @@ public partial class AnimatedBowler
         MoveHand(left);
     }
 
-    private static AFInfo MirrorMark(AFInfo a) => a == null ? null : a.MirroredCopy();
 
     /// The controller's Mirror to this ball's arm (again after fielding swapped the controller).
     private void ApplyMirror()
@@ -111,27 +112,35 @@ public partial class AnimatedBowler
 
     // ---- The left-armer's run-up ------------------------------------------------------------------
 
-    /// Where a right-armer's root is as he lets go, from his mark (traced 2026-11-06: the quick's
-    /// mark at z 2.32 lets go at x -9.18, z 0.90 - 1.42 in; the medium-pacer's at 2.02, about
-    /// z 0.35 - 1.67 in); a left-armer's, mirrored. In between by the mark.
-    public const float RunUpIn = 1.42f, RunUpInNarrow = 1.67f, WideMark = 2.32f, NarrowMark = 2.02f;
-    public const float RunUpEndX = -9.18f, MinEndZ = 0.2f;
-    /// The mirrored clip covers this much more ground than the right-arm one (traced: 15.9 m
-    /// against 14.0 from the same mark), so its stride is scaled back by it.
-    public const float StrideScale = 0.88f;
-    /// The clip's sway is measured about its own running mean over about this long (s).
-    private const float SwayWindow = 0.6f;
+    /// Where a right-armer's root is as he lets go, by his mark's width (traced 2026-11-06: the
+    /// quick's mark at z 2.32 lets go at x -9.18, z 0.90). A left-armer is steered to its mirror,
+    /// never nearer the stumps than LeftClear: the medium-pacer's let go over the stumps
+    /// ("he's basically on the stumps"), so his is held out wider than his mark gives.
+    public const float RunUpIn = 1.42f, RunUpEndX = -9.18f, LeftClear = 0.75f;
+    /// The mirrored clips cover more ground than the right-arm ones, by about the same distance
+    /// whatever the run (traced 2026-11-06, the right-armer's run to his release against the
+    /// left-armer's: the quick 14.3 m + 1.6, the medium-pacer 11.0 + 1.6, the spinner 4.5 + 1.9).
+    /// Scaling the stride down to fit made his feet slide ("not as smooth as the righty"); his mark
+    /// is set back by it instead (MirrorMark), so every stride is the clip's own.
+    /// Each 0.1 m more, so his front toe lands where a right-armer's does (traced: 8 cm further over).
+    public const float ExtraGroundPace = 1.7f, ExtraGroundSpin = 2.0f, ShortRun = 6f;
+    /// How fast he turns onto his line (deg/s): smooth, not snapped each frame.
+    private const float SteerTurnRate = 120f;
 
-    private float clipYaw, clipYawMean;
+    public static Vector3 RunUpEnd(Vector3 mark) =>
+        new Vector3(RunUpEndX, 0f, Mathf.Sign(mark.z) * Mathf.Max(LeftClear, Mathf.Abs(mark.z) - RunUpIn));
 
-    public static Vector3 RunUpEnd(Vector3 mark)
+    /// A left-armer's mark: the right-armer's mirrored across the pitch, and set back by the extra
+    /// ground the mirrored run-up covers, so he arrives at the crease on the clip's own strides.
+    private static AFInfo MirrorMark(AFInfo a)
     {
-        float wide = Mathf.Abs(mark.z);
-        float inBy = Mathf.LerpUnclamped(RunUpInNarrow, RunUpIn, (wide - NarrowMark) / (WideMark - NarrowMark));
-        return new Vector3(RunUpEndX, 0f, Mathf.Sign(mark.z) * Mathf.Max(MinEndZ, wide - inBy));
+        if (a == null)
+            return null;
+        AFInfo m = a.MirroredCopy();
+        float run = RunUpEndX - a.startPos.x;
+        m.startPos.x -= run < ShortRun ? ExtraGroundSpin : ExtraGroundPace;
+        return m;
     }
-
-    private void ResetSway() => clipYaw = clipYawMean = 0f;
 
     /// Root motion, applied here: a right-armer, and anyone with it off, exactly as the Animator
     /// would; a left-armer steered until he lets go, then the clip's step with its turn mirrored.
@@ -163,16 +172,13 @@ public partial class AnimatedBowler
 
     private void Steer(Vector3 step, Quaternion turn)
     {
-        clipYaw += Mathf.DeltaAngle(0f, turn.eulerAngles.y);
-        clipYawMean = Mathf.Lerp(clipYawMean, clipYaw, 1f - Mathf.Exp(-Time.deltaTime / SwayWindow));
-        float sway = Mathf.DeltaAngle(clipYawMean, clipYaw);
-        // The stride along his facing (its sideways sway cancels over a run), scaled to a right-armer's ground.
-        float stride = Mathf.Max(0f, (Quaternion.Inverse(transform.rotation) * step).z) * StrideScale;
+        // The clip's own stride along his facing (its sideways sway cancels out over a run).
+        float stride = Mathf.Max(0f, (Quaternion.Inverse(transform.rotation) * step).z);
         Vector3 end = RunUpEnd(currentBowlerInfo.startPos);
         Vector3 to = new Vector3(end.x - transform.position.x, 0f, end.z - transform.position.z);
         Vector3 dir = to.x > 0.05f ? to.normalized : Vector3.right;
         transform.position += dir * stride + Vector3.up * step.y;
-        float heading = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
-        transform.rotation = Quaternion.Euler(0f, heading - sway, 0f);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(dir, Vector3.up),
+                                                      SteerTurnRate * Time.deltaTime);
     }
 }
