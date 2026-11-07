@@ -15,7 +15,8 @@ public class FrontFoot : MonoBehaviour
     private bool shifted, wasCarrying;
     private Transform leftFoot, leftToes;
 
-    /// World X of the front (left) foot's heel and toe at the last release.
+    /// World X of the front (left) foot's heel and toe at the last release. A left-armer is this
+    /// bowler mirrored (BowlerArm), so the same bone is then his right foot - his front foot too.
     public float LastHeelX { get; private set; } = float.NaN;
     public float LastToeX { get; private set; } = float.NaN;
 

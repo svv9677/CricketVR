@@ -55,6 +55,9 @@ public class BowlerGrip : MonoBehaviour
 
     private static readonly string[] FingerNames = { "Thumb", "Index", "Middle", "Ring", "Pinky" };
 
+    /// He bowls left-arm: the whole bowler mirrored, so these right-hand bones show as his left.
+    private bool Mirrored => bowler != null && bowler.LeftArm;
+
     private void Awake()
     {
         animator = GetComponent<Animator>();
@@ -174,7 +177,9 @@ public class BowlerGrip : MonoBehaviour
     {
         fwd = (bones[2, 0].position - hand.position).normalized;
         side = Vector3.ProjectOnPlane(bones[1, 0].position - bones[4, 0].position, fwd).normalized;
-        palm = Vector3.Cross(fwd, side);
+        // A left-armer is this bowler mirrored (BowlerArm): a mirror flips a cross product, so his
+        // palm is the other way round.
+        palm = Mirrored ? Vector3.Cross(side, fwd) : Vector3.Cross(fwd, side);
     }
 
     private Quaternion SeamRotation(Vector3 fwd, Vector3 palm, Vector3 side, float into, float offSign)
@@ -215,7 +220,9 @@ public class BowlerGrip : MonoBehaviour
         Vector3 right = Vector3.Cross(Vector3.up, travel);
         // Swing: the seam angled toward the slips (outswing) or fine leg (inswing). A turn about
         // up by +a takes the seam's line from the batter toward the bowler's right (-off side).
-        float seamTurn = -grip.seamAngle * offSign;
+        // Under a left-armer's mirror every turn of the hand shows mirrored: his own (palm, roll)
+        // should, but the seam's toward the batter's off side must not, so it is turned back.
+        float seamTurn = -grip.seamAngle * offSign * (Mirrored ? -1f : 1f);
         Quaternion q = Quaternion.AngleAxis(seamTurn * w, Vector3.up) *
                        Quaternion.AngleAxis(grip.palmTurn * w, Vector3.up) *
                        Quaternion.AngleAxis(grip.roll * w, travel) *      // + is clockwise from behind: off-break
