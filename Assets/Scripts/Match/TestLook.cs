@@ -11,7 +11,8 @@ using UnityEngine.SceneManagement;
 ///
 /// Quick play's Test only (MatchFormat): the ball's leather red (or pink) with its stitching left
 /// light, the sightscreen white, and every fielder - the bowler and keeper too - in cream whites
-/// (the umpires keep theirs). Built with the match scene; the fielders are dressed as they appear.
+/// (the umpire in a white shirt: Umpire.Dress). Built with the match scene; the fielders are
+/// dressed as they appear. The replay re-copies all of it when it starts (ReplayActors.RefreshLooks).
 /// </summary>
 public class TestLook : MonoBehaviour
 {
@@ -19,13 +20,25 @@ public class TestLook : MonoBehaviour
     /// The colours: whites (a cream, not paper white), a red ball's leather, a pink ball's, the
     /// stitching, and the sightscreen.
     public static readonly Color Whites = new Color(0.93f, 0.92f, 0.86f);
-    public static readonly Color RedLeather = new Color(0.55f, 0.05f, 0.06f);
+    /// Brighter than real leather, and lit from within too (BallGlow): a dark red was lost against
+    /// the crowd (2026-11-07: "the red ball is not that visible... it blends in with the crowd").
+    public static readonly Color RedLeather = new Color(0.78f, 0.05f, 0.05f);
     public static readonly Color PinkLeather = new Color(0.95f, 0.36f, 0.6f);
     public static readonly Color Stitching = new Color(0.95f, 0.93f, 0.86f);
     /// The sightscreen: off-white, not paper white (2026-11-06: "seems a little too white").
     public static readonly Color Screen = new Color(0.76f, 0.76f, 0.73f);
-    /// The ball's trail in a Test: the red ball's.
-    public static readonly Color Trail = new Color(0.75f, 0.08f, 0.08f, 0.6f);
+    /// The ball's trail in a Test: a bright red, nearly opaque at the ball and blended over what is
+    /// behind it, not added to it - added, a red over a bright crowd barely showed (2026-11-07:
+    /// "make it brighter and not so transparent").
+    public static readonly Color Trail = new Color(1f, 0.12f, 0.1f, 0.9f);
+    /// How much the ball lights itself: its own texture, this bright, on top of the light it gets.
+    public const float BallGlow = 0.45f;
+    /// The umpire's shirt in a Test: white, as theirs is (the black was only there to hide nothing
+    /// white behind the white ball). Built with the umpire (Umpire.Dress).
+    public static readonly Color UmpireShirt = new Color(0.95f, 0.95f, 0.93f);
+
+    /// Whether this match is dressed as a Test: quick play's Test only.
+    public static bool Applies => !CareerMatchSession.Active && MatchFormat.IsTest;
     private const float DressForSeconds = 10f;
 
     private readonly HashSet<Renderer> dressed = new HashSet<Renderer>();
@@ -44,7 +57,7 @@ public class TestLook : MonoBehaviour
 
     private static void Build(Scene scene)
     {
-        if (scene.name != MatchScene || CareerMatchSession.Active || !MatchFormat.IsTest || FindFirstObjectByType<TestLook>() != null)
+        if (scene.name != MatchScene || !Applies || FindFirstObjectByType<TestLook>() != null)
             return;
         SceneManager.MoveGameObjectToScene(new GameObject("Test Look", typeof(TestLook)), scene);
     }
@@ -111,28 +124,55 @@ public class TestLook : MonoBehaviour
                 continue;
             dressed.Add(r);
             if (r is TrailRenderer trail)
-            {
-                // The trail follows the ball: red (pink under lights), fading as before.
-                Color c = PinkBall ? PinkLeather : Trail;
-                trail.startColor = new Color(c.r, c.g, c.b, trail.startColor.a);
-                trail.endColor = new Color(c.r, c.g, c.b, trail.endColor.a);
-                var tm = new Material(trail.sharedMaterial) { name = "Test Ball Trail" };
-                if (tm.HasProperty("_BaseColor")) tm.SetColor("_BaseColor", new Color(c.r, c.g, c.b, tm.GetColor("_BaseColor").a));
-                if (tm.HasProperty("_Color")) tm.SetColor("_Color", new Color(c.r, c.g, c.b, tm.GetColor("_Color").a));
-                trail.sharedMaterial = tm;
-                continue;
-            }
-            Material m = new Material(r.sharedMaterial) { name = PinkBall ? "Pink Ball" : "Red Ball" };
-            Texture2D leather = Recolour(m.mainTexture, PinkBall ? PinkLeather : RedLeather);
-            if (leather != null)
-            {
-                m.mainTexture = leather;
-                if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", leather);
-            }
-            else if (m.HasProperty("_BaseColor"))
-                m.SetColor("_BaseColor", PinkBall ? PinkLeather : RedLeather);
-            r.sharedMaterial = m;
+                DressTrail(trail);
+            else
+                r.sharedMaterial = BallMaterial(r.sharedMaterial);
         }
+    }
+
+    /// The trail follows the ball: red (pink under lights), fading to nothing at its tail, alpha
+    /// blended (the white ball's is additive, URP Particles _Blend 2) so it shows over the crowd.
+    private static void DressTrail(TrailRenderer trail)
+    {
+        Color c = PinkBall ? PinkLeather : Trail;
+        trail.startColor = new Color(c.r, c.g, c.b, Trail.a);
+        trail.endColor = new Color(c.r, c.g, c.b, 0f);
+        var tm = new Material(trail.sharedMaterial) { name = "Test Ball Trail" };
+        if (tm.HasProperty("_BaseColor")) tm.SetColor("_BaseColor", new Color(c.r, c.g, c.b, 1f));
+        if (tm.HasProperty("_Color")) tm.SetColor("_Color", new Color(c.r, c.g, c.b, 1f));
+        if (tm.HasProperty("_Blend"))
+        {
+            tm.SetFloat("_Blend", 0f);                                              // Alpha
+            tm.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            tm.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            tm.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        }
+        trail.sharedMaterial = tm;
+    }
+
+    /// The white ball's material as the red (pink) ball: its texture recoloured, and lit from
+    /// within by that texture (URP Lit _EMISSION, the variant the display boards already use).
+    private static Material BallMaterial(Material white)
+    {
+        Color leatherColour = PinkBall ? PinkLeather : RedLeather;
+        Material m = new Material(white) { name = PinkBall ? "Pink Ball" : "Red Ball" };
+        Texture2D leather = Recolour(m.mainTexture, leatherColour);
+        if (leather != null)
+        {
+            m.mainTexture = leather;
+            if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", leather);
+        }
+        else if (m.HasProperty("_BaseColor"))
+            m.SetColor("_BaseColor", leatherColour);
+        if (m.HasProperty("_EmissionColor"))
+        {
+            m.EnableKeyword("_EMISSION");
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            if (leather != null && m.HasProperty("_EmissionMap"))
+                m.SetTexture("_EmissionMap", leather);
+            m.SetColor("_EmissionColor", (leather != null ? Color.white : leatherColour) * BallGlow);
+        }
+        return m;
     }
 
     /// The white ball's texture, recoloured: bright (leather) to `leather`, dark (seam) to the thread.

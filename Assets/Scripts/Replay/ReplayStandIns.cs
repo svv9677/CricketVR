@@ -40,7 +40,8 @@ public static class ReplayStandIns
     /// every renderer under it, copied or not (a trail, a line), for hiding from the replay
     /// camera; `copies` collects the copies.
     public static void CopyRenderers(Transform source, Dictionary<Transform, Transform> map,
-                                     List<Renderer> live, List<Renderer> copies)
+                                     List<Renderer> live, List<Renderer> copies,
+                                     List<KeyValuePair<Renderer, Renderer>> pairs = null)
     {
         foreach (Renderer renderer in source.GetComponentsInChildren<Renderer>())
         {
@@ -53,7 +54,10 @@ public static class ReplayStandIns
                           : renderer is MeshRenderer ? CopyMesh(renderer, target)
                           : null;
             if (copy != null)
+            {
                 copies.Add(copy);
+                pairs?.Add(new KeyValuePair<Renderer, Renderer>(renderer, copy));
+            }
         }
     }
 

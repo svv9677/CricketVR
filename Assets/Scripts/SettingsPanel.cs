@@ -34,6 +34,7 @@ public partial class SettingsPanel : MonoBehaviour
 
     [Header("Batting")]
     public SegmentedControl hand;              // Left, Right
+    public SegmentedControl batController;     // Left, Right: the controller the bat is in
     public SegmentedControl difficultyLevel;   // Easy, Medium, Hard
     public TMP_Text difficultyHint;
 
@@ -182,6 +183,8 @@ public partial class SettingsPanel : MonoBehaviour
         Main m = Main.Instance;
         if (hand != null)
             hand.SetValueWithoutNotify(GameSettings.BattingStyle == eBattingStyle.LeftHanded ? 0 : 1);
+        if (batController != null)
+            batController.SetValueWithoutNotify(GameSettings.BatInLeftHand(m != null ? m.BattingStyle : GameSettings.BattingStyle) ? 0 : 1);
         if (difficultyLevel != null)
             difficultyLevel.SetValueWithoutNotify(Mathf.Clamp((int)GameSettings.Difficulty - 1, 0, 2));
         SetText(difficultyHint, DifficultyHint(GameSettings.Difficulty));
@@ -321,6 +324,13 @@ public partial class SettingsPanel : MonoBehaviour
 
     public void OnHand(int index) =>
         GameSettings.BattingStyle = index == 0 ? eBattingStyle.LeftHanded : eBattingStyle.RightHanded;
+
+    /// Kept in career too: it is which hand holds the bat, not the player's stance.
+    public void OnBatController(int index)
+    {
+        GameSettings.BatController = index == 0 ? GameSettings.LeftController : GameSettings.RightController;
+        Refresh();
+    }
 
     public void OnDifficulty(int index)
     {

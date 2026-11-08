@@ -19,13 +19,13 @@ public sealed class ReplayBallTrail
 
     private readonly LineRenderer line;
     private readonly Vector3[] buffer = new Vector3[Points];
-    private readonly float ballDiameter, trueWidth;
+    private readonly float ballDiameter;
+    private float trueWidth;
 
     public ReplayBallTrail(Main main)
     {
         Renderer live = main != null && main.theBall != null ? main.theBall.GetComponent<MeshRenderer>() : null;
         ballDiameter = live != null ? Mathf.Max(0.02f, live.bounds.size.x) : 0.072f;
-        TrailRenderer liveTrail = main != null && main.theBall != null ? main.theBall.GetComponent<TrailRenderer>() : null;
 
         var go = new GameObject("Replay Ball Trail");
         line = go.AddComponent<LineRenderer>();
@@ -35,13 +35,24 @@ public sealed class ReplayBallTrail
         line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         line.receiveShadows = false;
         line.widthCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);   // thin at the tail
+        CopyLook(main);
+        line.forceRenderingOff = true;
+    }
+
+    /// The live trail's material, colours and width, as they are now: again as each replay starts,
+    /// since a Test turns the live trail red after this was made (TestLook).
+    public void CopyLook(Main main)
+    {
+        TrailRenderer liveTrail = main != null && main.theBall != null ? main.theBall.GetComponent<TrailRenderer>() : null;
         if (liveTrail != null)
         {
+            if (line.sharedMaterial == liveTrail.sharedMaterial && trueWidth > 0f)
+                return;
             line.sharedMaterial = liveTrail.sharedMaterial;
             line.colorGradient = liveTrail.colorGradient;
             trueWidth = Mathf.Max(0.02f, liveTrail.widthMultiplier * liveTrail.widthCurve.Evaluate(0f));
         }
-        else
+        else if (line.sharedMaterial == null)
         {
             line.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
             trueWidth = ballDiameter;
@@ -50,7 +61,6 @@ public sealed class ReplayBallTrail
         Gradient g = line.colorGradient;
         g.SetKeys(g.colorKeys, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 1f) });
         line.colorGradient = g;
-        line.forceRenderingOff = true;
     }
 
     /// The trail up to `time`, from no earlier than `from` (the release), sized for `camera`:

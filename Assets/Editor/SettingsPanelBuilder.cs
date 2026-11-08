@@ -62,7 +62,7 @@ public static class SettingsPanelBuilder
         var matchOnly = new List<GameObject>();
 
         Transform home = Page(card, SettingsPanel.HomePage, pages, names);
-        Category(home, "Batting", "Hand, difficulty, grip", c.OnPageBatting);
+        Category(home, "Batting", "Hand, controller, difficulty, grip", c.OnPageBatting);
         matchOnly.Add(Category(home, "Bowling", "Bowler, arm, speed, swing, turn, line", c.OnPageBowling).gameObject);
         Category(home, "Fielding", "Fielder speed", c.OnPageFielding);
         Category(home, "Match", "Overs", c.OnPageMatch);
@@ -72,6 +72,7 @@ public static class SettingsPanelBuilder
 
         Transform batting = Page(card, "batting", pages, names);
         c.hand = UIControls.Segmented(InlineField(batting, "Hand"), new[] { "Left", "Right" }, c.OnHand);
+        c.batController = UIControls.Segmented(InlineField(batting, "Controller"), new[] { "Left", "Right" }, c.OnBatController);
         Transform difficulty = Group(batting);
         c.difficultyHint = UIControls.LabelLine(difficulty, "Difficulty", "", out _);
         c.difficultyLevel = UIControls.Segmented(difficulty, new[] { "Easy", "Medium", "Hard" }, c.OnDifficulty);

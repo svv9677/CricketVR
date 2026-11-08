@@ -101,17 +101,12 @@ public partial class Main
     private void updateBattingStyle(bool updateUI = false)
     {
         bool changed = false;
-        if (theBatScript.leftHandParent != null && battingStyle == eBattingStyle.LeftHanded)
+        // The controller the bat is in: the stance's, unless one was chosen (GameSettings.BatController).
+        Transform hand = GameSettings.BatInLeftHand(battingStyle) ? theBatScript.leftHandParent : theBatScript.rightHandParent;
+        if (hand != null && battingStyle != eBattingStyle.None)
         {
             changed = true;
-            theBatScript.attachParent = theBatScript.leftHandParent;
-            theBatScript.CheckAndGrab();
-            PlayerPrefs.SetInt(Constants.PP_BattingStyle, (int)battingStyle);
-        }
-        if (theBatScript.rightHandParent != null && battingStyle == eBattingStyle.RightHanded)
-        {
-            changed = true;
-            theBatScript.attachParent = theBatScript.rightHandParent;
+            theBatScript.attachParent = hand;
             theBatScript.CheckAndGrab();
             PlayerPrefs.SetInt(Constants.PP_BattingStyle, (int)battingStyle);
         }
