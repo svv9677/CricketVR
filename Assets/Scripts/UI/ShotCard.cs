@@ -173,18 +173,14 @@ public class ShotCard : MonoBehaviour
         Set(exitSpeed, UIFormat.Kmh(info.exitSpeed));
     }
 
-    /// The career's contact: the real blade's (ShotReading, as the nets text and every rating read
-    /// it), so the card and the nets never disagree. When the bat shield made more of it than the
-    /// real blade would have, that is said underneath, small: "wide bat: good contact".
+    /// The career's contact, in the nets text's words (ShotReading), so the card and the nets never
+    /// disagree: one verdict, on the player's own bat width - not the real blade's beside it
+    /// (2026-11-08: "I don't need to know 2 stats... only based on my bat width").
     private void ShowCareerContact(ShotInfo info)
     {
-        int realKind = info.realContact == eRealContact.WouldHaveMissed ? -1 : (int)info.realKind;
-        string word = ShotReading.ContactWord(info.realContact, realKind, info.realQuality);
-        bool clean = ShotReading.IsClean(info.realContact, realKind);
-        float q = Mathf.Clamp01(info.realQuality);
-        string shield = string.IsNullOrEmpty(info.contactLabel) ? UIFormat.Contact(info.quality, info.edge) : info.contactLabel;
-        if (!string.Equals(shield, word, System.StringComparison.OrdinalIgnoreCase))
-            word += "<size=45%><color=#98A2B3>  wide bat: " + shield.ToLowerInvariant() + "</color></size>";
+        string word = ShotReading.ContactWord(info.ActualContact, (int)info.kind, info.quality);
+        bool clean = ShotReading.IsClean(info.ActualContact, (int)info.kind);
+        float q = Mathf.Clamp01(info.quality);
         Set(contact, word);
         if (contact != null)
             contact.color = !clean ? poorColor : q >= 0.7f ? goodColor : okColor;

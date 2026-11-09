@@ -3,9 +3,9 @@ using UnityEngine;
 
 /// <summary>
 /// What one ball measured, in words, for the career's nets (2026-11-06: the shot card said "good
-/// contact" while the nets text said "edged"). One judge for both: the contact on the real-width
-/// blade (RealBlade), which is what every rating and drill score reads. The shot card shows the
-/// same word in the career (ShotCard), adding what the bat shield made of it when that differs.
+/// contact" while the nets text said "edged"). One judge for both: the contact on the player's own
+/// bat width (BallRecord.realContact, since 2026-11-08), which is what every rating and drill score
+/// reads. The shot card shows the same word in the career (ShotCard), and only that.
 ///
 /// Read(r) is the nets' left-hand text under the progress: up to four short lines -
 ///   1. the verdict: the contact and what came of it ("Middled · FOUR");
@@ -26,7 +26,7 @@ public static class ShotReading
     /// Launch angle (deg) above which a shot is in the air, and well in the air.
     private const float Airborne = 12f, Lofted = 25f;
 
-    /// The contact as the career judges it, on the real blade.
+    /// The contact as the career judges it, on the player's own bat.
     public static string ContactWord(eRealContact real, int realKind, float realQuality)
     {
         if (real == eRealContact.WouldHaveMissed)
