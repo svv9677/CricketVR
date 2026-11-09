@@ -68,6 +68,9 @@ public partial class Bat : MonoBehaviour
         myRigidBody = GetComponent<Rigidbody>();
 
         hasHitBall = false;
+        // The air off the blade as it is swung, louder the faster (BatWhoosh).
+        if (GetComponent<BatWhoosh>() == null)
+            gameObject.AddComponent<BatWhoosh>();
     }
 
     public void CheckAndGrab()

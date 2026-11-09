@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 ///
 ///   run-up        footsteps on the grass, quickening; the delivery stride thumping into the crease
 ///   release       a quick's grunt of effort, a medium-pacer's lighter one, a spinner's breath
-///   in the air    a whoosh as a quick ball goes past the player's head
+///   in the air    nothing off the ball: the whoosh is the bat's, swung (BatWhoosh, 2026-11-08)
 ///   pitching      leather on the hard strip; a duller thud on the outfield, and each bounce after
 ///   the bat       BatSounds (edge, good, middled; the bat on the ground)
 ///   the keeper    the pop of the gloves; a fielder's hands as he takes it, louder for a catch
@@ -30,8 +30,6 @@ public class MatchSounds : MonoBehaviour
     private bool wasKinematic;
     private Vector3 lastBallVelocity;
     private float lastBounceAt, lastBailsAt, lastBoardsAt;
-    private float whooshMin = float.MaxValue;
-    private bool whooshed;
     private float diveAt = -1f;
     private Vector3 divePos;
     private bool airborneSinceHit;
@@ -99,8 +97,6 @@ public class MatchSounds : MonoBehaviour
         else
             GameSfx.Play("grunt", head.position, GameAudio.Channel.Fielders, k == eBowlerKind.Fast ? 0.6f : 0.42f,
                          Random.Range(0.96f, 1.06f), 1.5f, 50f);
-        whooshMin = float.MaxValue;
-        whooshed = false;
     }
 
     // ---- The ball ----------------------------------------------------------------------------
@@ -154,10 +150,6 @@ public class MatchSounds : MonoBehaviour
 
         if (st == eGameState.InGame_DeliverBallLoop || st == eGameState.InGame_BallMissed)
             Beaten();
-        // Until it is past him: the ball is called missed before it reaches the player's head.
-        if (!whooshed && (st == eGameState.InGame_DeliverBallLoop || st == eGameState.InGame_BallMissed ||
-                          st == eGameState.InGame_BallMissedLoop))
-            Whoosh();
 
         bool carried = AnimatedBowler.Instance != null && AnimatedBowler.Instance.CarryingBall;
         bool live = !carried && st != eGameState.InGame_SelectDelivery && st != eGameState.InGame_SelectDeliveryLoop &&
@@ -171,25 +163,6 @@ public class MatchSounds : MonoBehaviour
         if (main.theBallScript != null && main.theBallScript.bounced) airborneSinceHit = false;
         wasKinematic = kin;
         if (!kin) lastBallVelocity = ball.linearVelocity;
-    }
-
-    /// A quick ball past the head: when it goes by the player's camera close enough to hear.
-    private void Whoosh()
-    {
-        Camera cam = Camera.main;
-        if (cam == null) return;
-        Vector3 to = cam.transform.position - ball.position;
-        float d = to.magnitude;
-        whooshMin = Mathf.Min(whooshMin, d);
-        bool passing = Vector3.Dot(ball.linearVelocity, to) < 0f;     // gone past
-        if (passing)
-        {
-            whooshed = true;
-            float speed = lastBallVelocity.magnitude;
-            if (whooshMin < 1.4f && speed > 20f)
-                GameSfx.Play("whoosh", ball.position, GameAudio.Channel.Stumps,
-                             (1f - whooshMin / 1.4f) * Mathf.InverseLerp(20f, 40f, speed) + 0.15f, Random.Range(0.95f, 1.1f), 0.5f, 15f);
-        }
     }
 
     /// The ball has stopped in someone's hands.
