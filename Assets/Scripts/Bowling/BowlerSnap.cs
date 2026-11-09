@@ -16,8 +16,11 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 public class BowlerSnap : MonoBehaviour
 {
-    /// The whole action this much quicker; at the release, this much more on top.
-    public const float Base = 1.1f, Snap = 0.55f;
+    /// The whole action this much quicker; at the release, this much more on top. Halfway back from
+    /// the first cut (1.1 and 0.55: 1.7x at the release), which was "a little bit too much ... in
+    /// between what it was before and now, that would be perfect" (2026-11-09): 1.05 and 0.29, so
+    /// 1.35x at the release, halfway between the old 1.0 and 1.7.
+    public const float Base = 1.05f, Snap = 0.29f;
     /// After the release, back to Base over this much of the clip (normalised).
     private const float EaseBack = 0.06f;
 
