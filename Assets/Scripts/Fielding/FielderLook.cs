@@ -103,23 +103,35 @@ public class FielderLook : MonoBehaviour
         return foot != null ? foot.position.y - root.position.y : 0f;
     }
 
-    /// A helmet (a mesh hung on the original's head or neck) onto the copy's head, keeping where
-    /// it is now. Gloves and pads stay on the original: the copy's hands and feet are put on his.
+    /// A helmet (a mesh hung on the original's head or neck) onto the copy's head, and the keeper's
+    /// gloves onto the copy's hands, keeping where they are now. Pads stay on the original: the
+    /// copy's feet are put on his. The gloves were left on his hands too, but his arms stretch to
+    /// a hand target out of reach (the fielders' avatar allows 38%) and the copy's cannot
+    /// (LimbMatch): bent for a ball on the ground, the glove floated off the end of the copy's arm
+    /// (2026-11-09: "the keeper's gloves sometimes detach from his hands when he's picking up the
+    /// ball"). On the copy's hands they are on the hands you see, always.
     private static void MoveHeadKit(Animator from, Animator to)
     {
         var bones = new Dictionary<Transform, Transform>();
-        foreach (HumanBodyBones b in new[] { HumanBodyBones.Head, HumanBodyBones.Neck })
+        foreach (HumanBodyBones b in new[] { HumanBodyBones.Head, HumanBodyBones.Neck, HumanBodyBones.LeftHand, HumanBodyBones.RightHand })
         {
             Transform s = from.GetBoneTransform(b), d = to.GetBoneTransform(b);
             if (s != null && d != null)
                 bones[s] = d;
+        }
+        // His skeleton is never moved, only kit hung on it: a finger bone under a hand is not kit.
+        var skeleton = new HashSet<Transform>();
+        for (HumanBodyBones b = 0; b < HumanBodyBones.LastBone; b++)
+        {
+            Transform bt = from.GetBoneTransform(b);
+            if (bt != null) skeleton.Add(bt);
         }
         foreach (MeshRenderer kit in from.GetComponentsInChildren<MeshRenderer>(true))
         {
             Transform t = kit.transform;     // up to the piece hung on a bone (Glove_L under hand_l)
             while (t.parent != null && t.parent != from.transform && !bones.ContainsKey(t.parent))
                 t = t.parent;
-            if (t.parent != null && bones.TryGetValue(t.parent, out Transform bone))
+            if (t.parent != null && !skeleton.Contains(t) && bones.TryGetValue(t.parent, out Transform bone))
                 t.SetParent(bone, true);
         }
     }
