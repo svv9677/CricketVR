@@ -130,7 +130,7 @@ public partial class CameraReplay : MonoBehaviour
         pending = true;
         showAt = Time.time + delay;
         if (recorder != null)
-            recorder.RecordAtLeastUntil(showAt);
+            recorder.RecordUntil(showAt);       // the worst case asked for while waiting comes down
     }
 
     /// A saved record clip (ClipRemap; with poses) on the screen now, all of it, looping like any

@@ -161,6 +161,15 @@ public class ShotRecorder : MonoBehaviour
             keepUntil = Mathf.Max(keepUntil, time - startTime);
     }
 
+    /// Keep recording until `time` and no longer: the big screen's own replay time, once it knows it,
+    /// in place of the worst case it asked for while it waited (RecordAtLeastUntil). Without this a
+    /// miss stayed on record 6 s past what the big screen used, and Replay showed the ball before.
+    public void RecordUntil(float time)
+    {
+        if (active)
+            keepUntil = time - startTime;
+    }
+
     private void Begin()
     {
         startTime = Time.time;
