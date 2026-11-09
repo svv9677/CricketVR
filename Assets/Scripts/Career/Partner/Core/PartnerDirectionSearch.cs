@@ -114,7 +114,10 @@ internal sealed class PartnerDirectionSearch
             // is the only straight single (measured 2026-11-05: on 13 of the 18 test fields).
             case 1: speeds = new[] { 9f, 12f, 15f, 18f, 21f, 24f, 27f }; elevations = new[] { -6f, 2f }; break;
             case 2: speeds = new[] { 11f, 13f, 15f, 17f }; elevations = new[] { -4f, 3f, 10f }; break;
-            case 3: speeds = new[] { 14f, 17f, 20f, 24f }; elevations = new[] { -3f, 5f }; break;
+            // 11 and 12.5: since the outfield lets a slow ball roll on (BallFlight.RollFloor,
+            // 2026-11-09) the three's window moved down from 14.5-15 m/s with it. Measured on the
+            // test fields: 11 of 180 planned with these, 9 with 10-13 in whole steps, 2 without.
+            case 3: speeds = new[] { 11f, 12.5f, 14f, 17f, 20f, 24f }; elevations = new[] { -3f, 5f }; break;
             case 4: speeds = new[] { 24f, 28f, 32f, 36f, 38f }; elevations = new[] { -3f, 4f, 10f }; break;
             case 6: speeds = new[] { 34f, 38f, 42f, 45f }; elevations = new[] { 26f, 32f, 38f }; break;
             default: speeds = new[] { 18f, 24f, 30f }; elevations = new[] { 8f, 16f, 28f }; break;

@@ -168,7 +168,7 @@ public class Ball : MonoBehaviour
                 float speed = horizontal.magnitude;
                 if (speed > 1e-4f)
                 {
-                    float slowed = Mathf.Max(0f, speed - BallFlight.RollingDecelAt(transform.position) * Time.fixedDeltaTime);
+                    float slowed = Mathf.Max(0f, speed - BallFlight.RollingDecelAt(transform.position, speed) * Time.fixedDeltaTime);
                     myRigidBody.linearVelocity = new Vector3(velocity.x * slowed / speed, velocity.y, velocity.z * slowed / speed);
                     myRigidBody.angularVelocity *= slowed / speed;
                 }
