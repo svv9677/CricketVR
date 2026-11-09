@@ -37,9 +37,10 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class NetsTrial : MonoBehaviour
 {
-    /// Seconds the result card stays up before going back on its own; A is ignored for the first one
-    /// (the press that played the last ball must not dismiss it).
-    private const float ContinueAfter = 20f, IgnoreAFor = 1f;
+    /// The result card waits for A (it went back on its own after 20 s until 2026-11-09: "I should
+    /// not be waiting for anything"); A is ignored for the first second (the press that played the
+    /// last ball must not dismiss it).
+    private const float IgnoreAFor = 1f;
 
     private eNetsMode mode;
     /// The planned session's balls (the trial's or a drill's); null in practice.
@@ -173,7 +174,7 @@ public class NetsTrial : MonoBehaviour
             return;
         bool menuOpen = MenuRoot.Instance != null && MenuRoot.Instance.IsOpen;
         bool pressed = main != null && !menuOpen && Time.time - finishedAt > IgnoreAFor && main.GetButton(XRButton.A);
-        if (pressed || Time.time - finishedAt > ContinueAfter)
+        if (pressed)
             Continue();
     }
 

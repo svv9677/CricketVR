@@ -25,14 +25,16 @@ using UnityEngine.SceneManagement;
 /// MEASURE - nothing here changes a ball for his benefit.
 ///
 /// When MatchFlow ends the match the result goes into the career there and then
-/// (CareerMatchSession.Finish; MatchFlow then shows its card and goes home on its own). Leaving
+/// (CareerMatchSession.Finish; MatchFlow then shows its card, and Home goes home). Leaving
 /// before that (the pause menu, closing the app) keeps the match to continue from the hub
 /// (CareerMatchResume; it was retiring out until 2026-11-09).
 /// </summary>
 public partial class CareerMatch : MonoBehaviour
 {
-    /// Seconds each card stays up.
-    private const float CatchUpSeconds = 3.5f, ComeInSeconds = 4f, SummarySeconds = 5f;
+    /// A is not read for this long after a card goes up (the press that started the last ball, or
+    /// skipped the partner's, must not also dismiss it). The cards wait for Next: none times out
+    /// (2026-11-09; they were up 3.5-5 s and went on their own).
+    private const float IgnoreAFor = 0.4f;
 
     /// What one batch of simulated balls did, for its card.
     private class Batch
@@ -64,7 +66,8 @@ public partial class CareerMatch : MonoBehaviour
 
     private bool youOut, restDone;
     private bool holding, finishAfterCard;
-    private float cardUntil = -1f;
+    private bool cardWaiting, waitRelease;
+    private float cardShownAt;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
@@ -289,7 +292,7 @@ public partial class CareerMatch : MonoBehaviour
         var lines = FellLines(batch);
         string how = you != null && outs.TryGetValue(you, out string h) ? h : "out";
         string heading = you != null ? CareerMatchLogic.YourInnings(you.Runs, you.Balls, true, how) : "Innings over";
-        ShowCard(heading, CareerMatchLogic.CatchUpBody(lines, hud.Runs, hud.Wickets, Bowled(hud)), SummarySeconds, true);
+        ShowCard(heading, CareerMatchLogic.CatchUpBody(lines, hud.Runs, hud.Wickets, Bowled(hud)), true);
     }
 
     /// Simulated balls one after another until CareerMatchLogic.StopBatch says stop. Returns how many.
@@ -352,30 +355,45 @@ public partial class CareerMatch : MonoBehaviour
 
     // ---- The card and the gate ------------------------------------------------------------------
 
-    private void ShowCard(string heading, string body, float seconds, bool finishAfter)
+    private void ShowCard(string heading, string body, bool finishAfter)
     {
         Hold(true);
         ui.Show(heading, body);
-        cardUntil = Time.time + seconds;
+        ui.SetButton("Next  <size=75%>(A)</size>");
+        ui.TakeClick();
+        cardWaiting = true;
+        cardShownAt = Time.time;
         finishAfterCard = finishAfter;
     }
 
-    /// True while a card is up. When it goes, the next ball is free - or, after the summary, the
-    /// match is checked for its end (the rest of the innings has been simulated).
+    /// True while a card is up, until Next (A or its button). Then the next ball is free - once A
+    /// is let go, so the same press cannot also bowl it - or, after the summary, the match is
+    /// checked for its end (the rest of the innings has been simulated).
     private bool CardUp()
     {
-        if (cardUntil < 0f)
-            return false;
-        if (Time.time < cardUntil)
-            return true;
-        cardUntil = -1f;
-        ui.Hide();
-        Hold(false);
-        if (finishAfterCard)
+        if (waitRelease)
         {
-            finishAfterCard = false;
-            MatchFlow.CheckFinished();
+            if (main != null && main.GetButton(XRButton.A, false))
+                return true;
+            waitRelease = false;
+            Hold(false);
+            if (finishAfterCard)
+            {
+                finishAfterCard = false;
+                MatchFlow.CheckFinished();
+            }
+            return true;
         }
+        if (!cardWaiting)
+            return false;
+        bool menuOpen = MenuRoot.Instance != null && MenuRoot.Instance.IsOpen;
+        bool next = ui.TakeClick() ||
+                    (main != null && !menuOpen && Time.time - cardShownAt > IgnoreAFor && main.GetButton(XRButton.A));
+        if (!next)
+            return true;
+        cardWaiting = false;
+        ui.Hide();
+        waitRelease = true;
         return true;
     }
 
@@ -391,7 +409,7 @@ public partial class CareerMatch : MonoBehaviour
     private void OnEnded(MatchHistory.Record record, AIInnings.Result ai, string text) => FinishFromScene(ai);
 
     /// MatchFlow has ended the match: the result from the scoreboard, a line about his innings on
-    /// MatchFlow's card, and into the career now (MatchFlow goes home by itself after its card).
+    /// MatchFlow's card, and into the career now (MatchFlow goes home on its card's Home).
     private void FinishFromScene(AIInnings.Result ai)
     {
         if (ended)
@@ -409,7 +427,7 @@ public partial class CareerMatch : MonoBehaviour
             Sync(hud);
         }
         ended = true;
-        cardUntil = -1f;
+        cardWaiting = waitRelease = false;
         ui.Hide();
         Hold(false);
         InningsCard theirs = CareerMatchSession.TheirInnings ?? plan.theirs ?? CareerMatchLogic.FromAI(ai, plan.opponentName);

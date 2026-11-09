@@ -14,9 +14,6 @@ using UnityEngine;
 /// </summary>
 public partial class CareerMatch
 {
-    /// Seconds the situation's card stays up before the first ball.
-    public const float IntroSeconds = 4.5f;
-
     // The next scripted code of the collapse, and whether the situation's card has been shown.
     private int scriptAt;
     private bool introShown;
@@ -55,7 +52,7 @@ public partial class CareerMatch
         string heading = CareerSituationText.IntroHeading(plan);
         if (string.IsNullOrEmpty(heading))
             return false;
-        ShowCard(heading, CareerSituationText.IntroBody(plan), IntroSeconds, false);
+        ShowCard(heading, CareerSituationText.IntroBody(plan), false);
         return true;
     }
 
