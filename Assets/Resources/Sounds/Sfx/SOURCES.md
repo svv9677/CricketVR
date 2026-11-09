@@ -15,7 +15,7 @@ licence checked on each sound's Freesound page on 2026-11-05. Fetched as the pub
 | bounce_pitch, boards (thud) | "Cricket (Sport)" by OroborosNZ, https://freesound.org/people/OroborosNZ/sounds/141249/ (real cricket balls in the nets) |
 | bounce_grass | "Tennis Bounce Ball on Grass" by jamesdrake89, https://freesound.org/people/jamesdrake89/sounds/662258/ (lowered and darkened) |
 | bails | "Random Wooden Stick Foley" by deadrobotmusic, https://freesound.org/people/deadrobotmusic/sounds/609943/ |
-| whoosh, boards (body) | synthesised in the script |
+| whoosh (no longer played: the bat's own air is BatWhoosh, 2026-11-08), boards (body) | synthesised in the script |
 | crowd_four | "Crowd Cheer" / "Crowd Cheer II" by FoolBoyMedia, https://freesound.org/people/FoolBoyMedia/sounds/397434/ , /397435/ |
 | crowd_six | "RoaringCrowd" by benfree, https://freesound.org/people/benfree/sounds/130568/ ; and itmightgetloud 829453 (below) |
 | crowd_six, crowd_wicket | "Millerntor Stadium Crowd Reaction Excited 01" by itmightgetloud, https://freesound.org/people/itmightgetloud/sounds/829453/ |
@@ -23,6 +23,7 @@ licence checked on each sound's Freesound page on 2026-11-05. Fetched as the pub
 | club_clap | synthesised by `Tools/clubground/build_sounds.py` (2026-11-05): ours, no third-party material. Polite applause from 8-15 clappers, each its own hands (band-passed noise, 0.8-2.5 kHz, 6-10 ms decay), rate and distance |
 | club_cheer | synthesised by `Tools/clubground/build_sounds.py`: ours, no third-party material. Livelier applause (15 clappers) with a synthesised two-finger whistle |
 | fence | synthesised by `Tools/clubground/build_sounds.py`: ours, no third-party material. A modal wooden knock with a picket's rattle |
+| clap | synthesised by `Tools/sfx/build_claps.py` (2026-11-08): ours, no third-party material. One player's single clap, eight different pairs of hands (the club applause's clap with a short open-air tail); PlayerClap plays one each time his palms meet |
 | net | synthesised by `Tools/sfx/build_net_sounds.py` (2026-11-05): ours, no third-party material. The ball into a hanging nylon net: a padded low give, a swish of cord with the cords slapping back, and a faint ring from the steel frame |
 | club_ambience (in `Assets/ClubGround/Audio/`, not this folder) | synthesised by `Tools/clubground/build_sounds.py`: ours, no third-party material. A seamless 30 s loop of songbirds, breeze, a distant road and murmur, about -24 LUFS |
 

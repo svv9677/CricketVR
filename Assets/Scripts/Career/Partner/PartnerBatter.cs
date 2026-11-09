@@ -136,7 +136,7 @@ public class PartnerBatter : MonoBehaviour
     }
 
     /// The career player's side's kit colour (the season's team, else the player's own look).
-    private static Color KitColour()
+    public static Color KitColour()
     {
         MatchPlan plan = CareerMatchSession.Plan;
         CareerProfile p = CareerSaves.Current;
@@ -379,6 +379,9 @@ public static class PartnerKit
         m.SetColor("_BaseColor", c);
         return m;
     }
+
+    /// Shirt, trousers and shoes only (no helmet, pads or gloves): a team-mate off the field (BattingSide).
+    public static void DressClothes(Animator a, Color kit) => Clothes(a, kit);
 
     /// Shirt and trousers in his side's colour, as the umpire is dressed (Umpire.Dress).
     private static void Clothes(Animator a, Color kit)
