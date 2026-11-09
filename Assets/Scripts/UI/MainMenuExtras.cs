@@ -64,8 +64,10 @@ public class MainMenuExtras : MonoBehaviour
             }
             NetsSession.ReturnToHub = false;
         }
+        // The results page is gone (2026-11-06: "the results page is completely blank... just take
+        // it off"): the match's own card says how it went; the last match is on this screen.
         if (MatchHistory.ResultPending)
-            StartCoroutine(ShowResult());
+            MatchHistory.ResultPending = false;
     }
 
     private void Update()
@@ -81,9 +83,10 @@ public class MainMenuExtras : MonoBehaviour
         MatchHistory.Record r = MatchHistory.Latest;
         if (lastMatch != null)
             lastMatch.text = r == null ? "<color=#98A2B3>No matches played yet</color>"
-                : $"<color=#98A2B3>LAST MATCH</color>   {(r.Won ? "<color=#22C55E>" : r.tied ? "<color=#3B82F6>" : r.hasAI || r.target > 0 ? "<color=#FF6B4A>" : "<color=#E5E7EB>")}{r.result}</color>";
+                : $"<color=#98A2B3>LAST MATCH</color>   {(r.Won ? "<color=#22C55E>" : r.tied || r.drawn ? "<color=#3B82F6>" : r.hasAI || r.target > 0 || r.test ? "<color=#FF6B4A>" : "<color=#E5E7EB>")}{r.result}</color>";
         if (lastDetail != null)
             lastDetail.text = r == null ? ""
+                : r.test ? $"Test   ·   {r.summary}   <color=#98A2B3>{r.when}</color>"
                 : $"You {r.Score} ({r.OversText} ov)" + (r.hasAI ? $"   ·   AI {r.AIScore} ({r.AIOversText} ov)" : "") + $"   <color=#98A2B3>{r.when}</color>";
     }
 
@@ -92,8 +95,7 @@ public class MainMenuExtras : MonoBehaviour
         if (setup == null)
             return;
         string who = MatchSetup.Type == eMatchType.Chase ? "AI bats first, you chase" : "You bat first, AI chases";
-        int overs = GameSettings.Overs;
-        setup.text = $"{overs} over{(overs == 1 ? "" : "s")} · {MatchSetup.Name(MatchSetup.Bowling)} bowling · " +
+        setup.text = $"{MatchFormat.Label()} · {MatchSetup.Name(MatchSetup.Bowling)} bowling · " +
                      $"{MatchSetup.Name(MatchSetup.Pitch)} pitch · {who}";
     }
 

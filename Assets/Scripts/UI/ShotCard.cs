@@ -86,7 +86,7 @@ public class ShotCard : MonoBehaviour
         builder.Clear();
         AppendBatter(hud.CurrentBatsman, true);
         AppendBatter(hud.CurrentRunner, false);
-        builder.Append("<color=#98A2B3>Bowler</color>  ").Append(hud.CurrentBowler.Name)
+        builder.Append("<color=#98A2B3>Bowler</color>  ").Append(Fits(hud.CurrentBowler.Name, 12))
                .Append("<pos=62%>").Append(HUD.Figures(hud.CurrentBowler)).Append('\n');
         builder.Append("<color=#98A2B3>Run rate</color>  ").Append(hud.RunRate.ToString("F2"));
         scorecard.text = builder.ToString();
@@ -94,7 +94,7 @@ public class ShotCard : MonoBehaviour
 
     private void AppendBatter(Batsman b, bool striker)
     {
-        builder.Append("<color=#F3F5F8>").Append(b.Name).Append(striker ? "*" : "").Append("</color>")
+        builder.Append("<color=#F3F5F8>").Append(Fits(b.Name, BattingCard.NameChars)).Append(striker ? "*" : "").Append("</color>")
                .Append("<pos=48%>").Append(HUD.RunsAndBalls(b))
                .Append("<pos=74%><color=#98A2B3>SR</color> ").Append(HUD.StrikeRate(b)).Append('\n');
     }
@@ -154,11 +154,16 @@ public class ShotCard : MonoBehaviour
     /// A struck ball. Distance is left to SetDistance, which may arrive before or after this.
     public void ShowShot(ShotInfo info)
     {
-        float q = Mathf.Clamp01(info.quality);
-        Set(contact, string.IsNullOrEmpty(info.contactLabel) ? UIFormat.Contact(q, info.edge) : info.contactLabel);
-        if (contact != null)
-            contact.color = info.edge ? poorColor : q >= 0.7f ? goodColor : q >= 0.35f ? okColor : poorColor;
-        SetQuality(q);
+        if (ModeMenus.IsCareer(ModeMenus.Current))
+            ShowCareerContact(info);
+        else
+        {
+            float q = Mathf.Clamp01(info.quality);
+            Set(contact, string.IsNullOrEmpty(info.contactLabel) ? UIFormat.Contact(q, info.edge) : info.contactLabel);
+            if (contact != null)
+                contact.color = info.edge ? poorColor : q >= 0.7f ? goodColor : q >= 0.35f ? okColor : poorColor;
+            SetQuality(q);
+        }
         Set(ballSpeed, UIFormat.Kmh(info.ballSpeedIn));
         // What it was: "Off-cutter · 132 km/h".
         BowlingParams cfg = Main.Instance != null ? Main.Instance.currentBowlingConfig : null;
@@ -166,6 +171,20 @@ public class ShotCard : MonoBehaviour
         Set(delivery, $"{what}  ·  {Mathf.RoundToInt(info.ballSpeedIn * UIFormat.KmhPerMps)} km/h");
         Set(batSpeed, UIFormat.Kmh(info.batSpeed));
         Set(exitSpeed, UIFormat.Kmh(info.exitSpeed));
+    }
+
+    /// The career's contact, in the nets text's words (ShotReading), so the card and the nets never
+    /// disagree: one verdict, on the player's own bat width - not the real blade's beside it
+    /// (2026-11-08: "I don't need to know 2 stats... only based on my bat width").
+    private void ShowCareerContact(ShotInfo info)
+    {
+        string word = ShotReading.ContactWord(info.ActualContact, (int)info.kind, info.quality);
+        bool clean = ShotReading.IsClean(info.ActualContact, (int)info.kind);
+        float q = Mathf.Clamp01(info.quality);
+        Set(contact, word);
+        if (contact != null)
+            contact.color = !clean ? poorColor : q >= 0.7f ? goodColor : okColor;
+        SetQuality(q);
     }
 
     /// Where the ball first lands (carry), or where a six would have come down.
@@ -192,6 +211,10 @@ public class ShotCard : MonoBehaviour
         }
         recent.text = builder.Length > 0 ? builder.ToString() : " ";
     }
+
+    /// A name short enough for its column: "A. Shah", cut with an ellipsis past `max` letters, so it
+    /// never runs into the figures beside it (2026-11-08: "the text goes out").
+    private static string Fits(string name, int max) => BattingCard.Truncate(BattingCard.ShortName(name), max);
 
     private void SetQuality(float q)
     {

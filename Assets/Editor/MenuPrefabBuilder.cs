@@ -82,6 +82,7 @@ public static class MenuPrefabBuilder
             BuildMatchSetup(panel.transform), BuildCustomise(panel.transform),
             CareerMenuBuilder.BuildSlots(panel.transform), CareerMenuBuilder.BuildCreatePlayer(panel.transform),
             CareerMenuBuilder.BuildCreateLook(panel.transform), CareerMenuBuilder2.BuildHub(panel.transform),
+            CareerDeckPrematch.Build(panel.transform),
             CareerMenuBuilder2.BuildRatings(panel.transform), CareerMenuBuilder2.BuildSeason(panel.transform),
             CareerMenuBuilder2.BuildResult(panel.transform),
             CareerMenuBuilder3.BuildInbox(panel.transform), CareerMenuBuilder3.BuildMessage(panel.transform),
@@ -183,11 +184,10 @@ public static class MenuPrefabBuilder
         Transform pair = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
         UIControls.ActionButton(pair, "Match Setup", extras.OnMatchSetup, false);
         UIControls.ActionButton(pair, "Career", extras.OnCareer, false);
+        // No Results button (2026-11-06: the page came up blank; the last match is shown below).
         pair = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
         UIControls.ActionButton(pair, "Customise", extras.OnCustomise, false);
-        UIControls.ActionButton(pair, "Results", extras.OnResults, false);
-
-        UIControls.ActionButton(column, "Settings", screen.OnSettings, false);
+        UIControls.ActionButton(pair, "Settings", screen.OnSettings, false);
         UIControls.Divider(column);
         TextMeshProUGUI last = WorldPanelBuilder.Line(column, "No matches played yet", UIStyle.LabelSize, FontStyles.Bold,
                                                       UIStyle.Text, 34f, TextAlignmentOptions.Center);

@@ -60,7 +60,7 @@ public static class StadiumLighting
 
     public static string Hint(eTimeOfDay t) =>
         t == eTimeOfDay.Afternoon ? "Bright sun, high overhead."
-      : t == eTimeOfDay.Evening ? "Low, warm sun from square of the wicket; long shadows."
+      : t == eTimeOfDay.Evening ? "Low, clear sun from square of the wicket; long shadows."
       : "Under the floodlights.";
 
     /// Light the loaded match scene for `t`. Called by StadiumConditions as the scene loads.
@@ -112,29 +112,33 @@ public static class StadiumLighting
         {
             // Low in the west, square of the pitch (the pitch runs along X): from -Z, a little
             // behind the bowler, so the batter is lit from the side, not dazzled.
-            key.transform.rotation = Quaternion.Euler(14f, 20f, 0f);
-            key.color = new Color(1f, 0.64f, 0.36f);
-            key.intensity = 1.4f;
-            key.shadowStrength = 0.8f;
+            // 2026-11-06: the old deep orange key (1, 0.64, 0.36) at 14 deg, orange ambient and an
+            // orange-tinted thick sky turned the grass brown and the sky olive ("too orangish and not
+            // natural"). Now a clear early sun: a little warm, a blue sky lighting the shadows.
+            key.transform.rotation = Quaternion.Euler(22f, 20f, 0f);
+            key.color = new Color(1f, 0.88f, 0.74f);
+            key.intensity = 1.55f;
+            key.shadowStrength = 0.75f;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.52f, 0.46f, 0.50f);
-            RenderSettings.ambientEquatorColor = new Color(0.56f, 0.42f, 0.32f);
-            RenderSettings.ambientGroundColor = new Color(0.20f, 0.15f, 0.11f);
-            RenderSettings.reflectionIntensity = 0.7f;
-            if (sky != null) { Set(sky, "_AtmosphereThickness", 2.2f); Set(sky, "_Exposure", 1.25f); SetColor(sky, "_SkyTint", new Color(0.75f, 0.5f, 0.38f)); }
+            RenderSettings.ambientSkyColor = new Color(0.52f, 0.60f, 0.74f);
+            RenderSettings.ambientEquatorColor = new Color(0.58f, 0.57f, 0.54f);
+            RenderSettings.ambientGroundColor = new Color(0.24f, 0.22f, 0.18f);
+            RenderSettings.reflectionIntensity = 0.8f;
+            if (sky != null) { Set(sky, "_AtmosphereThickness", 1.25f); Set(sky, "_Exposure", 1.2f); SetColor(sky, "_SkyTint", new Color(0.5f, 0.52f, 0.56f)); }
             UndimStands();
             RestoreLightmaps();
         }
         else
         {
             key.transform.rotation = Quaternion.Euler(68f, 35f, 0f);
-            key.color = new Color(0.93f, 0.96f, 1f);
-            key.intensity = 1.15f;
+            // 2026-11-06: brighter ("not bright enough" on the headset): key 1.15 -> 1.7, ambient up.
+            key.color = new Color(0.95f, 0.97f, 1f);
+            key.intensity = 1.7f;
             key.shadowStrength = 0.6f;          // many towers: softer, fainter shadows
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.20f, 0.24f, 0.34f);
-            RenderSettings.ambientEquatorColor = new Color(0.30f, 0.32f, 0.36f);
-            RenderSettings.ambientGroundColor = new Color(0.22f, 0.24f, 0.22f);
+            RenderSettings.ambientSkyColor = new Color(0.30f, 0.34f, 0.46f);
+            RenderSettings.ambientEquatorColor = new Color(0.42f, 0.44f, 0.48f);
+            RenderSettings.ambientGroundColor = new Color(0.30f, 0.32f, 0.30f);
             RenderSettings.reflectionIntensity = 0.25f;
             if (sky != null) { Set(sky, "_Exposure", 0.12f); Set(sky, "_SunSize", 0f); Set(sky, "_AtmosphereThickness", 0.5f); SetColor(sky, "_SkyTint", new Color(0.2f, 0.24f, 0.4f)); }
             NightLightmaps();

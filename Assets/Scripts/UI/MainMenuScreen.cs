@@ -23,8 +23,9 @@ public class MainMenuScreen : MenuScreen
     {
         if (oversLabel == null)
             return;
-        int overs = GameSettings.Overs;
-        oversLabel.text = overs == 1 ? "1 over" : $"{overs} overs";
+        // The listed lengths: 5, 10, 20, 50 overs or a Test (MatchFormat).
+        MatchFormat.Sync();
+        oversLabel.text = MatchFormat.Label();
     }
 
     // ---- Button handlers (wired in the prefab) ----------------------------------------------------
@@ -41,13 +42,13 @@ public class MainMenuScreen : MenuScreen
 
     public void OnMoreOvers()
     {
-        GameSettings.Overs++;
+        MatchFormat.Next();
         RefreshOvers();
     }
 
     public void OnFewerOvers()
     {
-        GameSettings.Overs--;
+        MatchFormat.Previous();
         RefreshOvers();
     }
 }

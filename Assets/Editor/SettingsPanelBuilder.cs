@@ -11,7 +11,7 @@ using UnityEngine.UI;
 /// it belongs to, a new kind of setting gets a new page on the list:
 ///
 ///   Batting        hand, difficulty, bat power, grip
-///   Bowling        bowler type, speed, swing/drift, turn/seam, line, reset  (in a match only)
+///   Bowling        bowler type, arm, speed, swing/drift, turn/seam, line, reset  (in a match only)
 ///   Fielding       fielder speed
 ///   Match          overs
 ///   View & Comfort camera height (this session), recentre at the crease
@@ -62,8 +62,8 @@ public static class SettingsPanelBuilder
         var matchOnly = new List<GameObject>();
 
         Transform home = Page(card, SettingsPanel.HomePage, pages, names);
-        Category(home, "Batting", "Hand, difficulty, grip", c.OnPageBatting);
-        matchOnly.Add(Category(home, "Bowling", "Bowler, speed, swing, turn, line", c.OnPageBowling).gameObject);
+        Category(home, "Batting", "Hand, controller, difficulty, grip", c.OnPageBatting);
+        matchOnly.Add(Category(home, "Bowling", "Bowler, arm, speed, swing, turn, line", c.OnPageBowling).gameObject);
         Category(home, "Fielding", "Fielder speed", c.OnPageFielding);
         Category(home, "Match", "Overs", c.OnPageMatch);
         Category(home, "View & Comfort", "Camera height, recentre", c.OnPageView);
@@ -72,6 +72,7 @@ public static class SettingsPanelBuilder
 
         Transform batting = Page(card, "batting", pages, names);
         c.hand = UIControls.Segmented(InlineField(batting, "Hand"), new[] { "Left", "Right" }, c.OnHand);
+        c.batController = UIControls.Segmented(InlineField(batting, "Controller"), new[] { "Left", "Right" }, c.OnBatController);
         Transform difficulty = Group(batting);
         c.difficultyHint = UIControls.LabelLine(difficulty, "Difficulty", "", out _);
         c.difficultyLevel = UIControls.Segmented(difficulty, new[] { "Easy", "Medium", "Hard" }, c.OnDifficulty);
@@ -79,7 +80,7 @@ public static class SettingsPanelBuilder
         Transform grip = InlineField(batting, "Grip");
         UIControls.ActionButton(grip, "Calibrate", c.OnCalibrateGrip, false);
         UIControls.ActionButton(grip, "Reset", c.OnResetGrip, false, UIStyle.Control, 140f);
-        matchOnly.Add(grip.gameObject);
+        // Shown in the main menu too (2026-11-06): Calibrate there opens the nets to do it.
 
         Transform bowling = Page(card, "bowling", pages, names);
         var labels = new string[UIFormat.BowlerTypes.Length];
@@ -88,6 +89,10 @@ public static class SettingsPanelBuilder
         Transform bowler = Group(bowling);
         Label(bowler, "Bowler");
         c.bowler = UIControls.Segmented(bowler, labels, c.OnBowler);
+        // Which arm the pace bowlers bowl with (BowlerArm), from the next ball.
+        Transform arm = Group(bowling);
+        Label(arm, "Bowler's arm");
+        c.bowlerArm = UIControls.Segmented(arm, new[] { "Both", "Right", "Left" }, c.OnBowlerArm);
         c.speedRange = UIControls.Range(bowling, "Speed", 60f, 165f, 1f, c.OnSpeedRange);
         c.swingRange = UIControls.Range(bowling, "Swing", 0f, 1f, 0.05f, c.OnSwingRange);
         c.turnRange = UIControls.Range(bowling, "Turn", -0.1f, 1f, 0.01f, c.OnTurnRange);

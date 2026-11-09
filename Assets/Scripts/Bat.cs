@@ -232,18 +232,19 @@ public partial class Bat : MonoBehaviour
             contactPoint = contactCentre,
             realQuality = real.quality,
             realContact = real.contact,
+            realKind = real.kind,
             realExitVelocity = real.exitVelocity,
         });
 
-        // Haptics follow the contact too, both hands (both are on the handle), and scale with how
-        // hard it was hit: a nudge is a short buzz, a full-blooded strike a full-strength jolt that
-        // lasts. A mishit (edge, toe, shoulder) rings on longer - the sting up the handle.
+        // Haptics follow the contact too, in the controller holding the bat only (2026-11-07: "Only
+        // the controller that I'm using for the bat should have the haptic vibration"), and scale
+        // with how hard it was hit: a nudge is a short buzz, a full-blooded strike a full-strength
+        // jolt that lasts. A mishit (edge, toe, shoulder) rings on longer - the sting up the handle.
         bool clean = result.kind == BatContact.ContactKind.Middled || result.kind == BatContact.ContactKind.Good;
         float hard = Mathf.Clamp01(result.impactSpeed / HapticFullImpact);
         float strength = Mathf.Lerp(HapticMin, 1f, Mathf.Sqrt(hard));
         float duration = Mathf.Lerp(HapticShort, HapticLong, hard) + (clean ? 0f : 0.12f);
-        XRInput.SendHaptics(true, strength, duration);
-        XRInput.SendHaptics(false, strength, duration);
+        XRInput.SendHaptics(attachParent == leftHandParent, strength, duration);
         ShotDistance.Instance.RecordHit(inst.theBall.transform.position);
         if (SceneManager.GetActiveScene().name == "Nets")
             StartCoroutine(AutomaticReset(2f));

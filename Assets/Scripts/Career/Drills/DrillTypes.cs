@@ -30,7 +30,8 @@ public sealed class DrillDef
 
 /// What one ball of a drill was worth, and why.
 public enum eDrillTag { None, Survived, DugOut, Bowled, Edged, Beaten, GoodLeave, Fished, LeftStraight,
-                        Pulled, Ducked, Evaded, HitHead, UsedFeet, Swept, PlayedTurn, Gap, Fielder, Caught, OverTop, Six, Wasted }
+                        Pulled, Ducked, Evaded, HitHead, UsedFeet, Swept, PlayedTurn, Gap, Fielder, Caught, OverTop, Six, Wasted,
+                        InTheV, Blocked, Boundary, Mistimed, Scored }
 
 public struct DrillBallScore { public float value; public eDrillTag tag; }
 
@@ -39,6 +40,8 @@ public sealed class DrillResult
 {
     public eDrill drill;
     public int attempt, score, balls, best;
+    /// The balls that counted toward the drill's goal (DrillGoals), of `balls`.
+    public int hits;
     public bool newBest;
     public string grade = "";
     /// Counts per eDrillTag.

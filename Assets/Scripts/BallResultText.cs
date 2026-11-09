@@ -54,6 +54,9 @@ public class BallResultText : MonoBehaviour
         home = creaseHome = transform.position;
         text = gameObject.AddComponent<TextMeshPro>();
         text.fontSize = 14f;
+        text.enableAutoSizing = true;       // a long result shrinks to its 12 m line, never past it
+        text.fontSizeMax = 14f;
+        text.fontSizeMin = 6f;
         text.alignment = TextAlignmentOptions.Center;
         text.enableWordWrapping = false;
         text.fontStyle = FontStyles.Bold;
@@ -133,7 +136,18 @@ public class BallResultText : MonoBehaviour
                 break;
             case UmpireSignal.None:
                 // Runs off the bat: a small figure, and nothing at all for a dot.
-                if (outcome.Label == "0") { showing = false; hiddenAt = Time.time; return; }
+                if (outcome.Label == "0")
+                {
+                    // Only a result still up fades; one already gone stays gone. Restarting the fade
+                    // on a hidden one brought the last ball's "2" back to fade out again after a dot
+                    // (2026-11-06).
+                    if (showing)
+                    {
+                        showing = false;
+                        hiddenAt = Time.time;
+                    }
+                    return;
+                }
                 size = RunsScale;
                 break;
         }

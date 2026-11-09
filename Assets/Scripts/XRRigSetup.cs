@@ -124,6 +124,7 @@ public class XRRigSetup : MonoBehaviour
         if (_recentre.RecapturePending && cameraTransform != null
             && RoomFacing.Capture(transform, cameraTransform, out _))
         {
+            RoomSpot.Capture(transform, cameraTransform);
             _recentre.Captured();
             _placed = false;
         }
@@ -154,29 +155,33 @@ public class XRRigSetup : MonoBehaviour
 
     private readonly RecentreGate _recentre = new RecentreGate();
 
-    /// The settings' "Recentre at the crease": down the pitch becomes the way the head points now
-    /// (saved, as an Oculus-button recentre does), and the player is placed with it. Looking
-    /// straight up or down keeps the saved direction and only slides him back onto the spot.
-    public void RecentreHere()
-    {
-        if (cameraTransform != null)
-            RoomFacing.Capture(transform, cameraTransform, out _);
-        PlaceAtCrease();
-    }
+    /// The settings' "Recentre at the crease": back onto the saved anchor - the room's spot on this
+    /// end's spot, its down-the-pitch facing the far end - exactly as every scene and end places
+    /// him. It used to take a new anchor from wherever he stood and looked, so each press moved the
+    /// ground under him (2026-11-06: "it should be centering to the actual boundaries and the
+    /// previous saved thing"). A new anchor is the Oculus button's (held), as before.
+    public void RecentreHere() => PlaceAtCrease();
 
     /// Splash: the wall the player bats facing (RoomFacing) faces the menu, so after a match he
-    /// finds it in front of him rather than beside or behind him. He is turned, not moved. Nothing
-    /// saved yet (first launch): left as the headset has it.
+    /// finds it in front of him rather than beside or behind him, and his room spot is on the
+    /// dressing room's middle. Nothing saved yet (first launch): left as the headset has it.
     private void FaceMenu()
     {
         _placed = true;
         if (!RoomFacing.TryLoad(out float saved) || !MenuLayout.TryGet(MenuLayout.Menu, out Vector3 spot, out _))
             return;
         Vector3 head = cameraTransform.position;
-        Vector3 toMenu = Vector3.ProjectOnPlane(spot - head, Vector3.up);
+        // He stands on his room spot (RoomSpot) in the middle of the dressing room, the world
+        // origin, as at the crease: the menu is the same distance in front of him every time.
+        Vector3 toMenu = Vector3.ProjectOnPlane(spot, Vector3.up);
         if (toMenu.sqrMagnitude < 1e-4f)
             return;
+        Vector2 headSpot = RoomSpot.OfHead(transform, cameraTransform);
+        Vector2 roomSpot = RoomSpot.Choose(RoomSpot.TryLoad(out Vector2 savedSpot), savedSpot, headSpot, out bool spotFromHead);
+        if (spotFromHead)
+            RoomSpot.Save(roomSpot);
         RoomFacing.Place(transform, cameraTransform, saved, toMenu.normalized, new Vector2(head.x, head.z));
+        RoomSpot.Slide(transform, roomSpot, Vector2.zero);
     }
 
     /// The player at this end (career, watching his partner: NonStrikerView), placed now.
@@ -196,7 +201,8 @@ public class XRRigSetup : MonoBehaviour
     /// (PlayerEnd), faces the batter from the non-striker's spot. The same wall of the room is the
     /// far end at both ends and in every scene, wherever the head happens to be looking now. The
     /// first placement ever takes down-the-pitch from the head (the old behaviour, once). A
-    /// recentre keeps the end.
+    /// recentre keeps the end. What lands on the spot is the room's saved crease spot (RoomSpot),
+    /// not the head: stepping aside in the room is stepping aside at the crease, at either end.
     public void PlaceAtCrease()
     {
         if (cameraTransform == null)
@@ -208,6 +214,13 @@ public class XRRigSetup : MonoBehaviour
             if (fromHead)
                 RoomFacing.Save(roomYaw);
             RoomFacing.Place(transform, cameraTransform, roomYaw, EndFacing, EndHeadXZ);
+            // The room's crease spot, not the head, onto the end's spot (RoomSpot).
+            Vector2 headSpot = RoomSpot.OfHead(transform, cameraTransform);
+            bool hasSpot = RoomSpot.TryLoad(out Vector2 savedSpot);
+            Vector2 spot = RoomSpot.Choose(hasSpot, savedSpot, headSpot, out bool spotFromHead);
+            if (spotFromHead || fromHead)
+                RoomSpot.Save(spot);
+            RoomSpot.Slide(transform, spot, EndHeadXZ);
         }
         else
             RoomFacing.Slide(transform, cameraTransform, EndHeadXZ); // looking straight down, nothing saved: just move

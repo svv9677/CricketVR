@@ -15,6 +15,14 @@ Shader "CricketVR/CrowdStand"
         [MainTexture] _BaseMap       ("Crowd Atlas", 2D)            = "white" {}
         [MainColor]   _BaseColor     ("Tint", Color)                = (1,1,1,1)
 
+        [Header(Pre keyed)]
+        // 2026-11-06, for frame rate: CrowdKeyBaker bakes the key and the white shirts into the atlas's
+        // alpha and colour once, in the editor; with _PreKeyed on, a pixel is one sample, a ramp and
+        // a clip instead of a colour distance, two smoothsteps and fwidth. _AlphaToMask can turn
+        // alpha-to-coverage off if it ever costs more than the shimmer it saves.
+        [Toggle] _PreKeyed ("Pre-keyed atlas (alpha)", Float) = 0
+        [Enum(Off,0,On,1)] _AlphaToMask ("Alpha To Coverage", Float) = 1
+
         [Header(Background Key)]
         // The atlas has no alpha channel; its people sit on a flat brown. We alpha-clip pixels
         // close to that brown so the stands show through. _KeyColor is the brown in LINEAR space
@@ -78,7 +86,7 @@ Shader "CricketVR/CrowdStand"
             ZTest LEqual
             // Alpha-to-coverage: with 4x MSAA the cut-out edges get anti-aliased instead of
             // snapping on and off each frame, which is what made the distant crowd shimmer.
-            AlphaToMask On
+            AlphaToMask [_AlphaToMask]
 
             HLSLPROGRAM
             #pragma vertex   CrowdVertex
@@ -135,6 +143,8 @@ Shader "CricketVR/CrowdStand"
                 float  _FlashDensity;
                 float  _FlashRate;
                 float  _PeoplePerRepeat;
+                float  _PreKeyed;
+                float  _AlphaToMask;
             CBUFFER_END
 
             // Runtime drive, set as GLOBAL uniforms by CrowdController (never per-material, so the
@@ -207,7 +217,17 @@ Shader "CricketVR/CrowdStand"
             {
                 UNITY_SETUP_INSTANCE_ID(IN);
                 half4 raw = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);
-
+                half4 albedo;
+                if (_PreKeyed > 0.5)
+                {
+                    // The baked atlas: the key's coverage in alpha, the shirts already darkened. A
+                    // short ramp round 0.5 keeps alpha-to-coverage's anti-aliased edge (no shimmer).
+                    half a = saturate((raw.a - 0.5) * 4.0 + 0.5);
+                    clip(a - 0.01);
+                    albedo = half4(raw.rgb * _BaseColor.rgb, a);
+                }
+                else
+                {
                 // Key out the flat brown background so the stands behind show through. Distance in
                 // (linear) colour space to _KeyColor; anything within _KeyTolerance is discarded,
                 // with a short soft edge to take the jaggies off the silhouettes.
@@ -218,7 +238,7 @@ Shader "CricketVR/CrowdStand"
                 float edge = saturate((coverage - 0.5) / max(fwidth(coverage), 1e-4) + 0.5);
                 clip(edge - 0.01);
 
-                half4 albedo = raw * _BaseColor;
+                albedo = raw * _BaseColor;
                 albedo.a = edge;
 
                 // No white shirts: they hid the ball against the stands. Skin and coloured clothes
@@ -228,6 +248,7 @@ Shader "CricketVR/CrowdStand"
                 half whiteness = smoothstep(_WhiteFrom, _WhiteFrom + 0.15, brightest) *
                                  (1.0 - smoothstep(0.05, 0.14, spread));
                 albedo.rgb = lerp(albedo.rgb, _WhiteTo.rgb, whiteness);
+                }
 
                 // Occasional camera flashes, one person at a time. A cheer (_CrowdFlash) fires many
                 // more at once and a little brighter. Free when both strengths are 0 (e.g. daytime).

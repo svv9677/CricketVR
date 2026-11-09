@@ -205,4 +205,18 @@ public partial class HUD
         NoBalls.Scored(true);
     }
 
+    /// Every line on the board shrinks to stay inside its box rather than run past the board's edge
+    /// (2026-11-08: "0.0 / 450 ov" in a Test, a long bowler's name).
+    private void KeepInside()
+    {
+        foreach (TMPro.TextMeshProUGUI t in new[] { txtScore, txtRunRate, txtBatsman1, txtBatsman2, txtBatsman1Score,
+                                                    txtBatsman2Score, txtOvers, txtBowler, txtBowlerStyle, txtBalls })
+        {
+            if (t == null || t.enableAutoSizing)
+                continue;
+            t.fontSizeMax = t.fontSize;
+            t.fontSizeMin = t.fontSize * 0.5f;
+            t.enableAutoSizing = true;
+        }
+    }
 }

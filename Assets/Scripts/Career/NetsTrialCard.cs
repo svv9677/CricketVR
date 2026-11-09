@@ -34,13 +34,16 @@ public class NetsTrialCard
     /// Sorting order above the nets' scoreboard canvas (10), which otherwise draws over anything
     /// nearer the eye.
     private const int OverTheScoreboard = 20;
-    /// The result body's width (card px).
+    /// The result card's text column (card px).
     private const float BodyWidth = 640f;
-    /// The heading ("Trial complete"), card px.
-    private const float HeadingSize = 40f;
 
     private readonly Transform parent;
     private TextMeshPro progress, fallback;
+    /// A dark panel behind the progress and the last ball's reading, so the lines read against the
+    /// stands and the net (2026-11-06: grey on a busy stadium was hard to make out).
+    private SpriteRenderer progressBack;
+    private const float BackPadding = 0.12f;
+    private static readonly Color BackColour = new Color(0.06f, 0.07f, 0.09f, 0.82f);
     private GameObject card;
     private TMP_Text heading, body;
     private Vector3 baseScale;
@@ -72,32 +75,11 @@ public class NetsTrialCard
     public const string ResultHeading = "Trial complete";
     public const string PracticeHeading = "Practice done";
 
-    /// What the last ball measured, in plain words: "Last ball: middled - four".
-    public static string LastBall(BallRecord r)
-    {
-        if (r == null)
-            return "";
-        string how = r.action == eBallAction.Left ? "left alone"
-                   : r.action == eBallAction.Missed ? "missed"
-                   : r.realContact == eRealContact.Clean ? "middled"
-                   : r.realContact == eRealContact.Edge ? "edged" : "played";
-        string end = r.end switch
-        {
-            eBallEnd.Four => "four",
-            eBallEnd.Six => "six",
-            eBallEnd.Out => "out",
-            eBallEnd.Runs => r.runs == 1 ? "1 run" : $"{r.runs} runs",
-            eBallEnd.Wide => "wide",
-            eBallEnd.NoBall => "no ball",
-            _ => "dot",
-        };
-        return $"Last ball: {how} - {end}";
-    }
-
-    /// Under the progress: the last ball, and how to finish (B opens the pause card).
-    public static string Footer(string lastBall) =>
-        "\n<size=60%><color=#E5E7EB>" + Latin1(lastBall) + "</color>\n" +
-        "<color=#98A2B3>B, then End session, to finish</color></size>";
+    /// Under the progress: the last ball's reading (ShotReading.Read, already rich text), and how
+    /// to finish (B opens the pause card).
+    public static string Footer(string reading) =>
+        "\n<size=58%>" + (string.IsNullOrEmpty(reading) ? "" : Latin1(reading) + "\n") +
+        "<size=50%><color=#98A2B3>B, then End session, to finish</color></size></size>";
 
     /// "Timing  62  Strong", or "Timing  --" when it is not measured yet.
     public static string RatingLine(int index, float rating)
@@ -164,7 +146,26 @@ public class NetsTrialCard
         if (progress == null)
             progress = MakeText("Nets Trial Progress", ProgressSize, new Vector2(4.5f, 1.6f));
         progress.text = text;
+        FitBack();
         SetProgressVisible(progressPlaced && !progressHidden);
+    }
+
+    /// The backing panel sized to the text as it renders, just behind it.
+    private void FitBack()
+    {
+        if (progressBack == null)
+        {
+            var go = new GameObject("Back", typeof(SpriteRenderer));
+            go.transform.SetParent(progress.transform, false);
+            progressBack = go.GetComponent<SpriteRenderer>();
+            progressBack.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 4f, 4f), new Vector2(0.5f, 0.5f), 4f);
+            progressBack.color = BackColour;
+            progressBack.sortingOrder = OverTheScoreboard - 1;
+        }
+        progress.ForceMeshUpdate();
+        Bounds b = progress.textBounds;
+        progressBack.transform.localPosition = new Vector3(b.center.x, b.center.y, 0.02f);
+        progressBack.transform.localScale = new Vector3(b.size.x + 2f * BackPadding, b.size.y + 2f * BackPadding, 1f);
     }
 
     /// Off to the side of the net toward the bowler, facing the player: readable at a glance between
@@ -201,8 +202,8 @@ public class NetsTrialCard
         onContinue = continueAction;
         if (BuildCard())
         {
-            heading.text = $"<color=#22C55E>{headingText}</color>";
-            body.text = bodyText;
+            CardText.Set(heading, headingText);
+            CardText.Set(body, bodyText);
             if (Eye(true, out Vector3 eye, out Vector3 forward))
             {
                 card.transform.SetPositionAndRotation(eye + forward * CardAhead + Vector3.down * CardBelow,
@@ -262,12 +263,13 @@ public class NetsTrialCard
             else if (text != null && heading == null)
             {
                 heading = text;
-                heading.enableAutoSizing = false;
-                heading.fontSize = HeadingSize;
-                heading.overflowMode = TextOverflowModes.Overflow;
+                CardText.MakeEyebrow(heading, CardText.Win);
             }
             else if (text != null && body == null)
-                MakeBody(text);
+            {
+                body = text;
+                CardText.MakeBody(body, CardText.BodySize, 600f);
+            }
             else
                 doomed.Add(child.gameObject);
         }
@@ -277,29 +279,12 @@ public class NetsTrialCard
         Canvas canvas = card.GetComponent<Canvas>();
         if (canvas != null)
             canvas.sortingOrder = OverTheScoreboard;
+        // Wide enough for "Temperament  62  Developing" on one line; the verdict wraps inside it.
+        LayoutElement column = play.GetComponent<LayoutElement>();
+        if (column != null)
+            column.preferredWidth = BodyWidth;
         OpenXRMenuInputModule.RegisterPanel(card);
         return body != null && heading != null;
-    }
-
-    /// The line under the heading becomes the body: it grows to hold the seven ratings and a verdict
-    /// that may wrap.
-    private void MakeBody(TMP_Text text)
-    {
-        body = text;
-        body.textWrappingMode = TextWrappingModes.Normal;
-        body.enableAutoSizing = false;
-        body.overflowMode = TextOverflowModes.Overflow;
-        body.alignment = TextAlignmentOptions.TopLeft;
-        body.fontSize = 30f;
-        var layout = body.GetComponent<LayoutElement>();
-        if (layout == null)
-            layout = body.gameObject.AddComponent<LayoutElement>();
-        {
-            // Wide enough for "Temperament  62  Developing" on one line (the play card's line under
-            // the name is sized for a few words); the verdict wraps inside it.
-            layout.preferredHeight = 400f;
-            layout.minWidth = layout.preferredWidth = BodyWidth;
-        }
     }
 
     private void WireContinueButton(Transform bowl)

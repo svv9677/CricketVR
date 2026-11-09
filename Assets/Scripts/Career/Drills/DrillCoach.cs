@@ -16,10 +16,11 @@ public static class DrillCoach
 {
     private const string Coach = "Coach";
 
-    /// The drill for each rating (RatingSet order); Temperament is matches only, so none.
+    /// The drill for each rating (RatingSet order); Temperament is matches only, so none. Power and
+    /// Defence have their own drills since 2026-11-06 (power hitting, soft hands).
     private static readonly eDrill[] ForRating =
     {
-        eDrill.Gaps, eDrill.ShortBall, eDrill.Yorkers, eDrill.Spin, eDrill.Yorkers, eDrill.LeaveOutsideOff, eDrill.None,
+        eDrill.Gaps, eDrill.PowerHitting, eDrill.Yorkers, eDrill.Spin, eDrill.SoftHands, eDrill.LeaveOutsideOff, eDrill.None,
     };
 
     /// The drill that works on the weakest known rating (Temperament skipped: no drill measures

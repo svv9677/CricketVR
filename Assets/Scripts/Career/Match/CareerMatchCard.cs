@@ -27,7 +27,8 @@ public class CareerMatchCard
     /// Above the HUD and stadium scoreboard canvases (sorting order 0 in the match scene; 10 in the
     /// nets), which otherwise draw over anything nearer the eye.
     private const int OverTheScoreboard = 20;
-    private const float BodyWidth = 640f, BodyHeight = 260f, HeadingSize = 38f, BodySize = 30f;
+    /// The card's text column (px): wider than the next-ball card's, for a few lines of scorecard.
+    private const float ColumnWidth = 640f;
 
     private readonly Transform parent;
     private GameObject card;
@@ -46,8 +47,8 @@ public class CareerMatchCard
         bodyText = NetsTrialCard.Latin1(bodyText ?? "");
         if (BuildCard())
         {
-            heading.text = $"<color=#3B82F6>{headingText}</color>";
-            body.text = bodyText;
+            CardText.Set(heading, headingText);
+            CardText.Set(body, bodyText);
             if (Eye(out Vector3 eye, out Vector3 forward))
             {
                 card.transform.SetPositionAndRotation(eye + forward * CardAhead + Vector3.down * CardBelow,
@@ -105,12 +106,13 @@ public class CareerMatchCard
             if (text != null && heading == null && !child.name.StartsWith("Bowl"))
             {
                 heading = text;
-                heading.enableAutoSizing = false;
-                heading.fontSize = HeadingSize;
-                heading.overflowMode = TextOverflowModes.Overflow;
+                CardText.MakeEyebrow(heading);
             }
             else if (text != null && body == null && !child.name.StartsWith("Bowl"))
-                MakeBody(text);
+            {
+                body = text;
+                CardText.MakeBody(body);
+            }
             else
                 doomed.Add(child.gameObject);
         }
@@ -119,23 +121,10 @@ public class CareerMatchCard
         Canvas canvas = card.GetComponent<Canvas>();
         if (canvas != null)
             canvas.sortingOrder = OverTheScoreboard;
+        LayoutElement column = play.GetComponent<LayoutElement>();
+        if (column != null)
+            column.preferredWidth = ColumnWidth;   // the panel widens with it; the text never past it
         return body != null && heading != null;
-    }
-
-    /// The line under the heading grows to hold a few lines of scorecard.
-    private void MakeBody(TMP_Text text)
-    {
-        body = text;
-        body.textWrappingMode = TextWrappingModes.Normal;
-        body.enableAutoSizing = false;
-        body.overflowMode = TextOverflowModes.Overflow;
-        body.alignment = TextAlignmentOptions.TopLeft;
-        body.fontSize = BodySize;
-        var layout = body.GetComponent<LayoutElement>();
-        if (layout == null)
-            layout = body.gameObject.AddComponent<LayoutElement>();
-        layout.preferredHeight = BodyHeight;
-        layout.minWidth = layout.preferredWidth = BodyWidth;
     }
 
     /// Floating world-space text with a soft shadow, hidden until shown (the fallback).
@@ -145,6 +134,9 @@ public class CareerMatchCard
         TextMeshPro t = go.AddComponent<TextMeshPro>();
         go.transform.SetParent(parent, false);
         t.fontSize = size;
+        t.enableAutoSizing = true;          // shrinks to stay in its box rather than spill out of it
+        t.fontSizeMax = size;
+        t.fontSizeMin = size * 0.4f;
         t.alignment = TextAlignmentOptions.Center;
         t.textWrappingMode = TextWrappingModes.Normal;
         t.rectTransform.sizeDelta = rect;

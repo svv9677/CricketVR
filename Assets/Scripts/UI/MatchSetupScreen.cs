@@ -21,11 +21,15 @@ public class MatchSetupScreen : MenuScreen
 
     private void Refresh()
     {
+        MatchFormat.Sync();
         int overs = GameSettings.Overs;
-        if (oversLabel != null) oversLabel.text = overs == 1 ? "1 over" : $"{overs} overs";
+        if (oversLabel != null) oversLabel.text = MatchFormat.Label();
         if (matchType != null) matchType.SetValueWithoutNotify((int)MatchSetup.Type);
         if (matchTypeHint != null)
-            matchTypeHint.text = MatchSetup.Type == eMatchType.Chase
+            matchTypeHint.text = MatchFormat.IsTest
+                ? (MatchSetup.Type == eMatchType.Chase ? "A Test: the AI bats first. Two innings each, five days." :
+                                                         "A Test: you bat first. Two innings each, five days; declare when you like.")
+                : MatchSetup.Type == eMatchType.Chase
                 ? $"The AI bats first (it usually makes about {AIInnings.Typical(overs, MatchSetup.Bowling)}); you chase it."
                 : "Set a total in your overs, then the AI chases it.";
         if (bowling != null) bowling.SetValueWithoutNotify((int)MatchSetup.Bowling);
@@ -46,8 +50,9 @@ public class MatchSetupScreen : MenuScreen
 
     // ---- Wired in the prefab ------------------------------------------------------------------
 
-    public void OnMoreOvers() { GameSettings.Overs++; Refresh(); }
-    public void OnFewerOvers() { GameSettings.Overs--; Refresh(); }
+    /// 5, 10, 20, 50 overs or a Test (MatchFormat).
+    public void OnMoreOvers() { MatchFormat.Next(); Refresh(); }
+    public void OnFewerOvers() { MatchFormat.Previous(); Refresh(); }
     public void OnMatchType(int i) { MatchSetup.Type = (eMatchType)i; Refresh(); }
     public void OnBowling(int i) { MatchSetup.Bowling = (eBowlingLevel)i; Refresh(); }
     public void OnShield(int i) { GameSettings.Difficulty = (eDifficulty)(i + 1); Refresh(); }

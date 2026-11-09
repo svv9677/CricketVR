@@ -34,11 +34,13 @@ public partial class SettingsPanel : MonoBehaviour
 
     [Header("Batting")]
     public SegmentedControl hand;              // Left, Right
+    public SegmentedControl batController;     // Left, Right: the controller the bat is in
     public SegmentedControl difficultyLevel;   // Easy, Medium, Hard
     public TMP_Text difficultyHint;
 
     [Header("Bowling")]
     public SegmentedControl bowler;            // UIFormat.BowlerTypes
+    public SegmentedControl bowlerArm;         // Both, Right, Left (BowlerArm.Setting)
     public RangeRow speedRange;                // km/h
     public RangeRow swingRange;                // 0..1 of the maximum swing
     public RangeRow turnRange;                 // 0..1 of BallFlight.MaxTurnDegrees
@@ -181,13 +183,17 @@ public partial class SettingsPanel : MonoBehaviour
         Main m = Main.Instance;
         if (hand != null)
             hand.SetValueWithoutNotify(GameSettings.BattingStyle == eBattingStyle.LeftHanded ? 0 : 1);
+        if (batController != null)
+            batController.SetValueWithoutNotify(GameSettings.BatInLeftHand(m != null ? m.BattingStyle : GameSettings.BattingStyle) ? 0 : 1);
         if (difficultyLevel != null)
             difficultyLevel.SetValueWithoutNotify(Mathf.Clamp((int)GameSettings.Difficulty - 1, 0, 2));
         SetText(difficultyHint, DifficultyHint(GameSettings.Difficulty));
         SetSlider(fielderSpeedSlider, GameSettings.FielderSpeed, $"{GameSettings.FielderSpeed:0.0}×");
         if (overlayToggle != null)
             overlayToggle.SetIsOnWithoutNotify(GameSettings.OverlayVisible);
-        SetText(oversLabel, GameSettings.Overs == 1 ? "1 over" : $"{GameSettings.Overs} overs");
+        SetText(oversLabel, MatchFormat.Label());
+        if (bowlerArm != null)
+            bowlerArm.SetValueWithoutNotify((int)BowlerArm.Setting);
         SetSlider(cameraHeightSlider, GameSettings.CameraHeight, $"{GameSettings.CameraHeight * 100f:+0;-0;0} cm");
         SetVolume(masterVolume, GameAudio.Channel.Master);
         SetVolume(batVolume, GameAudio.Channel.Bat);
@@ -214,17 +220,23 @@ public partial class SettingsPanel : MonoBehaviour
     /// Grip, View & Comfort, Audio and the debug overlay stay.
     private void HideCareerRows(bool inMatch)
     {
-        bool career = ModeMenus.IsCareer(ModeMenus.Current);
+        ePlayMode mode = ModeMenus.Current;
+        bool career = ModeMenus.IsCareer(mode);
         if (careerRows == null)
             careerRows = CareerRows();
         foreach (GameObject row in careerRows)
         {
             bool matchOnlyRow = matchOnly != null && System.Array.IndexOf(matchOnly, row) >= 0;
-            bool on = !career && (!matchOnlyRow || inMatch);
+            // Quick play keeps the batting rows and Restart; the bowling, fielding and match pages
+            // are the free nets' (ModeMenus.ShowsMatchTuning).
+            bool tuning = tuningRows != null && tuningRows.Contains(row);
+            bool on = !career && (!matchOnlyRow || inMatch) && (!tuning || ModeMenus.ShowsMatchTuning(mode));
             if (row != null && row.activeSelf != on)
                 row.SetActive(on);
         }
     }
+
+    private System.Collections.Generic.HashSet<GameObject> tuningRows;
 
     private GameObject[] careerRows;
 
@@ -238,9 +250,11 @@ public partial class SettingsPanel : MonoBehaviour
         {
             TMP_Text label = b.GetComponentInChildren<TMP_Text>(true);
             string t = label != null ? label.text : "";
-            if (t.StartsWith("<b>Bowling</b>") || t.StartsWith("<b>Fielding</b>") || t.StartsWith("<b>Match</b>") ||
-                b.name == "Restart the scene")
+            bool tuning = t.StartsWith("<b>Bowling</b>") || t.StartsWith("<b>Fielding</b>") || t.StartsWith("<b>Match</b>");
+            if (tuning || b.name == "Restart the scene")
                 rows.Add(b.gameObject);
+            if (tuning)
+                (tuningRows ??= new System.Collections.Generic.HashSet<GameObject>()).Add(b.gameObject);
         }
         return rows.ToArray();
     }
@@ -311,6 +325,13 @@ public partial class SettingsPanel : MonoBehaviour
     public void OnHand(int index) =>
         GameSettings.BattingStyle = index == 0 ? eBattingStyle.LeftHanded : eBattingStyle.RightHanded;
 
+    /// Kept in career too: it is which hand holds the bat, not the player's stance.
+    public void OnBatController(int index)
+    {
+        GameSettings.BatController = index == 0 ? GameSettings.LeftController : GameSettings.RightController;
+        Refresh();
+    }
+
     public void OnDifficulty(int index)
     {
         GameSettings.Difficulty = (eDifficulty)(index + 1);
@@ -333,6 +354,13 @@ public partial class SettingsPanel : MonoBehaviour
         M.ApplyTweaks();
     }
 
+    /// Which arm the bowlers bowl with, pace and spin (BowlerArm): from the next ball.
+    public void OnBowlerArm(int index)
+    {
+        BowlerArm.Setting = (BowlerArm.eSetting)Mathf.Clamp(index, 0, 2);
+        Refresh();
+    }
+
     public void OnSpeedRange(float lowKmh, float highKmh)
     {
         M.MinX = lowKmh / Constants.KmhPerSpeedUnit;
@@ -353,8 +381,8 @@ public partial class SettingsPanel : MonoBehaviour
 
     public void OnFielderSpeed(float v) => GameSettings.FielderSpeed = Mathf.Round(v * 10f) / 10f;
 
-    public void OnFewerOvers() { GameSettings.Overs--; Refresh(); }
-    public void OnMoreOvers() { GameSettings.Overs++; Refresh(); }
+    public void OnFewerOvers() { MatchFormat.Previous(); Refresh(); }
+    public void OnMoreOvers() { MatchFormat.Next(); Refresh(); }
 
     /// This session only (not saved): whole centimetres.
     public void OnCameraHeight(float v)
@@ -363,8 +391,8 @@ public partial class SettingsPanel : MonoBehaviour
         Refresh();
     }
 
-    /// Put the player back at the crease, facing the bowler: the way he faces now becomes down the
-    /// pitch, in every scene from here on (RoomFacing, XRRigSetup.RecentreHere).
+    /// Put the player back at the crease on his saved anchor (XRRigSetup.RecentreHere); holding the
+    /// Oculus button sets a new one.
     public void OnRecentre()
     {
         XRRigSetup rig = FindFirstObjectByType<XRRigSetup>();
@@ -386,8 +414,23 @@ public partial class SettingsPanel : MonoBehaviour
     }
     public void OnOverlay(bool on) => GameSettings.OverlayVisible = on;
     public void OnToggleAdvanced() { if (advanced != null) SetAdvanced(!advanced.activeSelf); }
-    public void OnCalibrateGrip() => M.onCalibrateGrip();
-    public void OnResetGrip() => M.onResetGrip();
+    /// Calibrating needs the bat in hand, so from the main menu it opens the free nets with the
+    /// calibration already running (GripCalibrationOnArrival); in a match or the nets, here and now.
+    public void OnCalibrateGrip()
+    {
+        if (M != null)
+            M.onCalibrateGrip();
+        else
+            GripCalibrationOnArrival.Request();
+    }
+
+    public void OnResetGrip()
+    {
+        if (M != null)
+            M.onResetGrip();
+        else
+            BatGripCalibration.ClearSaved();
+    }
     /// Done: back to whoever opened Settings - the pause card, the main menu, or (opened from
     /// between balls) closed. Only without a menu in the scene does Main close it.
     public void OnClose()

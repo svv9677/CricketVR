@@ -15,7 +15,8 @@ using UnityEngine;
 ///     for a ball fielded inside 2 s, so a dead bat at the crease would usually be a single).
 ///   * Wicket: a ball that would hit the stumps is played and missed (bowled); otherwise a catch
 ///     to the fielder the search found, else an edge to the keeper or the slips (within EdgeCone of
-///     the incoming line at EdgeSpeedMin..Max of its speed), else nothing is given (a dot).
+///     the incoming line at EdgeSpeedMin..Max of its speed), else played at and missed - the
+///     keeper's faint nick (PartnerScore).
 ///   * Runs: the searched direction from the real contact point, nudged NudgeDegrees either way
 ///     (toward straight first) if it no longer works from there, played with the shot that fits
 ///     its height and direction. The search keeps him straight - down the ground in the V -
@@ -366,7 +367,14 @@ public static class PartnerShotPlanner
             p.batVelocity = BatVelocityFor(p.incoming, IntendedDrive(offSign));
             return p;
         }
-        return NoShot(p, offSign, rng);
+        // Nothing the field could take: he plays at it and misses, and the keeper has the faint
+        // nick (PartnerScore.Missed scores it so). It was a dot, and he batted on where the
+        // simulation had him out.
+        p.shot = PartnerShot.PlayAndMiss;
+        p.wicket = PartnerWicket.CaughtBehind;
+        p.batVelocity = BatVelocityFor(p.incoming, IntendedDrive(offSign));
+        p.predicted.runs = CareerSim.Wicket;
+        return p;
     }
 
     /// An edge carried to the keeper or the slips: close to the incoming line, slower than it.

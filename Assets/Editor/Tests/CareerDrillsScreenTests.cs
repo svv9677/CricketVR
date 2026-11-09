@@ -24,7 +24,7 @@ public class CareerDrillsScreenTests
     [Test]
     public void OneRowPerDrill()
     {
-        Assert.AreEqual(5, CareerDrillsScreen.Rows);
+        Assert.AreEqual(10, CareerDrillsScreen.Rows);
         Assert.AreEqual(DrillDefs.Count, CareerDrillsScreen.Rows);
     }
 

@@ -13,8 +13,10 @@ using UnityEngine;
 ///     there is: r = prior + (obs - prior) * n / (n + k). A handful of lucky balls cannot make a
 ///     player Elite, and a handful of bad ones cannot bury him.
 ///   * A rating is Unknown ("--") until it has its minimum sample, rather than being guessed.
-///   * Contact is always read off the REAL blade (realContact, realQuality), never `quality`: the bat
-///     shield widens the bat to help find the ball, and a wider shield must never inflate a rating.
+///   * Contact is read from realContact, realQuality and realKind, which since 2026-11-08 hold the
+///     contact on the player's own bat width as set, not the real-width blade's (the user: "the nets
+///     training and all those stats should use the actual real stat instead of the 100% width
+///     stat"). Balls recorded before then hold the real blade's.
 /// </summary>
 public static class CareerRatings
 {

@@ -13,9 +13,9 @@ public class FrontFoot : MonoBehaviour
     private AnimatedBowler bowler;
     private Animator animator;
     private bool shifted, wasCarrying;
-    private Transform leftFoot, leftToes;
+    private Transform leftFoot, leftToes, rightFoot, rightToes;
 
-    /// World X of the front (left) foot's heel and toe at the last release.
+    /// World X of the front foot's heel and toe at the last release (the left; a left-armer's right).
     public float LastHeelX { get; private set; } = float.NaN;
     public float LastToeX { get; private set; } = float.NaN;
 
@@ -27,6 +27,8 @@ public class FrontFoot : MonoBehaviour
         {
             leftFoot = animator.GetBoneTransform(HumanBodyBones.LeftFoot);
             leftToes = animator.GetBoneTransform(HumanBodyBones.LeftToes);
+            rightFoot = animator.GetBoneTransform(HumanBodyBones.RightFoot);
+            rightToes = animator.GetBoneTransform(HumanBodyBones.RightToes);
         }
     }
 
@@ -37,10 +39,12 @@ public class FrontFoot : MonoBehaviour
         bool carrying = bowler.CarryingBall;
         if (!carrying)
         {
-            if (wasCarrying && leftFoot != null)
+            // A left-armer's front foot is his right (his action is the humanoid's mirror).
+            Transform foot = bowler.LeftArm ? rightFoot : leftFoot, toes = bowler.LeftArm ? rightToes : leftToes;
+            if (wasCarrying && foot != null)
             {
-                LastHeelX = leftFoot.position.x;
-                LastToeX = leftToes != null ? leftToes.position.x : leftFoot.position.x;
+                LastHeelX = foot.position.x;
+                LastToeX = toes != null ? toes.position.x : foot.position.x;
             }
             shifted = false;
         }

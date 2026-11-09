@@ -121,7 +121,7 @@ public static class StadiumConditions
                 r.enabled = false;
         if (stands.TryGetComponent(out CrowdController noise))
         {
-            float level = crowd == eCrowd.Empty ? 0.15f : 0.55f;
+            float level = crowd == eCrowd.Empty ? 0f : 0.55f;   // an empty stadium is silent
             noise.ambienceVolume *= level;
             noise.cheerVolume *= level;
         }

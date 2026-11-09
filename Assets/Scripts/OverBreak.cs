@@ -110,11 +110,12 @@ public class OverBreak : MonoBehaviour
     {
         if (!BuildCard())
             return;
-        string type = BowlerRepertoire.KindName(hud.CurrentBowler.Kind);
-        // Every bowling action in the game is right-arm, over the wicket.
-        body.text = $"<b>{hud.CurrentBowler.Name}</b>\n<size=70%><color=#98A2B3>{type}</color></size>\n" +
-                    "<size=70%><color=#98A2B3>Right-arm, over the wicket</color></size>\n\n" +
-                    $"<size=60%><color=#98A2B3>Over {hud.Overs} complete   {hud.Runs}/{hud.Wickets}</color></size>";
+        // His arm, as the scorecard says it (half the bowlers are left-arm since 2026-11-06).
+        bool leftArm = AnimatedBowler.Instance != null && AnimatedBowler.Instance.WillBowlLeftArm(hud.CurrentBowler);
+        string type = BowlerArm.KindName(hud.CurrentBowler.Kind, leftArm);
+        CardText.Set(body, $"{CardText.Title(hud.CurrentBowler.Name)}\n{type}\n" +
+                           CardText.Caption(leftArm ? "Over the wicket" : "Right-arm, over the wicket") + "\n\n" +
+                           CardText.Caption($"Over {hud.Overs} complete   {hud.Runs}/{hud.Wickets}"));
         Place();
         card.SetActive(true);
         LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)card.transform);
@@ -192,17 +193,13 @@ public class OverBreak : MonoBehaviour
                 Destroy(child.gameObject);      // Change bowler / Settings / Bat grip
         }
         body = label.GetComponent<TMP_Text>();
-        // Its own lines (the card's is one line, cut off with an ellipsis): a long name wraps
-        // rather than taking the rest of the card with it.
-        body.textWrappingMode = TextWrappingModes.Normal;
-        body.overflowMode = TextOverflowModes.Overflow;
-        body.alignment = TextAlignmentOptions.TopLeft;
-        body.fontSize = 36f;
-        var layout = body.GetComponent<LayoutElement>();
-        if (layout != null)
-            layout.preferredHeight = 175f;
+        // Its own lines, sized to its words (CardText): a long name wraps inside the card.
+        CardText.MakeBody(body);
         if (heading != null)
-            heading.text = "<color=#3B82F6>NEXT OVER</color>";
+        {
+            CardText.MakeEyebrow(heading);
+            CardText.Set(heading, "Next over");
+        }
         OpenXRMenuInputModule.RegisterPanel(card);
         return true;
     }

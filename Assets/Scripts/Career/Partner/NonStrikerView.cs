@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -32,10 +31,7 @@ public class NonStrikerView : MonoBehaviour
     private bool subscribed;
     private XRRigSetup rig;
 
-    private GameObject blackQuad;
-    private MeshRenderer blackRenderer;
-    private Material blackMaterial;
-    private Mesh blackMesh;
+    private readonly ViewBlack black = new ViewBlack();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics() => Blinking = false;
@@ -76,9 +72,7 @@ public class NonStrikerView : MonoBehaviour
             main.onGameStateChanged -= OnGameState;
         Blinking = false;
         Bat.ContactSuspended = false;
-        if (blackQuad != null) Destroy(blackQuad);
-        if (blackMaterial != null) Destroy(blackMaterial);
-        if (blackMesh != null) Destroy(blackMesh);
+        black.Dispose();
     }
 
     private void OnGameState()
@@ -108,18 +102,21 @@ public class NonStrikerView : MonoBehaviour
         // per-frame check between balls tries again once it closes.
         if (PanelOpen())
             return;
-        if (PartnerWatch.Live != PlayerEnd.NonStriker)
-            StartCoroutine(Blink());
+        if (PartnerWatch.Live != PlayerEnd.NonStriker || (PlayerEnd.NonStriker && placedSide != EndPose.NonStrikerSide))
+            StartCoroutine(Blink());   // the other end, or the other side of it for a new bowler's arm
         else
             SyncPartner();
     }
+
+    /// The side of the stumps he was last put at the non-striker's end (EndPose.NonStrikerSide).
+    private float placedSide = -1f;
 
     // ---- The blink -------------------------------------------------------------------------------
 
     private IEnumerator Blink()
     {
         Blinking = true;
-        bool visible = EnsureBlack();
+        bool visible = black.Ensure();
         float start = Time.unscaledTime;
         bool moved = false;
         while (true)
@@ -131,14 +128,14 @@ public class NonStrikerView : MonoBehaviour
                 // The clock restarts the hold from black, however long the frame was.
                 start = Time.unscaledTime - FadeSeconds;
                 t = FadeSeconds;
-                SetBlack(1f, visible);
+                black.Set(1f, visible);
                 // Read again at black: the strike may have changed while the screen went dark, a
                 // panel may have opened (it would be left 19 m behind), the match may have ended.
                 // Not moved: the per-frame check between balls tries again.
                 if (CanChangeEnds(main.gameState) && !PanelOpen() && !MatchFlow.Over)
                     MoveTo(PartnerWatch.Live);
             }
-            SetBlack(BlinkAlpha(t), visible);
+            black.Set(BlinkAlpha(t), visible);
             if (t >= BlinkSeconds)
                 break;
             yield return null;
@@ -154,6 +151,7 @@ public class NonStrikerView : MonoBehaviour
             rig = FindFirstObjectByType<XRRigSetup>();
         if (rig != null)
             rig.PlaceAtEnd(nonStriker);
+        placedSide = EndPose.NonStrikerSide;
         Bat.ContactSuspended = nonStriker;
         SyncPartner();
     }
@@ -162,8 +160,13 @@ public class NonStrikerView : MonoBehaviour
     private static void SyncPartner()
     {
         PartnerBatter partner = PartnerBatter.Instance;
-        if (partner == null || !partner.Ready || partner.OnStrike == PlayerEnd.NonStriker)
+        if (partner == null || !partner.Ready)
             return;
+        if (partner.OnStrike == PlayerEnd.NonStriker)
+        {
+            partner.KeepNonStrikerSide();
+            return;
+        }
         if (PlayerEnd.NonStriker)
             partner.TakeStrike();
         else
@@ -183,73 +186,6 @@ public class NonStrikerView : MonoBehaviour
 
     /// A black quad just in front of Camera.main, drawn last and over everything; built the first
     /// time it is needed. False when there is no camera (the ends still change, unseen).
-    private bool EnsureBlack()
-    {
-        Camera cam = Camera.main;
-        if (cam == null)
-            return false;
-        if (blackQuad != null && blackQuad.transform.parent == cam.transform)
-            return true;
-        if (blackMaterial == null)
-        {
-            // Both in the build's always-included shaders; UI/Default's depth test can be switched off.
-            Shader shader = Shader.Find("UI/Default");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-            if (shader == null)
-                return false;
-            blackMaterial = new Material(shader) { name = "Blink", renderQueue = 5000, color = new Color(0f, 0f, 0f, 0f) };
-            blackMaterial.SetFloat("unity_GUIZTestMode", (float)CompareFunction.Always);
-        }
-        if (blackMesh == null)
-            blackMesh = QuadMesh();
-        if (blackQuad == null)
-        {
-            blackQuad = new GameObject("Blink", typeof(MeshFilter), typeof(MeshRenderer));
-            blackQuad.GetComponent<MeshFilter>().sharedMesh = blackMesh;
-            blackRenderer = blackQuad.GetComponent<MeshRenderer>();
-            blackRenderer.sharedMaterial = blackMaterial;
-            blackRenderer.shadowCastingMode = ShadowCastingMode.Off;
-            blackRenderer.receiveShadows = false;
-            blackRenderer.enabled = false;
-        }
-        blackQuad.layer = FirstLayer(cam.cullingMask);
-        blackQuad.transform.SetParent(cam.transform, false);
-        // Just past the near plane, and wide enough to fill any headset's view from there.
-        float z = Mathf.Max(cam.nearClipPlane * 1.5f, 0.02f);
-        blackQuad.transform.localPosition = new Vector3(0f, 0f, z);
-        blackQuad.transform.localRotation = Quaternion.identity;
-        blackQuad.transform.localScale = Vector3.one * (z * 6f);
-        return true;
-    }
-
-    /// Off when clear: a full-view transparent quad is not free on a Quest.
-    private void SetBlack(float alpha, bool visible)
-    {
-        if (!visible || blackRenderer == null)
-            return;
-        blackMaterial.color = new Color(0f, 0f, 0f, alpha);
-        blackRenderer.enabled = alpha > 0.001f;
-    }
-
-    /// Unit quad facing the camera, white vertex colours (both shaders multiply by them).
-    private static Mesh QuadMesh()
-    {
-        var mesh = new Mesh { name = "Blink" };
-        mesh.vertices = new[] { new Vector3(-1f, -1f, 0f), new Vector3(1f, -1f, 0f), new Vector3(-1f, 1f, 0f), new Vector3(1f, 1f, 0f) };
-        mesh.uv = new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f) };
-        mesh.colors = new[] { Color.white, Color.white, Color.white, Color.white };
-        mesh.triangles = new[] { 0, 2, 1, 2, 3, 1 };
-        return mesh;
-    }
-
-    private static int FirstLayer(int mask)
-    {
-        for (int layer = 0; layer < 32; layer++)
-            if ((mask & (1 << layer)) != 0)
-                return layer;
-        return 0;
-    }
-
     // ---- Rules (pure; PlayerEndTests) -------------------------------------------------------------
 
     /// How black the view is `t` seconds into a blink: in over FadeSeconds, held, out over FadeSeconds.

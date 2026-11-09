@@ -12,7 +12,7 @@ using UnityEngine;
 /// Ladder.TeamsInLeague sides, so both lists are that many rows. Built by Tools > CricketVR > Build
 /// Menu Prefabs.
 /// </summary>
-public class SeasonScreen : MenuScreen
+public class SeasonScreen : CareerDeckScreen
 {
     /// Rows in each list: one per side in the table; seven rounds and the final in the fixtures.
     public const int Rows = Ladder.TeamsInLeague;
@@ -31,6 +31,7 @@ public class SeasonScreen : MenuScreen
 
     public override void OnShow()
     {
+        base.OnShow();
         shown = 0;
         if (view != null) view.SetValueWithoutNotify(0);
         Refresh();
@@ -38,8 +39,9 @@ public class SeasonScreen : MenuScreen
 
     private void Refresh()
     {
-        if (tablePanel != null) tablePanel.SetActive(shown == 0);
-        if (fixturesPanel != null) fixturesPanel.SetActive(shown == 1);
+        // With no Table | Fixtures switch (the floating panels show both at once), both are up.
+        if (tablePanel != null) tablePanel.SetActive(view == null || shown == 0);
+        if (fixturesPanel != null) fixturesPanel.SetActive(view == null || shown == 1);
         CareerProfile p = CareerSaves.Current;
         Season s = p?.season;
         Set(subtitle, s == null ? "No season yet." : $"{Ladder.Name(s.rung)}  ·  Season {s.number}  ·  {s.Yours?.name}");

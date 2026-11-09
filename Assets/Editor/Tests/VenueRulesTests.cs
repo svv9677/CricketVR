@@ -24,10 +24,11 @@ public class VenueRulesTests
     }
 
     [Test]
-    public void TheStadiumSoundsAsItAlwaysDidWhateverTheCrowd()
+    public void TheStadiumSoundsAsItAlwaysDidWithACrowd()
     {
         foreach (eCrowd c in Crowds)
         {
+            if (c == eCrowd.Empty) continue;
             AssertReaction(VenueRules.ForSignal(eVenue.Stadium, c, UmpireSignal.Four), "crowd_four", 0.75f);
             AssertReaction(VenueRules.ForSignal(eVenue.Stadium, c, UmpireSignal.Six), "crowd_six", 0.95f);
             AssertReaction(VenueRules.ForSignal(eVenue.Stadium, c, UmpireSignal.Out), "crowd_wicket", 0.95f);
@@ -43,9 +44,17 @@ public class VenueRulesTests
         AssertReaction(VenueRules.ForSignal(eVenue.ClubGround, eCrowd.Packed, UmpireSignal.Six), "club_cheer", 0.7f);
         AssertReaction(VenueRules.ForSignal(eVenue.ClubGround, eCrowd.Packed, UmpireSignal.Out), "club_clap", 0.6f);
         AssertReaction(VenueRules.ForSignal(eVenue.ClubGround, eCrowd.Half, UmpireSignal.Six), "club_cheer", 0.7f * 0.85f);
-        AssertReaction(VenueRules.ForSignal(eVenue.ClubGround, eCrowd.Empty, UmpireSignal.Four), "club_clap", 0.5f * 0.6f);
-        AssertReaction(VenueRules.ForSignal(eVenue.ClubGround, eCrowd.Empty, UmpireSignal.Out), "club_clap", 0.6f * 0.6f);
+        Assert.AreEqual(0.6f * 0.85f, VenueRules.ForSignal(eVenue.ClubGround, eCrowd.Half, UmpireSignal.Out).volume, 1e-6f);
         Assert.AreEqual(0f, VenueRules.OohVolume(eVenue.ClubGround), "no ooh from a few people on benches");
+    }
+
+    [Test]
+    public void NoCrowdNoNoise()
+    {
+        foreach (eVenue v in new[] { eVenue.Stadium, eVenue.ClubGround })
+            foreach (UmpireSignal s in new[] { UmpireSignal.Four, UmpireSignal.Six, UmpireSignal.Out })
+                Assert.IsNull(VenueRules.ForSignal(v, eCrowd.Empty, s).group, $"{v} {s}");
+        Assert.AreEqual(0f, VenueRules.OohVolume(eVenue.Stadium, eCrowd.Empty));
     }
 
     [Test]

@@ -33,10 +33,14 @@ public static class VenueRules
     /// A one-shot for the crowd: the GameSfx group and its volume. A null group is silence.
     public struct Reaction { public string group; public float volume; }
 
-    /// The crowd's answer to the umpire's signal. The stadium is today's sounds exactly, whatever the
-    /// crowd setting (it always ignored it); the club claps, quieter the emptier it is.
+    /// The crowd's answer to the umpire's signal: none with no crowd; the stadium's roar, or the club's
+    /// claps, quieter the emptier it is.
     public static Reaction ForSignal(eVenue v, eCrowd c, UmpireSignal s)
     {
+        // Nobody there, nobody cheers (2026-11-06: "if there's no crowd... there shouldn't be any
+        // noise from the crowd").
+        if (c == eCrowd.Empty)
+            return new Reaction();
         if (v == eVenue.Stadium)
         {
             switch (s)
@@ -61,7 +65,7 @@ public static class VenueRules
     private static float ClubFactor(eCrowd c) => c == eCrowd.Packed ? 1f : c == eCrowd.Half ? 0.85f : 0.6f;
 
     /// The "ooh" when the batter is beaten: a stadium noise. 0 means do not play it.
-    public static float OohVolume(eVenue v) => v == eVenue.Stadium ? 0.6f : 0f;
+    public static float OohVolume(eVenue v, eCrowd c = eCrowd.Half) => v == eVenue.Stadium && c != eCrowd.Empty ? 0.6f : 0f;
 
     /// The sound of a ball into whatever is round the rope. "fence" only if those clips exist, so a
     /// build without them still knocks on "boards". `has` is only asked at a club ground.

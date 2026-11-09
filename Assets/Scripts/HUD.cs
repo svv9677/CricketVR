@@ -70,6 +70,7 @@ public partial class HUD : MonoBehaviour
         Main.Instance.onGameStateChanged += HandleGameState;
         Main.Instance.onGameStateChanged += AnnounceBall;   // after HandleGameState has scored it
         Bat.ShotStruck += ShowShot;
+        KeepInside();
 
         Reset();
     }
@@ -166,7 +167,10 @@ public partial class HUD : MonoBehaviour
             {
                 float seconds = Time.time - StartOfShot;
                 //Debug.Log("SHOT TIMER: " + seconds.ToString());
-                if (seconds < 2f)
+                // A watched partner's ball scores as his drawn outcome (PartnerScore), like a simulated one.
+                if (PartnerScore.Armed)
+                    AddPinned(PartnerScore.Fielded(RunsForTime()));
+                else if (seconds < 2f)
                     AddRuns(0);
                 else if (seconds < 4.5f)
                     AddRuns(1);
@@ -187,6 +191,10 @@ public partial class HUD : MonoBehaviour
             if (Main.Instance.theBallScript.wide)
             {
                 AddRuns(10);
+            }
+            else if (PartnerScore.Armed)
+            {
+                AddPinned(PartnerScore.Missed());
             }
             else
             {
@@ -254,6 +262,22 @@ public partial class HUD : MonoBehaviour
         }
         IncrementBalls();
         BowledBalls.Add(runs == 0 ? "*" : $"{runs}b");
+    }
+
+    /// A watched partner's ball as PartnerScore pinned it: a wicket it gave is a run out (not the
+    /// bowler's) or a nick to the keeper, named as such on the scorecard line.
+    void AddPinned(int code)
+    {
+        int wickets = Wickets;
+        Bowler bowling = CurrentBowler;
+        AddRuns(code);
+        if (code != -1 || Wickets == wickets || string.IsNullOrEmpty(PartnerScore.LastHow) || pendingOut == null)
+            return;
+        bool runOut = PartnerScore.LastHow == "run out";
+        if (runOut && bowling != null && bowling.Wickets > 0)
+            bowling.Wickets--;
+        string how = runOut ? "run out" : $"c wk b {(bowling != null ? bowling.Name : "")}";
+        LastDismissal = $"{pendingOut.Name} {how}  {pendingOut.Runs} ({pendingOut.Balls})";
     }
 
     // Note: -1 runs is a wicket
@@ -484,10 +508,13 @@ public partial class HUD : MonoBehaviour
         txtBatsman2.text = CurrentRunner.Name;
         txtBatsman2Score.text = RunsAndBalls(CurrentRunner);
 
-        txtOvers.text = $"{Overs}.{Balls}<size=60%><color=#98A2B3> / {TotalOvers} ov</color></size>";
+        // A Test innings has no limit to show (FormatRules).
+        txtOvers.text = FormatRules.IsTest(TotalOvers) ? $"{Overs}.{Balls}<size=60%><color=#98A2B3> ov</color></size>"
+                                                       : $"{Overs}.{Balls}<size=60%><color=#98A2B3> / {TotalOvers} ov</color></size>";
         txtBowler.text = CurrentBowler.Name;
         // How he bowls and his figures - the captain's plan was more than a scoreboard should say.
-        txtBowlerStyle.text = $"<color=#98A2B3>{BowlerRepertoire.KindName(CurrentBowler.Kind)}</color>   {Figures(CurrentBowler)}";
+        bool leftArm = AnimatedBowler.Instance != null && AnimatedBowler.Instance.WillBowlLeftArm(CurrentBowler);
+        txtBowlerStyle.text = $"<color=#98A2B3>{BowlerArm.KindName(CurrentBowler.Kind, leftArm)}</color>   {Figures(CurrentBowler)}";
 
         if (ShotCard.Instance != null)
             ShotCard.Instance.SetScore(Runs, Wickets, Overs, Balls, BowledBalls);

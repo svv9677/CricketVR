@@ -54,6 +54,11 @@ public static class DrillScoring
             case eDrill.ShortBall: return Short(r);
             case eDrill.Spin: return SpinBall(r);
             case eDrill.Gaps: return Gap(d, r);
+            case eDrill.StraightHitting: return DrillScoringMore.Straight(r);
+            case eDrill.Swing: return DrillScoringMore.Swing(r);
+            case eDrill.PowerHitting: return DrillScoringMore.Power(r);
+            case eDrill.DeathOvers: return DrillScoringMore.Death(r);
+            case eDrill.SoftHands: return DrillScoringMore.SoftHands(r);
             default: return S(0f, eDrillTag.None);
         }
     }
@@ -99,6 +104,8 @@ public static class DrillScoring
             DrillBallScore s = Score(d, attempt[i]);
             sum += s.value;
             res.tags[(int)s.tag]++;
+            if (DrillGoals.Counts(res.drill, attempt[i], s.tag))
+                res.hits++;
         }
         res.balls = n;
         res.attempt = n > 0 ? attempt[0].drillAttempt : 0;
@@ -186,7 +193,7 @@ public static class DrillScoring
         if (Clean(r))
         {
             bool sweep = r.contactHeight < SweepHeight && r.shotAngle >= SweepFrom && r.shotAngle <= SweepTo;
-            int turn = TurnSide(r.bowlerKind, r.delivery);
+            int turn = TurnSide(r.bowlerKind, r.delivery) * (r.leftArm ? -1 : 1);   // a left-armer's turns the other way
             bool withTurn = (turn != 0 ? Mathf.Sign(r.shotAngle) == turn && r.shotAngle != 0f : Mathf.Abs(r.shotAngle) < StraightOn)
                             || Runs(r) >= 4;
             float v = 0.6f + (feet || sweep ? 0.2f : 0f) + (withTurn ? 0.2f : 0f);

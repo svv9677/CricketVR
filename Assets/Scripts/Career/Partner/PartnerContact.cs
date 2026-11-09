@@ -111,6 +111,7 @@ public class PartnerContact : MonoBehaviour
             contactPoint = contact,
             realQuality = p.quality,
             realContact = p.edge ? eRealContact.Edge : eRealContact.Clean,
+            realKind = p.kind,
             realExitVelocity = exit,
         };
     }

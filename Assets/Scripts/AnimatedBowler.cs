@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.PlayerLoop;
 
-public class AnimatedBowler : MonoBehaviour
+public partial class AnimatedBowler : MonoBehaviour
 {
     public static AnimatedBowler Instance;
 
@@ -141,6 +141,7 @@ public class AnimatedBowler : MonoBehaviour
         animator.applyRootMotion = true;
         animator.speed = 1f;
         animator.SetInteger("Action", 0);
+        ApplyMirror();   // the bowling controller back: its Mirror bool is new (AnimatedBowlerArm)
     }
 
     void LateUpdate()
@@ -171,6 +172,7 @@ public class AnimatedBowler : MonoBehaviour
                 ReturnToMark();
             if (!hasRun_StartBowling && animator.GetInteger("Action") == 0)
             {
+                ChooseArm();
                 transform.position = currentBowlerInfo.startPos;
                 transform.rotation = Quaternion.Euler(currentBowlerInfo.startRot);
                 startBowling = StartCoroutine(StartBowling());
@@ -308,7 +310,9 @@ public class AnimatedBowler : MonoBehaviour
 
     public void UpdateInfo(int index)
     {
-        currentBowlerInfo = myBowlers.data[index];
+        BowlerCameOn(index);
+        baseBowlerInfo = myBowlers.data[index];
+        currentBowlerInfo = LeftArm ? MirrorMark(baseBowlerInfo) : baseBowlerInfo;
     }
 
     /// <summary>
@@ -415,6 +419,14 @@ public class AFInfo
     public float animSpeed;
     public int jogRepeat;
     public int runRepeat;
+
+    /// The same mark mirrored across the pitch (a left-armer's: BowlerArm).
+    public AFInfo MirroredCopy()
+    {
+        var m = (AFInfo)MemberwiseClone();
+        m.startPos = BowlerArm.Mirror(startPos);
+        return m;
+    }
 
     public AFInfo(Vector3 sP, Vector3 sR, int mI, float aS, int jR, int rR)
     {

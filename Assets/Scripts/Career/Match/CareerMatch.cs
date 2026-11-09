@@ -10,8 +10,9 @@ using UnityEngine.SceneManagement;
 /// He plays only his own balls (and watches his partner's from the other end: CareerMatchPartner). The
 /// rest is simulated (CareerSim) and scored by HUD, so the scoreboard and MatchFlow work as in any match:
 ///   * his partners' balls - whenever a partner is on strike between balls, his balls are simulated
-///     one after another until the career player is on strike again (or the innings is over), and a
-///     catch-up card says what happened ("While you were at the other end" / "You come in at 45/4");
+///     one at a time, each added to a ball-by-ball card (CareerMatchBallByBall), until the career
+///     player is on strike again (or the innings is over) ("While you were at the other end" /
+///     "You come in at 45/4");
 ///   * the wickets before he comes in - the same thing, from the first ball;
 ///   * the rest of the innings once he is out - simulated straight away, with a summary card;
 ///   * the other side's innings - MatchFlow asks for it (CareerMatchSession's override).
@@ -152,6 +153,8 @@ public partial class CareerMatch : MonoBehaviour
             FinishFromScene(null);
             return;
         }
+        if (StepBallByBall(hud))   // a partner's balls, one at a time (CareerMatchBallByBall)
+            return;
         if (CardUp())
             return;
         // Not under the pause menu either: the cards would come up over it.
@@ -263,33 +266,6 @@ public partial class CareerMatch : MonoBehaviour
     }
 
     // ---- Simulated balls ------------------------------------------------------------------------
-
-    /// A partner is on strike: his balls (and the wickets before the career player comes in) until
-    /// the career player has the strike, then the catch-up card - or straight to the end of the match.
-    private void CatchUp(HUD hud)
-    {
-        var batch = new Batch();
-        int simulated = SimulateBatch(hud, batch);
-        bool over = InningsOver(hud);
-        if (simulated == 0)
-        {
-            Hold(false);
-            if (over)
-                MatchFlow.CheckFinished();
-            return;
-        }
-        var lines = FellLines(batch);
-        Batsman partner = StrikerIsYou(hud) ? hud.CurrentRunner : null;
-        if (partner != null && !partner.IsHuman && partner.Balls > 0 && !batch.fell.Contains(partner))
-            lines.Add(CareerMatchLogic.BatterText(partner.Name, partner.Runs, partner.Balls, false, null));
-        // Simulated balls change no game state, so OverBreak never announces their new over: the card does.
-        if (!over && hud.Balls == 0 && Bowled(hud) > 0 && hud.CurrentBowler != null)
-            lines.Add(CareerMatchLogic.NextOver(hud.CurrentBowler.Name));
-        string heading = batch.cameIn ? CareerMatchLogic.ComeIn(batch.inRuns, batch.inWickets, batch.inBalls) : CareerMatchLogic.AtTheOtherEnd;
-        // A batch that ended the innings still gets its card; the match is checked when it goes.
-        ShowCard(heading, CareerMatchLogic.CatchUpBody(lines, hud.Runs, hud.Wickets, Bowled(hud)),
-                 batch.cameIn ? ComeInSeconds : CatchUpSeconds, over);
-    }
 
     /// He is out: the rest of the innings at once, his innings and the total on the card, and the
     /// match goes on (MatchFlow ends it) when the card goes.

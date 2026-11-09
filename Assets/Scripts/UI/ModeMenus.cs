@@ -11,7 +11,9 @@ public enum ePlayMode { Menu, QuickPlay, CareerMatch, NetsTrial, NetsDrill, Nets
 /// The menus' rules per mode (pure, tested in ModeMenusTests), and the pause card's per-mode words
 /// and leaving (PauseModeAdapter, below).
 ///
-///   Quick Play     Resume / Settings / Main Menu (asks first); every setting; Change bowler.
+///   Quick Play     Resume / Settings / Main Menu (asks first); no Change bowler (the captain picks,
+///                  2026-11-06: "that shouldn't be there"); settings without the bowling, fielding or
+///                  match pages (they are set before the match, in Match Setup, or the nets').
 ///   Career match   Resume / Settings / Leave match (asks first: he retires out and the rest is
 ///                  simulated, CareerMatch.Abandon); no Change bowler (the captain picks);
 ///                  settings without hand, difficulty, bowling, fielding, overs or restart.
@@ -46,9 +48,14 @@ public static class ModeMenus
 
     public static bool IsNets(ePlayMode m) => IsCareerNets(m) || m == ePlayMode.FreeNets;
 
-    /// Choosing the bowler: never in a career match (the captain picks) or a planned nets session.
+    /// Choosing the bowler: only in the nets' practice - never in a match (the captain picks) or a
+    /// planned nets session.
     public static bool CanChangeBowler(ePlayMode m) =>
-        m == ePlayMode.QuickPlay || m == ePlayMode.NetsPractice || m == ePlayMode.FreeNets;
+        m == ePlayMode.NetsPractice || m == ePlayMode.FreeNets;
+
+    /// The bowling, fielding and match pages of the settings: the free nets' only. A match plays to
+    /// what was set before it (Match Setup, the career's own), not to sliders mid-innings.
+    public static bool ShowsMatchTuning(ePlayMode m) => m == ePlayMode.FreeNets || m == ePlayMode.Menu;
 
     /// The pause card's leave button.
     public static string LeaveLabel(ePlayMode m) =>

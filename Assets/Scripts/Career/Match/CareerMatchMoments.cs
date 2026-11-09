@@ -27,17 +27,17 @@ public partial class CareerMatch
     private ShotRecording shotRecording;
     private readonly List<BallFlight.Sample> carryBuffer = new List<BallFlight.Sample>(1024);
 
-    /// A shot off the bat (Bat.ShotStruck): kept until the ball is settled. Only his own ball, off the
-    /// real blade; the first contact of a ball, as BallLedger keeps it.
+    /// A shot off the bat (Bat.ShotStruck): kept until the ball is settled. Only his own ball, as
+    /// played on his own bat; the first contact of a ball, as BallLedger keeps it.
     private void OnShotStruck(ShotInfo info)
     {
-        if (!youAtRelease || Striker.IsPartner || info.realContact == eRealContact.WouldHaveMissed)
+        if (!youAtRelease || Striker.IsPartner)
             return;
         if (shotKept && Time.time - shotTime < StaleShot)
             return;
         shotKept = true;
-        shotCarry = BallLedgerMath.Carry(info.contactPoint, info.realExitVelocity, carryBuffer);
-        shotContact = info.realContact;
+        shotCarry = BallLedgerMath.Carry(info.contactPoint, info.exitVelocity, carryBuffer);
+        shotContact = info.ActualContact;
         ShotRecorder recorder = ShotRecorder.Instance;
         shotRecording = recorder != null ? recorder.Latest : null;
         shotTime = Time.time;

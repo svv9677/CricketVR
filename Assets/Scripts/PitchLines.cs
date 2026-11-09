@@ -32,11 +32,9 @@ public static class PitchLines
     /// Above the surface under them: creases over the edge lines where they cross, both just
     /// clear of the turf so they lie on it rather than float (they sat 2.7 cm up before).
     private const float CreaseLift = 0.004f, EdgeLift = 0.002f;
-    /// The far end's creases across the pitch, seen from the batter's end. A line across the turf
-    /// 20 m away, from eye height, is foreshortened ~12 times: a 6 cm crease drew under a third of
-    /// a pixel and vanished, and 0.2 m was still about one pixel on a Quest 2. 0.3 m reads as a line
-    /// there; return creases, seen along their length, need no help.
-    private const float FarCrease = 0.3f;
+    /// Both ends' creases are the same width. The far end's used to be 0.3 m, to read from 20 m
+    /// away while the pitch's depth bias was hiding it; with that fixed (the lines' own shader) it
+    /// looked huge beside the near end's, and at the non-striker's end the player stood on it.
     private const float BowlingCreaseHalf = 1.32f, PoppingHalf = 1.83f, PoppingOut = 1.22f;
     private const float ReturnZ = 1.32f, ReturnBack = 2.44f, WideZ = 0.89f;
     /// Guard marks: in line with each stump (the stumps' centres, as placed in the scene: 9.525 cm
@@ -82,7 +80,7 @@ public static class PitchLines
         var white = new List<Vector3>();
         var edge = new List<Vector3>();
         End(white, a, Mathf.Sign(b - a), y, Crease);
-        End(white, b, Mathf.Sign(a - b), y, FarCrease);
+        End(white, b, Mathf.Sign(a - b), y, Crease);
         float from = Mathf.Min(a, b) - PoppingOut, to = Mathf.Max(a, b) + PoppingOut;
         Strip(edge, new Vector3(from, y, PitchHalf), new Vector3(to, y, PitchHalf), Edge);
         Strip(edge, new Vector3(from, y, -PitchHalf), new Vector3(to, y, -PitchHalf), Edge);

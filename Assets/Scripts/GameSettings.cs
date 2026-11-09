@@ -19,7 +19,7 @@ using UnityEngine;
 public static class GameSettings
 {
     public const int MinOvers = 1;
-    public const int MaxOvers = 20;
+    public const int MaxOvers = 50;   // a 50-over ODI (MatchFormat); was 20
     public const int DefaultOvers = 5;
 
     /// Main's pre-existing defaults - see Main.Start's "Read Settings" block.
@@ -37,6 +37,7 @@ public static class GameSettings
     private static eBattingStyle battingStyle;
     private static eSwingType bowlerType;
     private static bool overlayVisible;
+    private static int batController;
 
     // ---- Values -------------------------------------------------------------------------------
 
@@ -119,6 +120,31 @@ public static class GameSettings
         }
     }
 
+    /// Which controller holds the bat, apart from the stance (2026-11-07: "allow me to switch the
+    /// controller for batting... Sometimes I might want to use the left side"). Never chosen, it
+    /// follows the stance as it always did: a left-hander's bat in the left controller. Each
+    /// controller keeps its own grip calibration (BatGripCalibration).
+    public const int FollowStance = -1, LeftController = 0, RightController = 1;
+    private const string PP_BatController = "bat_controller";
+
+    /// LeftController, RightController, or FollowStance when it has never been chosen.
+    public static int BatController
+    {
+        get { Load(); return batController; }
+        set
+        {
+            Load();
+            if (value == batController) return;
+            batController = value;
+            PlayerPrefs.SetInt(PP_BatController, value);
+            Save();
+        }
+    }
+
+    /// Whether the bat is in the left controller for a batter of `stance`.
+    public static bool BatInLeftHand(eBattingStyle stance) =>
+        BatController == FollowStance ? stance == eBattingStyle.LeftHanded : BatController == LeftController;
+
     public static bool OverlayVisible
     {
         get { Load(); return overlayVisible; }
@@ -159,6 +185,7 @@ public static class GameSettings
         battingStyle = (eBattingStyle)PlayerPrefs.GetInt(Constants.PP_BattingStyle, (int)eBattingStyle.RightHanded);
         bowlerType = (eSwingType)PlayerPrefs.GetInt(Constants.PP_BowlerType, (int)eSwingType.Pace);
         overlayVisible = PlayerPrefs.GetInt(Constants.PP_Overlay, 0) == 1;
+        batController = PlayerPrefs.GetInt(PP_BatController, FollowStance);
     }
 
     private static void Save()

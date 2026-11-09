@@ -161,6 +161,7 @@ public class BallLedger : MonoBehaviour
             level = (int)MatchSetup.Bowling,
             shield = (int)main.Difficulty,
             bowlerKind = cfg != null ? cfg.kind : eBowlerKind.Fast,
+            leftArm = AnimatedBowler.Instance != null && AnimatedBowler.Instance.LeftArm,
             delivery = cfg != null ? cfg.delivery : eDelivery.Stock,
             lengthBand = cfg != null ? cfg.lengthBand : eLengthBand.GoodLength,
         };
@@ -234,7 +235,7 @@ public class BallLedger : MonoBehaviour
         lastOutcome = o;
     }
 
-    /// The bat met it (the shield's contact; RealBlade's verdict is in the ShotInfo).
+    /// The bat met it: the contact on the player's own bat (its width as set).
     private void OnShot(ShotInfo info)
     {
         if (rec == null || !released || touched)
@@ -242,17 +243,15 @@ public class BallLedger : MonoBehaviour
         touched = true;
         rec.contact = (int)info.kind;
         rec.quality = info.quality;
-        rec.realQuality = info.realQuality;
-        rec.realContact = info.realContact;
+        // The contact and the shot as they happened, on the player's own bat width (2026-11-08: "only
+        // based on my bat width... the nets training and all those stats should use the actual real
+        // stat instead of the 100% width stat"). The real-blade fields keep their names, so old
+        // saves load, but hold this: what the nets text, the ratings and the drills all read.
+        rec.realQuality = info.quality;
+        rec.realContact = info.ActualContact;
+        rec.realKind = (int)info.kind;
         rec.contactHeight = info.contactPoint.y;
-        // The shot as the real blade would have played it (the shield's wider bat is livelier and
-        // heavier off the extra width): what power, carry and the nets' runs are measured from.
-        if (info.realContact == eRealContact.WouldHaveMissed)
-        {
-            exitVelocity = Vector3.zero;
-            return;
-        }
-        exitVelocity = info.realExitVelocity;
+        exitVelocity = info.exitVelocity;
         rec.exitSpeed = exitVelocity.magnitude;
         rec.launchDeg = BallLedgerMath.LaunchDegrees(exitVelocity);
         rec.carry = BallLedgerMath.Carry(info.contactPoint, exitVelocity, samples);
@@ -351,7 +350,6 @@ public class BallLedger : MonoBehaviour
         else
             SettleMatch(r);
 
-        RealMissBowled(r);
         if (r.end != eBallEnd.Dead)
             ballsSinceWicket = r.Out ? 0 : ballsSinceWicket + 1;
         // A career partner's ball, played while the player watched from the other end (phase 3): it
@@ -360,19 +358,6 @@ public class BallLedger : MonoBehaviour
         if (PartnerWatch.PartnersBall(striker, HUD.Instance != null ? HUD.Instance.Human : null))
             return;
         BallFeed.Raise(r);
-    }
-
-    /// The shield found a ball the real blade would have missed, and it was hitting the stumps: the
-    /// widened bat kept it out, but the batter was beaten and bowled, and that is what is measured
-    /// (the game's own score stands). Not off a no-ball or a free hit, as for any bowled.
-    private static void RealMissBowled(BallRecord r)
-    {
-        if (r.realContact != eRealContact.WouldHaveMissed || !r.wouldHitStumps || r.noBall || r.freeHit ||
-            r.wide || r.end == eBallEnd.Dead || r.Out)
-            return;
-        r.end = eBallEnd.Out;
-        r.runs = 0;
-        r.howOut = eHowOut.Bowled;
     }
 
     /// A match: the score against the snapshot - runs off the bat to the striker, a wicket.
@@ -396,8 +381,7 @@ public class BallLedger : MonoBehaviour
     {
         bool protectedBall = r.noBall || r.freeHit;
         bool bowled = terminal == eGameState.InGame_Bowled && ballXAtEnd > 0f;
-        bool caught = terminal == eGameState.InGame_BallFielded && touched && !bouncedAtEnd &&
-                      r.realContact != eRealContact.WouldHaveMissed;
+        bool caught = terminal == eGameState.InGame_BallFielded && touched && !bouncedAtEnd;
         bool wicket = !protectedBall && (bowled || caught);
         int runs = touched && !wicket ? BallLedgerMath.NetsRunsEquivalent(exitVelocity, r.carry, r.realContact, leftHanded) : 0;
         r.runs = runs;

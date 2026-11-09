@@ -30,10 +30,15 @@ public class GrabbablePanel : MonoBehaviour
     /// there in Splash, ten metres from the player (it read as an empty menu screen).
     private string Key => "panel_pose_" + (gameObject.scene.name == NetsSession.SplashScene ? "splash_" : "") + saveKey;
 
+    /// The main menu's panels stay where the dressing room puts them (2026-11-06: "in the main
+    /// menu scene, can you make it so i cant drag the screens"): no grab there, and no pose from
+    /// an old drag.
+    private bool Fixed => gameObject.scene.name == NetsSession.SplashScene;
+
     /// Put the panel where the player last left it. False if it has never been moved.
     public bool Restore()
     {
-        if (target == null || string.IsNullOrEmpty(saveKey))
+        if (target == null || string.IsNullOrEmpty(saveKey) || Fixed)
             return false;
         if (!Decode(PlayerPrefs.GetString(Key, ""), PlayerEnd.NonStriker, out Vector3 p, out Quaternion q))
             return false;
@@ -76,7 +81,7 @@ public class GrabbablePanel : MonoBehaviour
     private void LateUpdate()
     {
         OpenXRMenuInputModule menu = OpenXRMenuInputModule.Instance;
-        if (target == null || menu == null || menu.Aim == null || !target.gameObject.activeInHierarchy)
+        if (target == null || menu == null || menu.Aim == null || !target.gameObject.activeInHierarchy || Fixed)
         {
             grabbing = false;
             return;

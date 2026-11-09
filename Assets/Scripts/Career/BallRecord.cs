@@ -4,7 +4,8 @@ using System;
 public enum eBallSource { Trial, Nets, Drill, Match }
 
 /// The training drills in the nets (phase 5).
-public enum eDrill { None, Yorkers, LeaveOutsideOff, ShortBall, Spin, Gaps }
+/// The training drills in the nets (phase 5; the second five 2026-11-06, appended so saves keep their numbers).
+public enum eDrill { None, Yorkers, LeaveOutsideOff, ShortBall, Spin, Gaps, StraightHitting, Swing, PowerHitting, DeathOvers, SoftHands }
 
 /// What the batter did with it: played at it (and touched it), left it alone, or swung and missed
 /// (beaten). A ball that hits the bat only because the bat shield widened it - the real blade would
@@ -35,6 +36,8 @@ public class BallRecord
 
     // ---- The delivery
     public eBowlerKind bowlerKind;
+    /// Bowled left-arm (a left-arm spinner turns it the other way: DrillScoring.TurnSide).
+    public bool leftArm;
     public eDelivery delivery;
     public eLengthBand lengthBand;
     public float speedKph;
@@ -49,9 +52,14 @@ public class BallRecord
     public eBallAction action;
     /// BatContact.ContactKind as an int, -1 when not touched.
     public int contact = -1;
-    /// BatContact quality 0..1 on the (possibly widened) bat; the same contact on the real blade.
+    /// BatContact quality 0..1 on the (possibly widened) bat. realQuality, realContact and realKind
+    /// are what the career reads (ratings, drills, the nets text): since 2026-11-08 the contact on
+    /// the player's own bat width (BallLedger.OnShot); before, the real-width blade's (RealBlade),
+    /// where WouldHaveMissed meant only the widened bat reached it. Names kept for old saves.
     public float quality, realQuality;
     public eRealContact realContact;
+    /// BatContact.ContactKind as an int, -1 when not touched: the word the career shows (ShotReading).
+    public int realKind = -1;
     /// Exit speed (m/s), launch angle (deg, + up), projected carry (m) for a struck ball.
     public float exitSpeed, launchDeg, carry;
     /// Peak bat speed (m/s) while the ball was arriving; closest bat-to-ball distance (m).

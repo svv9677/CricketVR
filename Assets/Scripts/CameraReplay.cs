@@ -219,6 +219,8 @@ public partial class CameraReplay : MonoBehaviour
         shot = loaded ?? (recorder != null ? recorder.Latest : null);
         if (actors == null || shot == null || !shot.Released || shot.Count < 2)
             return;
+        actors.RefreshLooks();          // a Test's red ball and whites, put on after the copies were made
+        trail?.CopyLook(Main.Instance);
         HideOthersOnce();
         // From the bowler's last strides to the end of the play (ShowReplayWhen).
         playFrom = Mathf.Max(0f, shot.ReleaseTime - leadIn);

@@ -14,8 +14,9 @@ public static class CareerGoalsMenuBuilder
 {
     public static MenuScreen BuildGoals(Transform parent)
     {
-        Transform column = MenuPrefabBuilder.ScreenColumn(parent, "CareerGoalsScreen", out GameObject go);
+        Transform column = CareerDeckBuilder.CentreScreen(parent, "CareerGoalsScreen", out GameObject go);
         CareerGoalsScreen screen = go.AddComponent<CareerGoalsScreen>();
+        CareerDeckBuilder.TabBar(go, screen, CareerDeckScreen.GoalsTab);
         MenuPrefabBuilder.SetScreenName(screen, "careerGoals");
         var so = new SerializedObject(screen);
 

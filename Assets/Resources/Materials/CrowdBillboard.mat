@@ -25,7 +25,8 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
-  m_InvalidKeywords: []
+  m_InvalidKeywords:
+  - _PREKEYED_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
@@ -38,7 +39,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: ca4133584899e45d098a38dc531cdf40, type: 3}
+        m_Texture: {fileID: 2800000, guid: f5253c9a6f6cb4180857735ac4e4df46, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BumpMap:
@@ -103,6 +104,8 @@ Material:
     - _BobAmplitude: 0.035
     - _BobFrequency: 0.8
     - _BumpScale: 1
+    - _CheerBobGain: 3.5
+    - _CheerFreqGain: 1.5
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _Cull: 2
@@ -118,10 +121,17 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
+    - _IdlePeriod: 8
+    - _IdleVariety: 0.6
+    - _JumpFrequency: 1.6
+    - _JumpHeight: 0.35
+    - _KeySoftness: 0.006
+    - _KeyTolerance: 0.02
     - _Metallic: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _PeoplePerRepeat: 50
+    - _PreKeyed: 1
     - _QueueOffset: 0
     - _ReceiveShadows: 1
     - _Smoothness: 0
@@ -135,6 +145,7 @@ Material:
     - _WavePhase: 0
     - _WaveRowLag: 0.15
     - _WaveWidth: 0.45
+    - _WhiteFrom: 0.4
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
@@ -143,6 +154,8 @@ Material:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _FlashColor: {r: 1, g: 1, b: 1, a: 1}
+    - _KeyColor: {r: 0.037, g: 0.028, b: 0.024, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
+    - _WhiteTo: {r: 0.03, g: 0.03, b: 0.035, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

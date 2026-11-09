@@ -284,6 +284,8 @@ public partial class Main : MonoBehaviour
     {
         SetDifficulty(GameSettings.Difficulty);
         SetBattingStyle(GameSettings.BattingStyle);
+        if (theBatScript != null && theBatScript.attachParent != (GameSettings.BatInLeftHand(battingStyle) ? theBatScript.leftHandParent : theBatScript.rightHandParent))
+            updateBattingStyle();   // the bat's controller changed, the stance did not
         BatAmplifier = GameSettings.BatPower;
         onFielderSpeed(GameSettings.FielderSpeed);
         overlayVisible = GameSettings.OverlayVisible;

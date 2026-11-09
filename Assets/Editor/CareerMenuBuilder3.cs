@@ -29,8 +29,9 @@ public static class CareerMenuBuilder3
 
     public static MenuScreen BuildInbox(Transform parent)
     {
-        Transform column = MenuPrefabBuilder.ScreenColumn(parent, "InboxScreen", out GameObject go);
+        Transform column = CareerDeckBuilder.CentreScreen(parent, "InboxScreen", out GameObject go);
         InboxScreen screen = go.AddComponent<InboxScreen>();
+        CareerDeckBuilder.TabBar(go, screen, CareerDeckScreen.InboxTab);
         MenuPrefabBuilder.SetScreenName(screen, "careerInbox");
         var so = new SerializedObject(screen);
 

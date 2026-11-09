@@ -17,9 +17,22 @@ using UnityEngine.UI;
 /// when an offer is waiting, "A Pro League scout is watching" on a scouted next match, and - left
 /// out of the side - Sim the match in place of Play match. Phase 7: a fixture with a situation
 /// (rain, a chase, a collapse) says so on the next-match tile, from the very plan Play match makes.
+///
+/// 2026-11-06, the career UI redone as floating panels (CareerDeckScreen): your player on the left
+/// (name, overall and form as big tiles), the next match and Play in the middle, club news on the
+/// right (an offer waiting, unread messages, the coach's goals), and the tab bar over them - where
+/// Training, Season, Ratings, Inbox, Goals and Locker now live. The fields are the same; where they
+/// sit is CareerDeckHub's.
+///
+/// 2026-11-06, decluttered ("I just need to know what the match is against and then have everything
+/// sequential"): the hub is one panel - who the match is against, a scout when one is coming, an
+/// offer when one waits, and the button. The player card and the club news are gone from it (the
+/// Ratings and Inbox tabs have them; their fields here are simply unbound), and Play match opens
+/// the match's details one step at a time (CareerPrematchScreen).
+///
 /// Built by Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
-public class CareerHubScreen : MenuScreen
+public class CareerHubScreen : CareerDeckScreen
 {
     /// The rating cells: RatingSet's seven, then the overall (laid out by CareerRatingsScreen).
     public const int Cells = RatingSet.Count + 1;
@@ -52,6 +65,9 @@ public class CareerHubScreen : MenuScreen
     [SerializeField] private TextMeshProUGUI goalsLabel;
     [SerializeField] private Button goals;
     [SerializeField] private Button locker;
+    // The floating-panel hub: the grade under the overall tile, and the club news panel's lines.
+    [SerializeField] private TextMeshProUGUI overallGrade;
+    [SerializeField] private TextMeshProUGUI news;
 
     private bool showedTrial;
     // How the match he was left out of went, said once on the banner (until the hub goes).
@@ -69,6 +85,7 @@ public class CareerHubScreen : MenuScreen
     /// make it here, once, and save it, so the next match below is a real fixture.
     public override void OnShow()
     {
+        base.OnShow();
         CareerProfile p = CareerSaves.Current;
         if (p != null && p.season == null)
         {
@@ -111,8 +128,10 @@ public class CareerHubScreen : MenuScreen
             Set(playerName, "No career loaded");
             Set(playerDetail, "Pick a slot on the career screen.");
             if (banner != null) banner.gameObject.SetActive(false);
-            Set(overallChip, OverallChip(RatingSet.Unknown));
-            Set(formChip, FormChip(RatingSet.Unknown));
+            Set(overallChip, Number(RatingSet.Unknown));
+            Set(overallGrade, OverallCaption(RatingSet.Unknown));
+            Set(formChip, Number(RatingSet.Unknown));
+            Set(news, "");
             ShowNext(null, null);
             return;
         }
@@ -122,8 +141,11 @@ public class CareerHubScreen : MenuScreen
             kitBar.color = Appearance.KitColours[Mathf.Clamp(p.look.kit, 0, Appearance.KitColours.Length - 1)];
         Set(stage, Ladder.Name(p.rung));
         Set(season, $"Season {(p.season != null ? p.season.number : p.seasonsPlayed + 1)}");
-        Set(overallChip, OverallChip(p.ratings != null ? p.ratings.Overall : RatingSet.Unknown));
-        Set(formChip, FormChip(CareerProgress.Form(p)));
+        float overall = p.ratings != null ? p.ratings.Overall : RatingSet.Unknown;
+        Set(overallChip, Number(overall));
+        Set(overallGrade, OverallCaption(overall));
+        Set(formChip, Number(CareerProgress.Form(p)));
+        Set(news, NewsText(p));
         ShowTrialBanner();
         ShowLeftOutNote();
         Fixture next = CareerProgress.NextFixture(p);
@@ -248,6 +270,33 @@ public class CareerHubScreen : MenuScreen
             ? $"Overall  <b>{Round(overall)}</b>  <color={Muted}>{CareerRatings.Grade(overall)}</color>"
             : $"Overall  <color={Muted}>--</color>";
 
+    /// A big tile's number: "54", or "--" while unmeasured.
+    public static string Number(float v) => RatingSet.Known(v) ? Round(v) : "--";
+
+    /// Under the overall tile: "OVERALL · Solid", or just "OVERALL" while unmeasured.
+    public static string OverallCaption(float overall) =>
+        RatingSet.Known(overall) ? $"OVERALL  ·  {CareerRatings.Grade(overall)}" : "OVERALL";
+
+    /// The club news panel: unread messages and the newest two titles, then the coach's goals.
+    public static string NewsText(CareerProfile p)
+    {
+        if (p == null)
+            return "";
+        var sb = new System.Text.StringBuilder();
+        int unread = p.Unread;
+        sb.Append(unread > 0 ? $"<b>{unread} unread</b> message{(unread == 1 ? "" : "s")}" : $"<color={Muted}>No new messages</color>");
+        int shown = 0;
+        for (int i = (p.inbox?.Count ?? 0) - 1; i >= 0 && shown < 2; i--, shown++)
+        {
+            CareerMessage m = p.inbox[i];
+            sb.Append("\n<color=").Append(m.read ? Muted : "#F3F5F8").Append(">• ").Append(NetsTrialCard.Latin1(m.title)).Append("</color>");
+        }
+        string goals = CoachGoalsText.HubButton(p.season);
+        if (!string.IsNullOrEmpty(goals) && goals.Contains("/"))
+            sb.Append("\n\n<color=").Append(Muted).Append(">Coach's ").Append(goals.ToLowerInvariant()).Append(" reached</color>");
+        return sb.ToString();
+    }
+
     /// "Form 61"; "Form --" before the first innings.
     public static string FormChip(float form) =>
         RatingSet.Known(form) ? $"Form  <b>{Round(form)}</b>" : $"Form  <color={Muted}>--</color>";
@@ -355,8 +404,17 @@ public class CareerHubScreen : MenuScreen
             SimLeftOut(p, rng);
             return;
         }
-        // The fixture's own rng (the toss, their innings, the situation), so the match is the one the
-        // tile previewed; `rng` stays for the new season and the match he sits out.
+        // The match: its details one step at a time before it starts (CareerPrematchScreen).
+        Push(CareerPrematchScreen.Name);
+    }
+
+    /// Start the next match (the pre-match screen's Play match). The fixture's own rng (the toss,
+    /// their innings, the situation), so the match is the one the screens previewed.
+    public static void PlayNextMatch()
+    {
+        CareerProfile p = CareerSaves.Current;
+        if (p == null || CareerProgress.NextFixture(p) == null)
+            return;
         MatchPlan plan = CareerProgress.PlanNext(p, CareerSituations.PlanRng(p));
         if (plan == null)
             return;
@@ -373,6 +431,15 @@ public class CareerHubScreen : MenuScreen
             return;
         p.watchPartner = watch;
         CareerSaves.SaveCurrent();
+    }
+
+    /// Main menu: past the career slots (the hub sits on main -> career -> hub).
+    public void OnMainMenu()
+    {
+        if (Root == null)
+            return;
+        Root.Back();
+        Root.Back();
     }
 
     public void OnRatings() => Push("careerRatings");

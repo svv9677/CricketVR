@@ -182,7 +182,7 @@ public sealed class ReplayActors
     private void AddRenderers(Transform source, Dictionary<Transform, Transform> map)
     {
         int from = stand.Count;
-        ReplayStandIns.CopyRenderers(source, map, live, stand);
+        ReplayStandIns.CopyRenderers(source, map, live, stand, looks);
         for (int i = from; i < stand.Count; i++)
             if (stand[i] is SkinnedMeshRenderer skin)
                 skins.Add(skin);
@@ -204,6 +204,19 @@ public sealed class ReplayActors
                 props.Add(body.transform);
         }
         return props;
+    }
+
+    /// Each stand-in beside the live renderer it copies, for RefreshLooks.
+    private readonly List<KeyValuePair<Renderer, Renderer>> looks = new List<KeyValuePair<Renderer, Renderer>>();
+
+    /// The stand-ins dressed as the live actors are now. They copied the materials as the scene
+    /// loaded, before a Test's red ball, red trail and whites were put on (TestLook), so the replay
+    /// showed the white ball (2026-11-07). Run as a replay starts: a few dozen material swaps.
+    public void RefreshLooks()
+    {
+        foreach (KeyValuePair<Renderer, Renderer> pair in looks)
+            if (pair.Key != null && pair.Value != null && pair.Value.sharedMaterial != pair.Key.sharedMaterial)
+                pair.Value.sharedMaterials = pair.Key.sharedMaterials;
     }
 
     /// Hide these from the replay camera as well (the screen itself, the hologram, the hands).

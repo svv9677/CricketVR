@@ -62,7 +62,9 @@ public class Umpire : MonoBehaviour
         foreach (SkinnedMeshRenderer skin in umpire.GetComponentsInChildren<SkinnedMeshRenderer>())
         {
             string n = skin.name;
-            Color? plain = n.Contains("Hoody") ? Coat : n.Contains("Pants") ? Trousers : n.Contains("Sneakers") ? Shoes : (Color?)null;
+            // A Test's umpire in a white shirt: the ball is red there (TestLook).
+            Color coat = TestLook.Applies ? TestLook.UmpireShirt : Coat;
+            Color? plain = n.Contains("Hoody") ? coat : n.Contains("Pants") ? Trousers : n.Contains("Sneakers") ? Shoes : (Color?)null;
             if (plain == null)
                 continue;
             var material = new Material(skin.sharedMaterial) { name = "Umpire " + n };
