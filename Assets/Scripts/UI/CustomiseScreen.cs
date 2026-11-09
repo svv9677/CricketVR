@@ -2,9 +2,11 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Customise, from the Splash main menu: the ground for the next match - the stadium or the club
-/// ground (ClubGround), the crowd, the pitch and the time of day (StadiumConditions and StadiumLighting put them on the ground when it loads). Built by
-/// Tools > CricketVR > Build Menu Prefabs.
+/// The ground for the match - the stadium or the club ground (ClubGround), the crowd, the pitch and
+/// the time of day (StadiumConditions and StadiumLighting put them on the ground when it loads).
+/// Since 2026-11-09 it is step 2 of Quick Play's New Game ("those customize and setup menus won't
+/// be separate menus anymore"): Start Match makes the two steps the slot's setup and plays it
+/// (QuickPlaySlots.StartNew). Built by Tools > CricketVR > Build Menu Prefabs.
 /// </summary>
 public class CustomiseScreen : MenuScreen
 {
@@ -14,6 +16,7 @@ public class CustomiseScreen : MenuScreen
     [SerializeField] private TextMeshProUGUI pitchHint;
     [SerializeField] private SegmentedControl timeOfDay;
     [SerializeField] private TextMeshProUGUI timeHint;
+    [SerializeField] private TextMeshProUGUI stepTitle;
 
     public override void OnShow() => Refresh();
 
@@ -25,7 +28,10 @@ public class CustomiseScreen : MenuScreen
         if (pitchHint != null) pitchHint.text = MatchSetup.Hint(MatchSetup.Pitch);
         if (timeOfDay != null) timeOfDay.SetValueWithoutNotify((int)MatchSetup.TimeOfDay);
         if (timeHint != null) timeHint.text = StadiumLighting.Hint(MatchSetup.TimeOfDay);
+        if (stepTitle != null) stepTitle.text = $"New {MatchFormat.MatchName(MatchFormat.Current)}";
     }
+
+    public void OnStartMatch() => QuickPlaySlots.StartNew();
 
     public void OnVenue(int i) { MatchSetup.Venue = VenueRules.FromQuickIndex(i); Refresh(); }
     public void OnCrowd(int i) { MatchSetup.Crowd = (eCrowd)i; Refresh(); }

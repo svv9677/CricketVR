@@ -11,7 +11,7 @@ public enum ePlayMode { Menu, QuickPlay, CareerMatch, NetsTrial, NetsDrill, Nets
 /// The menus' rules per mode (pure, tested in ModeMenusTests), and the pause card's per-mode words
 /// and leaving (PauseModeAdapter, below).
 ///
-///   Quick Play     Resume / Settings / Main Menu (asks first); no Change bowler (the captain picks,
+///   Quick Play     Resume / Settings / Main Menu (asks first; the match is saved in its slot); no Change bowler (the captain picks,
 ///                  2026-11-06: "that shouldn't be there"); settings without the bowling, fielding or
 ///                  match pages (they are set before the match, in Match Setup, or the nets').
 ///   Career match   Resume / Settings / Leave match (asks first: he retires out and the rest is
@@ -70,6 +70,8 @@ public static class ModeMenus
         ePlayMode.CareerMatch => "Leave the match? You retire out and the rest is played out for you.",
         ePlayMode.NetsTrial => "End the trial? It will not count - you can take it again.",
         ePlayMode.NetsDrill => "End the drill? This attempt will not be scored.",
+        // Kept in its Quick Play slot after every ball (QuickPlayAutosave).
+        ePlayMode.QuickPlay => "Leave the match? It is saved: continue it from Quick Play.",
         _ => "Leave match? Your score will be lost.",
     };
 

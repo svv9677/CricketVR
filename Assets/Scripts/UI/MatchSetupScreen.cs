@@ -2,10 +2,11 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Match Setup, from the Splash main menu: the overs, set a total or chase one, how good the
-/// bowling is, and the bat shield (bat width - GameSettings.Difficulty, the same setting as
-/// Settings > Batting). Start Match goes to the ground with all of it (MatchFlow,
-/// BowlingLevels). Built by Tools > CricketVR > Build Menu Prefabs; nothing made at runtime.
+/// Match Setup: set a total or chase one, how good the bowling is, the bat shield (bat width -
+/// GameSettings.Difficulty, the same setting as Settings > Batting) and which hand you bat. Since
+/// 2026-11-09 it is step 1 of Quick Play's New Game for the length chosen there (QuickPlayScreen):
+/// Next goes to step 2, the ground (CustomiseScreen), whose Start Match plays it. Built by
+/// Tools > CricketVR > Build Menu Prefabs; nothing made at runtime.
 /// </summary>
 public class MatchSetupScreen : MenuScreen
 {
@@ -16,6 +17,8 @@ public class MatchSetupScreen : MenuScreen
     [SerializeField] private TextMeshProUGUI bowlingHint;
     [SerializeField] private SegmentedControl shield;
     [SerializeField] private TextMeshProUGUI shieldHint;
+    [SerializeField] private TextMeshProUGUI stepTitle;
+    [SerializeField] private SegmentedControl hand;
 
     public override void OnShow() => Refresh();
 
@@ -36,6 +39,8 @@ public class MatchSetupScreen : MenuScreen
         if (bowlingHint != null) bowlingHint.text = MatchSetup.Hint(MatchSetup.Bowling);
         if (shield != null) shield.SetValueWithoutNotify(Mathf.Clamp((int)GameSettings.Difficulty - 1, 0, 2));
         if (shieldHint != null) shieldHint.text = ShieldHint(GameSettings.Difficulty);
+        if (stepTitle != null) stepTitle.text = $"New {MatchFormat.MatchName(MatchFormat.Current)}";
+        if (hand != null) hand.SetValueWithoutNotify(GameSettings.BattingStyle == eBattingStyle.LeftHanded ? 1 : 0);
     }
 
     public static string ShieldHint(eDifficulty level)
@@ -56,5 +61,13 @@ public class MatchSetupScreen : MenuScreen
     public void OnMatchType(int i) { MatchSetup.Type = (eMatchType)i; Refresh(); }
     public void OnBowling(int i) { MatchSetup.Bowling = (eBowlingLevel)i; Refresh(); }
     public void OnShield(int i) { GameSettings.Difficulty = (eDifficulty)(i + 1); Refresh(); }
-    public void OnStartMatch() => SceneFader.Load(MainMenuScreen.CricketScene);
+    public void OnStartMatch() => QuickPlaySlots.StartNew();
+    public void OnHand(int i) { GameSettings.BattingStyle = i == 1 ? eBattingStyle.LeftHanded : eBattingStyle.RightHanded; Refresh(); }
+
+    /// Step 2: the ground.
+    public void OnNext()
+    {
+        if (Root != null)
+            Root.Push("customise");
+    }
 }

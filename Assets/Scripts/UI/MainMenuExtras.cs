@@ -154,6 +154,9 @@ public class MainMenuExtras : MonoBehaviour
             screen.Root.Push(name);
     }
 
+    /// The main menu's Quick Play (2026-11-09: "one of the screens could be quick play, one ...
+    /// career mode, and one ... settings"): the slots, one per match length.
+    public void OnQuickPlay() => Push("quickplay");
     public void OnMatchSetup() => Push("setup");
     public void OnCustomise() => Push("customise");
     public void OnCareer() => Push("career");

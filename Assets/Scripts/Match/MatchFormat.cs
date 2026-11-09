@@ -64,4 +64,7 @@ public static class MatchFormat
     public static string Label(eMatchFormat f) => f == eMatchFormat.Test ? "Test match" : $"{OversOf(f)} overs";
 
     public static string Label() => Label(Current);
+
+    /// "20-over match", "Test match" (New Game's steps).
+    public static string MatchName(eMatchFormat f) => f == eMatchFormat.Test ? "Test match" : $"{OversOf(f)}-over match";
 }
