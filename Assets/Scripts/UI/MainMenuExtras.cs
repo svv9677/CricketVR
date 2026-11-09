@@ -130,7 +130,9 @@ public class MainMenuExtras : MonoBehaviour
             MatchHistory.ResultPending = false;
         Push("career");
         Push("careerHub");
-        Push("careerResult");
+        // A match left to continue later has no result yet: the hub, with Continue match on it.
+        if (CareerMatchSession.LastResult != null)
+            Push("careerResult");
     }
 
     /// Records over Ratings over the hub over the slots, so Back walks the way he came. The theatre

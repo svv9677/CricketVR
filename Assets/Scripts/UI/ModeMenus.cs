@@ -14,8 +14,8 @@ public enum ePlayMode { Menu, QuickPlay, CareerMatch, NetsTrial, NetsDrill, Nets
 ///   Quick Play     Resume / Settings / Main Menu (asks first; the match is saved in its slot); no Change bowler (the captain picks,
 ///                  2026-11-06: "that shouldn't be there"); settings without the bowling, fielding or
 ///                  match pages (they are set before the match, in Match Setup, or the nets').
-///   Career match   Resume / Settings / Leave match (asks first: he retires out and the rest is
-///                  simulated, CareerMatch.Abandon); no Change bowler (the captain picks);
+///   Career match   Resume / Settings / Leave match (asks first; the match is kept to continue
+///                  from the hub, CareerMatchResume); no Change bowler (the captain picks);
 ///                  settings without hand, difficulty, bowling, fielding, overs or restart.
 ///   Career nets    Resume / Settings / End session (the trial and a drill ask first, practice
 ///                  does not), ended by NetsTrial.TryEndFromPause; career settings as above;
@@ -67,7 +67,8 @@ public static class ModeMenus
 
     public static string LeaveQuestion(ePlayMode m) => m switch
     {
-        ePlayMode.CareerMatch => "Leave the match? You retire out and the rest is played out for you.",
+        // Kept in the career to continue from the hub (CareerMatchResume; it was retiring out).
+        ePlayMode.CareerMatch => "Leave the match? It is saved: continue it from the career hub.",
         ePlayMode.NetsTrial => "End the trial? It will not count - you can take it again.",
         ePlayMode.NetsDrill => "End the drill? This attempt will not be scored.",
         // Kept in its Quick Play slot after every ball (QuickPlayAutosave).

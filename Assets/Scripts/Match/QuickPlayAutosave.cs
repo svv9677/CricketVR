@@ -4,10 +4,11 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// A quick-play match kept in its slot as it is played (QuickPlaySlots): after every ball, and once
-/// at the start, so leaving at any point - the pause card's Main Menu, taking the headset off -
-/// loses at most the ball in play. A match continued from its slot is put back here first, once
-/// HUD and MatchFlow have set up their own (one frame in). When the match is over the slot keeps
+/// A quick-play match kept in its slot as it is played (QuickPlaySlots): after every ball, once at
+/// the start, and when the app is paused or closed, so leaving at any point - the pause card's Main
+/// Menu, taking the headset off, closing the game - loses at most the ball in play. A match
+/// continued from its slot is put back here first, once HUD and MatchFlow have set up their own
+/// (one frame in). When the match is over the slot keeps
 /// its result line and no match, so the screen offers a new one.
 ///
 /// Built with the match scene; not in a career match (the career keeps its own) or the nets.
@@ -77,6 +78,20 @@ public class QuickPlayAutosave : MonoBehaviour
     {
         if (HUD.Instance != null && HUD.Instance.Wickets == 0 && HUD.Instance.Overs == 0 && HUD.Instance.Balls == 0)
             outs.Clear();
+    }
+
+    /// The headset taken off, the app closed: kept as it stands (OnDestroy is not promised on
+    /// Android), so coming back continues it.
+    private void OnApplicationPause(bool paused)
+    {
+        if (paused && subscribed)
+            Save();
+    }
+
+    private void OnApplicationQuit()
+    {
+        if (subscribed)
+            Save();
     }
 
     private void OnGameState()

@@ -70,6 +70,6 @@ public class QuickPlaySlotsTests
     public void TheQuickPlayLeaveQuestionSaysItIsSaved()
     {
         StringAssert.Contains("saved", ModeMenus.LeaveQuestion(ePlayMode.QuickPlay));
-        StringAssert.Contains("retire", ModeMenus.LeaveQuestion(ePlayMode.CareerMatch), "the career's own, unchanged");
+        StringAssert.Contains("career hub", ModeMenus.LeaveQuestion(ePlayMode.CareerMatch), "the career keeps it too");
     }
 }

@@ -26,8 +26,8 @@ using UnityEngine.SceneManagement;
 ///
 /// When MatchFlow ends the match the result goes into the career there and then
 /// (CareerMatchSession.Finish; MatchFlow then shows its card and goes home on its own). Leaving
-/// before that (the pause menu, a restart) counts as retiring out: the rest of the match is
-/// simulated from the last state seen and the result recorded as abandoned.
+/// before that (the pause menu, closing the app) keeps the match to continue from the hub
+/// (CareerMatchResume; it was retiring out until 2026-11-09).
 /// </summary>
 public partial class CareerMatch : MonoBehaviour
 {
@@ -122,8 +122,11 @@ public partial class CareerMatch : MonoBehaviour
             main.onGameStateChanged -= OnGameState;
         if (!ended)
         {
-            try { Abandon(); }
-            catch (System.Exception e) { Debug.LogError($"[CareerMatch] finishing a match left early: {e}"); }
+            // Left early: kept to continue, not retired (CareerMatchResume).
+            try { SaveResume(true); }
+            catch (System.Exception e) { Debug.LogError($"[CareerMatch] saving a match left early: {e}"); }
+            ended = true;
+            CareerMatchSession.Suspend();
         }
         holding = false;
         MatchGate.Blocking = false;
@@ -168,7 +171,10 @@ public partial class CareerMatch : MonoBehaviour
         else if (!InningsOver(hud) && !StrikerIsYou(hud) && !PartnerWatch.Live)
             CatchUp(hud);
         else
+        {
             Hold(false);
+            KeepBetweenBalls(hud);
+        }
     }
 
     /// Main sets Instance in its Start, which may come after this one's: so here, once it is up.
@@ -200,6 +206,7 @@ public partial class CareerMatch : MonoBehaviour
         teamSet = true;
         if (!string.IsNullOrEmpty(plan.yourShort))
             ReplayOverlay.Team = plan.yourShort;
+        Restore(hud);   // a match continued from the hub: its scoreboard, before Sync notes it
         Sync(hud);
     }
 
@@ -211,6 +218,10 @@ public partial class CareerMatch : MonoBehaviour
         if (ended || hud == null || hud.Batsmen == null)
             return;
         eGameState s = main.gameState;
+        // A new ball: the scoreboard as it stood between balls (partners' simulated balls included,
+        // which the Ready check in Update can miss when the next ball starts the frame a card goes).
+        if (s == eGameState.InGame_SelectDelivery)
+            SaveResume(false);
         if (s == eGameState.InGame_DeliverBall)
         {
             strikerAtRelease = hud.CurrentBatsman;
@@ -413,24 +424,5 @@ public partial class CareerMatch : MonoBehaviour
             MatchFlow.CardNote = note;
         MatchFlow.KeepHistory = false;
         noteSet = true;
-    }
-
-    /// Left before the end: he retires out (it counts as out), the rest of his side's innings is
-    /// simulated from the last state seen, then the other side's if they had still to bat.
-    private void Abandon()
-    {
-        ended = true;
-        MatchState s = state;
-        if (!CareerMatchLogic.InningsDone(s))
-        {
-            CareerMatchLogic.Retire(s);
-            CareerMatchLogic.Complete(s, plan.bowling, plan.bowlers, fielders, rng);
-        }
-        int overs = s.totalBalls > 0 ? s.totalBalls / 6 : plan.overs;
-        InningsCard theirs = plan.batFirst ? CareerMatchSession.PlayTheirInnings(overs, s.runs + 1)
-                                           : CareerMatchSession.TheirInnings ?? plan.theirs;
-        CareerMatchResult result = CareerMatchLogic.Build(s, plan, theirs, true);
-        Debug.Log($"[CareerMatch] left early: {result.yours?.Score} - {result.result}");
-        CareerMatchSession.Finish(result);
     }
 }

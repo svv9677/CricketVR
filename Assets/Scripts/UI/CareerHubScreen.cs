@@ -190,7 +190,12 @@ public class CareerHubScreen : CareerDeckScreen
         bool seasonOver = next == null && p.season != null && p.season.finished;
         if (locked != null) locked.gameObject.SetActive(!p.trialDone);
         if (primary != null) primary.interactable = !p.trialDone || next != null || seasonOver;
-        if (!p.trialDone)
+        if (Unfinished(p))
+        {
+            if (primary != null) primary.interactable = true;
+            Set(primaryLabel, "Continue match");   // the opponent is the tile's heading
+        }
+        else if (!p.trialDone)
             Set(primaryLabel, $"Take your nets trial · {NetsSession.TrialBalls} balls");
         else if (next != null)
             Set(primaryLabel, CareerProgress.LeftOutNext(p) ? "Sim the match (left out)" : "Play match");
@@ -382,6 +387,13 @@ public class CareerHubScreen : CareerDeckScreen
         if (p == null)
             return;
         ForgetTrial();
+        // A match left part way (CareerMatchResume): on from where he left it, before anything else.
+        if (Unfinished(p))
+        {
+            CareerResultScreen.RememberBefore(p);
+            CareerMatchSession.Resume(p);
+            return;
+        }
         if (!p.trialDone)
         {
             NetsSession.BeginTrial();
@@ -407,6 +419,9 @@ public class CareerHubScreen : CareerDeckScreen
         // The match: its details one step at a time before it starts (CareerPrematchScreen).
         Push(CareerPrematchScreen.Name);
     }
+
+    private static bool Unfinished(CareerProfile p) =>
+        p?.pending != null && p.pending.active && p.pending.resumable && p.pending.plan != null;
 
     /// Start the next match (the pre-match screen's Play match). The fixture's own rng (the toss,
     /// their innings, the situation), so the match is the one the screens previewed.

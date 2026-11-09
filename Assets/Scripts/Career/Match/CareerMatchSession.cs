@@ -50,6 +50,44 @@ public static class CareerMatchSession
         SceneFader.Load(MatchScene);
     }
 
+    /// The saved state of the match being continued (Resume), for CareerMatch to put back once the
+    /// scene's scoreboard is up; null for a match from its first ball. Taken once.
+    public static CareerResumeState Resuming;
+
+    /// Continue the match left unfinished (CareerProfile.pending): the same plan, its settings, and
+    /// the scoreboard as it was after the last ball (2026-11-09: "Career manager, I should also be
+    /// able to resume"). False if there is none.
+    public static bool Resume(CareerProfile p)
+    {
+        PendingMatch m = p?.pending;
+        if (m == null || !m.active || !m.resumable || m.plan == null || Active)
+            return false;
+        Plan = m.plan;
+        TheirInnings = null;
+        Resuming = m.resume != null && m.resume.hasMatch ? m.resume : null;
+        CareerSettingsGuard.ApplyMatch(p.hand, Plan.bowling, Plan.overs, Plan.batFirst ? eMatchType.SetTotal : eMatchType.Chase,
+                                       Plan.crowd, Plan.pitch, Plan.time);
+        ApplyOverrides();
+        SceneFader.Load(MatchScene);
+        return true;
+    }
+
+    /// Left before the end (the pause menu, the app closed): nothing recorded - the match stays
+    /// pending in the career, saved as it stood (CareerMatch), for Continue match. Home to the hub.
+    public static void Suspend()
+    {
+        MatchPlan plan = Plan;
+        if (plan == null)
+            return;
+        Plan = null;
+        Resuming = null;
+        CareerSaves.SaveCurrent();
+        MatchFlow.ClearOverrides();
+        LastResult = null;
+        LastPlan = plan;
+        ReturnToHub = true;
+    }
+
     /// The match is over (or abandoned): record it in the career, save, put the player's settings
     /// back, and ask for the hub on the way home. Safe to call once; later calls do nothing.
     public static void Finish(CareerMatchResult result)
@@ -160,5 +198,5 @@ public static class CareerMatchSession
     }
 
     /// Tests.
-    public static void ResetForTests() { Plan = null; ReturnToHub = false; LastResult = null; LastPlan = null; TheirInnings = null; }
+    public static void ResetForTests() { Plan = null; Resuming = null; ReturnToHub = false; LastResult = null; LastPlan = null; TheirInnings = null; }
 }
