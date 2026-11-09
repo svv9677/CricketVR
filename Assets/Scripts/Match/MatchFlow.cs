@@ -242,25 +242,27 @@ public partial class MatchFlow : MonoBehaviour
         Ended?.Invoke(r, aiChase ?? AIFirst, result);
         if (!BuildCard())
             return;
+        string text;
         if (aiChase != null)
         {
             // The chase is shown at home, over by over: here, only what the AI needs.
-            heading.text = "<color=#3B82F6>INNINGS OVER</color>";
-            body.text = $"<b><size=150%>{r.Score}</size></b>  <color=#98A2B3>({r.OversText} overs)</color>\n" +
-                        $"{(opponent == "AI" ? "The AI needs" : opponent + " need")} {r.runs + 1} to win\n" +
-                        $"<size=70%><color=#98A2B3>Fours {r.fours}   Sixes {r.sixes}   Run rate {r.RunRate:0.00}{(KeepHistory ? "   · watch the chase at home" : "")}</color></size>";
+            CardText.Set(heading, "Innings over");
+            text = $"{CardText.Title(r.Score)}  {CardText.Caption($"({r.OversText} overs)")}\n" +
+                   $"{(opponent == "AI" ? "The AI needs" : opponent + " need")} {r.runs + 1} to win\n" +
+                   CardText.Caption($"Fours {r.fours}   Sixes {r.sixes}   Run rate {r.RunRate:0.00}{(KeepHistory ? "   · watch the chase at home" : "")}");
         }
         else
         {
-            heading.text = r.Won ? "<color=#22C55E>YOU WON</color>"
-                         : !r.tied ? "<color=#FF6B4A>MATCH LOST</color>"
-                         : "<color=#3B82F6>MATCH TIED</color>";
-            body.text = $"<b><size=150%>{r.Score}</size></b>  <color=#98A2B3>({r.OversText} overs)</color>\n" +
-                        $"{result}\n" +
-                        $"<size=70%><color=#98A2B3>Target {Target}   Fours {r.fours}   Sixes {r.sixes}   Run rate {r.RunRate:0.00}</color></size>";
+            CardText.Set(heading, r.Won ? $"<color={CardText.Win}>You won</color>"
+                                : !r.tied ? "<color=#FF6B4A>Match lost</color>"
+                                : "Match tied");
+            text = $"{CardText.Title(r.Score)}  {CardText.Caption($"({r.OversText} overs)")}\n" +
+                   $"{result}\n" +
+                   CardText.Caption($"Target {Target}   Fours {r.fours}   Sixes {r.sixes}   Run rate {r.RunRate:0.00}");
         }
         if (!string.IsNullOrEmpty(CardNote))
-            body.text += "\n" + CardNote;
+            text += "\n" + CardNote;
+        CardText.Set(body, text);
         Place();
         card.SetActive(true);
         LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)card.transform);
@@ -379,17 +381,11 @@ public partial class MatchFlow : MonoBehaviour
         }
         foreach (GameObject g in doomed)
             Destroy(g);
+        // Sized to its words (CardText): the result's lines wrap inside the card, never past it.
+        if (heading != null)
+            CardText.MakeEyebrow(heading);
         if (body != null)
-        {
-            body.textWrappingMode = TextWrappingModes.NoWrap;
-            body.enableAutoSizing = false;
-            body.overflowMode = TextOverflowModes.Overflow;
-            body.alignment = TextAlignmentOptions.TopLeft;
-            body.fontSize = 36f;
-            var layout = body.GetComponent<LayoutElement>();
-            if (layout != null)
-                layout.preferredHeight = 190f;
-        }
+            CardText.MakeBody(body, 32f);
         OpenXRMenuInputModule.RegisterPanel(card);
         return body != null && heading != null;
     }

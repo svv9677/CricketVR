@@ -34,10 +34,8 @@ public class NetsTrialCard
     /// Sorting order above the nets' scoreboard canvas (10), which otherwise draws over anything
     /// nearer the eye.
     private const int OverTheScoreboard = 20;
-    /// The result body's width (card px).
+    /// The result card's text column (card px).
     private const float BodyWidth = 640f;
-    /// The heading ("Trial complete"), card px.
-    private const float HeadingSize = 40f;
 
     private readonly Transform parent;
     private TextMeshPro progress, fallback;
@@ -204,8 +202,8 @@ public class NetsTrialCard
         onContinue = continueAction;
         if (BuildCard())
         {
-            heading.text = $"<color=#22C55E>{headingText}</color>";
-            body.text = bodyText;
+            CardText.Set(heading, headingText);
+            CardText.Set(body, bodyText);
             if (Eye(true, out Vector3 eye, out Vector3 forward))
             {
                 card.transform.SetPositionAndRotation(eye + forward * CardAhead + Vector3.down * CardBelow,
@@ -265,12 +263,13 @@ public class NetsTrialCard
             else if (text != null && heading == null)
             {
                 heading = text;
-                heading.enableAutoSizing = false;
-                heading.fontSize = HeadingSize;
-                heading.overflowMode = TextOverflowModes.Overflow;
+                CardText.MakeEyebrow(heading, CardText.Win);
             }
             else if (text != null && body == null)
-                MakeBody(text);
+            {
+                body = text;
+                CardText.MakeBody(body, CardText.BodySize, 600f);
+            }
             else
                 doomed.Add(child.gameObject);
         }
@@ -280,29 +279,12 @@ public class NetsTrialCard
         Canvas canvas = card.GetComponent<Canvas>();
         if (canvas != null)
             canvas.sortingOrder = OverTheScoreboard;
+        // Wide enough for "Temperament  62  Developing" on one line; the verdict wraps inside it.
+        LayoutElement column = play.GetComponent<LayoutElement>();
+        if (column != null)
+            column.preferredWidth = BodyWidth;
         OpenXRMenuInputModule.RegisterPanel(card);
         return body != null && heading != null;
-    }
-
-    /// The line under the heading becomes the body: it grows to hold the seven ratings and a verdict
-    /// that may wrap.
-    private void MakeBody(TMP_Text text)
-    {
-        body = text;
-        body.textWrappingMode = TextWrappingModes.Normal;
-        body.enableAutoSizing = false;
-        body.overflowMode = TextOverflowModes.Overflow;
-        body.alignment = TextAlignmentOptions.TopLeft;
-        body.fontSize = 30f;
-        var layout = body.GetComponent<LayoutElement>();
-        if (layout == null)
-            layout = body.gameObject.AddComponent<LayoutElement>();
-        {
-            // Wide enough for "Temperament  62  Developing" on one line (the play card's line under
-            // the name is sized for a few words); the verdict wraps inside it.
-            layout.preferredHeight = 400f;
-            layout.minWidth = layout.preferredWidth = BodyWidth;
-        }
     }
 
     private void WireContinueButton(Transform bowl)

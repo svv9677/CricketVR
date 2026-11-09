@@ -70,6 +70,7 @@ public partial class HUD : MonoBehaviour
         Main.Instance.onGameStateChanged += HandleGameState;
         Main.Instance.onGameStateChanged += AnnounceBall;   // after HandleGameState has scored it
         Bat.ShotStruck += ShowShot;
+        KeepInside();
 
         Reset();
     }

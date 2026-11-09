@@ -54,6 +54,9 @@ public class BallResultText : MonoBehaviour
         home = creaseHome = transform.position;
         text = gameObject.AddComponent<TextMeshPro>();
         text.fontSize = 14f;
+        text.enableAutoSizing = true;       // a long result shrinks to its 12 m line, never past it
+        text.fontSizeMax = 14f;
+        text.fontSizeMin = 6f;
         text.alignment = TextAlignmentOptions.Center;
         text.enableWordWrapping = false;
         text.fontStyle = FontStyles.Bold;

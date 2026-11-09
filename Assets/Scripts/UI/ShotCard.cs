@@ -86,7 +86,7 @@ public class ShotCard : MonoBehaviour
         builder.Clear();
         AppendBatter(hud.CurrentBatsman, true);
         AppendBatter(hud.CurrentRunner, false);
-        builder.Append("<color=#98A2B3>Bowler</color>  ").Append(hud.CurrentBowler.Name)
+        builder.Append("<color=#98A2B3>Bowler</color>  ").Append(Fits(hud.CurrentBowler.Name, 12))
                .Append("<pos=62%>").Append(HUD.Figures(hud.CurrentBowler)).Append('\n');
         builder.Append("<color=#98A2B3>Run rate</color>  ").Append(hud.RunRate.ToString("F2"));
         scorecard.text = builder.ToString();
@@ -94,7 +94,7 @@ public class ShotCard : MonoBehaviour
 
     private void AppendBatter(Batsman b, bool striker)
     {
-        builder.Append("<color=#F3F5F8>").Append(b.Name).Append(striker ? "*" : "").Append("</color>")
+        builder.Append("<color=#F3F5F8>").Append(Fits(b.Name, BattingCard.NameChars)).Append(striker ? "*" : "").Append("</color>")
                .Append("<pos=48%>").Append(HUD.RunsAndBalls(b))
                .Append("<pos=74%><color=#98A2B3>SR</color> ").Append(HUD.StrikeRate(b)).Append('\n');
     }
@@ -211,6 +211,10 @@ public class ShotCard : MonoBehaviour
         }
         recent.text = builder.Length > 0 ? builder.ToString() : " ";
     }
+
+    /// A name short enough for its column: "A. Shah", cut with an ellipsis past `max` letters, so it
+    /// never runs into the figures beside it (2026-11-08: "the text goes out").
+    private static string Fits(string name, int max) => BattingCard.Truncate(BattingCard.ShortName(name), max);
 
     private void SetQuality(float q)
     {
