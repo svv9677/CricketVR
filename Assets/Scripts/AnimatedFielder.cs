@@ -554,6 +554,11 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
             bool slow = inst.theBallRigidBody.linearVelocity.sqrMagnitude < SlowBall * SlowBall;
             bool inHands = slow ? reach.ClosestPalm(lastBall, now) <= SlowGatherDistance
                                 : ReachMath.SegmentDistance(lastBall, now, reach.HoldPoint) <= CatchPocket;
+            // Diving at one along the ground, a hand on it stops it: the far hand trails the near
+            // one at full stretch, and the point between them was off the ball - it rolled through
+            // under his reaching hand (2026-11-09: "just diving past the ball").
+            if (!inHands && diving && now.y - BallFlight.GroundY(now) < DiveGroundBall)
+                inHands = reach.ClosestPalm(lastBall, now) <= DiveStopPalm;
             // Not while he is down on the grass under physics: his reach is off then (review) -
             // unless his arms are still going for it (FielderRagdoll.ReachFor, in the air).
             if (inHands && Time.time >= diveSpilledUntil && (!ragdollDown || (ragdoll != null && ragdoll.Reaching)))
