@@ -8,7 +8,7 @@ using UnityEngine.UI;
 /// <summary>
 /// The career screens of the menu prefab, built by MenuPrefabBuilder (Tools > CricketVR > Build
 /// Menu Prefabs) beside the others and in the same house style:
-///   * CareerScreen ("career") - the three save slots, each with Create player, or Play and a
+///   * CareerScreen ("career") - the save slots (CareerSaves.Slots), each with Create player, or Play and a
 ///     Delete that asks first in the slot's own row.
 ///   * CreatePlayerScreen ("createPlayer") - the name, on an in-world QWERTY keyboard.
 ///   * CreateLookScreen ("createLook") - nation, batting hand, skin tone, kit colour, shirt number.
@@ -35,7 +35,7 @@ public static class CareerMenuBuilder
         Transform column = MenuPrefabBuilder.ScreenColumn(parent, "CareerScreen", out GameObject go);
         CareerScreen screen = go.AddComponent<CareerScreen>();
         MenuPrefabBuilder.SetScreenName(screen, "career");
-        MenuPrefabBuilder.Title(column, "Career", "Three save slots. Your ratings come from how you really bat.");
+        MenuPrefabBuilder.Title(column, "Career", "Six save slots. Your ratings come from how you really bat.");
 
         var so = new SerializedObject(screen);
         SerializedProperty slots = so.FindProperty("slots");

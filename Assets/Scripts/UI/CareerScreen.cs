@@ -2,7 +2,7 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Career, from the Splash main menu: the three save slots (CareerSaves). An empty slot offers
+/// Career, from the Splash main menu: the save slots (CareerSaves.Slots). An empty slot offers
 /// Create player (CreatePlayerScreen, then CreateLookScreen); a filled one shows the player - name,
 /// nation, hand and overall rating - with Play (the career hub) and a small Delete that asks first,
 /// in the slot's own row. Built by Tools > CricketVR > Build Menu Prefabs, each slot's buttons wired

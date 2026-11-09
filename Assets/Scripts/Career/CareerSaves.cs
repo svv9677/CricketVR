@@ -3,7 +3,7 @@ using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// The three career save slots. Each is a JSON file in Application.persistentDataPath/career
+/// The career save slots (six since 2026-11-08: "add more career slots"). Each is a JSON file in Application.persistentDataPath/career
 /// ("slot1.json"), written atomically (to a temp file, then moved over) with the previous good
 /// file kept as "slot1.bak" - so a crash, a dead battery or a headset taken off mid-write never
 /// loses a career. A file that will not read falls back to its backup.
@@ -16,7 +16,7 @@ using UnityEngine;
 /// </summary>
 public static class CareerSaves
 {
-    public const int Slots = 3;
+    public const int Slots = 6;
 
     private static string directory;
     private static CareerProfile current;
