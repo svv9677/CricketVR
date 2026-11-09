@@ -6,11 +6,11 @@ using UnityEngine.UI;
 /// <summary>
 /// The Quick Play screen for MenuPrefabBuilder: one tile per match length (MatchFormat.Order) in
 /// the career slots' look (CareerMenuBuilder), each with its title and state, how the match stands
-/// and its setup, and Continue / Restart / New Game wired with the row's index.
+/// and its setup, and Continue / New Game wired with the row's index.
 /// </summary>
 public static class QuickPlayMenuBuilder
 {
-    private const float ContinueWidth = 150f, RestartWidth = 124f, NewWidth = 160f;
+    private const float ContinueWidth = 150f, NewWidth = 160f;
 
     public static MenuScreen Build(Transform parent)
     {
@@ -50,16 +50,15 @@ public static class QuickPlayMenuBuilder
         titleLayout.flexibleWidth = 1f;
         Button go = CareerMenuBuilder.IntButton(row, "Continue", screen.OnContinue, i, ContinueWidth);
         go.colors = UIStyle.MenuColors(true);
-        Button again = CareerMenuBuilder.IntButton(row, "Restart", screen.OnRestart, i, RestartWidth);
+        // No Restart (2026-11-09: "take out the restart option. It should just say continue and
+        // then new game"): New Game starts from its last setup anyway.
         CareerMenuBuilder.IntButton(row, "New Game", screen.OnNew, i, NewWidth);
         TextMeshProUGUI detail = WorldPanelBuilder.Text(tile, "Set it up and play", UIStyle.HintSize, FontStyles.Normal,
                                                         UIStyle.TextMuted, 50f, TextAlignmentOptions.Left);
         go.gameObject.SetActive(false);
-        again.gameObject.SetActive(false);
 
         slot.FindPropertyRelative("title").objectReferenceValue = title;
         slot.FindPropertyRelative("detail").objectReferenceValue = detail;
         slot.FindPropertyRelative("continueButton").objectReferenceValue = go.gameObject;
-        slot.FindPropertyRelative("restartButton").objectReferenceValue = again.gameObject;
     }
 }

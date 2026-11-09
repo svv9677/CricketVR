@@ -3,8 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Quick Play, from the main menu: a slot for each length - 5, 10, 20 and 50 overs and a Test -
-/// each saying whether a match is on and how it stands, with Continue and Restart when one is, and
-/// New Game always (QuickPlaySlots). New Game goes through the two setup steps (Match Setup, then
+/// each saying whether a match is on and how it stands, with Continue when one is, and New Game
+/// always (no Restart, 2026-11-09) (QuickPlaySlots). New Game goes through the two setup steps (Match Setup, then
 /// the ground: MatchSetupScreen, CustomiseScreen) and starts from there. Built by Tools > CricketVR
 /// > Build Menu Prefabs, one row per MatchFormat.Order entry.
 /// </summary>
@@ -16,7 +16,6 @@ public class QuickPlayScreen : MenuScreen
         public TextMeshProUGUI title;
         public TextMeshProUGUI detail;
         public GameObject continueButton;
-        public GameObject restartButton;
     }
 
     [SerializeField] private SlotRow[] slots;
@@ -43,14 +42,12 @@ public class QuickPlayScreen : MenuScreen
                 row.detail.text = $"{state}\n{setup}";
             }
             if (row.continueButton != null) row.continueButton.SetActive(slot.inProgress);
-            if (row.restartButton != null) row.restartButton.SetActive(slot.inProgress);
         }
     }
 
     // ---- Wired in the prefab, each with its row's index in MatchFormat.Order ---------------------
 
     public void OnContinue(int i) => QuickPlaySlots.Continue(Format(i));
-    public void OnRestart(int i) => QuickPlaySlots.Restart(Format(i));
 
     public void OnNew(int i)
     {
