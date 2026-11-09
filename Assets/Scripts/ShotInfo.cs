@@ -21,6 +21,8 @@ public struct ShotInfo
     public BatContact.ContactKind kind;
     public float impactSpeed;
     public Vector3 exitVelocity, contactPoint;
+    /// The ball's velocity coming on to the bat (BatMarks: which way it scraped across the face).
+    public Vector3 incoming;
     public float realQuality;
     public eRealContact realContact;
     /// Where on the real blade it was met (RealBlade's kind): what the career calls the contact.

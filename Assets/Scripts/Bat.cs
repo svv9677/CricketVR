@@ -71,6 +71,9 @@ public partial class Bat : MonoBehaviour
         // The air off the blade as it is swung, louder the faster (BatWhoosh).
         if (GetComponent<BatWhoosh>() == null)
             gameObject.AddComponent<BatWhoosh>();
+        // The ball's marks on the face, building up over the match (BatMarks).
+        if (GetComponent<BatMarks>() == null)
+            gameObject.AddComponent<BatMarks>();
     }
 
     public void CheckAndGrab()
@@ -233,6 +236,7 @@ public partial class Bat : MonoBehaviour
             impactSpeed = result.impactSpeed,
             exitVelocity = outgoing,
             contactPoint = contactCentre,
+            incoming = incoming,
             realQuality = real.quality,
             realContact = real.contact,
             realKind = real.kind,
