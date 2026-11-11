@@ -37,11 +37,16 @@ public static class DisplayRate
     private const float SettleSeconds = 6f, JudgeSeconds = 3f;
     /// Averaging below this share of the rate over a window counts as not holding it.
     private const float Holding = 0.955f;
+    /// So does this share of the window's frames each taking longer than Late frame times. An
+    /// average hides frames dropped only while looking one way: facing the bowler the headset
+    /// drew about three times what it drew facing the keeper (PersonLod), and a window spent
+    /// partly each way averaged near the rate while every look forward stuttered (2026-11-11).
+    private const float LateShare = 0.03f, Late = 1.5f;
 
     private static bool requested;
     private static int level = -1;
     private static float judgeFrom, sum;
-    private static int frames;
+    private static int frames, late;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Install()
@@ -64,6 +69,7 @@ public static class DisplayRate
         judgeFrom = Time.realtimeSinceStartup + SettleSeconds;
         sum = 0f;
         frames = 0;
+        late = 0;
     }
 
     private static void Tick()
@@ -88,15 +94,17 @@ public static class DisplayRate
         float now = Time.realtimeSinceStartup;
         if (now < judgeFrom)
             return;
+        float rate = Ladder[level];
         sum += Time.unscaledDeltaTime;
         frames++;
+        if (Time.unscaledDeltaTime > Late / rate)
+            late++;
         if (now < judgeFrom + JudgeSeconds)
             return;
         float fps = frames / Mathf.Max(sum, 1e-3f);
-        float rate = Ladder[level];
-        if (fps < rate * Holding)
+        if (fps < rate * Holding || late > frames * LateShare)
         {
-            Debug.Log($"[DisplayRate] Averaged {fps:F0} fps at {rate} Hz: stepping down");
+            Debug.Log($"[DisplayRate] Averaged {fps:F0} fps, {late} of {frames} frames late at {rate} Hz: stepping down");
             StepTo(display, level + 1);
             Restart();
             return;
@@ -106,6 +114,7 @@ public static class DisplayRate
         judgeFrom = now;
         sum = 0f;
         frames = 0;
+        late = 0;
     }
 
     /// The best supported rate from `from` down the ladder, with the physics locked to it.
