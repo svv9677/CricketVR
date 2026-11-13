@@ -298,7 +298,8 @@ public partial class AnimatedBowler : MonoBehaviour
             yield return null;
         }
 
-        animator.SetInteger("Action", currentBowlerInfo.myIndex);
+        // A captured action (MocapDelivery) in place of his own, when it is being tried out.
+        animator.SetInteger("Action", MocapDelivery.ActionFor(animator, currentBowlerInfo.myIndex));
 
         while (!stateInfo.IsName("Run"))
         {
@@ -428,6 +429,14 @@ public class AFInfo
     {
         var m = (AFInfo)MemberwiseClone();
         m.startPos = BowlerArm.Mirror(startPos);
+        return m;
+    }
+
+    /// The same mark moved by a world offset (a captured action's own ground: MocapDelivery.Mark).
+    public AFInfo ShiftedCopy(Vector3 by)
+    {
+        var m = (AFInfo)MemberwiseClone();
+        m.startPos += by;
         return m;
     }
 

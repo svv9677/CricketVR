@@ -1,0 +1,23 @@
+{
+  "frames": 27,
+  "fps": 29.985721085197525,
+  "release_frame": 20,
+  "source": "img9676",
+  "contacts": [
+    {
+      "side": "l",
+      "start": 0,
+      "end": 1
+    },
+    {
+      "side": "r",
+      "start": 9,
+      "end": 15
+    },
+    {
+      "side": "l",
+      "start": 16,
+      "end": 26
+    }
+  ]
+}

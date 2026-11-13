@@ -90,7 +90,7 @@ public partial class AnimatedBowler
         if (baseBowlerInfo == null)
             baseBowlerInfo = currentBowlerInfo;
         if (baseBowlerInfo != null)
-            currentBowlerInfo = left ? MirrorMark(baseBowlerInfo) : baseBowlerInfo;
+            currentBowlerInfo = MocapDelivery.Mark(left ? MirrorMark(baseBowlerInfo) : baseBowlerInfo, left, animator);
         ApplyMirror();
         MoveHand(left);
     }
