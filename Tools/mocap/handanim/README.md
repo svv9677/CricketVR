@@ -34,19 +34,24 @@ Use this to keyframe a bowling action yourself, or to fix up an existing one, on
 - The eye button next to "Edits layer" turns your edits off, so you can compare against the base.
 - If you need to change the timing itself, use *Flatten to one action*. It bakes base and edits into one new action that becomes the base. Then you can move or delete keys freely in the Dope Sheet.
 
-## Reference video
+## Reference footage: two views, in step with the animation
 
-1. Make an image sequence from a clip. 30 fps keeps it in step with the timeline:
+**Side-on | front-on views** (Cricket tab) splits the 3D view in two. The left half is side-on and the right half looks through `Cam front-on` (from the batter's end). The side-on camera is on whichever side of him the footage was filmed from: `Cam side-on` (his right) when he runs left to right across the picture, `Cam side-on left` when he runs right to left. Otherwise the rig is mirrored against the footage. Steyn's and Anderson's side clips are both filmed from his left. Each shows a bowler's real footage behind the rig, and the rig is see-through (X-ray).
 
-   ```
-   ffmpeg -i myclip.mov -vf "fps=30,scale=960:-1" Tools/mocap/handanim/reference/myclip/%04d.png
-   ```
+- **Which footage:** click **Steyn** or **Anderson** under *Reference footage*. The build loads Steyn's footage by default.
+- **Timing:** the footage follows the scene's **back foot**, **front foot** and **release** markers. It is stretched between them so his back foot lands, front foot lands and ball leaves on the same frames as the action you're animating. Move a marker with *Mark here* and the footage re-times.
+  - The markers start where the base action's own feet land (Steyn 22 / 27 / 28, Bumrah 18 / 26 / 27, Lyon 21 / 29 / 32, Anderson 0 / 12 / 15).
+- **Pin:** with **Pin** on, the footage's bowler stays on the rig: his hips on the rig's hips, sized so his hip-to-shoulder length matches. Turn it off to see the footage's own camera movement. Use **Refit size** after big changes, and **Opacity** for each clip.
+- **The pitch** is hidden while the footage is on, because its turf would cover his feet. **Pitch** toggles it.
+- **Leaving a camera view:** if you orbit away from a camera, press **Numpad 0** in that view to look through its camera again.
 
-   For slow-motion footage, add `setpts=<factor>*PTS` before `fps`, so the sequence plays at real speed.
-2. Click *Add reference images…*, pick the folder, and choose the view (side-on, from behind, front-on). The images appear on a see-through plane beside the run.
-3. Slide *Starts at frame* (in the redo panel at bottom-left, or the empty's Object Data properties). Line the clip's back-foot landing up with the bowler's.
+To make footage (side-on and front-on of the same bowler, listed in `../out/views/manifest.json`), run from `Tools/mocap`:
 
-`reference/` is gitignored. Only use footage you're allowed to use; your own filming is best (`../CAPTURE.md`).
+```
+.venv/bin/python -I handanim/make_reference.py steyn_side steyn_front anderson_side anderson_back
+```
+
+`make_reference.py` reads the run direction from his lean through the delivery stride, not from where he goes on screen: a panning camera follows him, and `steyn_side` cuts to the other side of the ground mid-run (frames 1–14 from his right, 19–27 from his left). It reads each source video exactly as `extract_pose.py` did, so image *k* is the frame tracked pose *k* came from. It refuses to write if the frame counts differ. Each clip goes to `reference/<view>/` (gitignored), with a `meta.json` holding each image's real time, the three events and the bowler's hips. Those clips are other people's footage: use them for reference on this machine only. Your own filming is the one to ship from (`../CAPTURE.md`).
 
 ## Export to Unity
 
@@ -85,6 +90,8 @@ To re-export, just export again with the same name. Any timing you tuned by hand
 | `Assets/Editor/BowlingClipExport.cs` | Unity: game actions → `actions/*.json` |
 | `load_action.py` | Blender: one `actions/*.json` → an action on the rig (`--check` reports joint error) |
 | `build_scene.py` | Builds `BowlingAnimation.blend` and installs the add-on |
-| `cricket_bowling_anim.py` | The Cricket tab: start-from, ghost, reference, markers, export |
+| `cricket_bowling_anim/__init__.py` | The Cricket tab: start-from, ghost, markers (found from the feet), export |
+| `cricket_bowling_anim/reference.py` | Footage behind the cameras: timing to the markers, pinning to the rig, the two views |
+| `make_reference.py` | Footage → `reference/<view>/` image sequence + `meta.json` |
 | `Assets/Editor/MocapBowlerImport.cs` | Unity: imports the FBX and wires (or removes) controller states |
 | `Assets/Scripts/Bowling/MocapDelivery.cs` | Game: picks the delivery and moves the mark, from the sidecars |

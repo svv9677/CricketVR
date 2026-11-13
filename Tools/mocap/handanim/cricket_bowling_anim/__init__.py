@@ -6,7 +6,8 @@ Set up by Tools/mocap/handanim/build_scene.py; see Tools/mocap/handanim/README.m
     Start from: the game's own actions (Steyn, Bumrah, Lyon) or the captured Anderson, as a base
                 layer you do not touch, with an "Edits" layer on top where your keys go.
     Ghost:      another action played by a see-through skeleton beside yours, to compare.
-    Reference:  an image sequence (make_reference.py) on a plane, in step with the timeline.
+    Reference:  footage (make_reference.py) behind the side-on and front-on cameras, timed to the
+                markers and pinned to the rig (reference.py); "Two views" shows both.
     Markers:    back foot, front foot, release - the release one is where the ball leaves.
     Export:     FBX + sidecar into the Unity project; Unity imports it, wires it into the bowling
                 controller and works out his mark from where your front foot lands.
@@ -14,7 +15,7 @@ Set up by Tools/mocap/handanim/build_scene.py; see Tools/mocap/handanim/README.m
 bl_info = {
     "name": "Cricket bowling animation (CricketVR)",
     "author": "CricketVR",
-    "version": (1, 0, 0),
+    "version": (1, 1, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Cricket",
     "category": "Animation",
@@ -25,6 +26,8 @@ import os
 
 import bpy
 from mathutils import Vector
+
+from . import reference
 
 P = "mixamorig5:"
 UNITY_MOCAP = ("Assets", "Resources", "Animations", "Bowling", "Mocap")
@@ -53,6 +56,16 @@ def base_actions():
 
 # ---------------------------------------------------------------- layers -------------------------
 
+def bind(owner, act):
+    """Play `act` on an AnimData or NLA strip. Blender 5 also needs the action's slot: an action
+    brought in from another file is not bound to one, and then nothing moves."""
+    if owner.action != act:
+        owner.action = act
+    if act is not None and hasattr(owner, "action_slot") and owner.action_slot is None and len(act.slots):
+        suitable = list(getattr(owner, "action_suitable_slots", [])) or list(act.slots)
+        owner.action_slot = suitable[0]
+
+
 def start_from(arm, base, keep_edits=True):
     """Base action as a locked NLA strip, an additive 'Edits' action on top for the user's keys."""
     ad = arm.animation_data or arm.animation_data_create()
@@ -62,22 +75,70 @@ def start_from(arm, base, keep_edits=True):
     track = ad.nla_tracks.new()
     track.name = "Base (do not edit)"
     strip = track.strips.new(base.name, int(base.frame_range[0]), base)
+    bind(strip, base)
     strip.blend_type = "REPLACE"
     track.lock = True
     if edits is None:
         edits = bpy.data.actions.new(f"Edits_{base.name}")
         edits["cricket_edits"] = True
-    ad.action = edits
+    bind(ad, edits)
     ad.action_blend_type = "COMBINE"      # rotations multiply onto the base (quaternions stay unit)
     ad.action_influence = 1.0
     scene = bpy.context.scene
     scene.frame_start, scene.frame_end = int(base.frame_range[0]), int(base.frame_range[1])
     scene["cricket_base"] = base.name
-    rel = base.get("cricket_release")
-    if rel is not None:
-        m = scene.timeline_markers.get("release") or scene.timeline_markers.new("release")
-        m.frame = int(rel)
+    for name, key in (("back foot", "cricket_back_foot"), ("front foot", "cricket_front_foot"), ("release", "cricket_release")):
+        f = base.get(key)
+        if f is not None and f >= 0:
+            m = scene.timeline_markers.get(name) or scene.timeline_markers.new(name)
+            m.frame = int(f)
+    reference.update(scene)
     return edits
+
+
+def foot_contacts(arm, act, release, front="Left"):
+    """(back foot landing, front foot landing) frames of a right-armer's action (front = his left foot):
+    the first frame of the front foot's last stretch on the ground at or before the release, and the
+    first frame of the back foot's stretch on the ground that began before that."""
+    scene = bpy.context.scene
+    ad = arm.animation_data
+    keep_action, keep_tracks, keep_frame = ad.action, [t.mute for t in ad.nla_tracks], scene.frame_current
+    for t in ad.nla_tracks:
+        t.mute = True
+    bind(ad, act)
+    back = "Right" if front == "Left" else "Left"
+    lo, hi = int(act.frame_range[0]), int(act.frame_range[1])
+    z = {front: [], back: []}
+    for f in range(lo, hi + 1):
+        scene.frame_set(f)
+        for side in z:
+            pb = arm.pose.bones
+            toe = arm.matrix_world @ pb[P + side + "ToeBase"].tail
+            ankle = arm.matrix_world @ pb[P + side + "Foot"].head
+            z[side].append(min(toe.z, ankle.z))
+    ad.action = keep_action
+    for t, m in zip(ad.nla_tracks, keep_tracks):
+        t.mute = m
+    scene.frame_set(keep_frame)
+    ground = min(min(v) for v in z.values())
+    # On the ground: low. (Not "and still": the game's own actions slide their planted feet at 1-4 m/s.)
+    down = {s: [h < ground + 0.06 for h in v] for s in z for v in [z[s]]}
+
+    def run_start(flags, at):
+        while at > 0 and flags[at - 1]:
+            at -= 1
+        return at
+
+    r = min(max(release - lo, 0), hi - lo)
+    k = r
+    while k > 0 and not down[front][k]:
+        k -= 1
+    ffc = run_start(down[front], k)
+    k = ffc
+    while k > 0 and not down[back][k]:
+        k -= 1
+    bfc = run_start(down[back], k) if down[back][k] else -1
+    return (bfc + lo if bfc >= 0 else -1), ffc + lo
 
 
 class CRICKET_OT_start_from(bpy.types.Operator):
@@ -150,53 +211,7 @@ class CRICKET_OT_ghost(bpy.types.Operator):
             return {"FINISHED"}
         g.hide_viewport = False
         g.animation_data_create()
-        g.animation_data.action = bpy.data.actions[self.action]
-        return {"FINISHED"}
-
-
-# ---------------------------------------------------------------- reference -----------------------
-
-class CRICKET_OT_reference(bpy.types.Operator):
-    bl_idname = "cricket.reference"
-    bl_label = "Add reference images"
-    bl_description = "An image sequence from make_reference.py on a plane beside the bowler, in step with the timeline"
-    bl_options = {"REGISTER", "UNDO"}
-    directory: bpy.props.StringProperty(subtype="DIR_PATH")
-    view: bpy.props.EnumProperty(items=[("SIDE", "Side-on", ""), ("BEHIND", "From behind", ""), ("FRONT", "Front-on", "")])
-    first_frame: bpy.props.IntProperty(name="Starts at frame", default=0)
-
-    def invoke(self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {"RUNNING_MODAL"}
-
-    def execute(self, context):
-        files = sorted(f for f in os.listdir(self.directory) if f.lower().endswith((".png", ".jpg")))
-        if not files:
-            self.report({"ERROR"}, "No images in that folder")
-            return {"CANCELLED"}
-        img = bpy.data.images.load(os.path.join(self.directory, files[0]))
-        img.source = "SEQUENCE"
-        name = f"Ref_{self.view.title()}"
-        old = bpy.data.objects.get(name)
-        if old:
-            bpy.data.objects.remove(old)
-        empty = bpy.data.objects.new(name, None)
-        empty.empty_display_type = "IMAGE"
-        empty.data = img
-        empty.empty_display_size = 2.4
-        empty.use_empty_image_alpha = True
-        empty.color[3] = 0.6
-        iu = empty.image_user
-        iu.frame_duration = len(files)
-        iu.frame_start = self.first_frame
-        iu.use_auto_refresh = True
-        # Beside the run, facing the camera that matches the footage.
-        place = {"SIDE": ((3.5, -2.5, 1.2), (1.5708, 0, 1.5708)),
-                 "BEHIND": ((-2.8, 3.5, 1.2), (1.5708, 0, 3.1416)),
-                 "FRONT": ((2.8, -9.0, 1.2), (1.5708, 0, 0))}[self.view]
-        empty.location, empty.rotation_euler = place
-        context.scene.collection.objects.link(empty)
-        self.report({"INFO"}, f"{name}: {len(files)} frames from frame {self.first_frame} (move it with Starts at frame)")
+        bind(g.animation_data, bpy.data.actions[self.action])
         return {"FINISHED"}
 
 
@@ -212,6 +227,7 @@ class CRICKET_OT_marker(bpy.types.Operator):
         scene = context.scene
         m = scene.timeline_markers.get(self.name) or scene.timeline_markers.new(self.name)
         m.frame = scene.frame_current
+        reference.update(scene)          # the footage is timed to the markers
         return {"FINISHED"}
 
 
@@ -330,9 +346,7 @@ class CRICKET_PT_panel(bpy.types.Panel):
             box.operator("cricket.ghost", text=f"Ghost: {a.name}").action = a.name
         box.operator("cricket.ghost", text="Show / hide ghost").action = ""
 
-        box = lay.box()
-        box.label(text="Reference video", icon="IMAGE_DATA")
-        box.operator("cricket.reference", text="Add reference images…")
+        reference.draw(lay.box(), context)
 
         box = lay.box()
         box.label(text="Markers", icon="MARKER_HLT")
@@ -347,15 +361,17 @@ class CRICKET_PT_panel(bpy.types.Panel):
 
 
 CLASSES = (CRICKET_OT_start_from, CRICKET_OT_toggle_edits, CRICKET_OT_bake_flat, CRICKET_OT_ghost,
-           CRICKET_OT_reference, CRICKET_OT_marker, CRICKET_OT_export, CRICKET_PT_panel)
+           CRICKET_OT_marker, CRICKET_OT_export, CRICKET_PT_panel)
 
 
 def register():
     for c in CLASSES:
         bpy.utils.register_class(c)
+    reference.register()
 
 
 def unregister():
+    reference.unregister()
     for c in reversed(CLASSES):
         bpy.utils.unregister_class(c)
 

@@ -10,8 +10,12 @@ First export the game's actions from Unity: CricketVR > Bowling > Export Bowling
   - the bowler's end of the pitch to scale (stumps, popping and return creases), placed from Steyn's
     action as it plays in the game: his front toe lands 5 cm behind the popping crease, his mark is
     2.32 m to the side of middle stump;
-  - cameras: side-on, from behind, from the batter;
-  - the "Cricket" tab (cricket_bowling_anim.py), installed as a Blender add-on unless --no-addon.
+  - cameras: side-on from his right and from his left, from behind, front-on (from the batter's end);
+  - each action's back-foot and front-foot landings found from its feet (markers "back foot", "front foot");
+  - Steyn's side-on and front-on footage behind those cameras, if handanim/reference/ has it
+    (make_reference.py steyn_side steyn_front);
+  - the "Cricket" tab (cricket_bowling_anim/), installed as a Blender add-on unless --no-addon.
+Then in Blender: Cricket tab > "Side-on | front-on views".
 """
 import math
 import os
@@ -24,6 +28,9 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 sys.path.insert(0, HERE)
+# The installed add-on is imported at start-up under the same name: use this checkout's copy instead.
+for _m in [m for m in sys.modules if m == "cricket_bowling_anim" or m.startswith("cricket_bowling_anim.")]:
+    del sys.modules[_m]
 import load_action  # noqa: E402
 import cricket_bowling_anim as tools  # noqa: E402
 
@@ -120,6 +127,12 @@ def anderson(arm):
     return act
 
 
+def mark_feet(arm, act):
+    bfc, ffc = tools.foot_contacts(arm, act, int(act["cricket_release"]))
+    act["cricket_back_foot"], act["cricket_front_foot"] = bfc, ffc
+    print(f"build_scene: {act.name}: back foot lands {bfc}, front foot {ffc}, release {act['cricket_release']}")
+
+
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
@@ -142,12 +155,16 @@ def main():
         act["cricket_release"] = scene.timeline_markers["release"].frame
         act.use_fake_user = True
         acts[n] = act
+    for act in list(acts.values()):
+        mark_feet(arm, act)
     if "Steyn" not in acts:
         raise SystemExit("build_scene: Steyn.json is needed (it places the pitch and the mark)")
     andy = anderson(arm)
+    if andy is not None:
+        mark_feet(arm, andy)
 
     # Where Steyn's front toe is at his release: the popping crease is just in front of it.
-    arm.animation_data.action = acts["Steyn"]
+    tools.bind(arm.animation_data, acts["Steyn"])
     rel = acts["Steyn"]["cricket_release"]
     d, wide = tools.forward_distance_to_toe(arm, rel)
     scene["cricket_steyn_toe"] = (d, wide)
@@ -166,16 +183,22 @@ def main():
     ghost.display_type = "WIRE"
     scene.collection.objects.link(ghost)
     ghost.animation_data_create()
-    ghost.animation_data.action = andy or acts.get("Bumrah")
+    tools.bind(ghost.animation_data, andy or acts.get("Bumrah"))
     ghost.hide_viewport = True
     arm.data.display_type = "OCTAHEDRAL"
 
-    camera("Cam side-on", (hips0.x - 9.0, crease_y + 2.0, 1.1), (hips0.x, crease_y + 2.0, 1.0), lens=35)
+    camera("Cam side-on", (hips0.x - 9.0, crease_y + 2.0, 1.1), (hips0.x, crease_y + 2.0, 1.0), lens=35)       # his right
+    camera("Cam side-on left", (hips0.x + 9.0, crease_y + 2.0, 1.1), (hips0.x, crease_y + 2.0, 1.0), lens=35)  # his left
     camera("Cam behind", (hips0.x, hips0.y + 7.0, 1.6), (hips0.x, crease_y, 1.0), lens=40)
-    camera("Cam batter", (stump_x, crease_y - 19.0, 1.6), (hips0.x - 0.5, crease_y, 1.2), lens=85)
+    camera("Cam front-on", (stump_x, crease_y - 19.0, 1.6), (hips0.x - 0.5, crease_y, 1.2), lens=85)
     scene.camera = bpy.data.objects["Cam side-on"]
 
     tools.start_from(arm, acts["Steyn"], keep_edits=False)
+    if all(os.path.exists(os.path.join(HERE, "reference", v, "meta.json")) for v in tools.reference.PAIRS["Steyn"]):
+        for v in tools.reference.PAIRS["Steyn"]:
+            obj, _ = tools.reference.load_reference(bpy.context, v)
+            print(f"build_scene: reference {v} behind {obj.parent.name}, size {obj.empty_display_size:.1f}")
+        scene["cricket_reference"] = "Steyn"
     scene.frame_set(0)
     bpy.ops.wm.save_as_mainfile(filepath=OUT)
     print(f"build_scene: saved {OUT}; actions {list(acts) + ([andy.name] if andy else [])}; "
@@ -188,7 +211,12 @@ def main():
 def install_addon():
     """The Cricket tab as a user add-on, so it is there whenever the .blend is opened."""
     dest_dir = bpy.utils.user_resource("SCRIPTS", path="addons", create=True)
-    shutil.copy(os.path.join(HERE, "cricket_bowling_anim.py"), os.path.join(dest_dir, "cricket_bowling_anim.py"))
+    old = os.path.join(dest_dir, "cricket_bowling_anim.py")          # the add-on before it was a package
+    if os.path.exists(old):
+        os.remove(old)
+    dest = os.path.join(dest_dir, "cricket_bowling_anim")
+    shutil.rmtree(dest, ignore_errors=True)
+    shutil.copytree(os.path.join(HERE, "cricket_bowling_anim"), dest, ignore=shutil.ignore_patterns("__pycache__"))
     bpy.ops.preferences.addon_refresh()
     bpy.ops.preferences.addon_enable(module="cricket_bowling_anim")
     bpy.ops.wm.save_userpref()
