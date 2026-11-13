@@ -300,6 +300,7 @@ public partial class AnimatedBowler : MonoBehaviour
 
         // A captured action (MocapDelivery) in place of his own, when it is being tried out.
         animator.SetInteger("Action", MocapDelivery.ActionFor(animator, currentBowlerInfo.myIndex));
+        MocapDelivery.SetRunPace(animator, currentBowlerInfo.myIndex);
 
         while (!stateInfo.IsName("Run"))
         {

@@ -1,3 +1,4 @@
+using System.Linq;
 using System.IO;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -24,6 +25,18 @@ public class MocapBowlerImport : AssetPostprocessor
         public int release_frame;
         public int action = MocapDelivery.Action;
         public float state_speed = 0.8f;
+        // The handover from Run (normalised Run time it leaves at, where in this clip it enters,
+        // seconds of blend): Run -> Steyn's 0.537 and 0.3 s unless measured for the clip
+        // (Tools/mocap: the run phase that matches the clip's first frames).
+        public float run_exit = 0.537f;
+        public float clip_offset = 0f;
+        public float blend = 0.3f;
+        // And out of it: the state it hands over to (Idle, or Follow Through when the clip ends
+        // early in the follow-through and he should run on), when, how long, and where in it.
+        public string exit_to = "Idle";
+        public float exit_time = 0.9f;
+        public float exit_blend = 0.25f;
+        public float exit_offset = 0f;
     }
 
     public static Sidecar ReadSidecar(string fbxPath)
@@ -82,6 +95,14 @@ public class MocapBowlerImport : AssetPostprocessor
             importer.animationType = ModelImporterAnimationType.Human;
             importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
             importer.SaveAndReimport();          // the takes below exist only once it imports as humanoid
+        }
+        // Keyframe reduction re-fits the curves within an error budget: on a captured action that has
+        // been smoothed frame by frame it removes 38% of the keys (MocapAnderson, measured) and puts
+        // back small wobbles. Every key is kept.
+        if (importer.animationCompression != ModelImporterAnimationCompression.Off)
+        {
+            importer.animationCompression = ModelImporterAnimationCompression.Off;
+            importer.SaveAndReimport();
         }
         ModelImporterClipAnimation clip = Clip(importer, path);
         ModelImporterClipAnimation[] now = importer.clipAnimations;
@@ -163,7 +184,7 @@ public static class MocapBowlerSetup
             Debug.LogError("[MocapBowlerSetup] the bowling controller has no Run or Idle state");
             return;
         }
-        int changed = 0, ready = 0;
+        int changed = EnsureRunPace(ctrl, run) ? 1 : 0, ready = 0;
         foreach (string guid in AssetDatabase.FindAssets("t:Model", new[] { MocapBowlerImport.Folder.TrimEnd('/') }))
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
@@ -188,6 +209,33 @@ public static class MocapBowlerSetup
         }
     }
 
+    /// The Run state's speed multiplied by a RunPace parameter (default 1: unchanged), so a captured
+    /// delivery can have the run-up come in at its own speed (MocapDelivery.SetRunPace).
+    private static bool EnsureRunPace(AnimatorController ctrl, AnimatorState run)
+    {
+        bool changed = false;
+        if (!ctrl.parameters.Any(p => p.name == MocapDelivery.RunPaceParam))
+        {
+            ctrl.AddParameter(new AnimatorControllerParameter
+            {
+                name = MocapDelivery.RunPaceParam, type = AnimatorControllerParameterType.Float, defaultFloat = 1f
+            });
+            changed = true;
+        }
+        if (!run.speedParameterActive || run.speedParameter != MocapDelivery.RunPaceParam)
+        {
+            run.speedParameterActive = true;
+            run.speedParameter = MocapDelivery.RunPaceParam;
+            EditorUtility.SetDirty(run);
+            changed = true;
+        }
+        return changed;
+    }
+
+    /// The state a clip hands over to at its end (Sidecar exit_to), Idle if there is no such state.
+    private static AnimatorState ExitState(AnimatorStateMachine sm, AnimatorState idle, MocapBowlerImport.Sidecar side) =>
+        (string.IsNullOrEmpty(side.exit_to) ? null : Find(sm, side.exit_to)) ?? idle;
+
     private static AnimatorState Find(AnimatorStateMachine sm, string name)
     {
         foreach (ChildAnimatorState c in sm.states)
@@ -196,15 +244,14 @@ public static class MocapBowlerSetup
         return null;
     }
 
-    // As Run -> Steyn; out to Idle near the end.
-    private const float IntoExit = 0.537f, IntoDuration = 0.3f, OutExit = 0.9f, OutDuration = 0.25f;
+    // Into it from Run and out of it: per clip (Sidecar run_exit / clip_offset / blend, exit_*).
 
     /// The clip's state and its two transitions, as they should be. False if they already were.
     private static bool Wire(AnimatorStateMachine sm, AnimatorState run, AnimatorState idle, AnimationClip clip,
                              MocapBowlerImport.Sidecar side)
     {
         AnimatorState st = Find(sm, clip.name);
-        if (st != null && Correct(st, run, idle, clip, side))
+        if (st != null && Correct(st, run, ExitState(sm, idle, side), clip, side))
             return false;
         st ??= sm.AddState(clip.name, new Vector3(650, 260 + 60 * sm.states.Length, 0));
         st.motion = clip;
@@ -221,22 +268,24 @@ public static class MocapBowlerSetup
                 run.RemoveTransition(t);
         AnimatorStateTransition into = run.AddTransition(st);
         into.hasExitTime = true;
-        into.exitTime = IntoExit;
-        into.duration = IntoDuration;
+        into.exitTime = side.run_exit;
+        into.duration = side.blend;
+        into.offset = side.clip_offset;
         into.AddCondition(AnimatorConditionMode.Equals, side.action, "Action");
         into.AddCondition(AnimatorConditionMode.Equals, 0, "Run Repeat");
 
         foreach (AnimatorStateTransition t in st.transitions)
             st.RemoveTransition(t);
-        AnimatorStateTransition outOf = st.AddTransition(idle);
+        AnimatorStateTransition outOf = st.AddTransition(ExitState(sm, idle, side));
         outOf.hasExitTime = true;
-        outOf.exitTime = OutExit;
-        outOf.duration = OutDuration;
+        outOf.exitTime = side.exit_time;
+        outOf.duration = side.exit_blend;
+        outOf.offset = side.exit_offset;
         EditorUtility.SetDirty(st);
         return true;
     }
 
-    private static bool Correct(AnimatorState st, AnimatorState run, AnimatorState idle, AnimationClip clip,
+    private static bool Correct(AnimatorState st, AnimatorState run, AnimatorState exitTo, AnimationClip clip,
                                 MocapBowlerImport.Sidecar side)
     {
         if (st.motion != clip || !Mathf.Approximately(st.speed, side.state_speed) || !st.speedParameterActive ||
@@ -249,7 +298,8 @@ public static class MocapBowlerSetup
             if (t.destinationState != st)
                 continue;
             into++;
-            if (!t.hasExitTime || !Mathf.Approximately(t.exitTime, IntoExit) || !Mathf.Approximately(t.duration, IntoDuration) ||
+            if (!t.hasExitTime || !Mathf.Approximately(t.exitTime, side.run_exit) ||
+                !Mathf.Approximately(t.duration, side.blend) || !Mathf.Approximately(t.offset, side.clip_offset) ||
                 t.conditions.Length != 2 ||
                 t.conditions[0].parameter != "Action" || !Mathf.Approximately(t.conditions[0].threshold, side.action) ||
                 t.conditions[1].parameter != "Run Repeat" || !Mathf.Approximately(t.conditions[1].threshold, 0f))
@@ -258,7 +308,8 @@ public static class MocapBowlerSetup
         if (into != 1 || st.transitions.Length != 1)
             return false;
         AnimatorStateTransition o = st.transitions[0];
-        return o.destinationState == idle && o.hasExitTime && Mathf.Approximately(o.exitTime, OutExit) &&
-               Mathf.Approximately(o.duration, OutDuration);
+        return o.destinationState == exitTo &&
+               o.hasExitTime && Mathf.Approximately(o.exitTime, side.exit_time) &&
+               Mathf.Approximately(o.duration, side.exit_blend) && Mathf.Approximately(o.offset, side.exit_offset);
     }
 }

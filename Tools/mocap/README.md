@@ -113,6 +113,33 @@ toe planted at x −9.31..−9.36 (popping crease −9.14, so ~0.2 m behind it, 
 (−9.13, 1.95, −0.56); the constrained clip is not yet re-checked in play. Re-run the measurement
 and update those two constants whenever the clip changes. Not yet seen in a headset.
 
+## From the run-up into the clip and out (measured in play, Nets, 2026-11-13)
+
+Each clip's `.mocap.json` sets its handovers; MocapBowlerImport wires them into the controller.
+
+| field | what | MocapAnderson | how it was chosen |
+|---|---|---|---|
+| `run_exit` | Run's normalised time it leaves at | 0.80 | sweep of exit x entry frame x blend on a test bowler driven by a scratch copy of the controller: legs' pose and motion, ground speed, foot slide |
+| `clip_offset` | where in the clip it enters | 7/44 | same sweep: skipping the first frames of the bound puts the clip's legs where Run's are |
+| `blend` | seconds | 0.15 | same |
+| `exit_to`, `exit_time`, `exit_blend`, `exit_offset` | out at the end | Follow Through, 28/44, 0.15, 0.1 | sweep with BodySelfCollision running |
+| (MocapDelivery) `runPace` | Run's speed multiplier into it | 1.4 | the game's run is 3.7 m/s, the clip starts at 5-7 |
+| (MocapDelivery) `markForward` | mark moved on | 1.5 m | front toe landed at -10.8 at the release without it |
+
+What went wrong first, so it is not repeated:
+- Run 0.537 into frame 0 (Steyn's handover): the wrong leg forward; leg pose mismatch 1.91 against 0.60.
+- Speed dipped to 3.4 m/s in the blend until the entry frame moved to 7.
+- Unity drops a non-looping source the moment its clip ends mid-blend: the pose snapped onto the next state
+  (98 deg in a frame). `fusion/extend_end.py` carries a clip on 12 frames, motion decaying, so a blend
+  out of it always has a source.
+- Blending this clip's arm (sweeping across the body) with Follow Through's drove the arm 9.6 cm into the
+  torso, and BodySelfCollision then snaps the elbow out at once (by design, for fielders): a 104-115 deg pop.
+  Leaving at frame 28 into Follow Through keeps the arm clear (0 cm) - check `armIn` before moving these.
+
+Result, three balls (two right-arm, one left-arm): front toe at release -9.39 to -9.41 (popping crease
+-9.14), released at x -9.00 to -9.06; lowest speed through the run-up blend 5.3-5.6 m/s (4.2 left-arm);
+worst bone turn 36-38 deg/frame anywhere (the arm just after the release).
+
 ## Filming a better source (the biggest quality lever)
 
 1. **Side-on**, square to the run, 10-15 m away, at about hip height, on a tripod. Depth then
