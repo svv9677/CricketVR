@@ -49,7 +49,20 @@ default) makes pace and medium bowlers run in with the captured action. Spinners
 | travel | per frame, the translation that reprojects the 3D skeleton onto its own 2D points (static camera), then a cubic in time | the per-frame fit jitters by tens of cm in depth: planted feet "slid" at 3-16 m/s |
 | up / forward | up ⟂ run and ⟂ the camera's x axis (a phone held for video is level); forward = the hips' travel to the release | a plane fitted under the feet is degenerate (all contacts on one line) and tipped the clip 30° sideways |
 | bone rotations | per bone, the rotation carrying its rest frame (bone direction + hinge axis) onto the captured one; spine/neck slerped between pelvis, chest and head | only directions transfer, so the subject's proportions do not distort the rig |
+| hands, ankles | hands follow the forearm; the ankle is a hinge, flat on the ground while planted, the captured pitch (clamped) in the air | MediaPipe's hand and foot points are its noisiest: taking roll from them corkscrewed the forearm and broke the ankles (below) |
+| joint limits | elbow, knee, ankle as hinges with no hyperextension; every other joint inside a swing cone and twist range (`LIMITS`), applied after the solve, after smoothing and after the foot IK | nothing stopped a joint going anywhere: 92% of frames had a joint past human range |
+| smoothing | Savitzky-Golay per bone on local rotations: 5-frame cubic on the bowling arm, 9-frame quadratic elsewhere, 7 on the ankles | depth noise frame to frame was the jitter; the light window keeps the arm's whip at the release |
 | feet | each footfall pinned where it landed (analytic two-bone IK in the knee's own plane); the body moved up/down so planted ankles sit at standing height | without it every foot slid and floated |
+
+Measured in Unity (humanoid muscles, body only, fingers excluded, 60 Hz game time; ±1 = the
+human range; jitter = mean |second difference| per muscle per frame):
+
+| clip | jitter | frames with a muscle past ±1.05 | worst |
+|---|---|---|---|
+| Steyn Cleaned | 0.0185 | 6% | Upper Leg Front-Back 1.22 |
+| Bumrah | 0.0148 | 36% | Arm Twist 1.61 |
+| MocapPace, unconstrained | 0.0609 | 92% | Foot Twist 2.85, Foot Up-Down 2.45, Hand In-Out 2.19, Forearm Twist 1.99 (jitter 0.61) |
+| MocapPace, constrained | 0.0113 | 0% | largest 1.01 (Upper Leg Twist) |
 
 ### Known limits of this first clip
 
@@ -58,7 +71,10 @@ default) makes pace and medium bowlers run in with the captured action. Spinners
   the whole body leans 30-40° — hence `--end 26`.
 - The front foot lands behind the stumps, so its landmarks wander and swap with the other foot:
   contacts are given by hand.
-- Fingers are not captured (BowlerGrip poses them while he carries the ball).
+- Fingers are not captured (BowlerGrip poses them while he carries the ball); wrists have no
+  flexion and forearms no roll of their own, by design (see hands above).
+- The limits make every pose humanly possible, not physically right: there is no balance or
+  momentum model, and the depth errors (short stride, lean) are still in the directions.
 - The clip is 0.87 s, bound to early follow-through; the controller blends to Idle after it.
 - Unity warns that the thighs carry a near-1.0 scale curve (float noise from the bake); it is
   discarded on import and harmless.
@@ -73,12 +89,13 @@ clip's start, the root, front toe and hand at the release:
 |---|---|---|
 | Steyn Cleaned | 3.75 m on, 0.31 m to his right | 3.88 m on, 0.36 m right, 1.86 m up |
 | Bumrah | 3.49 m, 0.24 m | 3.96 m, 0.72 m, 1.65 m |
-| MocapPace | 2.40 m, −0.21 m | 2.72 m, 0.11 m, 1.81 m |
+| MocapPace (constrained) | 2.46 m, 0.00 m | 2.73 m, 0.14 m, 1.79 m |
 
-Hence `MarkForward` 1.35 m and `MarkWide` 0.25 m. Played as a left-arm pace ball in Nets: front toe
-planted at x −9.31..−9.36 (popping crease −9.14, so ~0.2 m behind it, a fair ball), released at
-(−9.13, 1.95, −0.56). Re-run the measurement and update those two constants whenever the clip
-changes. Not yet seen in a headset.
+Hence `MarkForward` 1.29 m and `MarkWide` 0.22 m (the unconstrained first cut measured 2.40 / 0.11:
+1.35 and 0.25). With those first-cut values it played as a left-arm pace ball in Nets with the front
+toe planted at x −9.31..−9.36 (popping crease −9.14, so ~0.2 m behind it, a fair ball), released at
+(−9.13, 1.95, −0.56); the constrained clip is not yet re-checked in play. Re-run the measurement
+and update those two constants whenever the clip changes. Not yet seen in a headset.
 
 ## Filming a better source (the biggest quality lever)
 
