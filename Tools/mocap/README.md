@@ -104,10 +104,11 @@ clip's start, the root, front toe and hand at the release:
 |---|---|---|
 | Steyn Cleaned | 3.75 m on, 0.31 m to his right | 3.88 m on, 0.36 m right, 1.86 m up |
 | Bumrah | 3.49 m, 0.24 m | 3.96 m, 0.72 m, 1.65 m |
-| MocapPace (constrained) | 2.46 m, 0.00 m | 2.73 m, 0.14 m, 1.79 m |
+| MocapPace (constrained, legs un-swapped) | 2.22 m, 0.02 m | 2.66 m, 0.14 m, 1.77 m |
 
-Hence `MarkForward` 1.29 m and `MarkWide` 0.22 m (the unconstrained first cut measured 2.40 / 0.11:
-1.35 and 0.25). With those first-cut values it played as a left-arm pace ball in Nets with the front
+Hence `MarkForward` 1.53 m and `MarkWide` 0.22 m (earlier cuts: unconstrained 2.40 / 0.11, so 1.35
+and 0.25; constrained 2.46 / 0.14, so 1.29 and 0.22). Un-swapping the legs (swap_fix.py) also took
+jitter from 0.0113 to 0.0106, still 0% of frames past range. With those first-cut values it played as a left-arm pace ball in Nets with the front
 toe planted at x −9.31..−9.36 (popping crease −9.14, so ~0.2 m behind it, a fair ball), released at
 (−9.13, 1.95, −0.56); the constrained clip is not yet re-checked in play. Re-run the measurement
 and update those two constants whenever the clip changes. Not yet seen in a headset.

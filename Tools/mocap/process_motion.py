@@ -17,6 +17,8 @@ import json
 import numpy as np
 from scipy.signal import savgol_filter
 
+from swap_fix import ARMS as ARM_PAIR, LEGS as LEG_PAIR, fix_swaps, label_jumps
+
 # MediaPipe pose indices of the joints the retarget needs.
 J = dict(nose=0, l_ear=7, r_ear=8, l_sh=11, r_sh=12, l_el=13, r_el=14, l_wr=15, r_wr=16,
          l_pinky=17, r_pinky=18, l_index=19, r_index=20, l_hip=23, r_hip=24, l_knee=25, r_knee=26,
@@ -72,6 +74,32 @@ def foot_slip(cam, fps):
     hips = (cam[:, J["l_hip"]] + cam[:, J["r_hip"]]) / 2
     travel = float(np.sum(np.linalg.norm(np.diff(hips, axis=0), axis=1)) * fps)
     return slip / max(travel, 1e-6)
+
+
+def relative_pan(d, sl):
+    """Per frame, the rotation from that frame's camera axes into the first kept frame's (a panning
+    camera, extract_pose.py --pan), or None for a still camera."""
+    if "cam_R" not in d.files:
+        return None
+    R = d["cam_R"][sl]
+    return np.einsum("ij,fkj->fik", R[0], R)          # R0 R_t^T
+
+
+def undo_swaps(world, image, vis, fx, w, h, R, arm):
+    """Left/right label swaps undone (swap_fix.py) on the raw landmarks, before any smoothing."""
+    T = translation(world, image, vis, fx, w / 2, h / 2, w, h)
+    cam = world + T[:, None, :]
+    if R is not None:
+        cam = np.einsum("fij,fkj->fki", R, cam)
+    body = np.nanmedian(np.linalg.norm(image[:, 11, :2] - image[:, 27, :2], axis=1))
+    before = {k: label_jumps(image, p, body) for k, p in (("legs", LEG_PAIR), ("arms", ARM_PAIR))}
+    world, image, vis, rep = fix_swaps(world, image, vis, cam, arm)
+    after = {k: label_jumps(image, p, body) for k, p in (("legs", LEG_PAIR), ("arms", ARM_PAIR))}
+    print(f"swaps undone (release frame {rep['release_frame']}): legs {len(rep['legs'])} frames "
+          f"{rep['legs']} (vote kept/flipped {rep['legs_vote']}), arms {len(rep['arms'])} frames "
+          f"{rep['arms']} (vote {rep['arms_vote']}); 2D label jumps "
+          f"legs {before['legs']}->{after['legs']}, arms {before['arms']}->{after['arms']}")
+    return world, image, vis
 
 
 def first_peak(x, frac=0.85):
@@ -133,6 +161,8 @@ def main():
     ap.add_argument("--contacts", default="",
                     help="footfalls, frames relative to --start, e.g. 'l:0-1,r:9-15,l:16-27'. Default: "
                          "from 2D foot speed, which fails where a foot is hidden (behind the stumps)")
+    ap.add_argument("--no-swap-fix", action="store_true",
+                    help="keep MediaPipe's left/right labels as they are (swap_fix.py undoes swaps)")
     a = ap.parse_args()
 
     d = np.load(a.npz)
@@ -140,6 +170,9 @@ def main():
     w, h = int(d["width"]), int(d["height"])
     sl = slice(a.start, a.end + 1)
     world, image, vis = d["world"][sl], d["image"][sl], d["vis"][sl]
+    if not a.no_swap_fix:
+        world, image, vis = undo_swaps(world, image, vis, (a.fx if a.fx > 0 else 0.72) * w, w, h,
+                                       relative_pan(d, sl), a.arm)
 
     # Smooth the pose (arms lightly: the bowling arm turns over in ~0.3 s) and the 2D track.
     sm = world.copy()
@@ -169,8 +202,7 @@ def main():
         # A panning camera (extract_pose.py --pan): each frame's pose and position are in that
         # frame's camera axes; turn them into the first kept frame's before fitting the travel,
         # or the pan itself reads as the bowler moving.
-        R = d["cam_R"][sl]
-        R = np.einsum("ij,fkj->fik", R[0], R)          # relative to the first kept frame: R0 R_t^T
+        R = relative_pan(d, sl)
         world = np.einsum("fij,fkj->fki", R, world)
         T_raw = np.einsum("fij,fj->fi", R, T_raw)
         zoom = d["cam_zoom"][sl] / d["cam_zoom"][sl][0]

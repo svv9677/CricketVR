@@ -18,13 +18,13 @@ public static class MocapDelivery
     /// and the ball leaves from about the same place. Measured 2026-11-13 with
     /// CricketVR/Bowling/Measure Delivery Clips (DeliveryClipProbe), from each clip's start at
     /// the release: Steyn's front toe 3.75 m on and his hand 0.36 m to his right; MocapPace's
-    /// 2.46 m and 0.14 m (the joint-limited rebuild; the first cut was 2.40 and 0.11). Hence
-    /// 1.29 m nearer the stumps and 0.22 m wider. Mirrored, every clip
+    /// 2.22 m and 0.14 m (the joint-limited, leg-swap-fixed rebuild; earlier cuts measured 2.40 /
+    /// 0.11 and 2.46 / 0.14). Hence 1.53 m nearer the stumps and 0.22 m wider. Mirrored, every clip
     /// covers exactly its own ground (Steyn, Bumrah and MocapPace alike), so a left-armer's extra
     /// set-back (AnimatedBowlerArm.MirrorMark) comes from the steering, not the clip, and is left
     /// as it is - not yet checked in play for the captured action. Re-measure when the clip changes.
     /// </summary>
-    public const float MarkForward = 1.29f, MarkWide = 0.22f;
+    public const float MarkForward = 1.53f, MarkWide = 0.22f;
 
     public static bool Enabled
     {
