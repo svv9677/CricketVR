@@ -226,10 +226,14 @@ class CRICKET_OT_reference_pair(bpy.types.Operator):
         if missing:
             self.report({"ERROR"}, f"No reference for {', '.join(missing)}: run handanim/make_reference.py {' '.join(missing)}")
             return {"CANCELLED"}
-        for v in PAIRS[self.bowler]:
-            load_reference(context, v)
+        for obj in references():                 # one bowler's footage at a time
+            bpy.data.objects.remove(obj)
+        kinds = [load_reference(context, v)[1]["kind"] for v in PAIRS[self.bowler]]
         context.scene["cricket_reference"] = self.bowler
-        self.report({"INFO"}, f"{self.bowler}'s footage: side-on and front-on, timed to the markers")
+        point_views(context)
+        other = next((k for k in kinds if k != "side"), "front")
+        where = "from behind him (there is no front-on clip of him)" if other == "back" else other.replace("_", " ")
+        self.report({"INFO"}, f"{self.bowler}: side-on, and {where}; timed to the markers")
         return {"FINISHED"}
 
 
@@ -283,10 +287,41 @@ def camera_view(space, cam):
     space.lock_camera = False
 
 
+def view_cameras():
+    """(left, right) cameras for the two views: the side-on clip's camera, and the other clip's
+    (front-on, or from behind when that is all there is, as for Anderson)."""
+    side = next((o.parent for o in references() if o.parent and meta_of(o)["kind"] == "side"), None)
+    other = next((o.parent for o in references() if o.parent and meta_of(o)["kind"] != "side"), None)
+    return (side or bpy.data.objects.get("Cam side-on"), other or bpy.data.objects.get("Cam front-on"))
+
+
+def point_views(context):
+    """The two left-most 3D views through view_cameras(), the right one with the Cricket tab."""
+    screen = context.screen
+    views = sorted((a for a in screen.areas if a.type == "VIEW_3D"), key=lambda a: a.x)[:2]
+    if len(views) < 2:
+        return
+    for area, cam in zip(views, view_cameras()):
+        if cam is None:
+            continue
+        sp = area.spaces.active
+        camera_view(sp, cam)
+        sp.region_3d.view_camera_zoom = 30.0      # the camera frame filling most of the view
+        sp.show_region_ui = area == views[-1]
+        if sp.show_region_ui:
+            for r in area.regions:
+                if r.type == "UI":
+                    try:
+                        r.active_panel_category = "Cricket"
+                    except (TypeError, AttributeError):
+                        pass
+        area.tag_redraw()
+
+
 class CRICKET_OT_two_views(bpy.types.Operator):
     bl_idname = "cricket.two_views"
-    bl_label = "Side-on | front-on views"
-    bl_description = "Split the 3D view in two: side-on and front-on, each through its camera with its footage"
+    bl_label = "Two views"
+    bl_description = "Split the 3D view in two: side-on, and front-on (or from behind), each through its camera with its footage"
 
     def execute(self, context):
         win, screen = context.window, context.screen
@@ -297,25 +332,7 @@ class CRICKET_OT_two_views(bpy.types.Operator):
             with context.temp_override(window=win, screen=screen, area=big, region=region):
                 bpy.ops.screen.area_split(direction="VERTICAL", factor=0.5)
             views = [a for a in screen.areas if a.type == "VIEW_3D"]
-        views = sorted(views, key=lambda a: a.x)[:2]
-        side = next((o.parent.name for o in references() if o.parent and o.parent.name.startswith("Cam side-on")), "Cam side-on")
-        for area, cam_name in zip(views, (side, "Cam front-on")):
-            cam = bpy.data.objects.get(cam_name)
-            if cam is None:
-                continue
-            sp = area.spaces.active
-            camera_view(sp, cam)
-            sp.show_region_ui = area == views[-1]
-            region = next(r for r in area.regions if r.type == "WINDOW")
-            with context.temp_override(window=win, screen=screen, area=area, region=region):
-                bpy.ops.view3d.view_center_camera()
-            if sp.show_region_ui:
-                for r in area.regions:
-                    if r.type == "UI":
-                        try:
-                            r.active_panel_category = "Cricket"
-                        except (TypeError, AttributeError):
-                            pass
+        point_views(context)
         pitch = bpy.data.collections.get("Pitch")
         if pitch is not None:
             pitch.hide_viewport = True      # the footage has its own ground; the turf would cover his feet
