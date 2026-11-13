@@ -90,6 +90,12 @@ public partial class HUD
             for (int i = 0; i < Bowlers.Count && i < bowlerNames.Count; i++)
                 if (Bowlers[i] != null && !string.IsNullOrEmpty(bowlerNames[i]))
                     Bowlers[i].Name = bowlerNames[i];
+            // Who bowls left-arm goes by the side's first name (BowlerArm.IsLeftArm), so the
+            // opener's arm - and the non-striker's side of the stumps - is decided again for the
+            // real names. Decided on the old ones, a left-armer opening a career match ran in
+            // through the non-striker on the first ball, who only crossed for the second (2026-11-08).
+            if (AnimatedBowler.Instance != null && CurrentBowler != null)
+                AnimatedBowler.Instance.RefreshArm(CurrentBowler);
         }
         // HUD.Reset already announced the opener before IsHuman was set: announce him again.
         strikeRaised = null;

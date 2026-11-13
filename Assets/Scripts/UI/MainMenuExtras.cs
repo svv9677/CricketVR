@@ -130,7 +130,9 @@ public class MainMenuExtras : MonoBehaviour
             MatchHistory.ResultPending = false;
         Push("career");
         Push("careerHub");
-        Push("careerResult");
+        // A match left to continue later has no result yet: the hub, with Continue match on it.
+        if (CareerMatchSession.LastResult != null)
+            Push("careerResult");
     }
 
     /// Records over Ratings over the hub over the slots, so Back walks the way he came. The theatre
@@ -154,6 +156,9 @@ public class MainMenuExtras : MonoBehaviour
             screen.Root.Push(name);
     }
 
+    /// The main menu's Quick Play (2026-11-09: "one of the screens could be quick play, one ...
+    /// career mode, and one ... settings"): the slots, one per match length.
+    public void OnQuickPlay() => Push("quickplay");
     public void OnMatchSetup() => Push("setup");
     public void OnCustomise() => Push("customise");
     public void OnCareer() => Push("career");

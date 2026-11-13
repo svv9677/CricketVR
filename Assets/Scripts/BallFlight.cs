@@ -26,12 +26,46 @@ public static class BallFlight
     public const float DragCoefficient = 0.4f;
     public const float SwingCoefficientMax = 0.25f;
     public const float MaxTurnDegrees = 6f;
-    /// Deceleration of a ball rolling on the pitch, m/s^2.
+    /// Deceleration of a ball rolling on the pitch, m/s^2, at 20 m/s.
     public const float RollingDecel = 2.0f;
-    /// Rolling on the outfield, m/s^2: a little quicker than the pitch (2026-11-05, "make the
-    /// outfield slightly faster"; was 2.0 like the pitch). A ball rolls v^2/2a, so ~25% further.
+    /// Rolling on the outfield, m/s^2 at 20 m/s: a little quicker than the pitch (2026-11-05, "make
+    /// the outfield slightly faster"; was 2.0 like the pitch).
     public const float OutfieldRollingDecel = 1.6f;
-    public static float RollingDecelAt(Vector3 p) => OnPitch(p) ? RollingDecel : OutfieldRollingDecel;
+    /// The grass's grip on a rolling ball is part steady (RollFloor) and part growing with speed
+    /// (the blades pushed over): decel = floor + k v. Was a constant 1.6 on the outfield, which
+    /// stopped a slow ball dead - 3 m/s gone in 1.9 s (2026-11-09: "the ball just stops rolling and
+    /// stays still very quickly ... it takes much more time for it to actually stop moving"). Now
+    /// the same 1.6 at 20 m/s, a hard-hit ball carrying as before, but 0.6 at a walk: 3 m/s rolls
+    /// for 4.5 s, and a 10 m/s push goes ~55 m instead of 31.
+    public const float RollFloor = 0.6f, PitchRollFloor = 0.8f;
+    private const float AtSpeed = 20f;
+    public static float RollingDecelAt(Vector3 p, float speed)
+    {
+        bool pitch = OnPitch(p);
+        float floor = pitch ? PitchRollFloor : RollFloor;
+        float top = pitch ? RollingDecel : OutfieldRollingDecel;
+        return floor + (top - floor) / AtSpeed * Mathf.Max(0f, speed);
+    }
+
+    /// How far a ball rolling on the outfield at `speed` goes before it stops (m): the integral of
+    /// v dv / (floor + k v).
+    public static float OutfieldRollDistance(float speed)
+    {
+        float k = (OutfieldRollingDecel - RollFloor) / AtSpeed, a = RollFloor;
+        return (speed - a / k * Mathf.Log((a + k * speed) / a)) / k;
+    }
+
+    /// The speed that rolls a ball `distance` metres on the outfield before it stops.
+    public static float OutfieldRollSpeedFor(float distance)
+    {
+        float lo = 0f, hi = 80f;
+        for (int i = 0; i < 40; i++)
+        {
+            float mid = 0.5f * (lo + hi);
+            if (OutfieldRollDistance(mid) < distance) lo = mid; else hi = mid;
+        }
+        return 0.5f * (lo + hi);
+    }
     public const float BounceThreshold = 2f;
 
     static float Area => Mathf.PI * Radius * Radius;
@@ -208,7 +242,7 @@ public static class BallFlight
             {
                 velocity += AirAcceleration(velocity, 0f, 0f) * dt;
                 float speed = velocity.magnitude;
-                float slowed = Mathf.Max(0f, speed - RollingDecelAt(position) * dt);
+                float slowed = Mathf.Max(0f, speed - RollingDecelAt(position, speed) * dt);
                 velocity = speed > 1e-5f ? velocity * (slowed / speed) : Vector3.zero;
                 position += velocity * dt;
                 position.y = GroundY(position) + Radius;

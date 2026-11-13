@@ -26,6 +26,7 @@ public class CareerRecoveryTests
         MatchPlan plan = CareerProgress.PlanNext(p, new Random(2));
         Fixture f = p.season.fixtures[plan.fixture];
         CareerMatchRecovery.Begin(p, plan);
+        p.pending.resumable = false;   // a save from before matches could be continued (2026-11-09)
         CareerMatchRecovery.Note(p, new MatchState());           // nothing known yet: a no-op
         p.pending.teamRuns = 23; p.pending.teamWickets = 1; p.pending.teamBalls = 14;
         p.pending.runs = 11; p.pending.balls = 8; p.pending.batted = true;
@@ -38,6 +39,26 @@ public class CareerRecoveryTests
         Assert.AreEqual(11, last.runs);
         Assert.IsTrue(p.inbox.Exists(m => m.title == "The match you left"));
         Assert.IsFalse(CareerMatchRecovery.Resolve(p), "once");
+    }
+
+    /// Since 2026-11-09 a match left part way is continued from the hub, not recorded: Resolve leaves
+    /// it, and Resume puts its plan back in force with its saved scoreboard to restore.
+    [Test]
+    public void AMatchLeftNowIsKeptToContinue()
+    {
+        CareerProfile p = Career(6);
+        MatchPlan plan = CareerProgress.PlanNext(p, new Random(7));
+        CareerMatchRecovery.Begin(p, plan);
+        Assert.IsTrue(p.pending.resumable);
+        p.pending.resume = new CareerResumeState { hasMatch = true, youOut = false };
+        p.pending.resume.match.runs = 23;
+        Assert.IsFalse(CareerMatchRecovery.Resolve(p), "not retired");
+        Assert.IsTrue(p.pending.active);
+        Assert.AreEqual(0, p.innings.Count, "nothing recorded yet");
+
+        var back = UnityEngine.JsonUtility.FromJson<CareerProfile>(UnityEngine.JsonUtility.ToJson(p));
+        Assert.IsTrue(back.pending.resumable && back.pending.resume.hasMatch);
+        Assert.AreEqual(23, back.pending.resume.match.runs, "the scoreboard survives the save");
     }
 
     [Test]

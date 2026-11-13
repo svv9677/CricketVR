@@ -58,8 +58,23 @@ public class ShotReplay : MonoBehaviour
     private float pulseSeconds = 0.35f;
 
     /// What Play plays: a saved record clip when one is loaded (the replay theatre), else the last
-    /// delivery.
-    public ShotRecording Source => loaded ?? (recorder != null ? recorder.Last : null);
+    /// delivery - the one still being recorded once it has been bowled. It was the last *finished*
+    /// recording, and the recorder keeps a ball open for the big screen for up to 6 s after it is
+    /// dead (a miss: 2 + 6 s asked for at the end of the play), long after the next-ball card is
+    /// up, so Replay showed the ball before, then jumped to this one when it finished (2026-11-09:
+    /// "it still shows the previous replay ... then it snaps to the correct latest ball").
+    public ShotRecording Source
+    {
+        get
+        {
+            if (loaded != null)
+                return loaded;
+            if (recorder == null)
+                return null;
+            ShotRecording latest = recorder.Latest;
+            return latest != null && latest.Released ? latest : recorder.Last;
+        }
+    }
     public bool HasShot => Source != null && Source.Count > 1;
     public bool IsPlaying => playing;
     public bool IsPaused => playing && paused;
@@ -153,17 +168,7 @@ public class ShotReplay : MonoBehaviour
         if (!HasShot || ghosts == null)
             return;
         shot = Source;
-        // The recording starts in the run-up (for the big screen); the ghosts start at the release.
-        if (shot.HasContact)
-        {
-            startTime = Mathf.Max(shot.ReleaseTime, shot.ContactTime - leadIn);
-            endTime = Mathf.Min(shot.Duration, shot.ContactTime + followThrough);
-        }
-        else
-        {
-            startTime = shot.ReleaseTime;
-            endTime = Mathf.Min(shot.Duration, shot.ReleaseTime + leadIn + followThrough);
-        }
+        Frame();
         time = startTime;
         holdLeft = 0f;
         ringSettled = false;
@@ -180,6 +185,23 @@ public class ShotReplay : MonoBehaviour
     {
         loaded = recording;
         Play();
+    }
+
+    /// The loop's start and end in the recording. The recording starts in the run-up (for the big
+    /// screen); the ghosts start at the release. A recording still running ends where it has got
+    /// to, and the loop grows as it does (each pass, Advance).
+    private void Frame()
+    {
+        if (shot.HasContact)
+        {
+            startTime = Mathf.Max(shot.ReleaseTime, shot.ContactTime - leadIn);
+            endTime = Mathf.Min(shot.Duration, shot.ContactTime + followThrough);
+        }
+        else
+        {
+            startTime = shot.ReleaseTime;
+            endTime = Mathf.Min(shot.Duration, shot.ReleaseTime + leadIn + followThrough);
+        }
     }
 
     public void Stop()
@@ -219,11 +241,13 @@ public class ShotReplay : MonoBehaviour
 
     private void OnRecorded()
     {
-        // A fresh delivery replaces the one on show; otherwise just tell the UI there is a shot.
-        if (playing)
+        // The ball on show finishing recording is the same ball (the recorder's buffer becomes its
+        // Last): keep playing, to its full length. A different one (on show from before) is replaced.
+        if (playing && loaded == null && shot != null && shot == recorder.Last)
+            Frame();
+        else if (playing && loaded == null)
             Play();
-        else
-            StateChanged?.Invoke();
+        StateChanged?.Invoke();
     }
 
     private void OnGameStateChanged()
@@ -261,6 +285,8 @@ public class ShotReplay : MonoBehaviour
             return;
         }
         time += dt * speed;
+        if (time >= endTime && shot.Duration > endTime + 1e-3f)
+            Frame();            // still being recorded: the loop runs on as far as it has got
         if (time >= endTime)
         {
             time = endTime;

@@ -370,5 +370,6 @@ public partial class KeeperCatcher
     /// further than his gloves reach bending from the hips: at 1.0 he stood bent over a ball 0.99 m
     /// out, gloves 0.3 m short of it, never stepping in - the game never finished the ball
     /// (GameLoopTest, stuck). Further than this he steps up to it (to stopShort).
-    private const float PickUpNear = 0.45f, PickUpFar = 0.8f, PickUpSide = 0.45f;
+    /// 0.8 left his arm at full stretch, the glove short of the ball (2026-11-09): 0.7.
+    private const float PickUpNear = 0.45f, PickUpFar = 0.7f, PickUpSide = 0.45f;
 }

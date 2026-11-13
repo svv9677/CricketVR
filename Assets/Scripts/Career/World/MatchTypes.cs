@@ -84,4 +84,26 @@ public class PendingMatch
     public int ballsToFifty, ballsToHundred;
     public float longestSix;
     public string sixStamp = "";
+    /// It is continued, not retired (2026-11-09: "Career manager, I should also be able to resume"):
+    /// the hub offers Continue match, which plays on from `resume`. False only in saves from before
+    /// then, which CareerMatchRecovery still records as retired out.
+    public bool resumable;
+    public CareerResumeState resume = new CareerResumeState();
+}
+
+/// <summary>A career match as it stood after the last ball, to play on from (CareerMatch's resume):
+/// the scoreboard and the match (MatchSnapshot), and what the career keeps beside it - each batter's
+/// fours and sixes, whether he is out and the rest simulated, the collapse's script and the
+/// situation card, and the over-by-over record.</summary>
+[Serializable]
+public class CareerResumeState
+{
+    /// A scoreboard was saved; false: the match is played from its first ball.
+    public bool hasMatch;
+    public MatchSnapshot match = new MatchSnapshot();
+    public List<int> batterFours = new List<int>(), batterSixes = new List<int>();
+    public bool youOut, restDone, introShown;
+    public int scriptAt;
+    public List<int> overRuns = new List<int>(), overWickets = new List<int>();
+    public int overStartRuns, overStartWickets;
 }

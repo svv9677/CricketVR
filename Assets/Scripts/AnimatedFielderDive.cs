@@ -268,10 +268,15 @@ public partial class AnimatedFielder
         // How the body meets it: flat out for a low ball, more upright (and off the ground) for a
         // high one - the hips at the height that puts the outstretched hands on the ball.
         float ballUp = point.y - transform.position.y;
-        float atCatch = Mathf.Lerp(82f, 40f, Mathf.InverseLerp(0.3f, 1.9f, ballUp));
+        float atCatch = ballUp < 0.3f ? Mathf.Lerp(90f, 82f, Mathf.InverseLerp(0.1f, 0.3f, ballUp))
+                                      : Mathf.Lerp(82f, 40f, Mathf.InverseLerp(0.3f, 1.9f, ballUp));
         diveRoll = atCatch;
         float a = atCatch * Mathf.Deg2Rad;
-        diveHipsAtCatch = Mathf.Clamp(ballUp - HipsToHands * Mathf.Cos(a), 0.3f, 1.45f);
+        // Along the ground he goes full length, flat on the grass: the hips were held 0.3 m up at
+        // 82 degrees, which put his outstretched hands 0.4 m above a rolling ball - a catch was
+        // taken, a ball on the ground went under him (2026-11-09).
+        float lowestHips = Mathf.Lerp(LowestDiveHips, 0.3f, Mathf.InverseLerp(0.1f, 0.5f, ballUp));
+        diveHipsAtCatch = Mathf.Clamp(ballUp - HipsToHands * Mathf.Cos(a), lowestHips, 1.45f);
         // The hips travel the rest of the way out: the hands reach HipsToHands along the body.
         diveReachOut = Mathf.Max(0.2f, offset.magnitude - HipsToHands * Mathf.Sin(a));
         // Carried on along the grass by the speed of the dive.
@@ -279,6 +284,12 @@ public partial class AnimatedFielder
         hasTarget = false;
         speed = 0f;
     }
+
+    /// A body lying on its side on the grass: the hips' height (m).
+    private const float LowestDiveHips = 0.16f;
+    /// A ball this low (above the grass, its centre) is a ground ball to a diver; one palm this
+    /// near it stops it (AnimatedFielder's take).
+    private const float DiveGroundBall = 0.3f, DiveStopPalm = 0.17f;
 
     private void EndDive()
     {

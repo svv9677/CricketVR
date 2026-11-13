@@ -8,9 +8,9 @@ using UnityEngine.UI;
 /// Tools > CricketVR > Build Menu Prefabs. Builds the opening-menu prefab under
 /// Assets/Resources/Prefabs/UI, in the UIStyle look with the vibrant menu accents:
 ///   * MenuRoot - the world-space host with the screen stack, used in all three scenes, holding
-///     MainMenuScreen (Quick Match with overs steppers, Settings, and - MainMenuExtras - Match
-///     Setup, Customise, Career, Results and the last match's score), PauseScreen (Resume,
-///     Settings, Main Menu, plus the leave-match confirm row), MatchSetupScreen, CustomiseScreen,
+///     MainMenuScreen (Settings, and - MainMenuExtras - Quick Play, Career and the last match's
+///     score), PauseScreen (Resume, Settings, Main Menu, plus the leave-match confirm row),
+///     QuickPlayScreen (a slot per length), MatchSetupScreen and CustomiseScreen (New Game's steps),
 ///     the career screens (CareerMenuBuilder: the save slots, Create Player, Create Look and the
 ///     career hub) and MatchResultScreen.
 ///
@@ -35,7 +35,6 @@ public static class MenuPrefabBuilder
     private const float BackdropMetresPerPixel = 0.00625f;   // 3200 px -> 20 m
     private const float BackdropBehind = 3.0f;
     internal const float StepperWidth = 88f;
-    private const float OversWidth = 170f;
 
     [MenuItem("Tools/CricketVR/Build Menu Prefabs")]
     public static void Build()
@@ -79,6 +78,7 @@ public static class MenuPrefabBuilder
         PauseScreen pause = BuildPause(panel.transform);
         MenuScreen[] more =
         {
+            QuickPlayMenuBuilder.Build(panel.transform),
             BuildMatchSetup(panel.transform), BuildCustomise(panel.transform),
             CareerMenuBuilder.BuildSlots(panel.transform), CareerMenuBuilder.BuildCreatePlayer(panel.transform),
             CareerMenuBuilder.BuildCreateLook(panel.transform), CareerMenuBuilder2.BuildHub(panel.transform),
@@ -157,36 +157,16 @@ public static class MenuPrefabBuilder
                                FontStyles.Normal, UIStyle.TextMuted, 30f);
         UIControls.Divider(column);
 
-        // Quick Match, with the overs stepper on the row itself.
-        Transform row = WorldPanelBuilder.Column(column, false, UIStyle.Unit);
-        WorldPanelBuilder.NoForceExpand(row);
-
-        Button play = UIControls.ActionButton(row, "Quick Match", screen.OnQuickMatch, true);
-        play.colors = UIStyle.MenuColors(true);
-        play.GetComponent<LayoutElement>().flexibleWidth = 1f;
-
-        Button fewer = UIControls.ActionButton(row, "‹", screen.OnFewerOvers, false,
-                                               UIStyle.Control, StepperWidth);
-        TextMeshProUGUI overs = WorldPanelBuilder.Line(row, "5 overs", UIStyle.LabelSize,
-                                                       FontStyles.Bold, UIStyle.Text,
-                                                       UIStyle.Control,
-                                                       TextAlignmentOptions.Center, OversWidth);
-        Button more = UIControls.ActionButton(row, "›", screen.OnMoreOvers, false,
-                                              UIStyle.Control, StepperWidth);
-        _ = fewer;
-        _ = more;
-
-        // The rest of the game, beside Rao's screen rather than in it (MainMenuExtras): the match
-        // Quick Match starts, then the other screens, then the last match's scorecard.
+        // Quick Play, Career and Settings (2026-11-09: "one of the screens could be quick play, one
+        // of the screens could be career mode, and one of the screens could be settings"). Rao's
+        // Quick Match row (its overs stepper) and the Match Setup and Customise buttons were here:
+        // the length is now the Quick Play slot's, and setup and the ground are New Game's two
+        // steps. MainMenuScreen is kept for its Settings, and tolerates the stepper's label gone.
         MainMenuExtras extras = go.AddComponent<MainMenuExtras>();
-        TextMeshProUGUI setupLine = WorldPanelBuilder.Line(column, "5 overs · Medium bowling", UIStyle.HintSize, FontStyles.Normal,
-                                                           UIStyle.TextMuted, 28f, TextAlignmentOptions.Center);
+        Button play = UIControls.ActionButton(column, "Quick Play", extras.OnQuickPlay, true);
+        play.colors = UIStyle.MenuColors(true);
         Transform pair = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
-        UIControls.ActionButton(pair, "Match Setup", extras.OnMatchSetup, false);
         UIControls.ActionButton(pair, "Career", extras.OnCareer, false);
-        // No Results button (2026-11-06: the page came up blank; the last match is shown below).
-        pair = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
-        UIControls.ActionButton(pair, "Customise", extras.OnCustomise, false);
         UIControls.ActionButton(pair, "Settings", screen.OnSettings, false);
         UIControls.Divider(column);
         TextMeshProUGUI last = WorldPanelBuilder.Line(column, "No matches played yet", UIStyle.LabelSize, FontStyles.Bold,
@@ -194,13 +174,9 @@ public static class MenuPrefabBuilder
         TextMeshProUGUI lastDetail = WorldPanelBuilder.Line(column, "", UIStyle.HintSize, FontStyles.Normal,
                                                             UIStyle.Text, 28f, TextAlignmentOptions.Center);
 
-        var so = new SerializedObject(screen);
-        so.FindProperty("oversLabel").objectReferenceValue = overs;
-        so.ApplyModifiedProperties();
         var eso = new SerializedObject(extras);
         eso.FindProperty("lastMatch").objectReferenceValue = last;
         eso.FindProperty("lastDetail").objectReferenceValue = lastDetail;
-        eso.FindProperty("setup").objectReferenceValue = setupLine;
         eso.ApplyModifiedProperties();
         return screen;
     }
@@ -212,15 +188,10 @@ public static class MenuPrefabBuilder
         Transform column = ScreenColumn(parent, "MatchSetupScreen", out GameObject go);
         MatchSetupScreen screen = go.AddComponent<MatchSetupScreen>();
         SetScreenName(screen, "setup");
-        Title(column, "Match Setup", "Your innings, your way");
-
-        WorldPanelBuilder.Section(column, "Overs");
-        Transform row = WorldPanelBuilder.Column(column, false, UIStyle.Unit);
-        WorldPanelBuilder.NoForceExpand(row);
-        UIControls.ActionButton(row, "‹", screen.OnFewerOvers, false, UIStyle.Control, StepperWidth);
-        TextMeshProUGUI overs = WorldPanelBuilder.Line(row, "5 overs", UIStyle.LabelSize, FontStyles.Bold, UIStyle.Text,
-                                                       UIStyle.Control, TextAlignmentOptions.Center);
-        UIControls.ActionButton(row, "›", screen.OnMoreOvers, false, UIStyle.Control, StepperWidth);
+        // Step 1 of Quick Play's New Game: its length is the slot's (QuickPlayScreen), so no overs here.
+        TextMeshProUGUI stepTitle = WorldPanelBuilder.Text(column, "New match", UIStyle.TitleSize, FontStyles.Bold, UIStyle.Text, 58f);
+        WorldPanelBuilder.Text(column, "Step 1 of 2: the match and how you bat", UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 30f);
+        UIControls.Divider(column);
 
         WorldPanelBuilder.Section(column, "Match");
         SegmentedControl type = UIControls.Segmented(column, new[] { "Bat first", "Chase" }, screen.OnMatchType);
@@ -231,15 +202,18 @@ public static class MenuPrefabBuilder
         WorldPanelBuilder.Section(column, "Bat shield");
         SegmentedControl shield = UIControls.Segmented(column, new[] { "Wide", "Medium", "Off" }, screen.OnShield);
         TextMeshProUGUI shieldHint = Hint(column);
+        WorldPanelBuilder.Section(column, "You bat");
+        SegmentedControl hand = UIControls.Segmented(column, new[] { "Right-handed", "Left-handed" }, screen.OnHand);
 
         UIControls.Divider(column);
         Transform actions = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
         UIControls.ActionButton(actions, "Back", screen.OnBack, false);
-        Button start = UIControls.ActionButton(actions, "Start Match", screen.OnStartMatch, true);
-        start.colors = UIStyle.MenuColors(true);
+        Button next = UIControls.ActionButton(actions, "Next", screen.OnNext, true);
+        next.colors = UIStyle.MenuColors(true);
 
         var so = new SerializedObject(screen);
-        so.FindProperty("oversLabel").objectReferenceValue = overs;
+        so.FindProperty("stepTitle").objectReferenceValue = stepTitle;
+        so.FindProperty("hand").objectReferenceValue = hand;
         so.FindProperty("matchType").objectReferenceValue = type;
         so.FindProperty("matchTypeHint").objectReferenceValue = typeHint;
         so.FindProperty("bowling").objectReferenceValue = bowling;
@@ -255,7 +229,9 @@ public static class MenuPrefabBuilder
         Transform column = ScreenColumn(parent, "CustomiseScreen", out GameObject go);
         CustomiseScreen screen = go.AddComponent<CustomiseScreen>();
         SetScreenName(screen, "customise");
-        Title(column, "Customise", "The ground for your next match");
+        TextMeshProUGUI stepTitle = WorldPanelBuilder.Text(column, "New match", UIStyle.TitleSize, FontStyles.Bold, UIStyle.Text, 58f);
+        WorldPanelBuilder.Text(column, "Step 2 of 2: the ground", UIStyle.HintSize, FontStyles.Normal, UIStyle.TextMuted, 30f);
+        UIControls.Divider(column);
 
         WorldPanelBuilder.Section(column, "Ground");
         SegmentedControl venue = UIControls.Segmented(column, new[] { VenueRules.Name(VenueRules.FromQuickIndex(0)), VenueRules.Name(VenueRules.FromQuickIndex(1)) }, screen.OnVenue);
@@ -269,9 +245,13 @@ public static class MenuPrefabBuilder
         TextMeshProUGUI timeHint = Hint(column);
 
         UIControls.Divider(column);
-        UIControls.ActionButton(column, "Back", screen.OnBack, false);
+        Transform actions = WorldPanelBuilder.Column(column, false, UIStyle.Gap);
+        UIControls.ActionButton(actions, "Back", screen.OnBack, false);
+        Button start = UIControls.ActionButton(actions, "Start Match", screen.OnStartMatch, true);
+        start.colors = UIStyle.MenuColors(true);
 
         var so = new SerializedObject(screen);
+        so.FindProperty("stepTitle").objectReferenceValue = stepTitle;
         so.FindProperty("venue").objectReferenceValue = venue;
         so.FindProperty("crowd").objectReferenceValue = crowd;
         so.FindProperty("pitch").objectReferenceValue = pitch;

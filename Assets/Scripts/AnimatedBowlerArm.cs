@@ -46,6 +46,15 @@ public partial class AnimatedBowler
         if (b != null)
             EndPose.SetBowlerArm(WillBowlLeftArm(b));
     }
+    /// The bowler on has been renamed (a career's roster): his arm decided again before the first
+    /// ball, so the non-striker (EndPose) is on the right side of the stumps from the start, and
+    /// the next-ball card names the right arm.
+    public void RefreshArm(Bowler b)
+    {
+        if (b != null)
+            EndPose.SetBowlerArm(WillBowlLeftArm(b));
+    }
+
     private Transform rightHand, leftHand;
     private Vector3 handLocal;
 

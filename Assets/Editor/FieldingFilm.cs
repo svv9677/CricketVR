@@ -87,7 +87,7 @@ public static class FieldingFilm
                 // Rolls to a stop about a metre in front of him.
                 from.y = 0.1f;
                 float run = Flat(target - from).magnitude - 1f;
-                v = Flat(target - from).normalized * Mathf.Sqrt(2f * BallFlight.OutfieldRollingDecel * run);
+                v = Flat(target - from).normalized * BallFlight.OutfieldRollSpeedFor(run);
                 break;
         }
         shots.Add(new Shot

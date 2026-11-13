@@ -212,6 +212,9 @@ public static class BowlingAttack
     /// Record who bowled the over just finished (HUD calls it before picking the next).
     public static void OverDone(Bowler b) => overBowlers.Add(b);
 
+    /// Who bowled each over so far (a saved match: MatchSnapshot).
+    public static IReadOnlyList<Bowler> OversSoFar => overBowlers;
+
     /// The bowler for over `over` (0-based) of `totalOvers`; -1 if nobody can bowl it.
     public static int PickNextBowler(IList<Bowler> bowlers, Bowler last, int over, int totalOvers, System.Func<float> rand01)
     {

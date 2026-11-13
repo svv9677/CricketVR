@@ -8,6 +8,8 @@ using System;
 /// time the career is opened it is recorded as he left it - retired out, the rest simulated - just
 /// as leaving through the pause menu would. Without this, quitting after a cheap dismissal would
 /// wipe the match: a fresh toss, a fresh target, no duck in the book.
+/// Since 2026-11-09 a match is continued instead (PendingMatch.resumable, the hub's Continue match):
+/// this records only a save from before then.
 /// </summary>
 public static class CareerMatchRecovery
 {
@@ -16,7 +18,7 @@ public static class CareerMatchRecovery
     {
         if (p == null || plan == null)
             return;
-        p.pending = new PendingMatch { active = true, plan = plan };
+        p.pending = new PendingMatch { active = true, plan = plan, resumable = true };
     }
 
     /// The innings as it stands (CareerMatch, every frame; saved with the next ball).
@@ -47,7 +49,8 @@ public static class CareerMatchRecovery
     public static bool Resolve(CareerProfile p)
     {
         PendingMatch m = p?.pending;
-        if (m == null || !m.active || m.plan == null || CareerMatchSession.Active)
+        // A match that can be continued is the hub's Continue match, not recorded here.
+        if (m == null || !m.active || m.plan == null || m.resumable || CareerMatchSession.Active)
             return false;
         MatchPlan plan = m.plan;
         m.active = false;

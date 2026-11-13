@@ -7,7 +7,7 @@ using UnityEngine;
 /// and keep adding up until it's my turn again"). They used to be simulated all at once with one
 /// summary card; now one is simulated every BallSeconds and its line added to the card - "6.3
 /// Ravi 1 run" - the newest few showing over the score, until the career player is on strike (or
-/// the innings is over). Then the card stays up a moment with how the partner stands, as before.
+/// the innings is over). Then the card stays up with how the partner stands, until Next (A).
 /// Each ball is CareerSim's, scored by HUD (SimulateOne), exactly as the batch was. A skips the
 /// rest: every ball left at once, straight to the closing card ("You come in at 45/4").
 /// The rest of an innings after he is out is still simulated at once (FinishInnings).
@@ -51,7 +51,7 @@ public partial class CareerMatch
         }
         // A: skip the rest - to when he comes in, or to his strike (2026-11-06: "add an option to
         // skip to when I come in so that I don't have to wait through everyone").
-        if (main != null && main.GetButton(XRButton.A) && Time.time - stepStartedAt > SkipAfter)
+        if (ui.TakeClick() || (main != null && main.GetButton(XRButton.A) && Time.time - stepStartedAt > SkipAfter))
         {
             SkipSteps(hud);
             return true;
@@ -101,12 +101,12 @@ public partial class CareerMatch
     private void ShowSteps(HUD hud)
     {
         string heading = stepWasIn ? CareerMatchLogic.AtTheOtherEnd : "Before you come in";
-        string skip = stepWasIn ? "A: skip to your strike" : "A: skip to when you come in";
-        ui.Show(heading, CareerMatchLogic.BallByBallBody(ballLines, new[] { $"<size=70%><color=#98A2B3>{skip}</color></size>" },
-                                                         hud.Runs, hud.Wickets, Bowled(hud)));
+        ui.Show(heading, CareerMatchLogic.BallByBallBody(ballLines, new string[0], hud.Runs, hud.Wickets, Bowled(hud)));
+        // A skips them all: to his strike, or to when he comes in.
+        ui.SetButton(stepWasIn ? "Skip to your strike  <size=75%>(A)</size>" : "Skip to when you come in  <size=75%>(A)</size>");
     }
 
-    /// The partner's balls are done: how he stands and whose over is next, held a moment.
+    /// The partner's balls are done: how he stands and whose over is next, until Next (A).
     private void EndSteps(HUD hud)
     {
         Batch batch = stepBatch;
@@ -130,7 +130,6 @@ public partial class CareerMatch
         if (!over && hud.Balls == 0 && Bowled(hud) > 0 && hud.CurrentBowler != null)
             closing.Add(CareerMatchLogic.NextOver(hud.CurrentBowler.Name));
         string heading = batch.cameIn ? CareerMatchLogic.ComeIn(batch.inRuns, batch.inWickets, batch.inBalls) : CareerMatchLogic.AtTheOtherEnd;
-        ShowCard(heading, CareerMatchLogic.BallByBallBody(ballLines, closing, hud.Runs, hud.Wickets, Bowled(hud)),
-                 batch.cameIn ? ComeInSeconds : CatchUpSeconds, over);
+        ShowCard(heading, CareerMatchLogic.BallByBallBody(ballLines, closing, hud.Runs, hud.Wickets, Bowled(hud)), over);
     }
 }

@@ -11,7 +11,8 @@ using UnityEngine;
 public static class GameSfx
 {
     private const int Voices = 24;
-    private const string Folder = "Sounds/Sfx";
+    /// The one-shots, and the players' voices (TeamTalk; Tools/voices/build_voices.py).
+    private static readonly string[] Folders = { "Sounds/Sfx", "Sounds/Voices" };
 
     private static Dictionary<string, AudioClip[]> groups;
     private static readonly Dictionary<string, int> lastPick = new Dictionary<string, int>();
@@ -41,7 +42,8 @@ public static class GameSfx
         if (groups != null) return;
         groups = new Dictionary<string, AudioClip[]>();
         var lists = new Dictionary<string, List<AudioClip>>();
-        foreach (AudioClip c in Resources.LoadAll<AudioClip>(Folder))
+        foreach (string folder in Folders)
+        foreach (AudioClip c in Resources.LoadAll<AudioClip>(folder))
         {
             string n = c.name;
             int u = n.LastIndexOf('_');
@@ -71,9 +73,10 @@ public static class GameSfx
     }
 
     /// Play one of `group` at `position` (3D) on `channel`. minDistance: full volume within it.
-    /// Quietly does nothing for a group that is not there.
+    /// priority: Unity's, 0 most important to 256 least; a voice is kept over a footstep when more
+    /// sounds play than there are real voices. Quietly does nothing for a group that is not there.
     public static AudioSource Play(string group, Vector3 position, GameAudio.Channel channel, float volume = 1f,
-                                   float pitch = 1f, float minDistance = 1.5f, float maxDistance = 70f)
+                                   float pitch = 1f, float minDistance = 1.5f, float maxDistance = 70f, int priority = 128)
     {
         AudioClip clip = Pick(group);
         if (clip == null || volume <= 0.001f) return null;
@@ -86,6 +89,7 @@ public static class GameSfx
         s.spatialBlend = 1f;
         s.minDistance = minDistance;
         s.maxDistance = maxDistance;
+        s.priority = priority;
         return Start(s, clip, channel, volume, pitch);
     }
 
@@ -96,6 +100,7 @@ public static class GameSfx
         if (clip == null || volume <= 0.001f) return null;
         AudioSource s = Voice();
         s.spatialBlend = 0f;
+        s.priority = 128;
         return Start(s, clip, channel, volume, pitch);
     }
 

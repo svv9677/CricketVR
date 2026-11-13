@@ -94,6 +94,9 @@ public partial class AnimatedBowler : MonoBehaviour
         //startRotation = new Vector3(0f, 90f, 0f);
 
         animator = GetComponent<Animator>();
+        // A pace or medium-pacer's arm snaps over into the release (BowlerSnap).
+        if (GetComponent<BowlerSnap>() == null)
+            gameObject.AddComponent<BowlerSnap>();
 
         hasRun_StartBowling = false;
         // After he has bowled he fields like anyone else (BowlerFielding).

@@ -6,7 +6,7 @@ using UnityEngine.UI;
 /// <summary>
 /// The match as a match: it starts with the overs and the target (a chase) from Match Setup, and
 /// ends - when the overs are bowled, the batting side is all out, or the target is reached - with
-/// a result card (the score, the result, the boundaries) and then home to the Splash menu, where
+/// a result card (the score, the result, the boundaries) and then, on Home (A), to the Splash menu, where
 /// the full result is shown (MatchResultScreen). No more balls can be started once it is over
 /// (Main.StartNextBall, NextBallMenu).
 ///
@@ -26,8 +26,6 @@ public partial class MatchFlow : MonoBehaviour
 {
     private const string MatchScene = "CricketVR", HomeScene = "Splash";
     private const float Ahead = 1.5f, Below = 0.1f, Bigger = 1.25f;
-    /// Seconds the result card stays up before going home on its own.
-    private const float HomeAfter = 12f;
 
     public static bool Over { get; private set; }
     /// The target in a chase; 0 when setting a total.
@@ -319,8 +317,10 @@ public partial class MatchFlow : MonoBehaviour
         }
         if (!Over || leaving)
             return;
+        // Home on Home (A or the button) only: it went on its own after 12 s (2026-11-09: "I should
+        // not be waiting for anything. Everything should be driven by clicks").
         bool pressed = Main.Instance != null && Main.Instance.GetButton(XRButton.A) && Time.time - overAt > 1f;
-        if (pressed || Time.time - overAt > HomeAfter)
+        if (pressed)
             GoHome();
     }
 

@@ -189,6 +189,7 @@ public class CareerSituationMatchTests
         plan.revisedTarget = CareerSituationMath.RevisedTarget(60, full, plan.overs);
         Assert.Less(plan.revisedTarget, 61);
         CareerMatchRecovery.Begin(p, plan);
+        p.pending.resumable = false;   // a save from before matches could be continued (2026-11-09)
         // The chase's overs all bowled, one short of the revised target: a tie on par (not a loss to 60).
         p.pending.teamRuns = plan.revisedTarget - 1; p.pending.teamWickets = 3; p.pending.teamBalls = plan.overs * 6;
         p.pending.runs = 20; p.pending.balls = 12; p.pending.batted = true;
@@ -283,6 +284,7 @@ public class CareerSituationMatchTests
         Script(plan, 0, CareerSim.Wicket, 1, 0, CareerSim.Wicket, 0, 0, CareerSim.Wicket);
         Fixture f = p.season.fixtures[plan.fixture];
         CareerMatchRecovery.Begin(p, plan);
+        p.pending.resumable = false;   // a save from before matches could be continued (2026-11-09)
         // The app died one wicket into the collapse: he has not come in.
         p.pending.teamRuns = 0; p.pending.teamWickets = 1; p.pending.teamBalls = 2;
 

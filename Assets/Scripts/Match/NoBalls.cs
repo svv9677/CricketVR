@@ -48,6 +48,9 @@ public static class NoBalls
 
     public static void NewInnings() => Overstep = Called = FreeHit = NextIsFreeHit = false;
 
+    /// A saved match continued (MatchSnapshot): the free hit it was owed.
+    public static void OweFreeHit(bool owed) => NextIsFreeHit = owed;
+
     public static float ChanceFor(eBowlingLevel level) =>
         OverstepChance[Mathf.Clamp((int)level, 0, OverstepChance.Length - 1)];
 

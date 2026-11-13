@@ -131,6 +131,7 @@ public class CareerMomentsTests
         MatchPlan plan = Plan();
         var p = new CareerProfile { name = "Sam Carter" };
         CareerMatchRecovery.Begin(p, plan);
+        p.pending.resumable = false;   // a save from before matches could be continued (2026-11-09)
         MatchState s = State(plan);
         s.ballsToFifty = 33; s.ballsToHundred = 0; s.longestSix = 91f; s.sixStamp = "abc-b12";
         CareerMatchRecovery.Note(p, s);
@@ -153,6 +154,7 @@ public class CareerMomentsTests
         CareerProgress.EnsureSeason(p, new Random(7));
         MatchPlan plan = CareerProgress.PlanNext(p, new Random(8));
         CareerMatchRecovery.Begin(p, plan);
+        p.pending.resumable = false;   // a save from before matches could be continued (2026-11-09)
         MatchState s = State(plan);
         s.runs = 60; s.wickets = 1; s.balls = 40;
         s.You.runs = 55; s.You.balls = 30; s.You.batted = true; s.You.sixes = 2;

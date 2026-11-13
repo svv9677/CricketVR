@@ -349,8 +349,11 @@ public partial class HumanoidReach : MonoBehaviour
         // down in front of them. Knees as free as the hips, he sank 0.38 m into a squat with his
         // chest folded down between his knees - no room left there for his arms, which went
         // through his thighs or tucked into his chest whichever way they were steered (measured).
+        // Deeper than it was (0.35 m, 80 and 25 degrees): at full stretch at the bottom of the pick-up
+        // his arm IK stretched past his arm (2026-11-09, "just allow him to bend more ... don't let
+        // his gloves detach"); the knees stay stiffest, so he still bends at the hips, not squats.
         limits.kneeStiffness = 1.4f; limits.hipStiffness = 0.6f; limits.spineStiffness = 1.6f;
-        limits.maxDrop = 0.35f / scale; limits.maxHinge = 80f; limits.maxSpine = 25f;
+        limits.maxDrop = 0.42f / scale; limits.maxHinge = 95f; limits.maxSpine = 35f;
     }
 
     public void RestoreBend()
