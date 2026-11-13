@@ -2,6 +2,9 @@
 
 Phone video of a real bowler → the game bowler's animation. Free, local, commercially usable.
 
+**To keyframe an action by hand instead** (the game's rig in Blender, the game's actions as starting points,
+one-click export into Unity), see [`handanim/README.md`](handanim/README.md).
+
 ```
 video ──extract_pose.py──▶ 3D landmarks ──process_motion.py──▶ grounded joint track
       ──retarget_blender.py (Blender, headless)──▶ FBX on the Bowler.fbx rig + preview

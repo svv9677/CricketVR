@@ -206,6 +206,8 @@ public static class MocapBowlerSetup
             if (Wire(sm, run, idle, clip, side))
                 changed++;
         }
+        changed += Prune(sm, run);
+        MocapDelivery.Reload();            // a new or re-exported clip's sidecar (marks, priority) is read again
         // Only when something changed: this runs after every script reload, and rewriting an
         // unchanged controller would churn its file ids in git.
         if (changed > 0)
@@ -237,6 +239,30 @@ public static class MocapBowlerSetup
             changed = true;
         }
         return changed;
+    }
+
+    /// The states of a mocap clip that has been deleted (its FBX gone, so the state has no motion):
+    /// reached from Run with Action 5 or more (the game's own actions are 0-4), with its load-up.
+    private static int Prune(AnimatorStateMachine sm, AnimatorState run)
+    {
+        int removed = 0;
+        foreach (AnimatorStateTransition t in run.transitions.ToArray())
+        {
+            AnimatorState dest = t.destinationState;
+            bool mocap = t.conditions.Any(c => c.parameter == "Action" && c.mode == AnimatorConditionMode.Equals && c.threshold >= 5f);
+            if (dest == null || !mocap)
+                continue;
+            string name = dest.name.EndsWith("LoadUp") ? dest.name.Substring(0, dest.name.Length - "LoadUp".Length) : dest.name;
+            AnimatorState main = Find(sm, name), lu = Find(sm, name + "LoadUp");
+            if (main != null && main.motion != null)
+                continue;
+            run.RemoveTransition(t);
+            if (lu != null) sm.RemoveState(lu);
+            if (main != null) sm.RemoveState(main);
+            Debug.Log($"[MocapBowlerSetup] {name}: its clip is gone; state removed from the bowling controller");
+            removed++;
+        }
+        return removed;
     }
 
     /// The state a clip hands over to at its end (Sidecar exit_to), Idle if there is no such state.

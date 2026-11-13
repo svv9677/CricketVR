@@ -19,5 +19,11 @@
       "start": 16,
       "end": 26
     }
-  ]
+  ],
+  "mark_forward": 1.53,
+  "mark_wide": 0.22,
+  "run_pace": 1.0,
+  "priority": 0,
+  "mark_note": "front toe 2.22 m on at the release and hand 0.14 m right, against Steyn's 3.75 and 0.36 (DeliveryClipProbe)",
+  "action": 5
 }

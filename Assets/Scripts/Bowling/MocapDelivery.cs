@@ -4,7 +4,7 @@ using UnityEngine;
 /// Bowling actions captured from video (Tools/mocap, imported by MocapBowlerImport) in place of a
 /// pace or medium bowler's hand-made one, while they are being tried out. Off unless switched on
 /// (the editor's CricketVR/Bowling menu, or <see cref="Enabled"/> from code); spinners keep Lyon.
-/// When several are in the bowling controller, the first in <see cref="Captured"/> is used.
+/// When several are in the bowling controller, the first in <see cref="Captured"/> (by priority) is used.
 /// </summary>
 public static class MocapDelivery
 {
@@ -28,21 +28,47 @@ public static class MocapDelivery
     public const string RunPaceParam = "RunPace";
 
     /// <summary>
-    /// Marks measured with CricketVR/Bowling/Measure Delivery Clips (DeliveryClipProbe) and in play
-    /// (Nets): see each entry. Re-measure when a clip changes. Mirrored, every clip covers exactly its
-    /// own ground, so a left-armer's extra set-back (AnimatedBowlerArm.MirrorMark) is left as it is.
+    /// The deliveries in the project: one per clip in Resources/Animations/Bowling/Mocap, read from the
+    /// clip's own sidecar (<c>&lt;Name&gt;.mocap.json</c>), so a clip exported from Blender
+    /// (Tools/mocap/handanim) is picked up without a code change. Highest <c>priority</c> first: hand
+    /// animation (10) over the captured clips (0). Mirrored, every clip covers exactly its own ground,
+    /// so a left-armer's extra set-back (AnimatedBowlerArm.MirrorMark) is left as it is.
     /// </summary>
-    public static readonly Delivery[] Captured =
+    public static Delivery[] Captured => captured ??= Load();
+    private static Delivery[] captured;
+
+    [System.Serializable]
+    private class Sidecar
     {
-        // Two-view fusion of fan footage, hand-corrected and smoothed (Tools/mocap, 2026-11-13).
-        // Run into Steyn Cleaned's run-in and load-up, then this clip from back-foot landing (its sidecar).
-        // In play (Nets, 2026-11-13) with the mark 1.5 m on his front toe landed at x -6.90 to -7.03 at the
-        // release: 2.45 m past where it should be (-9.40, just behind the popping crease at -9.14).
-        new Delivery { state = "MocapAnderson", action = 6, markForward = -0.95f, markWide = 0f, runPace = 1f },
-        // From IMG_9676. Front toe 2.22 m on at the release and hand 0.14 m right, against Steyn's
-        // 3.75 and 0.36: 1.53 m nearer the stumps, 0.22 m wider.
-        new Delivery { state = "MocapPace", action = 5, markForward = 1.53f, markWide = 0.22f, runPace = 1f },
-    };
+        public int action;
+        public float mark_forward, mark_wide, run_pace = 1f;
+        public int priority;
+    }
+
+    private static Delivery[] Load()
+    {
+        var list = new System.Collections.Generic.List<(int priority, Delivery d)>();
+        foreach (TextAsset t in Resources.LoadAll<TextAsset>("Animations/Bowling/Mocap"))
+        {
+            if (!t.name.EndsWith(".mocap"))
+                continue;
+            Sidecar s;
+            try { s = JsonUtility.FromJson<Sidecar>(t.text); }
+            catch (System.Exception) { continue; }
+            if (s == null || s.action <= 0)
+                continue;
+            list.Add((s.priority, new Delivery
+            {
+                state = t.name.Substring(0, t.name.Length - ".mocap".Length), action = s.action,
+                markForward = s.mark_forward, markWide = s.mark_wide, runPace = s.run_pace > 0f ? s.run_pace : 1f,
+            }));
+        }
+        list.Sort((x, y) => y.priority != x.priority ? y.priority.CompareTo(x.priority) : string.CompareOrdinal(x.d.state, y.d.state));
+        return list.ConvertAll(x => x.d).ToArray();
+    }
+
+    /// Read the sidecars again (the editor, after an export from Blender).
+    public static void Reload() => captured = null;
 
     /// The first captured delivery's Action (kept for MocapBowlerImport's default).
     public const int Action = 5;
