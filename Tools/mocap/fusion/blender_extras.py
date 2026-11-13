@@ -21,7 +21,10 @@ PREVIEW = ARGS[ARGS.index("--preview-dir") + 1] if "--preview-dir" in ARGS else 
 # (name, offset from the hips, rotation): side from his right, front from down the pitch, 3/4.
 VIEWS = [("side", Vector((-5.0, 0.0, 0.0)), (math.pi / 2, 0, -math.pi / 2)),
          ("front", Vector((0.0, -5.0, 0.0)), (math.pi / 2, 0, 0)),
-         ("q34", Vector((-3.5, -3.5, 0.0)), (math.pi / 2, 0, -math.pi / 4))]
+         ("q34", Vector((-3.5, -3.5, 0.0)), (math.pi / 2, 0, -math.pi / 4)),
+         # for checking against the source clips (review.py): his left side, and from behind him
+         ("lside", Vector((5.0, 0.0, 0.0)), (math.pi / 2, 0, math.pi / 2)),
+         ("back", Vector((0.0, 5.0, 0.0)), (math.pi / 2, 0, math.pi))]
 
 
 def armature():

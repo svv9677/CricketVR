@@ -56,6 +56,20 @@ def side_sign(view, rays):
     return (1.0 if np.median(nose) > 0 else -1.0), "face"
 
 
+def anchored_timeline(side, front, anchors):
+    """Front frame for every side frame from matched events ("side:front,..."), linear between
+    them and NaN outside the first and last. For clips whose slow motion changes speed (promo
+    edits): one release anchor plus a +-0.25 s warp band paired Anderson's run-up with his gather."""
+    pairs = sorted((float(a), float(b)) for a, b in (p.split(":") for p in anchors.split(",")))
+    s_at, f_at = np.array(pairs).T
+    if np.any(np.diff(f_at) <= 0):
+        raise SystemExit("--anchors: the front frames must increase with the side frames")
+    t = np.arange(len(side), dtype=float)
+    j = np.interp(t, s_at, f_at)
+    j[(t < s_at[0]) | (t > s_at[-1])] = np.nan
+    return j
+
+
 def timeline(side, front, band_s):
     """Fractional native front frame for every side frame (NaN outside the overlap)."""
     fs = features(side)
@@ -157,12 +171,15 @@ def prepare(a):
     """Both views loaded and cleaned on their own, and on one timeline."""
     side = View(a.side, "side", 0, a.release_side)
     front = View(a.front, a.front_kind, 0, a.release_front)
-    for v, frac in ((side, a.fx_side), (front, a.fx_front)):
+    for v, frac, fps in ((side, a.fx_side, getattr(a, "fps_side", 0.0)), (front, a.fx_front, getattr(a, "fps_front", 0.0))):
         if frac > 0:
             v.fx = frac * v.w
+        if fps > 0:
+            v.fps = fps          # real-time rate, for slow motion whose speed is not labelled
         v.continuity_fix()
     front.orient_by_side()
-    j = timeline(side, front, a.band)
+    anchors = getattr(a, "anchors", "")
+    j = anchored_timeline(side, front, anchors) if anchors else timeline(side, front, a.band)
     keep = np.where(~np.isnan(j))[0]
     if len(keep) < 5:
         raise SystemExit("the two clips do not overlap: check the release frames (--release-side/--release-front)")
@@ -301,6 +318,14 @@ def main():
     ap.add_argument("--fit-focal", action="store_true",
                     help="also fit the focal lengths (weak unless he travels toward a camera)")
     ap.add_argument("--band", type=float, default=0.25, help="time-warp band, seconds")
+    ap.add_argument("--fps-side", type=float, default=0.0,
+                    help="real-time frame rate of the side clip (0: the npz's). Unlabelled slow motion: "
+                         "front-foot landing to release is about 0.10 s for a quick bowler")
+    ap.add_argument("--fps-front", type=float, default=0.0)
+    ap.add_argument("--anchors", default="",
+                    help="matched events instead of the automatic time warp, side:front frame pairs, "
+                         "e.g. '29:12,35:45,45:90,53:103,60:135' (bound, back foot, front foot, release, "
+                         "follow-through)")
     ap.add_argument("--contacts", default="", help="footfall override, e.g. 'l:0-5,r:9-15'")
     ap.add_argument("--out", required=True, help="joint track .json for retarget_blender.py")
     ap.add_argument("--fbx", default="")
@@ -309,11 +334,13 @@ def main():
     ap.add_argument("--rig", default=os.path.join(HERE, "..", "..", "Assets", "Resources", "Models", "Bowler.fbx"))
     a = ap.parse_args()
 
-    P, side, rel, keep, info, _ = fuse(a)
+    P, side, rel, keep, info, extra = fuse(a)
     track, out = to_track(P, side.fps, rel, a.arm, int(keep[0]), a.contacts)
     with open(a.out, "w") as fh:
         json.dump(track, fh)
     np.save(os.path.splitext(a.out)[0] + "_world.npy", P)
+    # Which frame of each view made each fused frame: for checking the result against the sources.
+    np.savez(os.path.splitext(a.out)[0] + "_align.npz", side_frame=keep, front_frame=extra["j"], release=rel)
     print(json.dumps(info, indent=1))
     print(f"{track['frames']} frames @ {side.fps:.2f}, release {rel}, contacts "
           f"{[(c['side'], c['start'], c['end']) for c in track['contacts']]} -> {a.out}")
