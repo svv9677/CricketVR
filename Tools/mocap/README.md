@@ -40,6 +40,21 @@ default) makes pace and medium bowlers run in with the captured action. Spinners
 | `--release N` | release frame | auto picks the first time the wrist is highest above the shoulder in the picture; check the preview's RELEASE label |
 | `--arm left` | bowling arm | left-armers |
 | `--fx 0.72` | focal length / frame width | 0.72 is an iPhone main lens in 4K with stabilisation; 0.5x lens ≈ 0.36, 2x ≈ 1.45 |
+| `--up torso` | up from the upright run-up frames' torsos | side-on footage, where the run crosses the frame and the level-camera estimate is undefined |
+
+For footage you did not film (extract_pose.py; all off by default, which runs exactly as before):
+
+| option | what it does |
+|---|---|
+| `--seed x,y` | follow the bowler (normalised point on him in the first kept frame) among several people |
+| `--crop` | run the pose model on an upscaled box around him (small, distant figures) |
+| `--pan` | remove a panning camera's turn, estimated from the background (camera_pan.py) |
+| `--time-scale 0.25` | the clip is a quarter-speed replay: timings and speeds come out real |
+| `--dedupe` | drop repeated frames (slow-motion replays of normal-rate video repeat each frame) |
+
+Tried 2026-11-13 on fan-filmed side-on clips of Anderson (usable: the whole delivery, though the
+body leans back too far at the crease) and Bumrah (not usable: he overlaps the non-striker through
+the release). Footage like that is someone else's recording: for testing only, never shipped.
 
 ## What it does, and why (measured on IMG_9676, 2026-11-13)
 

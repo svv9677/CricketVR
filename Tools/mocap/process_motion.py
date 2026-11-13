@@ -126,6 +126,10 @@ def main():
                     help="focal length as a fraction of the frame width (iPhone main lens, 4K with "
                          "stabilisation: ~0.72); 0 = fit from foot slip (rarely well determined)")
     ap.add_argument("--release", type=int, default=-1, help="release frame (relative to --start); -1 = auto")
+    ap.add_argument("--up", choices=["level", "torso"], default="level",
+                    help="level: up is square to the run and to the camera's x axis (a level phone, the "
+                         "run going away from it). torso: up from the run-up's torso, rolled level - for "
+                         "side-on footage, where the run is along the camera's x axis and 'level' is undefined")
     ap.add_argument("--contacts", default="",
                     help="footfalls, frames relative to --start, e.g. 'l:0-1,r:9-15,l:16-27'. Default: "
                          "from 2D foot speed, which fails where a foot is hidden (behind the stumps)")
@@ -161,6 +165,19 @@ def main():
     # later (retarget_blender.py) from the contacts.
     T_raw = translation(world, image, vis, fx, cx, cy, w, h)
     t = np.arange(len(T_raw))
+    if "cam_R" in d.files:
+        # A panning camera (extract_pose.py --pan): each frame's pose and position are in that
+        # frame's camera axes; turn them into the first kept frame's before fitting the travel,
+        # or the pan itself reads as the bowler moving.
+        R = d["cam_R"][sl]
+        R = np.einsum("ij,fkj->fik", R[0], R)          # relative to the first kept frame: R0 R_t^T
+        world = np.einsum("fij,fkj->fki", R, world)
+        T_raw = np.einsum("fij,fj->fi", R, T_raw)
+        zoom = d["cam_zoom"][sl] / d["cam_zoom"][sl][0]
+        yaw = np.degrees(np.arctan2(R[:, 0, 2], R[:, 2, 2]))
+        print(f"pan removed: camera turned {yaw.min():+.1f}..{yaw.max():+.1f} deg over the clip, "
+              f"zoom {zoom.min():.3f}..{zoom.max():.3f}" + ("  WARNING: zoom changed >5%, not modelled"
+                                                             if abs(zoom - 1).max() > 0.05 else ""))
     T = np.stack([np.polyval(np.polyfit(t, T_raw[:, k], 3), t) for k in range(3)], 1)
     cam = world + T[:, None, :]          # camera axes: x right, y down, z away from the camera
 
@@ -178,10 +195,23 @@ def main():
     # ground contains the run, and a phone held for video is level (no roll), so its x axis lies
     # in the ground too. Measured on IMG_9676: upright frames' torso is within 2 deg of camera -y.
     travel = hips[release] - hips[0]
-    up = np.cross(travel, [1.0, 0.0, 0.0])
+    torso = (cam[:, J["l_sh"]] + cam[:, J["r_sh"]]) / 2 - hips
+    torso /= np.linalg.norm(torso, axis=1, keepdims=True)
+    if a.up == "torso":
+        # Side-on: the run is along the camera's x axis, so square-to-both is undefined. Up is the
+        # run-up's mean torso direction with the camera rolled level (no x part): the forward lean
+        # of a run is along x and drops out; any sideways lean averages away over the strides.
+        m = torso[: max(3, release)].mean(0)
+        up = np.array([0.0, m[1], m[2]])
+    else:
+        up = np.cross(travel, [1.0, 0.0, 0.0])
     up /= np.linalg.norm(up)
     if up[1] > 0:                       # camera y points down
         up = -up
+    ang = np.degrees(np.arccos(np.clip(torso @ up, -1, 1)))
+    upright = np.sort(ang[: max(3, release)])[: max(1, release // 3)]
+    print(f"up ({a.up}): {np.degrees(np.arccos(np.clip(-up[1], -1, 1))):.1f} deg from camera -y; "
+          f"most upright run-up frames' torso within {upright.mean():.1f} deg of it")
     fwd = travel - (travel @ up) * up
     fwd /= np.linalg.norm(fwd)
     right = np.cross(fwd, up)              # right-handed: right = forward x up
