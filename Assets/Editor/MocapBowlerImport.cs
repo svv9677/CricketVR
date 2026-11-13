@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text;
 using System.IO;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -37,6 +38,12 @@ public class MocapBowlerImport : AssetPostprocessor
         public float exit_time = 0.9f;
         public float exit_blend = 0.25f;
         public float exit_offset = 0f;
+        // Optionally another clip's run-in and load-up first (e.g. Steyn Cleaned's gather), handing
+        // over to this clip at loadup_exit (normalised, in the load-up clip) into clip_offset.
+        public string loadup_clip = "";
+        public float loadup_speed = 4.725f;      // Steyn's state speed (4.5) x BowlerSnap's base (1.05)
+        public float loadup_exit = 0.465f;
+        public float loadup_blend = 0.2f;
     }
 
     public static Sidecar ReadSidecar(string fbxPath)
@@ -244,72 +251,120 @@ public static class MocapBowlerSetup
         return null;
     }
 
-    // Into it from Run and out of it: per clip (Sidecar run_exit / clip_offset / blend, exit_*).
+    // Into it from Run and out of it, per clip (Sidecar). With a load-up clip the chain is
+    // Run -> <clip>LoadUp (another action's run-in and load-up) -> <clip> -> exit_to; without one,
+    // Run -> <clip> -> exit_to.
 
-    /// The clip's state and its two transitions, as they should be. False if they already were.
+    private static string F(float v) => v.ToString("F3");
+
+    private static string StateDesc(AnimatorState st) => st == null ? "none" :
+        $"{st.name}:{(st.motion ? st.motion.name : "-")}:{F(st.speed)}:{st.speedParameterActive}:{st.speedParameter}:" +
+        $"{st.mirrorParameterActive}:{st.mirrorParameter}:{st.iKOnFeet}";
+
+    private static string TransDesc(AnimatorStateTransition t) =>
+        $"{(t.destinationState ? t.destinationState.name : "-")}:{t.hasExitTime}:{F(t.exitTime)}:{F(t.duration)}:{F(t.offset)}:" +
+        string.Join(",", t.conditions.Select(c => $"{c.parameter}{c.mode}{F(c.threshold)}"));
+
+    /// The wiring of one captured clip as it stands in the controller.
+    private static string Actual(AnimatorStateMachine sm, AnimatorState run, string clipName)
+    {
+        AnimatorState st = Find(sm, clipName), lu = Find(sm, clipName + "LoadUp");
+        var sb = new StringBuilder();
+        sb.Append(StateDesc(st)).Append('|').Append(StateDesc(lu)).Append('|');
+        foreach (AnimatorStateTransition t in run.transitions)
+            if (t.destinationState != null && (t.destinationState == st || t.destinationState == lu))
+                sb.Append("run>").Append(TransDesc(t)).Append(';');
+        if (lu != null)
+            foreach (AnimatorStateTransition t in lu.transitions) sb.Append("lu>").Append(TransDesc(t)).Append(';');
+        if (st != null)
+            foreach (AnimatorStateTransition t in st.transitions) sb.Append("st>").Append(TransDesc(t)).Append(';');
+        return sb.ToString();
+    }
+
+    /// The same description, as the sidecar says it should be.
+    private static string Expected(AnimatorStateMachine sm, AnimatorState idle, AnimationClip clip, AnimationClip luClip,
+                                   MocapBowlerImport.Sidecar side)
+    {
+        string mirror = AnimatedBowler.MirrorParam;
+        string luName = clip.name + "LoadUp";
+        var sb = new StringBuilder();
+        sb.Append($"{clip.name}:{clip.name}:{F(side.state_speed)}:True:Time:True:{mirror}:True|");
+        sb.Append(luClip == null ? "none" : $"{luName}:{luClip.name}:{F(side.loadup_speed)}:True:Time:True:{mirror}:True").Append('|');
+        string cond = $"Action{AnimatorConditionMode.Equals}{F(side.action)},Run Repeat{AnimatorConditionMode.Equals}{F(0f)}";
+        sb.Append($"run>{(luClip != null ? luName : clip.name)}:True:{F(side.run_exit)}:{F(side.blend)}:" +
+                  $"{F(luClip != null ? 0f : side.clip_offset)}:{cond};");
+        if (luClip != null)
+            sb.Append($"lu>{clip.name}:True:{F(side.loadup_exit)}:{F(side.loadup_blend)}:{F(side.clip_offset)}:;");
+        sb.Append($"st>{ExitState(sm, idle, side).name}:True:{F(side.exit_time)}:{F(side.exit_blend)}:{F(side.exit_offset)}:;");
+        return sb.ToString();
+    }
+
+    /// The clip's states and transitions, as they should be. False if they already were.
     private static bool Wire(AnimatorStateMachine sm, AnimatorState run, AnimatorState idle, AnimationClip clip,
                              MocapBowlerImport.Sidecar side)
     {
-        AnimatorState st = Find(sm, clip.name);
-        if (st != null && Correct(st, run, ExitState(sm, idle, side), clip, side))
-            return false;
-        st ??= sm.AddState(clip.name, new Vector3(650, 260 + 60 * sm.states.Length, 0));
-        st.motion = clip;
+        AnimationClip luClip = string.IsNullOrEmpty(side.loadup_clip) ? null
+            : AssetDatabase.LoadAssetAtPath<AnimationClip>(side.loadup_clip);
+        if (!string.IsNullOrEmpty(side.loadup_clip) && luClip == null)
+            Debug.LogError($"[MocapBowlerSetup] {clip.name}: no load-up clip at {side.loadup_clip}; wired without one");
+        string before = Actual(sm, run, clip.name);
+        if (before == Expected(sm, idle, clip, luClip, side))
+            return false;                  // as it should be: touch nothing (no churn in git)
+
+        AnimatorState st = Find(sm, clip.name) ?? sm.AddState(clip.name, new Vector3(650, 260 + 60 * sm.states.Length, 0));
         // Real time at a pace ball's Time (~1.24); Time still scales it with the ball's speed.
-        st.speed = side.state_speed;
+        Configure(st, clip, side.state_speed);
+        AnimatorState lu = Find(sm, clip.name + "LoadUp");
+        if (luClip != null)
+        {
+            lu ??= sm.AddState(clip.name + "LoadUp", new Vector3(450, 260 + 60 * sm.states.Length, 0));
+            Configure(lu, luClip, side.loadup_speed);
+        }
+        else if (lu != null)
+        {
+            sm.RemoveState(lu);
+            lu = null;
+        }
+
+        foreach (AnimatorStateTransition t in run.transitions.ToArray())
+            if (t.destinationState == st || (lu != null && t.destinationState == lu))
+                run.RemoveTransition(t);
+        AnimatorStateTransition into = run.AddTransition(lu ?? st);
+        Set(into, side.run_exit, side.blend, lu != null ? 0f : side.clip_offset);
+        into.AddCondition(AnimatorConditionMode.Equals, side.action, "Action");
+        into.AddCondition(AnimatorConditionMode.Equals, 0, "Run Repeat");
+        if (lu != null)
+        {
+            foreach (AnimatorStateTransition t in lu.transitions.ToArray())
+                lu.RemoveTransition(t);
+            Set(lu.AddTransition(st), side.loadup_exit, side.loadup_blend, side.clip_offset);
+            EditorUtility.SetDirty(lu);
+        }
+        foreach (AnimatorStateTransition t in st.transitions.ToArray())
+            st.RemoveTransition(t);
+        Set(st.AddTransition(ExitState(sm, idle, side)), side.exit_time, side.exit_blend, side.exit_offset);
+        EditorUtility.SetDirty(st);
+
+        string after = Actual(sm, run, clip.name);
+        return after != before;
+    }
+
+    private static void Configure(AnimatorState st, AnimationClip clip, float speed)
+    {
+        st.motion = clip;
+        st.speed = speed;
         st.speedParameterActive = true;
         st.speedParameter = "Time";
         st.mirrorParameterActive = true;
         st.mirrorParameter = AnimatedBowler.MirrorParam;
         st.iKOnFeet = true;                // as Steyn, Bumrah, Lyon: the pinned feet stay pinned
-
-        foreach (AnimatorStateTransition t in run.transitions)
-            if (t.destinationState == st)
-                run.RemoveTransition(t);
-        AnimatorStateTransition into = run.AddTransition(st);
-        into.hasExitTime = true;
-        into.exitTime = side.run_exit;
-        into.duration = side.blend;
-        into.offset = side.clip_offset;
-        into.AddCondition(AnimatorConditionMode.Equals, side.action, "Action");
-        into.AddCondition(AnimatorConditionMode.Equals, 0, "Run Repeat");
-
-        foreach (AnimatorStateTransition t in st.transitions)
-            st.RemoveTransition(t);
-        AnimatorStateTransition outOf = st.AddTransition(ExitState(sm, idle, side));
-        outOf.hasExitTime = true;
-        outOf.exitTime = side.exit_time;
-        outOf.duration = side.exit_blend;
-        outOf.offset = side.exit_offset;
-        EditorUtility.SetDirty(st);
-        return true;
     }
 
-    private static bool Correct(AnimatorState st, AnimatorState run, AnimatorState exitTo, AnimationClip clip,
-                                MocapBowlerImport.Sidecar side)
+    private static void Set(AnimatorStateTransition t, float exit, float duration, float offset)
     {
-        if (st.motion != clip || !Mathf.Approximately(st.speed, side.state_speed) || !st.speedParameterActive ||
-            st.speedParameter != "Time" || !st.mirrorParameterActive || st.mirrorParameter != AnimatedBowler.MirrorParam ||
-            !st.iKOnFeet)
-            return false;
-        int into = 0;
-        foreach (AnimatorStateTransition t in run.transitions)
-        {
-            if (t.destinationState != st)
-                continue;
-            into++;
-            if (!t.hasExitTime || !Mathf.Approximately(t.exitTime, side.run_exit) ||
-                !Mathf.Approximately(t.duration, side.blend) || !Mathf.Approximately(t.offset, side.clip_offset) ||
-                t.conditions.Length != 2 ||
-                t.conditions[0].parameter != "Action" || !Mathf.Approximately(t.conditions[0].threshold, side.action) ||
-                t.conditions[1].parameter != "Run Repeat" || !Mathf.Approximately(t.conditions[1].threshold, 0f))
-                return false;
-        }
-        if (into != 1 || st.transitions.Length != 1)
-            return false;
-        AnimatorStateTransition o = st.transitions[0];
-        return o.destinationState == exitTo &&
-               o.hasExitTime && Mathf.Approximately(o.exitTime, side.exit_time) &&
-               Mathf.Approximately(o.duration, side.exit_blend) && Mathf.Approximately(o.offset, side.exit_offset);
+        t.hasExitTime = true;
+        t.exitTime = exit;
+        t.duration = duration;
+        t.offset = offset;
     }
 }

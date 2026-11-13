@@ -117,14 +117,19 @@ and update those two constants whenever the clip changes. Not yet seen in a head
 
 Each clip's `.mocap.json` sets its handovers; MocapBowlerImport wires them into the controller.
 
+The chain is Run -> `<clip>LoadUp` (another clip's run-in and load-up: Steyn Cleaned) -> `<clip>` ->
+`exit_to`. The captured clip starts mid-bound with the arms already coiled, so on its own the load-up
+(ball to the chin, front arm rising) was missing; Steyn's clip has it, and both bowlers are coiled at
+back-foot landing, which is where it hands over.
+
 | field | what | MocapAnderson | how it was chosen |
 |---|---|---|---|
-| `run_exit` | Run's normalised time it leaves at | 0.80 | sweep of exit x entry frame x blend on a test bowler driven by a scratch copy of the controller: legs' pose and motion, ground speed, foot slide |
-| `clip_offset` | where in the clip it enters | 7/44 | same sweep: skipping the first frames of the bound puts the clip's legs where Run's are |
-| `blend` | seconds | 0.15 | same |
-| `exit_to`, `exit_time`, `exit_blend`, `exit_offset` | out at the end | Follow Through, 28/44, 0.15, 0.1 | sweep with BodySelfCollision running |
-| (MocapDelivery) `runPace` | Run's speed multiplier into it | 1.4 | the game's run is 3.7 m/s, the clip starts at 5-7 |
-| (MocapDelivery) `markForward` | mark moved on | 1.5 m | front toe landed at -10.8 at the release without it |
+| `run_exit`, `blend` | Run into the load-up | 0.537, 0.3 | Run -> Steyn's own handover |
+| `loadup_clip`, `loadup_speed` | the load-up's clip and state speed | Steyn Cleaned, 4.725 | Steyn's 4.5 x BowlerSnap's base 1.05 |
+| `loadup_exit`, `loadup_blend`, `clip_offset` | load-up into the clip | 0.465, 0.2 s, 4/44 | back-foot landing in both (Steyn 0.465, Anderson ~frame 4); sweep of exit x entry frame x blend on a test bowler with BodySelfCollision running: worst turn 25 deg/frame, no arm in the body |
+| `exit_to`, `exit_time`, `exit_blend`, `exit_offset` | out at the end | Follow Through, 28/44, 0.15, 0.1 | same sweep, out of the clip |
+| (MocapDelivery) `runPace` | Run's speed multiplier | 1 | Steyn's run-in sets the pace |
+| (MocapDelivery) `markForward` | mark moved on | -0.95 m | front toe at release -6.9 with +1.5 (Steyn's run-in covers its own ground) |
 
 What went wrong first, so it is not repeated:
 - Run 0.537 into frame 0 (Steyn's handover): the wrong leg forward; leg pose mismatch 1.91 against 0.60.
@@ -136,9 +141,14 @@ What went wrong first, so it is not repeated:
   torso, and BodySelfCollision then snaps the elbow out at once (by design, for fielders): a 104-115 deg pop.
   Leaving at frame 28 into Follow Through keeps the arm clear (0 cm) - check `armIn` before moving these.
 
-Result, three balls (two right-arm, one left-arm): front toe at release -9.39 to -9.41 (popping crease
--9.14), released at x -9.00 to -9.06; lowest speed through the run-up blend 5.3-5.6 m/s (4.2 left-arm);
-worst bone turn 36-38 deg/frame anywhere (the arm just after the release).
+Before the load-up was added, the clip was entered straight from Run (at 0.80, frame 7, Run 1.4x faster):
+smooth, but the user saw the load-up missing ("Steyn Cleaned has a good loadup").
+
+Result with the load-up, three balls (two right-arm, one left-arm): front toe at release -9.37 to -9.45
+(popping crease -9.14), released at x -8.81 to -9.13; worst bone turn per join: run -> load-up 10-15,
+load-up -> clip 22-35, clip -> follow-through 37-38 deg/frame (the arm just after the release); arm in
+the body at most 1.9 cm. The left-armer slows to 0.7 m/s in the run -> load-up blend (Steyn's mirrored
+handover and the left-arm steering): not looked into.
 
 ## Filming a better source (the biggest quality lever)
 

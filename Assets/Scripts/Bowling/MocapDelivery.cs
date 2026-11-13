@@ -35,9 +35,10 @@ public static class MocapDelivery
     public static readonly Delivery[] Captured =
     {
         // Two-view fusion of fan footage, hand-corrected and smoothed (Tools/mocap, 2026-11-13).
-        // In play (Nets, 2026-11-13) with no mark offset his front toe landed at x -10.82 and -10.76 and he
-        // let go at -10.27 and -10.24: 1.5 m short of the popping crease (-9.14), so the mark is 1.5 m on.
-        new Delivery { state = "MocapAnderson", action = 6, markForward = 1.5f, markWide = 0f, runPace = 1.4f },
+        // Run into Steyn Cleaned's run-in and load-up, then this clip from back-foot landing (its sidecar).
+        // In play (Nets, 2026-11-13) with the mark 1.5 m on his front toe landed at x -6.90 to -7.03 at the
+        // release: 2.45 m past where it should be (-9.40, just behind the popping crease at -9.14).
+        new Delivery { state = "MocapAnderson", action = 6, markForward = -0.95f, markWide = 0f, runPace = 1f },
         // From IMG_9676. Front toe 2.22 m on at the release and hand 0.14 m right, against Steyn's
         // 3.75 and 0.36: 1.53 m nearer the stumps, 0.22 m wider.
         new Delivery { state = "MocapPace", action = 5, markForward = 1.53f, markWide = 0.22f, runPace = 1f },
