@@ -2,7 +2,8 @@
 
 A reference is an image sequence from make_reference.py (reference/<view>/0001.jpg... + meta.json) on an
 image empty parented to its camera (side -> "Cam side-on", front -> "Cam front-on", back -> "Cam
-behind"; a side-on clip he runs right to left in is filmed from his left, "Cam side-on left"), drawn
+behind"; a side-on clip he runs right to left in is filmed from his left, "Cam side-on left"; a clip
+listed in PHONE_CAMERAS gets a camera where its phone stood, turning to follow his hips), drawn
 behind everything. On every frame change:
   - timing: the scene's markers "back foot", "front foot", "release" are matched to the same events in
     the footage, and the footage is warped between them (straight lines; past the ends, the end
@@ -28,12 +29,48 @@ CAMERA_FOR = {"side": "Cam side-on", "front": "Cam front-on", "front_oblique": "
 SIDE_FROM_LEFT = "Cam side-on left"
 
 
-def camera_for(meta):
+# A clip filmed by someone standing still and turning to follow him gets its own camera: one at that
+# spot, aimed at the rig's hips on every frame. The spot is in metres from the rig's hips at the
+# "front foot" marker (x, y on the ground, then height). anderson_front's was found by projecting the
+# rig through cameras all round him and keeping the one whose picture best matched the clip's tracked
+# joints: behind him and to his right, about 50 degrees round from straight behind (mean 2D error in
+# torso lengths, by where the camera is: his left 0.85, front-on 0.66, straight behind 0.61, his right
+# side 0.52, there 0.46). How far away it stood the fit could not tell; 8 m with a 50 mm lens frames
+# him about as the phone did.
+PHONE_CAMERAS = {"anderson_front": ("Cam behind right", (-6.3, 5.8, 1.5), 50, "from behind his right")}
+
+
+def phone_camera(scene, name, offset, lens):
+    cam = bpy.data.objects.get(name)
+    if cam is None:
+        cam = bpy.data.objects.new(name, bpy.data.cameras.new(name))
+        scene.collection.objects.link(cam)
+    cam.data.lens = lens
+    cam.data.clip_end = max(cam.data.clip_end, DEPTH * 2)
+    arm = bpy.data.objects["Bowler"]
+    keep = scene.frame_current
+    m = scene.timeline_markers.get("front foot")
+    scene.frame_set(m.frame if m else keep)
+    hips, _ = rig_points(arm.evaluated_get(bpy.context.evaluated_depsgraph_get()))
+    scene.frame_set(keep)
+    cam.location = (hips.x + offset[0], hips.y + offset[1], offset[2])
+    con = cam.constraints.get("Follow hips") or cam.constraints.new("TRACK_TO")
+    con.name = "Follow hips"
+    con.target, con.subtarget = arm, P + "Hips"
+    con.track_axis, con.up_axis = "TRACK_NEGATIVE_Z", "UP_Y"
+    return cam
+
+
+def camera_for(meta, scene=None):
+    spec = PHONE_CAMERAS.get(meta.get("view"))
+    if spec and scene is not None:
+        return phone_camera(scene, *spec[:3])
     if meta["kind"] == "side" and meta.get("run_dir", 1) < 0:
         return bpy.data.objects.get(SIDE_FROM_LEFT) or bpy.data.objects.get("Cam side-on")
     return bpy.data.objects.get(CAMERA_FOR.get(meta["kind"], "Cam side-on"))
-# Anderson's front-on is a panning phone clip: front-on through the gather, about 3/4 behind by the
-# release (no truly front-on delivery of his was found). anderson_back is still there to load by hand.
+# No front-on delivery of Anderson's was found: anderson_front (named for the camera that films his
+# run-up coming at it) is a phone in the nets that he runs past, so by the gather it is behind his
+# right. anderson_back (straight behind) is still there to load by hand.
 PAIRS = {"Steyn": ("steyn_side", "steyn_front"), "Anderson": ("anderson_side", "anderson_front")}
 DEPTH = 60.0          # metres in front of its camera: past everything in the scene
 
@@ -183,7 +220,7 @@ def load_reference(context, view):
     folder = view if os.path.isabs(view) else os.path.join(reference_dir(), view)
     meta_path = os.path.join(folder, "meta.json")
     meta = json.load(open(meta_path))
-    cam = camera_for(meta)
+    cam = camera_for(meta, scene)
     name = f"Ref {meta['kind']}"
     old = bpy.data.objects.get(name)
     if old:
@@ -230,11 +267,12 @@ class CRICKET_OT_reference_pair(bpy.types.Operator):
             return {"CANCELLED"}
         for obj in references():                 # one bowler's footage at a time
             bpy.data.objects.remove(obj)
-        kinds = [load_reference(context, v)[1]["kind"] for v in PAIRS[self.bowler]]
+        metas = [load_reference(context, v)[1] for v in PAIRS[self.bowler]]
         context.scene["cricket_reference"] = self.bowler
         point_views(context)
-        other = next((k for k in kinds if k != "side"), "front")
-        where = "from behind him (there is no front-on clip of him)" if other == "back" else other.replace("_", " ")
+        other = next((m for m in metas if m["kind"] != "side"), {"kind": "front"})
+        where = (PHONE_CAMERAS[other["view"]][3] if other.get("view") in PHONE_CAMERAS
+                 else "from behind him" if other["kind"] == "back" else other["kind"].replace("_", " "))
         self.report({"INFO"}, f"{self.bowler}: side-on, and {where}; timed to the markers")
         return {"FINISHED"}
 
@@ -291,7 +329,7 @@ def camera_view(space, cam):
 
 def view_cameras():
     """(left, right) cameras for the two views: the side-on clip's camera, and the other clip's
-    (front-on, or from behind when that is all there is)."""
+    (front-on, or wherever that clip was filmed from)."""
     side = next((o.parent for o in references() if o.parent and meta_of(o)["kind"] == "side"), None)
     other = next((o.parent for o in references() if o.parent and meta_of(o)["kind"] != "side"), None)
     return (side or bpy.data.objects.get("Cam side-on"), other or bpy.data.objects.get("Cam front-on"))
