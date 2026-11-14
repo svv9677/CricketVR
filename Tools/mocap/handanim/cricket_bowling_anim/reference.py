@@ -32,7 +32,9 @@ def camera_for(meta):
     if meta["kind"] == "side" and meta.get("run_dir", 1) < 0:
         return bpy.data.objects.get(SIDE_FROM_LEFT) or bpy.data.objects.get("Cam side-on")
     return bpy.data.objects.get(CAMERA_FOR.get(meta["kind"], "Cam side-on"))
-PAIRS = {"Steyn": ("steyn_side", "steyn_front"), "Anderson": ("anderson_side", "anderson_back")}
+# Anderson's front-on is a panning phone clip: front-on through the gather, about 3/4 behind by the
+# release (no truly front-on delivery of his was found). anderson_back is still there to load by hand.
+PAIRS = {"Steyn": ("steyn_side", "steyn_front"), "Anderson": ("anderson_side", "anderson_front")}
 DEPTH = 60.0          # metres in front of its camera: past everything in the scene
 
 
@@ -289,7 +291,7 @@ def camera_view(space, cam):
 
 def view_cameras():
     """(left, right) cameras for the two views: the side-on clip's camera, and the other clip's
-    (front-on, or from behind when that is all there is, as for Anderson)."""
+    (front-on, or from behind when that is all there is)."""
     side = next((o.parent for o in references() if o.parent and meta_of(o)["kind"] == "side"), None)
     other = next((o.parent for o in references() if o.parent and meta_of(o)["kind"] != "side"), None)
     return (side or bpy.data.objects.get("Cam side-on"), other or bpy.data.objects.get("Cam front-on"))
