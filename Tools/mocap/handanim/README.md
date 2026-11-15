@@ -71,7 +71,7 @@ To re-export, just export again with the same name. Any timing you tuned by hand
 | `run_exit` | How far through the run cycle it hands over to your clip | 0.537 (as Run → Steyn) |
 | `blend` | Seconds of blend from the run into your clip | 0.3 |
 | `clip_offset` | Where in your clip the blend starts (0–1) | 0 |
-| `exit_time` / `exit_blend` | When and how quickly it blends into Follow Through | Leaves enough frames to finish the blend inside the clip |
+| `exit_time` / `exit_blend` | When and how quickly it blends into Follow Through | 1 and 0.25 s: the whole clip plays, then it blends, holding its last pose. A kept `exit_time` at or before the release is moved to just after it, or the ball would never leave his hand |
 | `mark_forward` / `mark_wide` | Metres his mark moves on / to the side | Worked out on export |
 | `priority` | Which delivery wins when several exist | 10 for hand-made |
 

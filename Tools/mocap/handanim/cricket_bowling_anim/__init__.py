@@ -303,13 +303,21 @@ class CRICKET_OT_export(bpy.types.Operator):
             "state_speed": 1.0 / 1.24,      # real time at a pace ball's Time
             "run_exit": 0.537, "blend": 0.3, "clip_offset": 0.0,       # as Run -> Steyn
             "exit_to": "Follow Through", "exit_offset": 0.1, "exit_blend": blend_s,
-            "exit_time": round(max(0.5, 1.0 - (blend_s * fps + 2) / max(1, frames - 1)), 4),
+            # Play the whole clip, then blend into Follow Through (its last pose held through the blend):
+            # every frame you animated is seen, and the ball has always left by then.
+            "exit_time": 1.0,
             "mark_forward": mark_forward, "mark_wide": mark_wide, "run_pace": 1.0, "priority": 10,
             "source": f"hand-animated in Blender ({bpy.data.filepath or 'unsaved'}), base {scene.get('cricket_base', '?')}",
         }
         for k in ("exit_time", "exit_blend", "exit_offset", "exit_to", "run_exit", "blend", "clip_offset", "priority"):
             if k in old:
                 side[k] = old[k]          # tuned by hand in Unity: keep
+        # A kept exit_time must still start the blend out after the ball has left the hand, or the
+        # ReleaseBall event is never reached and he keeps the ball (an old default started it at 0.53
+        # of Anderson's clip, against a release at 0.83).
+        last = max(1, frames - 1)
+        if side["exit_time"] * last <= release:
+            side["exit_time"] = round(min(0.99, (release + 1) / last), 4)
         json.dump(side, open(side_path, "w"), indent=2)
         self.report({"INFO"}, f"Exported {name}: {frames} frames, release {release}, mark {mark_forward:+.2f} m on. "
                               "Switch to Unity; it imports and wires it.")
