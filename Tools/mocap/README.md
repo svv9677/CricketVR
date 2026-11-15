@@ -118,7 +118,8 @@ and update those two constants whenever the clip changes. Not yet seen in a head
 
 ## From the run-up into the clip and out (measured in play, Nets, 2026-11-13)
 
-Each clip's `.mocap.json` sets its handovers; MocapBowlerImport wires them into the controller.
+Each clip's `.mocap.json` sets its starting handovers; *CricketVR > Bowling > Set Up Mocap Deliveries*
+(MocapBowlerImport) adds them to the controller once, and after that they are tuned in the Animator window.
 
 The chain is Run -> `<clip>LoadUp` (another clip's run-in and load-up: Steyn Cleaned) -> `<clip>` ->
 `exit_to`. The captured clip starts mid-bound with the arms already coiled, so on its own the load-up

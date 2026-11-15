@@ -3,8 +3,9 @@
     .venv/bin/python install_clip.py out/img9676 MocapPace
 
 Writes Assets/Resources/Animations/Bowling/Mocap/MocapPace.fbx and MocapPace.mocap.json (frames,
-fps, release frame). On import, MocapBowlerImport makes it a humanoid clip on the bowler's avatar
-with the ReleaseBall event, and wires it into the bowling controller as the state MocapPace.
+fps, release frame). Then, in Unity, CricketVR > Bowling > Set Up Mocap Deliveries (MocapBowlerImport)
+makes it a humanoid clip on the bowler's avatar with the ReleaseBall event, and adds it to the bowling
+controller as the state MocapPace.
 """
 import json
 import os

@@ -1,6 +1,6 @@
 # Hand-animating a bowling action in Blender
 
-Use this to keyframe a bowling action yourself, or to fix up an existing one, on the game's own bowler rig. When you export, it goes straight into Unity. It gets wired into the bowling controller, and his mark is moved so his front foot lands where Steyn's does.
+Use this to keyframe a bowling action yourself, or to fix up an existing one, on the game's own bowler rig. When you export, it goes straight into the Unity project. One menu command in Unity (*Set Up Mocap Deliveries*) adds it to the bowling controller, and his mark is moved so his front foot lands where Steyn's does.
 
 ## One-time setup
 
@@ -59,21 +59,25 @@ To make footage (side-on and front-on of the same bowler, listed in `../out/view
 2. Click **Export to Unity** and give it a name, e.g. `HandPace`. It writes:
    - `Assets/Resources/Animations/Bowling/Mocap/<Name>.fbx`: deform bones only, every frame baked, no key reduction.
    - `<Name>.mocap.json`: the sidecar with frames, fps, release frame, action number and timing. It also holds his **mark**: Steyn's front-toe distance minus yours. If your bowler lands 0.4 m further on than Steyn, his mark moves 0.4 m back.
-3. Switch to Unity. It imports the FBX as Humanoid with a `ReleaseBall` event on your release frame. It adds a state to `Steyn.controller` (Run → `<Name>` → Follow Through), and `MocapDelivery` picks it up from the sidecar. No code changes are needed.
+3. In Unity, run **CricketVR > Bowling > Set Up Mocap Deliveries**. Nothing happens in Unity until you do: it imports the FBX as Humanoid with a `ReleaseBall` event on your release frame, and the first time it adds a state to `Steyn.controller` (Run → `<Name>` → Follow Through). `MocapDelivery` picks it up from the sidecar. No code changes are needed.
 4. Turn on *CricketVR > Bowling > Use Mocap Delivery For Pace* and bowl in the Nets. Pace and medium bowlers use your action (hand-made clips have priority 10, above the captured ones). Spinners keep Lyon.
 
-To re-export, just export again with the same name. Any timing you tuned by hand in the sidecar (`exit_time`, `blend`, `run_exit`, …) is kept. To remove a clip, delete its `.fbx` and `.mocap.json`; Unity removes its state from the controller.
+To re-export, export again with the same name, then run *Set Up Mocap Deliveries* again (it updates the `ReleaseBall` event if you moved the release). To remove a clip, delete its `.fbx` and `.mocap.json`, then run *Set Up Mocap Deliveries*: it removes the state.
 
-### Sidecar fields you might tune in Unity
+### Timing: tune it in the Animator window
 
-| Field | Meaning | Default |
+Open `Steyn.controller` and select the arrows into and out of your clip's state. What you set there is what plays. *Set Up Mocap Deliveries* only adds states and transitions that are missing, and never changes ones that exist. (Until 2026-11-15 it re-applied the sidecar's timings on every script reload, entering Play included, which undid Animator edits.)
+
+The sidecar's timings are only the starting values for a new clip's state:
+
+| Field | Animator setting | Default |
 |---|---|---|
-| `run_exit` | How far through the run cycle it hands over to your clip | 0.537 (as Run → Steyn) |
-| `blend` | Seconds of blend from the run into your clip | 0.3 |
-| `clip_offset` | Where in your clip the blend starts (0–1) | 0 |
-| `exit_time` / `exit_blend` | When and how quickly it blends into Follow Through | 1 and 0.25 s: the whole clip plays, then it blends, holding its last pose. A kept `exit_time` at or before the release is moved to just after it, or the ball would never leave his hand |
-| `mark_forward` / `mark_wide` | Metres his mark moves on / to the side | Worked out on export |
-| `priority` | Which delivery wins when several exist | 10 for hand-made |
+| `run_exit` / `blend` / `clip_offset` | Run → clip: Exit Time / Transition Duration (s) / Transition Offset | 0.537 / 0.3 / 0 (as Run → Steyn) |
+| `exit_time` / `exit_blend` / `exit_offset` | clip → Follow Through: Exit Time / Transition Duration (s) / Transition Offset | 1 / 0.25 / 0.1: the whole clip plays, then it blends, holding its last pose |
+| `mark_forward` / `mark_wide` | (read by the game, not the Animator) metres his mark moves on / to the side | Worked out on export |
+| `priority` | (read by the game) which delivery wins when several exist | 10 for hand-made |
+
+Keep the exit time out of your clip after its release (the console warns when it is not): a blend out that starts before the release never reaches `ReleaseBall`, and he keeps the ball.
 
 ## Checks done (2026-11-13)
 
@@ -93,5 +97,5 @@ To re-export, just export again with the same name. Any timing you tuned by hand
 | `cricket_bowling_anim/__init__.py` | The Cricket tab: start-from, ghost, markers (found from the feet), export |
 | `cricket_bowling_anim/reference.py` | Footage behind the cameras: timing to the markers, pinning to the rig, the two views |
 | `make_reference.py` | Footage → `reference/<view>/` image sequence + `meta.json` |
-| `Assets/Editor/MocapBowlerImport.cs` | Unity: imports the FBX and wires (or removes) controller states |
+| `Assets/Editor/MocapBowlerImport.cs` | Unity, menu only: sets the FBX's import settings and adds missing (or removes deleted) controller states |
 | `Assets/Scripts/Bowling/MocapDelivery.cs` | Game: picks the delivery and moves the mark, from the sidecars |

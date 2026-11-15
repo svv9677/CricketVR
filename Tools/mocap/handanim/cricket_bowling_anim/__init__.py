@@ -9,8 +9,9 @@ Set up by Tools/mocap/handanim/build_scene.py; see Tools/mocap/handanim/README.m
     Reference:  footage (make_reference.py) behind the side-on and front-on cameras, timed to the
                 markers and pinned to the rig (reference.py); "Two views" shows both.
     Markers:    back foot, front foot, release - the release one is where the ball leaves.
-    Export:     FBX + sidecar into the Unity project; Unity imports it, wires it into the bowling
-                controller and works out his mark from where your front foot lands.
+    Export:     FBX + sidecar into the Unity project, with his mark worked out from where your front
+                foot lands; then CricketVR > Bowling > Set Up Mocap Deliveries in Unity adds it to the
+                bowling controller.
 """
 bl_info = {
     "name": "Cricket bowling animation (CricketVR)",
@@ -262,7 +263,7 @@ def next_action_number(folder):
 class CRICKET_OT_export(bpy.types.Operator):
     bl_idname = "cricket.export"
     bl_label = "Export to Unity"
-    bl_description = "FBX + sidecar into the Unity project; Unity wires it into the bowling controller"
+    bl_description = "FBX + sidecar into the Unity project (then Set Up Mocap Deliveries in Unity)"
     name: bpy.props.StringProperty(name="Name in the game", default="HandPace")
 
     def invoke(self, context, event):
@@ -311,7 +312,7 @@ class CRICKET_OT_export(bpy.types.Operator):
         }
         for k in ("exit_time", "exit_blend", "exit_offset", "exit_to", "run_exit", "blend", "clip_offset", "priority"):
             if k in old:
-                side[k] = old[k]          # tuned by hand in Unity: keep
+                side[k] = old[k]          # tuned by hand in the sidecar: keep
         # A kept exit_time must still start the blend out after the ball has left the hand, or the
         # ReleaseBall event is never reached and he keeps the ball (an old default started it at 0.53
         # of Anderson's clip, against a release at 0.83).
@@ -320,7 +321,7 @@ class CRICKET_OT_export(bpy.types.Operator):
             side["exit_time"] = round(min(0.99, (release + 1) / last), 4)
         json.dump(side, open(side_path, "w"), indent=2)
         self.report({"INFO"}, f"Exported {name}: {frames} frames, release {release}, mark {mark_forward:+.2f} m on. "
-                              "Switch to Unity; it imports and wires it.")
+                              "In Unity, run CricketVR > Bowling > Set Up Mocap Deliveries.")
         return {"FINISHED"}
 
 
