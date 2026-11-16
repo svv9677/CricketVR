@@ -69,19 +69,18 @@ public partial class Main : MonoBehaviour
     
 
     [Header("Settings")]
-    [SerializeField]
+    [SerializeField, RuntimeSetting("GameSettings (the Settings menu)")]
     protected eDifficulty difficulty;
     private eDifficulty _difficulty = eDifficulty.None;
 
-    [SerializeField]
+    [SerializeField, RuntimeSetting("GameSettings (the Settings menu)")]
     protected eBattingStyle battingStyle;
     private eBattingStyle _shownBattingStyle = eBattingStyle.None;
 
-    [SerializeField]
+    [SerializeField, RuntimeSetting("the saved stadium mode (PlayerPrefs)")]
     protected eStadiumMode stadiumMode;
 
-    [SerializeField]
-    [Range(3f, 10f)]
+    [SerializeField, RuntimeSetting("the saved Z offset (PlayerPrefs)")]
     protected float zOffset;
     private float _zOffset;
     private TMPro.TMP_Text _zOffsetText;
@@ -94,10 +93,11 @@ public partial class Main : MonoBehaviour
 
     // The settings panel mirrors these (SettingsPanel.Refresh); each `_x` is the value last applied.
     [Tooltip("The debug overlay (game state + log console). Off by default; Settings > Advanced.")]
+    [RuntimeSetting("GameSettings (the Settings menu)")]
     public bool overlayVisible = false;
     private bool _overlayVisible = false;
 
-    [Range(0f, 5f)]
+    [RuntimeSetting("Main.NextBallDelay")]
     public float resetDelay = -100f;
     private float _resetDelay = NextBallDelay;
     /// Between balls. The ball is dead (fielded, bowled, missed, over the rope) -> DeadBallPause ->
@@ -105,51 +105,63 @@ public partial class Main : MonoBehaviour
     /// four to six seconds of nothing before Bowl could even be pressed.
     public const float DeadBallPause = 1f, NextBallDelay = 0.75f, BoundaryDelay = 1.5f;
 
-    [Range(0.5f, 2.5f)]
+    [RuntimeSetting("GameSettings (the Settings menu)")]
     public float fielderSpeed = -100f;
     private float _fielderSpeed = 1.5f;
 
+    [RuntimeSetting("the bowler on (HUD)")]
     public eSwingType swingType;
     private eSwingType _swingType;
 
     // Not used by the bat any more (only logged by BallDiagnostics); kept for their saved values.
-    [Range(0f, 15f)]
+    [RuntimeSetting("PlayerPrefs (unused)")]
     public float ampMin = -100f;
     private float _ampMin = 10f;
 
-    [Range(0f, 25f)]
+    [RuntimeSetting("PlayerPrefs (unused)")]
     public float ampMax = -100f;
     private float _ampMax = 15f;
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MinX = Constants.paceCfg[0];
     private float _MinX = -100f;
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MaxX = Constants.paceCfg[1];
     private float _MaxX = -100f;
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MinY = Constants.paceCfg[2];
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MaxY = Constants.paceCfg[3];
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MinZ = Constants.paceCfg[4];
     private float _MinZ = -100f;
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MaxZ = Constants.paceCfg[5];
     private float _MaxZ = -100f;
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MinSwing = Constants.paceCfg[6];
     private float _MinSwing = -100f;
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MaxSwing = Constants.paceCfg[7];
     private float _MaxSwing = -100f;
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MinPitchTurn = Constants.paceCfg[8];
     private float _MinPitchTurn = -100f;
 
+    [RuntimeSetting("the bowler's config (Constants.*Cfg), each ball")]
     public float MaxPitchTurn = Constants.paceCfg[9];
     private float _MaxPitchTurn = -100f;
 
     [Tooltip("Bat power: scales the bat's swing-speed contribution. 75 = a real bat (\"Realistic\").")]
+    [RuntimeSetting("GameSettings (the Settings menu)")]
     public float BatAmplifier = Constants.BatPowerRealistic;
     private float _BatAmplifier = -100f;
 
@@ -295,11 +307,9 @@ public partial class Main : MonoBehaviour
 
     private void SetupXRControllers()
     {
-        foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
-        {
-            if (mb != null && mb.GetType().Name.StartsWith("OVR"))
-                mb.enabled = false;
-        }
+        // The Oculus components left in Controllers.prefab and UIHelpers (OVRScreenFade,
+        // OVRInputModule) are switched off in those prefabs; OpenXR drives the rig. (Until
+        // 2026-11-15 every OVR component in the scene was switched off here at Start.)
 
         // The controller trackers, hand models and keyboard movement are placed in the scene by
         // Tools > CricketVR > Build UI Prefabs; nothing is added here at runtime.
