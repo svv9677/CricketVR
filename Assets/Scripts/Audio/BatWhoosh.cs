@@ -14,7 +14,9 @@ using UnityEngine;
 /// SilentBelow nothing; at FullAt full volume. The noise's band moves up with speed (a faster
 /// stream sheds smaller, quicker eddies): low-pass and high-pass corners and the pitch all rise.
 ///
-/// The noise is made here (pink-ish, 2 s, seamless loop), so there is no recording to license.
+/// The noise is made, not recorded (pink-ish, 2 s, seamless loop, so there is no recording to
+/// license): BatAudioMarksBuilder writes it to Assets/Art/Generated/Bat/Bat Air.wav and puts it on the
+/// Whoosh Voice child of the bat prefab's sweet spot.
 /// Played through the Bat channel; doppler off (the bat is half a metre from the ear, and the rig's
 /// blinks between ends would have warbled it).
 /// </summary>
@@ -32,6 +34,9 @@ public class BatWhoosh : MonoBehaviour
     /// The speed follows quickly as a swing starts and eases off a little slower as it ends.
     private const float AttackSeconds = 0.02f, ReleaseSeconds = 0.08f;
 
+    [Tooltip("The Whoosh Voice child of the sweet spot (AudioSource with the noise loop, low-pass and high-pass filters).")]
+    [SerializeField] private AudioSource voice;
+
     private Transform spot;
     private AudioSource source;
     private AudioLowPassFilter low;
@@ -47,24 +52,16 @@ public class BatWhoosh : MonoBehaviour
     {
         var geometry = GetComponent<BatGeometry>();
         spot = geometry != null && geometry.sweetSpot != null ? geometry.sweetSpot : transform;
-        var voice = new GameObject("Whoosh Voice");
-        voice.transform.SetParent(spot, false);
-        source = voice.AddComponent<AudioSource>();
-        source.clip = Noise();
-        source.loop = true;
-        source.playOnAwake = false;
-        source.spatialBlend = 1f;
-        source.dopplerLevel = 0f;
-        source.minDistance = 0.6f;
-        source.maxDistance = 12f;
-        source.rolloffMode = AudioRolloffMode.Logarithmic;
-        source.volume = 0f;
-        source.priority = 64;
+        source = voice;
+        low = voice != null ? voice.GetComponent<AudioLowPassFilter>() : null;
+        high = voice != null ? voice.GetComponent<AudioHighPassFilter>() : null;
+        if (source == null || source.clip == null || low == null || high == null)
+        {
+            Debug.LogError("BatWhoosh has no Whoosh Voice - run CricketVR > Scene Objects > Place Bat Audio And Marks.", this);
+            enabled = false;
+            return;
+        }
         GameAudio.Route(source, GameAudio.Channel.Bat);
-        low = voice.AddComponent<AudioLowPassFilter>();
-        low.lowpassResonanceQ = 1.2f;
-        high = voice.AddComponent<AudioHighPassFilter>();
-        high.highpassResonanceQ = 1f;
         source.timeSamples = Random.Range(0, source.clip.samples);
         source.Play();
     }
@@ -104,37 +101,5 @@ public class BatWhoosh : MonoBehaviour
         // Faded in over the first 3 m/s above the floor, so it never clicks on.
         float gate = Mathf.Clamp01((s - SilentBelow) / 3f);
         return gate * Mathf.Clamp01(Mathf.Pow(s / FullAt, Exponent));
-    }
-
-    /// Two seconds of pink-ish noise with a slow flutter, its ends crossfaded so the loop has no seam.
-    private static AudioClip Noise()
-    {
-        const int rate = 44100, n = rate * 2, fade = rate / 10;
-        var data = new float[n + fade];
-        var rng = new System.Random(1108);
-        float b0 = 0f, b1 = 0f, b2 = 0f;
-        for (int i = 0; i < data.Length; i++)
-        {
-            float w = (float)(rng.NextDouble() * 2.0 - 1.0);
-            // Paul Kellet's economy pink filter.
-            b0 = 0.99765f * b0 + w * 0.0990460f;
-            b1 = 0.96300f * b1 + w * 0.2965164f;
-            b2 = 0.57000f * b2 + w * 1.0526913f;
-            float pink = (b0 + b1 + b2 + w * 0.1848f) * 0.18f;
-            float t = i / (float)rate;
-            float flutter = 1f + 0.12f * Mathf.Sin(t * 2f * Mathf.PI * 7f) + 0.08f * Mathf.Sin(t * 2f * Mathf.PI * 11.5f);
-            data[i] = pink * flutter;
-        }
-        var loop = new float[n];
-        for (int i = 0; i < n; i++)
-            loop[i] = data[i];
-        for (int i = 0; i < fade; i++)
-        {
-            float k = i / (float)fade;
-            loop[i] = data[i] * k + data[n + i] * (1f - k);
-        }
-        var clip = AudioClip.Create("Bat Air", n, 1, rate, false);
-        clip.SetData(loop, 0);
-        return clip;
     }
 }

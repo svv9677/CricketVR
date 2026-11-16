@@ -59,18 +59,11 @@ public class Ball : MonoBehaviour
         myParticles.colorGradient = delivery ? deliveryColours : hitColours;
     }
 
-    // Start is called before the first frame update
-    // The seamed ball the player sees (BallVisual), from the first frame - before the replay
-    // copies the ball's renderers.
-    private void Awake()
-    {
-        if (GetComponent<BallVisual>() == null)
-            gameObject.AddComponent<BallVisual>();
-    }
-
+    // The seamed ball the player sees (BallVisual) is on the Ball prefab, with its child mesh.
     void Start()
     {
         myRigidBody = GetComponent<Rigidbody>();
+        // A Rigidbody property the inspector does not show, so it cannot be authored.
         myRigidBody.maxAngularVelocity = 100f;
         fresh = true;
         bounced = false;

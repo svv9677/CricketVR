@@ -65,15 +65,14 @@ public class BatSounds : MonoBehaviour
             return;
         }
         GameAudio.Route(source, GameAudio.Channel.Bat);
+        // The Impact Voice's 3D settings (blend 1, 1.5 to 60 m, logarithmic) and its low-pass (Q 1)
+        // are set on the Bat prefab by CricketVR > Scene Objects > Place Bat Audio And Marks.
         tone = source.GetComponent<AudioLowPassFilter>();
         if (tone == null)
-            tone = source.gameObject.AddComponent<AudioLowPassFilter>();
-        tone.lowpassResonanceQ = 1f;
-        source.playOnAwake = false;
-        source.spatialBlend = 1f;
-        source.minDistance = 1.5f;
-        source.maxDistance = 60f;
-        source.rolloffMode = AudioRolloffMode.Logarithmic;
+        {
+            Debug.LogError("BatSounds' Impact Voice has no AudioLowPassFilter - run CricketVR > Scene Objects > Place Bat Audio And Marks.", this);
+            enabled = false;
+        }
     }
 
     /// Played from where the ball met the bat. The voice is a child of the bat, so it rides along
@@ -81,7 +80,7 @@ public class BatSounds : MonoBehaviour
     public void Play(BatContact.ContactKind kind, float impactSpeed, Vector3 contactPoint)
     {
         AudioClip clip = ClipFor(kind, out float volume);
-        if (clip == null || source == null)
+        if (clip == null || source == null || tone == null)
             return;
         if (source.transform != transform)
             source.transform.position = contactPoint;
@@ -96,7 +95,7 @@ public class BatSounds : MonoBehaviour
     /// The bat knocking the ground at `point`, coming down at `speed` m/s.
     public void PlayGround(Vector3 point, float speed)
     {
-        if (ground == null || source == null)
+        if (ground == null || source == null || tone == null)
             return;
         if (source.transform != transform)
             source.transform.position = point;
