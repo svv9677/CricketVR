@@ -84,25 +84,23 @@ public partial class MatchFlow : MonoBehaviour
     private float overAt;
     private bool subscribed, leaving;
 
+    // Per-scene static state, reset as each scene loads. The system itself is a component under the
+    // scene's Systems object (SceneSystem).
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
     {
         SceneManager.sceneLoaded -= OnLoaded;
         SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
+        OnLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
+    private static void OnLoaded(Scene scene, LoadSceneMode mode)
     {
         Over = false;
         Status = null;
         Target = 0;
         AIFirst = null;
         Test = false;
-        if (scene.name == MatchScene && FindFirstObjectByType<MatchFlow>() == null)
-            SceneManager.MoveGameObjectToScene(new GameObject("Match Flow", typeof(MatchFlow)), scene);
     }
 
     private void Start()

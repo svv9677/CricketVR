@@ -159,6 +159,9 @@ public static class MenuSceneBuilder
             var pso = new SerializedObject(pause);
             pso.FindProperty("confirmOnLeave").boolValue = confirmOnLeave;
             pso.ApplyModifiedProperties();
+            // The leave button's words and the career nets' ending, per mode (ModeMenus).
+            if (pause.GetComponent<PauseModeAdapter>() == null)
+                pause.gameObject.AddComponent<PauseModeAdapter>();
         }
 
         AttachSettingsScreen(menu, Object.FindFirstObjectByType<SettingsPanel>(

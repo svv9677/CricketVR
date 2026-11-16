@@ -16,7 +16,7 @@ using UnityEngine.SceneManagement;
 /// Left where they are: the sightscreen (one is always behind the bowler), the giant screens and
 /// their frame (the scorecard you read stays in front of you), the boundary colliders.
 ///
-/// Odd overs bowled: the far end. Match scene only (not the nets). Built per scene load.
+/// Odd overs bowled: the far end. Match scene only (not the nets): CricketVR's Systems > End Change.
 /// The stadium can turn because Stadium.prefab is not Batching Static (a static-batched mesh cannot
 /// move); keep that box unticked on its renderers.
 /// </summary>
@@ -32,22 +32,20 @@ public class EndChange : MonoBehaviour
     private readonly ViewBlack black = new ViewBlack();
     private bool blinking;
 
+    // Per-scene static state, reset as each scene loads. The system itself is a component under the
+    // scene's Systems object (SceneSystem).
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
     {
         SceneManager.sceneLoaded -= OnLoaded;
         SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
+        OnLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
+    private static void OnLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (scene.name != MatchScene || FindFirstObjectByType<EndChange>() != null)
-            return;
-        AtOtherEnd = false;
-        SceneManager.MoveGameObjectToScene(new GameObject("End Change", typeof(EndChange)), scene);
+        if (scene.name == MatchScene)
+            AtOtherEnd = false;
     }
 
     /// Which end after `oversBowled` completed overs: the first from this end, the next from the other.

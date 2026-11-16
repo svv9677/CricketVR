@@ -16,21 +16,6 @@ public class BowlerWatch : MonoBehaviour
     private float runUpSince = -1f;
     private bool reported;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name == MatchScene && FindFirstObjectByType<BowlerWatch>() == null)
-            SceneManager.MoveGameObjectToScene(new GameObject("Bowler Watch", typeof(BowlerWatch)), scene);
-    }
 
     private void Update()
     {

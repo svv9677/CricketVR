@@ -19,25 +19,6 @@ public class QuickPlayAutosave : MonoBehaviour
     private readonly Dictionary<Batsman, string> outs = new Dictionary<Batsman, string>();
     private bool subscribed, finished;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != MainMenuScreen.CricketScene || CareerMatchSession.Active ||
-            FindFirstObjectByType<QuickPlayAutosave>() != null)
-            return;
-        var go = new GameObject("Quick Play Autosave");
-        SceneManager.MoveGameObjectToScene(go, scene);
-        go.AddComponent<QuickPlayAutosave>();
-    }
 
     private IEnumerator Start()
     {

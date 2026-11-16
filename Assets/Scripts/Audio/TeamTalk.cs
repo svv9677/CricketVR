@@ -56,24 +56,6 @@ public class TeamTalk : MonoBehaviour
         public PlayerClap hands;
     }
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Boot()
-    {
-        SceneManager.sceneLoaded -= OnSceneLoaded;
-        SceneManager.sceneLoaded += OnSceneLoaded;
-        MakeFor(SceneManager.GetActiveScene());
-    }
-
-    private static void OnSceneLoaded(Scene s, LoadSceneMode m) => MakeFor(s);
-
-    private static void MakeFor(Scene s)
-    {
-        if (s.name != CareerMatchSession.MatchScene || FindFirstObjectByType<TeamTalk>() != null)
-            return;
-        var go = new GameObject("Team Talk");
-        SceneManager.MoveGameObjectToScene(go, s);
-        go.AddComponent<TeamTalk>();
-    }
 
     private void Start()
     {

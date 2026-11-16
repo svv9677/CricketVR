@@ -69,25 +69,9 @@ public partial class CareerMatch : MonoBehaviour
     private bool cardWaiting, waitRelease;
     private float cardShownAt;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
 
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != CareerMatchSession.MatchScene || !CareerMatchSession.Active || FindFirstObjectByType<CareerMatch>() != null)
-            return;
-        SceneManager.MoveGameObjectToScene(new GameObject("Career Match", typeof(CareerMatch)), scene);
-    }
-
-    /// Built after the scene's Awakes and before any Start: MatchFlow's Start asks for the target
-    /// after this, so the overrides are (re)asserted here in time.
+    /// Before any Start: MatchFlow's Start asks for the target after this, so the overrides are
+    /// (re)asserted here in time. On CricketVR's Systems; switched on only in a career match (SceneSystems).
     private void Awake()
     {
         plan = CareerMatchSession.Plan;

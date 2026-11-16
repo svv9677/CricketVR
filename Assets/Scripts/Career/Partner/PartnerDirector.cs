@@ -58,25 +58,8 @@ public class PartnerDirector : MonoBehaviour
     private int runsAtRelease;
     private string got;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
 
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != CareerMatchSession.MatchScene || !CareerMatchSession.Active || FindFirstObjectByType<PartnerDirector>() != null)
-            return;
-        // PartnerContact first: PartnerDirector.Awake runs as it is added and looks for it.
-        var go = new GameObject("Partner Director", typeof(PartnerContact), typeof(PartnerDirector));
-        SceneManager.MoveGameObjectToScene(go, scene);
-    }
-
+    /// On CricketVR's Systems (with PartnerContact); switched on only in a career match (SceneSystems).
     private void Awake()
     {
         Instance = this;

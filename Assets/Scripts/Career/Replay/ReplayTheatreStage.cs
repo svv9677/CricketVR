@@ -30,23 +30,8 @@ public class ReplayTheatreStage : MonoBehaviour
     private bool playing, teamSet, historySet;
     private string oldTeam;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
 
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != CareerMatchSession.MatchScene || !ReplayTheatre.Active || FindFirstObjectByType<ReplayTheatreStage>() != null)
-            return;
-        SceneManager.MoveGameObjectToScene(new GameObject("Replay Theatre", typeof(ReplayTheatreStage)), scene);
-    }
-
+    /// On CricketVR's Systems; switched on only while the replay theatre shows a clip (SceneSystems).
     private void Awake()
     {
         header = ReplayTheatre.Header;

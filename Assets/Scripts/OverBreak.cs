@@ -11,7 +11,7 @@ using UnityEngine.UI;
 /// no ball can be started until then (Main.StartNextBall).
 ///
 /// Built from the next-ball card's own panel, so it looks the same and its buttons work with the
-/// laser pointer the same way; built when the match scene loads, nothing in the scene changes.
+/// laser pointer the same way. On CricketVR's Systems > Over Break.
 /// </summary>
 public class OverBreak : MonoBehaviour
 {
@@ -35,21 +35,19 @@ public class OverBreak : MonoBehaviour
     private int shownForOver = -1;
     private bool subscribed;
 
+    // Per-scene static state, reset as each scene loads. The system itself is a component under the
+    // scene's Systems object (SceneSystem).
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
     {
         SceneManager.sceneLoaded -= OnLoaded;
         SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
+        OnLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
+    private static void OnLoaded(Scene scene, LoadSceneMode mode)
     {
         Showing = false;
-        if (scene.name == MatchScene && FindFirstObjectByType<OverBreak>() == null)
-            SceneManager.MoveGameObjectToScene(new GameObject("Over Break", typeof(OverBreak)), scene);
     }
 
     private void Start()

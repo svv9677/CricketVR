@@ -36,24 +36,6 @@ public class NonStrikerView : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics() => Blinking = false;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != CareerMatchSession.MatchScene || !CareerMatchSession.Active || !Watching(CareerSaves.Current) ||
-            FindFirstObjectByType<NonStrikerView>() != null)
-            return;
-        SceneManager.MoveGameObjectToScene(new GameObject("Non-Striker View", typeof(NonStrikerView)), scene);
-    }
-
     /// The player wants to watch his partner bat (the hub's "Partner's innings: Watch").
     public static bool Watching(CareerProfile p) => p != null && p.watchPartner;
 

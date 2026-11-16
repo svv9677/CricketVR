@@ -34,22 +34,6 @@ public class MatchSounds : MonoBehaviour
     private Vector3 divePos;
     private bool airborneSinceHit;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Boot()
-    {
-        SceneManager.sceneLoaded -= OnSceneLoaded;
-        SceneManager.sceneLoaded += OnSceneLoaded;
-        MakeFor(SceneManager.GetActiveScene());
-    }
-
-    private static void OnSceneLoaded(Scene s, LoadSceneMode m) => MakeFor(s);
-
-    private static void MakeFor(Scene s)
-    {
-        if (Object.FindFirstObjectByType<Main>() == null || Object.FindFirstObjectByType<MatchSounds>() != null)
-            return;
-        new GameObject("Match Sounds").AddComponent<MatchSounds>();
-    }
 
     private void Start()
     {

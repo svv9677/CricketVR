@@ -70,7 +70,7 @@ public static class ClubGroundLayout
     public static readonly Spot ScoreHut = Facing("ScoreHut", -56f, -30f, 9.6f, 6f);
     /// Beside the pavilion, on the side away from the wedge.
     public static readonly Spot Flagpole = Facing("Flagpole", -55f, 44f, 1f, 1f);
-    /// The frame dressing the scene's black sightscreen (SightScreen.cs: x = -63, 18 m wide):
+    /// The frame dressing the scene's black sightscreen (SightScreenBuilder: x = -63, 18 m wide):
     /// the one thing allowed in the wedge.
     public static readonly Spot SightscreenFrame = Facing("SightscreenFrame", -63f, 0f, 19f, 1.2f);
     /// Behind the batter, for the view from the bowler's end and the broadcast cameras.

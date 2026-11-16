@@ -22,22 +22,19 @@ public class WicketMoment : MonoBehaviour
 
     public static event System.Action Fell;
 
+    // Per-scene static state, reset as each scene loads. The system itself is a component under the
+    // scene's Systems object (SceneSystem).
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Boot()
+    private static void Init()
     {
-        SceneManager.sceneLoaded -= OnSceneLoaded;
-        SceneManager.sceneLoaded += OnSceneLoaded;
-        MakeFor();
+        SceneManager.sceneLoaded -= OnLoaded;
+        SceneManager.sceneLoaded += OnLoaded;
+        OnLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
-    private static void OnSceneLoaded(Scene s, LoadSceneMode m) => MakeFor();
-
-    private static void MakeFor()
+    private static void OnLoaded(Scene scene, LoadSceneMode mode)
     {
         Active = false;
-        if (FindFirstObjectByType<Main>() == null || FindFirstObjectByType<WicketMoment>() != null)
-            return;
-        new GameObject("Wicket Moment").AddComponent<WicketMoment>();
     }
 
     private void OnEnable() => HUD.BallScored += OnScored;
