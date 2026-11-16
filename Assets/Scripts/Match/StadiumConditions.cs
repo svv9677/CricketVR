@@ -20,8 +20,9 @@ using UnityEngine.SceneManagement;
 /// stadium, its own spectators and ambience, its glows on the pylons at night). MatchVenue says
 /// which for the rest of the match.
 ///
-/// Materials are copied before they are changed: in the editor, changing the shared ones would
-/// write into the assets.
+/// Nothing is made here: the pitch's physics and surfaces are assets (PitchSurfaces), the lights
+/// are objects in the scene (StadiumLights), and the club ground is placed in the scene switched off
+/// (ClubGroundVenue). This only picks which of them is on. (Until 2026-11-15 it made them in code.)
 /// </summary>
 public static class StadiumConditions
 {
@@ -46,9 +47,6 @@ public static class StadiumConditions
     /// The pitch in play: the match's in the match scene, the flat one anywhere else.
     public static Pitch Current { get; private set; } = For(ePitch.Flat);
 
-    /// The ball's own bounciness, which PhysX averages with the pitch's.
-    private const float BallBounciness = 0.5f;
-
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
     {
@@ -69,7 +67,7 @@ public static class StadiumConditions
             MatchVenue.Set(eVenue.Stadium);
             return;
         }
-        ApplyPitch(Current);
+        ApplyPitch();
         // The ground: the career plan's (or, replaying a record, the record's: ReplayTheatre), else the
         // Quick Match setting. The club ground falls back to the stadium, as it is, when its prefab is
         // not there (ClubGroundVenue logs it).
@@ -78,35 +76,21 @@ public static class StadiumConditions
         MatchVenue.Set(VenueRules.Resolve(CareerMatchSession.Active || ReplayTheatre.Active, planVenue, MatchSetup.Venue));
         ClubGround club = MatchVenue.IsClub ? ClubGroundVenue.Dress(scene, MatchSetup.Crowd) : null;
         if (club == null) { MatchVenue.Set(eVenue.Stadium); ApplyCrowd(MatchSetup.Crowd); }
-        StadiumLighting.SetGlowBanks(club != null ? club.GlowPoints() : null, VenueRules.GlowSize(MatchVenue.Current));
-        StadiumLighting.RealtimeAfternoon = club != null;
-        StadiumLighting.Apply(MatchSetup.TimeOfDay);
+        StadiumLighting.Apply(MatchSetup.TimeOfDay, club != null);
         if (club != null) club.SetNight(MatchSetup.TimeOfDay == eTimeOfDay.Night);
     }
 
-    private static void ApplyPitch(Pitch p)
+    /// The pitch's ready-made physics and surface for the match's kind of pitch (PitchSurfaces,
+    /// placed under the scene's Systems by Build Pitch Surfaces).
+    private static void ApplyPitch()
     {
-        GameObject pitch = GameObject.Find("Main/Pitch/Pitch Base");
-        if (pitch == null)
+        PitchSurfaces surfaces = Object.FindFirstObjectByType<PitchSurfaces>();
+        if (surfaces == null)
+        {
+            Debug.LogWarning("[StadiumConditions] No PitchSurfaces in the scene (run CricketVR > Scene Objects > Build Pitch Surfaces): the pitch is left as saved.");
             return;
-        if (pitch.TryGetComponent(out Collider c) && c.sharedMaterial != null)
-        {
-            var m = new PhysicsMaterial(c.sharedMaterial.name + " (match)")
-            {
-                bounciness = Mathf.Clamp01(2f * p.restitution - BallBounciness),
-                dynamicFriction = c.sharedMaterial.dynamicFriction,
-                staticFriction = c.sharedMaterial.staticFriction,
-                bounceCombine = c.sharedMaterial.bounceCombine,
-                frictionCombine = c.sharedMaterial.frictionCombine,
-            };
-            c.sharedMaterial = m;
         }
-        if (p.tint != Color.white && pitch.TryGetComponent(out Renderer r))
-        {
-            Material mat = r.material;   // an instance
-            if (mat.HasProperty("_BaseColor"))
-                mat.SetColor("_BaseColor", mat.GetColor("_BaseColor") * p.tint);
-        }
+        surfaces.Apply(MatchSetup.Pitch);
     }
 
     private static void ApplyCrowd(eCrowd crowd)
