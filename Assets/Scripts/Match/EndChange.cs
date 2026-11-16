@@ -17,7 +17,8 @@ using UnityEngine.SceneManagement;
 /// their frame (the scorecard you read stays in front of you), the boundary colliders.
 ///
 /// Odd overs bowled: the far end. Match scene only (not the nets). Built per scene load.
-/// Editor/EndChangeUnbatch keeps the stadium out of static batching so it can turn in a build.
+/// The stadium can turn because Stadium.prefab is not Batching Static (a static-batched mesh cannot
+/// move); keep that box unticked on its renderers.
 /// </summary>
 public class EndChange : MonoBehaviour
 {

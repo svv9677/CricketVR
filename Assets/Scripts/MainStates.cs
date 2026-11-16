@@ -196,7 +196,7 @@ public partial class Main
 
         // Reset stumps - both ends
         foreach (Stumps stumps in FindObjectsByType<Stumps>(FindObjectsSortMode.None))
-            stumps.Reset();
+            stumps.ResetStumps();
 
         StopTheBall();
 

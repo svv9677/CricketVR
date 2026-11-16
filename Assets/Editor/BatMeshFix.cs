@@ -8,25 +8,48 @@ using UnityEngine;
 /// Models/Bat.fbx: submesh 3 (Bat_004, the blue guard) 100 of 193 faces facing in, every other
 /// submesh facing out; the mesh has no open edges at the toe, only faces turned the wrong way.
 ///
-/// On import, every face in the bottom ToeSpan of the blade that faces toward a point inside the
-/// toe is turned round (its winding), and so is any corner normal there pointing in. Faces already facing out are
+/// The fixed mesh is a saved asset, <see cref="FixedMesh"/>, and that is what Bat.prefab and
+/// ShotReplay.prefab show: the editor shows what plays. Run the menu command again only if Bat.fbx
+/// changes. (Until 2026-11-15 this was an import hook that changed the FBX's mesh as it was imported.)
+///
+/// Every face in the bottom ToeSpan of the blade that faces toward a point inside the toe is turned
+/// round (its winding), and so is any corner normal there pointing in. Faces already facing out are
 /// untouched, so the rest of the bat, and a re-exported model that is already right, come through
 /// as they were. The model's length is local Z with the toe at the lowest Z (BatGeometry).
 /// </summary>
-public class BatMeshFix : AssetPostprocessor
+public static class BatMeshFix
 {
     private const string BatModel = "Assets/Resources/Models/Bat.fbx";
+    public const string FixedMesh = "Assets/Resources/Models/BatFixed.asset";
     /// How far up from the toe the faces are checked (local units), and the point inside the toe
     /// they should face away from: this far up the blade, on its middle line.
     private const float ToeSpan = 0.08f, InsideUp = 0.12f;
 
-    private void OnPostprocessModel(GameObject model)
+    [MenuItem("CricketVR/Models/Bake Fixed Bat Mesh")]
+    public static void Bake()
     {
-        if (assetPath != BatModel)
+        Mesh source = AssetDatabase.LoadAssetAtPath<Mesh>(BatModel);
+        if (source == null)
+        {
+            Debug.LogError($"[BatMeshFix] no mesh in {BatModel}");
             return;
-        foreach (MeshFilter mf in model.GetComponentsInChildren<MeshFilter>(true))
-            if (mf.sharedMesh != null)
-                Debug.Log($"[BatMeshFix] {mf.sharedMesh.name}: {Fix(mf.sharedMesh)} toe faces turned outward");
+        }
+        Mesh fixedMesh = Object.Instantiate(source);
+        fixedMesh.name = source.name;
+        int turned = Fix(fixedMesh);
+        Mesh existing = AssetDatabase.LoadAssetAtPath<Mesh>(FixedMesh);
+        if (existing != null)
+        {
+            EditorUtility.CopySerialized(fixedMesh, existing);    // same asset, so references stay
+            Object.DestroyImmediate(fixedMesh);
+            EditorUtility.SetDirty(existing);
+        }
+        else
+        {
+            AssetDatabase.CreateAsset(fixedMesh, FixedMesh);
+        }
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[BatMeshFix] {FixedMesh}: {turned} toe faces turned outward");
     }
 
     /// Turns the toe's inward faces outward; returns how many.

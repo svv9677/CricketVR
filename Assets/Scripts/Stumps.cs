@@ -50,7 +50,9 @@ public class Stumps : MonoBehaviour
         }
     }
 
-    public void Reset()
+    /// Puts the stumps and bails back for the next ball. (Named so: Unity calls a MonoBehaviour's
+    /// own Reset() in the editor whenever the component is added or reset.)
+    public void ResetStumps()
     {
         ResetOne(LegStump, 0);
         ResetOne(MiddleStump, 1);
