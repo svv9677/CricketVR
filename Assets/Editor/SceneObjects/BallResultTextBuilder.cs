@@ -31,7 +31,7 @@ public static class BallResultTextBuilder
         go.transform.SetPositionAndRotation(new Vector3(x, BallResultText.Height, 0f), Quaternion.identity);
         go.transform.localScale = Vector3.one;      // the game hides it at scale 0 until a ball is scored
 
-        TextMeshPro text = go.GetComponent<TextMeshPro>() ?? go.AddComponent<TextMeshPro>();
+        TextMeshPro text = SceneObjectAssets.Ensure<TextMeshPro>(go.gameObject);
         text.fontSize = 14f;
         text.enableAutoSizing = true;       // a long result shrinks to its 12 m line, never past it
         text.fontSizeMax = 14f;

@@ -42,7 +42,7 @@ public static class BatAudioMarksBuilder
 
     private static void PlaceWhoosh(GameObject root)
     {
-        BatWhoosh whoosh = root.GetComponent<BatWhoosh>() ?? root.AddComponent<BatWhoosh>();
+        BatWhoosh whoosh = SceneObjectAssets.Ensure<BatWhoosh>(root.gameObject);
         Transform spot = root.GetComponent<BatGeometry>().sweetSpot;
         Transform child = spot.Find("Whoosh Voice");
         if (child == null)
@@ -51,7 +51,7 @@ public static class BatAudioMarksBuilder
             child.SetParent(spot, false);
         }
         AudioClip noise = VisualAssetFiles.SaveWav(Noise(), 44100, NoisePath);
-        AudioSource source = child.GetComponent<AudioSource>() ?? child.gameObject.AddComponent<AudioSource>();
+        AudioSource source = SceneObjectAssets.Ensure<AudioSource>(child.gameObject);
         source.clip = noise;
         source.loop = true;
         source.playOnAwake = false;
@@ -62,9 +62,9 @@ public static class BatAudioMarksBuilder
         source.rolloffMode = AudioRolloffMode.Logarithmic;
         source.volume = 0f;
         source.priority = 64;
-        var low = child.GetComponent<AudioLowPassFilter>() ?? child.gameObject.AddComponent<AudioLowPassFilter>();
+        var low = SceneObjectAssets.Ensure<AudioLowPassFilter>(child.gameObject);
         low.lowpassResonanceQ = 1.2f;
-        var high = child.GetComponent<AudioHighPassFilter>() ?? child.gameObject.AddComponent<AudioHighPassFilter>();
+        var high = SceneObjectAssets.Ensure<AudioHighPassFilter>(child.gameObject);
         high.highpassResonanceQ = 1f;
         var so = new SerializedObject(whoosh);
         so.FindProperty("voice").objectReferenceValue = source;
@@ -73,7 +73,7 @@ public static class BatAudioMarksBuilder
 
     private static void PlaceMarks(GameObject root)
     {
-        BatMarks marks = root.GetComponent<BatMarks>() ?? root.AddComponent<BatMarks>();
+        BatMarks marks = SceneObjectAssets.Ensure<BatMarks>(root.gameObject);
         Transform child = root.transform.Find("Ball Marks");
         if (child == null)
         {
@@ -81,9 +81,9 @@ public static class BatAudioMarksBuilder
             child.SetParent(root.transform, false);
         }
         child.gameObject.layer = root.layer;
-        var filter = child.GetComponent<MeshFilter>() ?? child.gameObject.AddComponent<MeshFilter>();
+        var filter = SceneObjectAssets.Ensure<MeshFilter>(child.gameObject);
         filter.sharedMesh = null;       // made as prints are added (BatMarks)
-        var r = child.GetComponent<MeshRenderer>() ?? child.gameObject.AddComponent<MeshRenderer>();
+        var r = SceneObjectAssets.Ensure<MeshRenderer>(child.gameObject);
         r.sharedMaterial = MarksMaterial();
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         r.receiveShadows = false;
@@ -115,7 +115,7 @@ public static class BatAudioMarksBuilder
         source.minDistance = 1.5f;
         source.maxDistance = 60f;
         source.rolloffMode = AudioRolloffMode.Logarithmic;
-        var tone = source.GetComponent<AudioLowPassFilter>() ?? source.gameObject.AddComponent<AudioLowPassFilter>();
+        var tone = SceneObjectAssets.Ensure<AudioLowPassFilter>(source.gameObject);
         tone.lowpassResonanceQ = 1f;
     }
 

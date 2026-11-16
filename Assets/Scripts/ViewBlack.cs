@@ -18,7 +18,9 @@ public class ViewBlack
 
     private GameObject blackQuad;
     private Renderer blackRenderer;
-    private readonly MaterialPropertyBlock block = new MaterialPropertyBlock();
+    // Made on first use: a MaterialPropertyBlock cannot be made in a component's field initialiser,
+    // and EndChange and NonStrikerView create their ViewBlack there.
+    private MaterialPropertyBlock block;
 
     public void Dispose()
     {
@@ -49,6 +51,7 @@ public class ViewBlack
     {
         if (!visible || blackRenderer == null)
             return;
+        block ??= new MaterialPropertyBlock();
         blackRenderer.GetPropertyBlock(block);
         block.SetColor(ColorId, new Color(0f, 0f, 0f, alpha));
         blackRenderer.SetPropertyBlock(block);

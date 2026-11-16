@@ -87,6 +87,17 @@ public static class SceneObjectAssets
         return null;
     }
 
+    /// The component `T` on `go`, added if missing. (Not `GetComponent() ?? AddComponent()`: in the
+    /// editor a missing built-in component comes back as a "fake null" object that `??` keeps.)
+    public static T Ensure<T>(GameObject go) where T : Component
+    {
+        T c = go.GetComponent<T>();
+        return c != null ? c : go.AddComponent<T>();
+    }
+
+    /// `a` unless it is null or destroyed (Unity's own null test, which `??` skips), else `b`.
+    public static T Or<T>(T a, T b) where T : Object => a != null ? a : b;
+
     public static void Save(Scene scene)
     {
         EditorSceneManager.MarkSceneDirty(scene);

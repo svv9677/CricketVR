@@ -25,7 +25,7 @@ public static class BallVisualBuilder
         {
             MeshRenderer own = root.GetComponent<MeshRenderer>();
             MeshFilter ownFilter = root.GetComponent<MeshFilter>();
-            Material source = AssetDatabase.LoadAssetAtPath<Material>(SourceMaterial) ?? own.sharedMaterial;
+            Material source = SceneObjectAssets.Or(AssetDatabase.LoadAssetAtPath<Material>(SourceMaterial), own.sharedMaterial);
             Transform child = root.transform.Find("Seamed Ball");
             if (child == null)
             {
@@ -38,15 +38,15 @@ public static class BallVisualBuilder
             child.localPosition = Vector3.zero;
             child.localRotation = Quaternion.identity;
             child.localScale = Vector3.one * radius;
-            (child.GetComponent<MeshFilter>() ?? child.gameObject.AddComponent<MeshFilter>()).sharedMesh =
+            (SceneObjectAssets.Ensure<MeshFilter>(child.gameObject)).sharedMesh =
                 SceneObjectAssets.Save(BallVisualAssets.SeamedMesh(), Folder + "/Seamed Ball.asset");
-            var r = child.GetComponent<MeshRenderer>() ?? child.gameObject.AddComponent<MeshRenderer>();
+            var r = SceneObjectAssets.Ensure<MeshRenderer>(child.gameObject);
             r.sharedMaterial = SeamedMaterial(source);
             r.shadowCastingMode = own.shadowCastingMode;
             r.receiveShadows = own.receiveShadows;
             r.lightProbeUsage = own.lightProbeUsage;
             own.enabled = false;
-            BallVisual visual = root.GetComponent<BallVisual>() ?? root.AddComponent<BallVisual>();
+            BallVisual visual = SceneObjectAssets.Ensure<BallVisual>(root.gameObject);
             var so = new SerializedObject(visual);
             so.FindProperty("visual").objectReferenceValue = child;
             so.ApplyModifiedPropertiesWithoutUndo();

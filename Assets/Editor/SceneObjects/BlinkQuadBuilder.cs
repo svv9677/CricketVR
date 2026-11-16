@@ -38,9 +38,9 @@ public static class BlinkQuadBuilder
             quad.localPosition = new Vector3(0f, 0f, z);
             quad.localRotation = Quaternion.identity;
             quad.localScale = Vector3.one * (z * 6f);
-            (quad.GetComponent<MeshFilter>() ?? quad.gameObject.AddComponent<MeshFilter>()).sharedMesh =
+            (SceneObjectAssets.Ensure<MeshFilter>(quad.gameObject)).sharedMesh =
                 SceneObjectAssets.Save(QuadMesh(), Folder + "/Blink.asset");
-            var r = quad.GetComponent<MeshRenderer>() ?? quad.gameObject.AddComponent<MeshRenderer>();
+            var r = SceneObjectAssets.Ensure<MeshRenderer>(quad.gameObject);
             r.sharedMaterial = BlinkMaterial();
             r.shadowCastingMode = ShadowCastingMode.Off;
             r.receiveShadows = false;
@@ -72,7 +72,7 @@ public static class BlinkQuadBuilder
     /// Both shaders are in the build's always-included shaders; UI/Default's depth test can be switched off.
     private static Material BlinkMaterial()
     {
-        Shader shader = Shader.Find("UI/Default") ?? Shader.Find("Sprites/Default");
+        Shader shader = SceneObjectAssets.Or(Shader.Find("UI/Default"), Shader.Find("Sprites/Default"));
         var mat = new Material(shader) { name = "Blink", renderQueue = 5000, color = new Color(0f, 0f, 0f, 0f) };
         mat.SetFloat("unity_GUIZTestMode", (float)CompareFunction.Always);
         return SceneObjectAssets.SaveMaterial(mat, Folder + "/Blink.mat");

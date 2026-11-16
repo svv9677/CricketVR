@@ -39,7 +39,7 @@ public static class UmpireBuilder
             animator.runtimeAnimatorController = controller;   // Action 0: the idle, and nothing else
             animator.applyRootMotion = false;
             animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;   // the replay records him
-            Umpire component = umpire.GetComponent<Umpire>() ?? umpire.AddComponent<Umpire>();
+            Umpire component = SceneObjectAssets.Ensure<Umpire>(umpire.gameObject);
             if (umpire.GetComponent<UmpireSignals>() == null)
                 umpire.AddComponent<UmpireSignals>();
             Dress(umpire, component);
