@@ -39,15 +39,13 @@ public class MatchSounds : MonoBehaviour
     {
         main = Main.Instance != null ? Main.Instance : FindFirstObjectByType<Main>();
         ball = main != null ? main.theBallRigidBody : null;
-        // Footsteps for every player on the field (not the player: he has no feet in VR).
-        foreach (Animator a in FindObjectsByType<Animator>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        // The players' footsteps (Footsteps) are on the fielders, keeper and bowler in Main.prefab.
+        // Only the umpire is built at runtime (Umpire), so he gets his here, quieter.
+        foreach (UmpireSignals u in FindObjectsByType<UmpireSignals>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (!a.isHuman || a.GetComponent<Footsteps>() != null) continue;
-            bool player = a.GetComponent<AnimatedFielder>() != null || a.GetComponent<AnimatedBowler>() != null ||
-                          a.GetComponent<UmpireSignals>() != null || a.GetComponentInParent<KeeperCatcher>() != null ||
-                          (main != null && main.theKeeper != null && a.transform.IsChildOf(main.theKeeper.transform));
-            if (!player) continue;
-            a.gameObject.AddComponent<Footsteps>().Init(a.GetComponent<UmpireSignals>() != null ? 0.4f : 1f);
+            Animator a = u.GetComponent<Animator>();
+            if (a == null || !a.isHuman || a.GetComponent<Footsteps>() != null) continue;
+            a.gameObject.AddComponent<Footsteps>().Init(0.4f);
         }
         Ball.Collided += OnBallCollided;
         BowlerGrip.Released += OnReleased;

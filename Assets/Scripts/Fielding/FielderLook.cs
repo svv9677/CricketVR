@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Everyone on the field in the fielders' model. The keeper (a MakeHuman body) and the bowler (a
@@ -12,74 +11,66 @@ using UnityEngine.SceneManagement;
 /// in his hands - fit the copy, and its feet stand on the ground. A helmet moves onto the copy's
 /// head: left on the original's, it sat 7 cm above the copy's (the two necks differ).
 ///
-/// Built when the match scene loads, before any Start, so the replay (ReplayActors) records the
-/// copy as a player and the original only for what it still shows.
+/// The copy is placed beside each of them in Main.prefab with their own meshes switched off, so
+/// the editor shows the fielders' look; this component only poses it. Set up in Awake, before any
+/// Start, so the replay (ReplayActors) records the copy as a player and the original only for what
+/// it still shows.
 /// </summary>
 [DefaultExecutionOrder(900)]   // after their IK and ragdoll (LateUpdate), before the recorder (1000)
 public class FielderLook : MonoBehaviour
 {
     private const string MatchScene = "CricketVR";
 
-    private Animator source;
+    [SerializeField, Tooltip("The fielders' model drawn in place of this body: a sibling at the same parent's origin, saved in Main.prefab.")]
     private Transform look;
+    [SerializeField, Tooltip("This body's own meshes, switched off in Main.prefab (back on outside the match scene).")]
+    private SkinnedMeshRenderer[] bodySkins;
+
+    private Animator source;
     private HumanPoseHandler from, to;
     private HumanPose pose;
     private LimbMatch[] limbs;
     private Transform sourceHips, copyHips;
     private Vector3 hipOffset;      // the copy's hips from the original's at rest, in the original's frame
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
+    /// Before any Start runs, so the replay (ReplayActors) records the copy as a player.
+    private void Awake()
     {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != MatchScene)
-            return;
-        foreach (string path in new[] { "Main/Bowler", "Main/Fielders/Fielder_Keeper/Body" })
+        Animator animator = GetComponent<Animator>();
+        if (look == null || animator == null || !animator.isHuman)
         {
-            GameObject who = GameObject.Find(path);
-            if (who != null && who.GetComponent<FielderLook>() == null && who.TryGetComponent(out Animator animator) && animator.isHuman)
-                who.AddComponent<FielderLook>().Dress(animator);
+            enabled = false;
+            return;
         }
+        // Main.prefab is also the nets' gameplay set, where he is drawn as he always was.
+        if (gameObject.scene.name != MatchScene)
+        {
+            look.gameObject.SetActive(false);
+            foreach (SkinnedMeshRenderer skin in bodySkins)
+                if (skin != null)
+                    skin.enabled = true;
+            enabled = false;
+            return;
+        }
+        Dress(animator);
     }
 
+    /// The copy and the hidden body are placed in Main.prefab (CricketVR > Scene Objects > Bake Player
+    /// Setup); what is left cannot be saved: the pose handlers, the limb solvers and the kit moved
+    /// onto the copy's bones (a prefab instance cannot hold a child of another one's bone).
+    /// Until 2026-11-15 the copy was built here as well.
     private void Dress(Animator animator)
     {
-        GameObject model = Resources.Load<GameObject>("Models/David");
-        if (model == null)
-            return;
         source = animator;
         // A human pose's body position is in the space of the root's parent (measured: the
         // bowler's came back as his world position, and set on a copy at his feet it put the
         // copy's hips 19 m away). So the copy is a sibling, at its parent's origin, and the pose
         // lands where the original stands.
-        GameObject copy = Instantiate(model, transform.parent, false);
-        copy.name = name + " (fielder look)";
-        if (transform.parent == null)
-            SceneManager.MoveGameObjectToScene(copy, gameObject.scene);
-        look = copy.transform;
-        look.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-        Animator lookAnimator = copy.GetComponent<Animator>();
-        lookAnimator.runtimeAnimatorController = null;      // posed from the original, not animated
-        lookAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-        // Body positions are in units of each avatar's human scale: match them, as tall as the original.
-        look.localScale = Vector3.one * (animator.humanScale * transform.localScale.x / Mathf.Max(0.1f, lookAnimator.humanScale));
+        Animator lookAnimator = look.GetComponent<Animator>();
         from = new HumanPoseHandler(animator.avatar, animator.transform);
         to = new HumanPoseHandler(lookAnimator.avatar, look);
         // Still in their bind poses, both standing: how much higher the copy's ankles are.
         Vector3 lift = Vector3.up * Mathf.Max(0f, AnkleHeight(lookAnimator, look) - AnkleHeight(animator, transform));
-        foreach (SkinnedMeshRenderer skin in GetComponentsInChildren<SkinnedMeshRenderer>())
-            skin.enabled = false;   // the body
-        // With its body hidden the original counts as unseen, and the bowler's Animator (culled
-        // when unseen) stopped posing him: he stood in his bind pose, and the copy with him.
-        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
         from.GetHumanPose(ref pose);
         to.SetHumanPose(ref pose);         // both in the same pose now: measure the hands' and feet' turns
         limbs = new[]
@@ -163,7 +154,5 @@ public class FielderLook : MonoBehaviour
     {
         from?.Dispose();
         to?.Dispose();
-        if (look != null)
-            Destroy(look.gameObject);
     }
 }

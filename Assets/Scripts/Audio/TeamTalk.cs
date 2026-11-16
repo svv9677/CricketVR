@@ -92,9 +92,8 @@ public class TeamTalk : MonoBehaviour
         };
         if (claps && a != null && a.isHuman)
         {
+            // On the fielders in Main.prefab.
             s.hands = a.GetComponent<PlayerClap>();
-            if (s.hands == null)
-                s.hands = a.gameObject.AddComponent<PlayerClap>();
         }
         return s;
     }

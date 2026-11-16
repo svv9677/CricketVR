@@ -106,11 +106,12 @@ public partial class HumanoidReach : MonoBehaviour
         animator = GetComponent<Animator>();
         if (animator == null || !animator.isHuman || animator.avatar == null)
             return;
-        // Pose once per rendered frame. On the physics clock (Fixed, 100 Hz) a rendered frame can
-        // get no animator step at all - measured: 94 of 150 frames in the editor - and then the
-        // hand keeps last frame's wrist turn and LateUpdate's AlignHand stacks another on it, which
-        // the next step snaps back: gloves flicking 20-60 degrees with no animation behind it.
-        animator.updateMode = AnimatorUpdateMode.Normal;
+        // The Animator's update mode is Normal (set on the fielder, keeper and bowler in their
+        // prefabs): the pose is made once per rendered frame. On the physics clock (Fixed, 100 Hz)
+        // a rendered frame can get no animator step at all - measured: 94 of 150 frames in the
+        // editor - and then the hand keeps last frame's wrist turn and LateUpdate's AlignHand
+        // stacks another on it, which the next step snaps back: gloves flicking 20-60 degrees with
+        // no animation behind it. (Until 2026-11-15 this set it here.)
         CacheBones();
         if (hips == null || leftHand == null || rightHand == null || leftUpperArm == null || rightUpperArm == null)
             return;
@@ -122,6 +123,8 @@ public partial class HumanoidReach : MonoBehaviour
         handPos = leftHand.position;
         ready = true;
         // Nothing of the arms through the body, whatever the clip and the IK did (BodySelfCollision).
+        // Placed beside this on the fielders, keeper and bowler; added here only for a player built
+        // at runtime (BattingSide's team-mates).
         if (!TryGetComponent(out BodySelfCollision _))
             gameObject.AddComponent<BodySelfCollision>();
     }

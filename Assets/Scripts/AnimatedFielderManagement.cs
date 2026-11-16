@@ -79,22 +79,17 @@ public class AnimatedFielderManagement : MonoBehaviour
         if (keeper != null)
             team.Add(keeper);
         Main.Instance.onGameStateChanged += HandleGameState;
-        // Once the ball is dead it goes back to the bowler via the keeper (ThrowBack).
-        if (GetComponent<ThrowBack>() == null)
-            gameObject.AddComponent<ThrowBack>();
+        // ThrowBack (once the ball is dead it goes back to the bowler via the keeper), CatchJudge
+        // (takes near the rope count only once the fielder is settled inside it) and FieldCaptain
+        // (the field is set for the batter between balls) are components on the Fielders in
+        // Main.prefab. (Until 2026-11-15 this added them when it started.)
         if (Main.Instance.theBoundaryCollider != null)
         {
             var capsule = Main.Instance.theBoundaryCollider.GetComponent<CapsuleCollider>();
             if (capsule != null)
                 boundaryRadius = capsule.radius * Main.Instance.theBoundaryCollider.transform.lossyScale.x;
         }
-        // Takes near the rope count only once the fielder is settled inside it (CatchJudge).
         CatchJudge.Boundary = boundaryRadius;
-        if (GetComponent<CatchJudge>() == null)
-            gameObject.AddComponent<CatchJudge>();
-        // The field is set for the batter between balls (FieldCaptain).
-        if (GetComponent<FieldCaptain>() == null)
-            gameObject.AddComponent<FieldCaptain>();
     }
 
     private void OnDestroy()

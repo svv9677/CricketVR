@@ -150,9 +150,8 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
         if (myAnimator != null)
         {
             myAnimator.applyRootMotion = false;
+            // On the fielder in Main.prefab (and on the bowler, BowlerFielding adds it to him).
             reach = myAnimator.GetComponent<HumanoidReach>();
-            if (reach == null)
-                reach = myAnimator.gameObject.AddComponent<HumanoidReach>();
         }
         ReturnToStart();
         if (fielderHand != null && fielderHand.transform.childCount > 5)

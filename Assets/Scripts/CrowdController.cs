@@ -54,12 +54,10 @@ public class CrowdController : MonoBehaviour
 
     private void Awake()
     {
-        _audio = GetComponent<AudioSource>();   // on the Crowd object in the scene
-        _audio.playOnAwake = false;
-        _audio.spatialBlend = 0f;     // crowd surrounds the player; keep it 2D
-        _audio.clip = cheerClip;
-        _audio.loop = true;
-        _audio.volume = ambienceVolume;
+        // The AudioSource on the Crowd object is set up in the scene (CricketVR > Scene Objects >
+        // Bake Player Setup): no play on awake, 2D (the crowd surrounds the player), the cheer clip
+        // looping at the ambience volume. (Until 2026-11-15 this set them here.)
+        _audio = GetComponent<AudioSource>();
         GameAudio.Route(_audio, GameAudio.Channel.Crowd);
         if (cheerClip != null)
             _audio.Play();

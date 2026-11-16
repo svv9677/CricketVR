@@ -120,6 +120,8 @@ public static class RagdollBuilderTool
         Body(rArm, 0.04f); Joint(rArm, chest, up, forward, -70f, 10f, 50f);
         Body(lFore, 0.035f); Joint(lFore, lArm, forward, up, -90f, 0f, 0f);
         Body(rFore, 0.035f); Joint(rFore, rArm, forward, up, -90f, 0f, 0f);
+        // The hand and foot capsules, which FielderRagdoll used to add as each player woke.
+        RagdollEndColliders.Bake(a);
     }
 
     /// Remove a ragdoll built before, from these bones down.

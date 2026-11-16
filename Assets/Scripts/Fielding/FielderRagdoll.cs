@@ -61,16 +61,15 @@ public partial class FielderRagdoll : MonoBehaviour
         hips = anim.GetBoneTransform(HumanBodyBones.Hips);
         head = anim.GetBoneTransform(HumanBodyBones.Head);
         bodies = hips.GetComponentsInChildren<Rigidbody>(true);
+        // The hand and foot colliders, the Body layer on every collider, continuous-speculative
+        // collision on every body (a falling limb at a few m/s covers more than its own thickness
+        // in a physics step: swept, it cannot step through the ground's one-sided mesh) and the
+        // kinematic root body are saved on the fielder, keeper and bowler prefabs (CricketVR >
+        // Scene Objects > Bake Player Setup). Until 2026-11-15 this added and set them here.
         if (bodies.Length > 0)
-            AddHandAndFootColliders();   // before the colliders are gathered
+            MeasureSoles();   // Awake sees the bind pose
         colliders = hips.GetComponentsInChildren<Collider>(true);
-        if (bodies.Length > 0)
-            UseRagdollLayer();
         hipsBody = hips.GetComponent<Rigidbody>();
-        // A falling limb at a few m/s covers more than its own thickness in a physics step: swept,
-        // it cannot step through the ground's (one-sided) mesh.
-        foreach (Rigidbody b in bodies)
-            b.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
         CacheGroundGuard();
         CacheReachBodies();
         // Only the skeleton the Animator drives. Everything else under the hips - the keeper's
@@ -96,14 +95,6 @@ public partial class FielderRagdoll : MonoBehaviour
             restLocal[i] = bones[i].localPosition;
         // Which way his front is, in the hips bone's own frame (for face up or down).
         hipsForwardLocal = Quaternion.Inverse(hips.rotation) * transform.forward;
-        // The fielder's own root body: moved by code, never by physics. Left dynamic (as the scene
-        // had it, with no gravity) the falling limbs nudged it and he floated off upward for good.
-        Rigidbody own = GetComponent<Rigidbody>();
-        if (own != null)
-        {
-            own.linearVelocity = Vector3.zero;
-            own.isKinematic = true;
-        }
         // His own limbs overlap at rest (arms against the chest, thighs against the hips): left to
         // collide with each other they burst apart when he fell (the hips jumped a metre).
         for (int i = 0; i < colliders.Length; i++)
@@ -112,7 +103,7 @@ public partial class FielderRagdoll : MonoBehaviour
         Animate(true);
     }
 
-    /// Added by AnimatedFielder.Start, after this Awake: found when first needed.
+    /// Beside this on the fielder (HumanoidReach is placed in Main.prefab): found when first needed.
     private HumanoidReach Reach
     {
         get

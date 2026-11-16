@@ -11,9 +11,10 @@ using UnityEngine;
 /// full-body reach and take. On the next delivery he is handed back to his bowling
 /// (AnimatedBowler), which puts him on his mark as before.
 ///
-/// His HumanoidReach is added at the start, while he stands at his mark, and left switched
-/// off until needed: it measures the body when it is added, and mid follow-through - bent over
-/// the crease - it would measure him as a shorter man.
+/// His HumanoidReach (with BodySelfCollision) is on him in Main.prefab, woken while he stands at
+/// his mark and left switched off until needed: it measures the body when it wakes, and mid
+/// follow-through - bent over the crease - it would measure him as a shorter man. (Until
+/// 2026-11-15 it was added here, when he started.)
 /// </summary>
 public class BowlerFielding : MonoBehaviour
 {
@@ -37,9 +38,16 @@ public class BowlerFielding : MonoBehaviour
             Main.Instance == null)
         {
             enabled = false;
+            // Nothing to field in the nets: the reach and arm guard placed on him stay off, as
+            // when they were only added for a field.
+            foreach (HumanoidReach r in GetComponents<HumanoidReach>())
+                r.enabled = false;
+            foreach (BodySelfCollision b in GetComponents<BodySelfCollision>())
+                b.enabled = false;
             return;
         }
         bowlingController = animator.runtimeAnimatorController;
+        // Placed on him in Main.prefab; added only if a bowler without one is dropped into a scene.
         reach = GetComponent<HumanoidReach>();
         if (reach == null)
             reach = gameObject.AddComponent<HumanoidReach>();
