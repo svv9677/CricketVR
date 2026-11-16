@@ -19,12 +19,13 @@ using UnityEngine.UI;
 ///
 /// A Test (MatchFormat) is its own flow: two innings a side, cards between them (MatchFlowTest).
 ///
-/// Built when the match scene loads, like OverBreak; its card is a copy of the next-ball card's
-/// panel so it looks and works the same (laser or A).
+/// A component on CricketVR's Systems, like OverBreak; its card is the ResultCard prefab
+/// (CardPrefabBuilder), in the next-ball card's look, working the same (laser or A).
 /// </summary>
 public partial class MatchFlow : MonoBehaviour
 {
     private const string MatchScene = "CricketVR", HomeScene = "Splash";
+    private const string CardResource = "Prefabs/UI/ResultCard";
     private const float Ahead = 1.5f, Below = 0.1f, Bigger = 1.25f;
 
     public static bool Over { get; private set; }
@@ -343,61 +344,23 @@ public partial class MatchFlow : MonoBehaviour
         card.transform.localScale = baseScale * Bigger;
     }
 
-    /// A copy of the next-ball card's panel with the result and one button, Home.
+    /// The result card prefab (CardPrefabBuilder), made the first time it is needed: a heading, the
+    /// result lines and one button, Home.
     private bool BuildCard()
     {
         if (card != null)
             return true;
-        NextBallMenu menu = FindFirstObjectByType<NextBallMenu>(FindObjectsInactive.Include);
-        if (menu == null || menu.Panel == null)
+        CardView view = CardView.Create(CardResource, transform);
+        if (view == null)
             return false;
-        card = Instantiate(menu.Panel, transform);
-        card.name = "Match Result Card";
+        card = view.gameObject;
         baseScale = card.transform.localScale;
-        card.SetActive(false);
-        Transform replay = card.transform.Find("Replay");
-        if (replay != null)
-            Destroy(replay.gameObject);
-        Transform play = card.transform.Find("Play");
-        if (play == null)
-            return false;
-        // The play card: a name line, a line under it, Bowl, and a row of small buttons (NextBallMenu,
-        // UIPrefabBuilder.PlayCard). The name line is the heading, the line under it the body, Bowl
-        // the Home button; the row goes.
-        var doomed = new System.Collections.Generic.List<GameObject>();
-        foreach (Transform child in play)
-        {
-            TMP_Text text = child.GetComponent<TMP_Text>();
-            if (child.name.StartsWith("Bowl"))
-                WireHomeButton(child);
-            else if (text != null && heading == null)
-                heading = text;
-            else if (text != null && body == null)
-                body = text;
-            else
-                doomed.Add(child.gameObject);
-        }
-        foreach (GameObject g in doomed)
-            Destroy(g);
-        // Sized to its words (CardText): the result's lines wrap inside the card, never past it.
-        if (heading != null)
-            CardText.MakeEyebrow(heading);
-        if (body != null)
-            CardText.MakeBody(body, 32f);
+        heading = view.Heading;
+        body = view.Body;
+        cardButtonLabel = view.ButtonLabel;
+        view.Clicked += OnCardButton;
         OpenXRMenuInputModule.RegisterPanel(card);
-        return body != null && heading != null;
-    }
-
-    private void WireHomeButton(Transform bowl)
-    {
-        Button button = bowl.GetComponent<Button>();
-        if (button != null)
-        {
-            button.onClick = new Button.ButtonClickedEvent();
-            button.onClick.AddListener(OnCardButton);
-        }
-        cardButtonLabel = bowl.GetComponentInChildren<TMP_Text>(true);
-        SetCardButton("Home  <size=75%>(A)</size>");
+        return true;
     }
 
     private TMP_Text cardButtonLabel;

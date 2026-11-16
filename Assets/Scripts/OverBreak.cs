@@ -10,12 +10,13 @@ using UnityEngine.UI;
 /// Only after Next - the laser, or A - does the usual next-ball card (NextBallMenu) come up, and
 /// no ball can be started until then (Main.StartNextBall).
 ///
-/// Built from the next-ball card's own panel, so it looks the same and its buttons work with the
-/// laser pointer the same way. On CricketVR's Systems > Over Break.
+/// The card is the NextOverCard prefab (CardPrefabBuilder), in the next-ball card's look, its button
+/// working with the laser pointer the same way. On CricketVR's Systems > Over Break.
 /// </summary>
 public class OverBreak : MonoBehaviour
 {
     private const string MatchScene = "CricketVR";
+    private const string CardResource = "Prefabs/UI/NextOverCard";
     /// Metres ahead of the player's fixed eye point, toward the bowler's end, and below eye level.
     private const float Ahead = 1.5f, Below = 0.1f;
 
@@ -27,7 +28,7 @@ public class OverBreak : MonoBehaviour
 
     private GameObject card;
     private TMP_Text heading, body;
-    // The next-ball card's layout was not one BuildCard knows: no next-over card this scene.
+    // The card prefab is missing: no next-over card this scene.
     private bool unbuildable;
     private Vector3 baseScale;
     /// An announcement, bigger than the next-ball card it is copied from.
@@ -149,89 +150,27 @@ public class OverBreak : MonoBehaviour
         card.transform.localScale = baseScale * Bigger;
     }
 
-    /// A copy of the next-ball card's panel with only the announcement and one button left.
+    /// The next-over card prefab (CardPrefabBuilder), made on the first over break: an announcement
+    /// line and one button, Next.
     private bool BuildCard()
     {
         if (card != null)
             return true;
         if (unbuildable)
             return false;
-        NextBallMenu menu = FindFirstObjectByType<NextBallMenu>(FindObjectsInactive.Include);
-        if (menu == null || menu.Panel == null)
-            return false;
-        card = Instantiate(menu.Panel, transform);
-        card.name = "Next Over Card";
-        baseScale = card.transform.localScale;
-        card.SetActive(false);
-        Transform replay = card.transform.Find("Replay");
-        if (replay != null)
-            Destroy(replay.gameObject);
-        Transform play = card.transform.Find("Play");
-        // The bowler's line: the copy of the card's own (it sits on its own line in the Play card,
-        // with Change bowler, Settings and Bat grip in a row below it).
-        Transform label = menu.BowlerLabel != null ? Twin(menu.BowlerLabel.transform, menu.Panel.transform, card.transform) : null;
-        if (play == null || label == null)
+        CardView view = CardView.Create(CardResource, transform);
+        if (view == null)
         {
-            // Not a card we know how to dress: never show it half-built (or try again each over).
-            Destroy(card);
-            card = null;
             unbuildable = true;
             return false;
         }
-        for (int i = play.childCount - 1; i >= 0; i--)
-        {
-            Transform child = play.GetChild(i);
-            if (child == label)
-                continue;
-            if (child.name.StartsWith("Bowl"))
-                WireNextButton(child);
-            else if (child.GetComponent<TMP_Text>() != null)
-                heading = child.GetComponent<TMP_Text>();
-            else
-                Destroy(child.gameObject);      // Change bowler / Settings / Bat grip
-        }
-        body = label.GetComponent<TMP_Text>();
-        // Its own lines, sized to its words (CardText): a long name wraps inside the card.
-        CardText.MakeBody(body);
-        if (heading != null)
-        {
-            CardText.MakeEyebrow(heading);
-            CardText.Set(heading, "Next over");
-        }
+        card = view.gameObject;
+        baseScale = card.transform.localScale;
+        heading = view.Heading;
+        body = view.Body;
+        view.Clicked += Close;
+        CardText.Set(heading, "Next over");
         OpenXRMenuInputModule.RegisterPanel(card);
         return true;
-    }
-
-    /// The transform in `copy` at the same child-index path that `t` has under `original`.
-    private static Transform Twin(Transform t, Transform original, Transform copy)
-    {
-        var path = new System.Collections.Generic.List<int>();
-        for (Transform x = t; x != original; x = x.parent)
-        {
-            if (x == null)
-                return null;
-            path.Add(x.GetSiblingIndex());
-        }
-        Transform at = copy;
-        for (int i = path.Count - 1; i >= 0; i--)
-        {
-            if (path[i] >= at.childCount)
-                return null;
-            at = at.GetChild(path[i]);
-        }
-        return at;
-    }
-
-    private void WireNextButton(Transform bowl)
-    {
-        Button button = bowl.GetComponent<Button>();
-        if (button != null)
-        {
-            button.onClick = new Button.ButtonClickedEvent();   // not the next-ball card's calls
-            button.onClick.AddListener(Close);
-        }
-        TMP_Text label = bowl.GetComponentInChildren<TMP_Text>(true);
-        if (label != null)
-            label.text = "Next  <size=75%>(A)</size>";
     }
 }

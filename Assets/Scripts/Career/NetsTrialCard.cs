@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System;
 using System.Text;
 using TMPro;
@@ -12,38 +11,33 @@ using UnityEngine.UI;
 ///   * when the trial is over, the result card: the seven ratings ("Timing  62  Strong", "--" for
 ///     one not measured yet), the coach's verdict and "Press A to continue".
 ///
-/// The card is a copy of the next-ball card's panel (as MatchFlow's result card is), so it looks and
-/// works like every other card - the laser clicks it, A continues. A scene without that panel gets
-/// the same words as plain floating text instead of no result at all.
-///
-/// Everything is built at runtime under the NetsTrial object, so it goes with the scene. All text is
-/// Latin-1 (the TMP default font has nothing else); text from elsewhere goes through Latin1 first.
+/// The card is the NetsTrialCard prefab and the progress line the NetsTrialProgress prefab
+/// (Resources/Prefabs/UI, saved by Scene Objects > Build Nets Trial Prefabs), in the next-ball card's
+/// look like MatchFlow's result card, so it works like every other card - the laser clicks it, A
+/// continues. Each is instantiated under the NetsTrial object the first time it is shown, so it
+/// goes with the scene. All text is Latin-1 (the TMP default font has nothing else); text from
+/// elsewhere goes through Latin1 first.
 /// </summary>
 public class NetsTrialCard
 {
     /// The progress line: metres ahead (toward the bowler), to the side, and above the eyes.
     // Near enough to read at a glance and on the leg side of the dock, out of the ball's line (it
     // stood 7 m down the pitch, small, and against the side net once the nets were 6 m wide).
-    private const float ProgressAhead = 3f, ProgressSide = -1.8f, ProgressUp = 0.25f, ProgressSize = 1.4f;
+    private const float ProgressAhead = 3f, ProgressSide = -1.8f, ProgressUp = 0.25f;
     /// The result card, as MatchFlow places its own.
     private const float CardAhead = 1.5f, CardBelow = 0.1f, CardBigger = 1.4f;
-    /// The plain-text fallback for the card.
-    private const float FallbackAhead = 2.2f, FallbackSize = 0.9f;
     /// How far (m, level) a MenuLayout eye may be from the camera and still be used.
     private const float MaxLayoutDrift = 1.5f;
-    /// Sorting order above the nets' scoreboard canvas (10), which otherwise draws over anything
-    /// nearer the eye.
-    private const int OverTheScoreboard = 20;
-    /// The result card's text column (card px).
-    private const float BodyWidth = 640f;
+    private const string CardResource = "Prefabs/UI/NetsTrialCard";
+    private const string ProgressResource = "Prefabs/UI/NetsTrialProgress";
 
     private readonly Transform parent;
-    private TextMeshPro progress, fallback;
+    private TextMeshPro progress;
     /// A dark panel behind the progress and the last ball's reading, so the lines read against the
-    /// stands and the net (2026-11-06: grey on a busy stadium was hard to make out).
+    /// stands and the net (2026-11-06: grey on a busy stadium was hard to make out). Part of the
+    /// progress prefab; sized to the text here.
     private SpriteRenderer progressBack;
     private const float BackPadding = 0.12f;
-    private static readonly Color BackColour = new Color(0.06f, 0.07f, 0.09f, 0.82f);
     private GameObject card;
     private TMP_Text heading, body;
     private Vector3 baseScale;
@@ -144,24 +138,35 @@ public class NetsTrialCard
     public void ShowProgress(string text)
     {
         if (progress == null)
-            progress = MakeText("Nets Trial Progress", ProgressSize, new Vector2(4.5f, 1.6f));
+            progress = MakeProgress();
+        if (progress == null)
+            return;
         progress.text = text;
         FitBack();
         SetProgressVisible(progressPlaced && !progressHidden);
+    }
+
+    /// The progress prefab under the nets' object, hidden until placed.
+    private TextMeshPro MakeProgress()
+    {
+        GameObject prefab = Resources.Load<GameObject>(ProgressResource);
+        if (prefab == null)
+        {
+            Debug.LogError($"[NetsTrialCard] No prefab at Resources/{ProgressResource}: run CricketVR > Scene Objects > Build Nets Trial Prefabs.");
+            return null;
+        }
+        GameObject go = UnityEngine.Object.Instantiate(prefab, parent);
+        go.name = prefab.name;
+        go.SetActive(false);
+        progressBack = go.GetComponentInChildren<SpriteRenderer>(true);
+        return go.GetComponent<TextMeshPro>();
     }
 
     /// The backing panel sized to the text as it renders, just behind it.
     private void FitBack()
     {
         if (progressBack == null)
-        {
-            var go = new GameObject("Back", typeof(SpriteRenderer));
-            go.transform.SetParent(progress.transform, false);
-            progressBack = go.GetComponent<SpriteRenderer>();
-            progressBack.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 4f, 4f), new Vector2(0.5f, 0.5f), 4f);
-            progressBack.color = BackColour;
-            progressBack.sortingOrder = OverTheScoreboard - 1;
-        }
+            return;
         progress.ForceMeshUpdate();
         Bounds b = progress.textBounds;
         progressBack.transform.localPosition = new Vector3(b.center.x, b.center.y, 0.02f);
@@ -200,131 +205,44 @@ public class NetsTrialCard
     public void ShowResult(string headingText, string bodyText, Action continueAction)
     {
         onContinue = continueAction;
-        if (BuildCard())
-        {
-            CardText.Set(heading, headingText);
-            CardText.Set(body, bodyText);
-            if (Eye(true, out Vector3 eye, out Vector3 forward))
-            {
-                card.transform.SetPositionAndRotation(eye + forward * CardAhead + Vector3.down * CardBelow,
-                                                      Quaternion.LookRotation(forward, Vector3.up));
-                card.transform.localScale = baseScale * CardBigger;
-            }
-            card.SetActive(true);
-            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)card.transform);
+        if (!BuildCard())
             return;
-        }
-        if (fallback == null)
-            fallback = MakeText("Nets Trial Result", FallbackSize, new Vector2(3.2f, 3f));
-        fallback.text = $"<b><color=#22C55E>{headingText}</color></b>\n{bodyText}";
-        if (Eye(true, out Vector3 e, out Vector3 f))
+        CardText.Set(heading, headingText);
+        CardText.Set(body, bodyText);
+        if (Eye(true, out Vector3 eye, out Vector3 forward))
         {
-            Vector3 at = e + f * FallbackAhead;
-            fallback.transform.SetPositionAndRotation(at, Facing(at, e));
+            card.transform.SetPositionAndRotation(eye + forward * CardAhead + Vector3.down * CardBelow,
+                                                  Quaternion.LookRotation(forward, Vector3.up));
+            card.transform.localScale = baseScale * CardBigger;
         }
-        fallback.gameObject.SetActive(true);
+        card.SetActive(true);
+        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)card.transform);
     }
 
     public void HideResult()
     {
         if (card != null)
             card.SetActive(false);
-        if (fallback != null)
-            fallback.gameObject.SetActive(false);
     }
 
-    /// A copy of the next-ball card's panel with the result and one button, Continue (the same
-    /// surgery as MatchFlow.BuildCard: keep the heading, one label row for the body, the Bowl button).
+    /// The card prefab: the heading, the result lines and one button, Continue.
     private bool BuildCard()
     {
         if (card != null)
-            return body != null && heading != null;
-        NextBallMenu menu = UnityEngine.Object.FindFirstObjectByType<NextBallMenu>(FindObjectsInactive.Include);
-        if (menu == null || menu.Panel == null)
+            return true;
+        CardView view = CardView.Create(CardResource, parent);
+        if (view == null)
             return false;
-        card = UnityEngine.Object.Instantiate(menu.Panel, parent);
-        card.name = "Nets Trial Result Card";
+        card = view.gameObject;
         baseScale = card.transform.localScale;
-        card.SetActive(false);
-        Transform replay = card.transform.Find("Replay");
-        if (replay != null)
-            UnityEngine.Object.Destroy(replay.gameObject);
-        Transform play = card.transform.Find("Play");
-        if (play == null)
-            return false;
-        // The play card: a name line, a line under it, Bowl, and a row of small buttons. The name
-        // line becomes the heading, the line under it the body, Bowl the Continue button; the row goes.
-        var doomed = new List<GameObject>();
-        foreach (Transform child in play)
-        {
-            TMP_Text text = child.GetComponent<TMP_Text>();
-            if (child.name.StartsWith("Bowl"))
-                WireContinueButton(child);
-            else if (text != null && heading == null)
-            {
-                heading = text;
-                CardText.MakeEyebrow(heading, CardText.Win);
-            }
-            else if (text != null && body == null)
-            {
-                body = text;
-                CardText.MakeBody(body, CardText.BodySize, 600f);
-            }
-            else
-                doomed.Add(child.gameObject);
-        }
-        foreach (GameObject g in doomed)
-            UnityEngine.Object.Destroy(g);
-        // Over the nets' scoreboard, which is drawn at sorting order 10 whatever its depth.
-        Canvas canvas = card.GetComponent<Canvas>();
-        if (canvas != null)
-            canvas.sortingOrder = OverTheScoreboard;
-        // Wide enough for "Temperament  62  Developing" on one line; the verdict wraps inside it.
-        LayoutElement column = play.GetComponent<LayoutElement>();
-        if (column != null)
-            column.preferredWidth = BodyWidth;
+        heading = view.Heading;
+        body = view.Body;
+        view.Clicked += () => onContinue?.Invoke();
         OpenXRMenuInputModule.RegisterPanel(card);
-        return body != null && heading != null;
-    }
-
-    private void WireContinueButton(Transform bowl)
-    {
-        Button button = bowl.GetComponent<Button>();
-        if (button != null)
-        {
-            button.onClick = new Button.ButtonClickedEvent();
-            button.onClick.AddListener(() => onContinue?.Invoke());
-        }
-        TMP_Text label = bowl.GetComponentInChildren<TMP_Text>(true);
-        if (label != null)
-            label.text = "Continue  <size=75%>(A)</size>";
+        return true;
     }
 
     // ---- Helpers --------------------------------------------------------------------------------
-
-    /// Floating world-space text with a soft shadow (BallResultText's look), hidden until shown.
-    private TextMeshPro MakeText(string name, float size, Vector2 rect)
-    {
-        var go = new GameObject(name);
-        TextMeshPro t = go.AddComponent<TextMeshPro>();
-        go.transform.SetParent(parent, false);
-        t.fontSize = size;
-        t.alignment = TextAlignmentOptions.Center;
-        t.textWrappingMode = TextWrappingModes.NoWrap;
-        t.rectTransform.sizeDelta = rect;
-        t.color = Color.white;
-        t.outlineWidth = 0f;
-        t.fontSharedMaterial = new Material(t.fontSharedMaterial);
-        t.fontSharedMaterial.EnableKeyword("UNDERLAY_ON");
-        t.fontSharedMaterial.SetColor("_UnderlayColor", new Color(0f, 0f, 0f, 0.6f));
-        t.fontSharedMaterial.SetFloat("_UnderlayOffsetX", 0.6f);
-        t.fontSharedMaterial.SetFloat("_UnderlayOffsetY", -0.6f);
-        t.fontSharedMaterial.SetFloat("_UnderlaySoftness", 0.5f);
-        t.text = "";
-        t.GetComponent<MeshRenderer>().sortingOrder = OverTheScoreboard;
-        go.SetActive(false);
-        return t;
-    }
 
     /// The player's eye and the level way they face: the scene's MenuLayout if it has one; else the
     /// camera, facing down the pitch toward the bowler (XRRigSetup turns the player to -X) or, for

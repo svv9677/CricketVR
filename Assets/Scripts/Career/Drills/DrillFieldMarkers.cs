@@ -9,17 +9,17 @@ using UnityEngine;
 /// name above it, turned to face the batter. The fielder who would have had the last shot (stopped
 /// it, or caught it) is marked in red until the next ball's call.
 ///
-/// Built at runtime under NetsTrial, so it goes with the scene; no imported assets. One disc mesh and
-/// two unlit materials (URP Unlit, as PitchLines makes its own), dropped onto whatever is tagged
-/// Ground under each place. It fails soft: no shader, no ground, or anything else that goes wrong
-/// leaves fewer markers or none, never a broken drill - the progress line still says how the shot
-/// went.
+/// Each marker is the DrillMarker prefab (the disc mesh, the two unlit materials and the label's
+/// text setup, saved by Scene Objects > Build Nets Trial Prefabs), instantiated under a "Drill
+/// Field" object per Show and dropped onto whatever is tagged Ground under each place. It fails
+/// soft: no prefab, no ground, or anything else that goes wrong leaves fewer markers or none,
+/// never a broken drill - the progress line still says how the shot went.
 /// </summary>
 public sealed class DrillFieldMarkers
 {
     /// The disc (m) and how far it sits above the grass.
-    private const float DiscRadius = 0.9f, Lift = 0.03f;
-    private const int Segments = 24;
+    private const float Lift = 0.03f;
+    private const string MarkerResource = "Prefabs/Drills/DrillMarker";
     /// A label's size grows with its distance from the batter so a deep fielder's name still reads
     /// (TMP world size; NetsTrialCard's progress line is 3 at 7 m), within these.
     private const float LabelPerMetre = 0.3f, MinLabel = 3f, MaxLabel = 14f;
@@ -28,22 +28,20 @@ public sealed class DrillFieldMarkers
     /// The batter's eyes, for which way the labels face.
     private const float EyeHeight = 1.6f;
 
-    private static readonly Color Normal = new Color(0.98f, 0.86f, 0.35f);
-    private static readonly Color Marked = new Color(0.94f, 0.3f, 0.28f);
+    /// The disc's colours (the prefab's two materials are these) and the marked fielder's label.
+    public static readonly Color Normal = new Color(0.98f, 0.86f, 0.35f);
+    public static readonly Color Marked = new Color(0.94f, 0.3f, 0.28f);
 
     private struct Marker
     {
         public string name;
-        public MeshRenderer disc;
-        public TextMeshPro label;
+        public DrillMarker marker;
     }
 
     private readonly Transform parent;
     private readonly List<Marker> markers = new List<Marker>();
     private GameObject root;
-    private Mesh discMesh;
-    private Material normal, marked;
-    private bool triedMaterials;
+    private GameObject markerPrefab;
 
     public DrillFieldMarkers(Transform parent) => this.parent = parent;
 
@@ -89,15 +87,15 @@ public sealed class DrillFieldMarkers
     {
         foreach (Marker m in markers)
         {
+            if (m.marker == null)
+                continue;
             bool on = fielder != null && m.name == fielder;
-            if (m.disc != null && normal != null)
-                m.disc.sharedMaterial = on ? marked : normal;
-            if (m.label != null)
-                m.label.color = on ? Marked : Color.white;
+            m.marker.SetMarked(on);
+            m.marker.Label.color = on ? Marked : Color.white;
         }
     }
 
-    /// The markers go; the mesh and materials are kept for the next Show.
+    /// The markers go.
     public void Hide()
     {
         markers.Clear();
@@ -105,93 +103,30 @@ public sealed class DrillFieldMarkers
         root = null;
     }
 
-    /// Everything goes, the mesh and materials too.
-    public void Dispose()
-    {
-        Hide();
-        Kill(discMesh);
-        Kill(normal);
-        Kill(marked);
-        discMesh = null;
-        normal = marked = null;
-        triedMaterials = false;
-    }
+    /// Everything goes.
+    public void Dispose() => Hide();
 
     private Marker Make(string name, Vector3 place, Vector3 eye)
     {
         var m = new Marker { name = name };
-        if (Materials())
-        {
-            var go = new GameObject($"Fielder {name}", typeof(MeshFilter), typeof(MeshRenderer));
-            go.transform.SetParent(root.transform, false);
-            go.transform.position = place;
-            go.GetComponent<MeshFilter>().sharedMesh = discMesh ??= Disc();
-            m.disc = go.GetComponent<MeshRenderer>();
-            m.disc.sharedMaterial = normal;
-            m.disc.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            m.disc.receiveShadows = false;
-        }
+        markerPrefab ??= Resources.Load<GameObject>(MarkerResource);
+        if (markerPrefab == null)
+            throw new InvalidOperationException($"no prefab at Resources/{MarkerResource}");
+        GameObject go = UnityEngine.Object.Instantiate(markerPrefab, root.transform);
+        go.name = $"Fielder {name}";
+        go.transform.position = place;
+        m.marker = go.GetComponent<DrillMarker>();
+        TextMeshPro label = m.marker.Label;
+        label.gameObject.name = $"Fielder {name} Label";
         float size = LabelSize(Vector3.ProjectOnPlane(place - eye, Vector3.up).magnitude);
-        var text = new GameObject($"Fielder {name} Label");
-        text.transform.SetParent(root.transform, false);
-        m.label = text.AddComponent<TextMeshPro>();
-        m.label.text = NetsTrialCard.Latin1(name);
-        m.label.fontSize = size;
-        m.label.alignment = TextAlignmentOptions.Center;
-        m.label.textWrappingMode = TextWrappingModes.NoWrap;
-        m.label.overflowMode = TextOverflowModes.Overflow;
-        m.label.rectTransform.sizeDelta = new Vector2(size * 4f, size * 0.5f);
-        m.label.color = Color.white;
+        label.text = NetsTrialCard.Latin1(name);
+        label.fontSize = size;
+        label.rectTransform.sizeDelta = new Vector2(size * 4f, size * 0.5f);
         Vector3 up = place + Vector3.up * (LabelUp + size * LabelUpPerSize);
         Vector3 away = up - eye;
         away.y = 0f;
-        text.transform.SetPositionAndRotation(up, away.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(away, Vector3.up) : Quaternion.identity);
+        label.transform.SetPositionAndRotation(up, away.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(away, Vector3.up) : Quaternion.identity);
         return m;
-    }
-
-    /// The two unlit materials, made once; false when the shader is not there (labels only then).
-    private bool Materials()
-    {
-        if (normal != null)
-            return true;
-        if (triedMaterials)
-            return false;
-        triedMaterials = true;
-        Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
-        if (unlit == null)
-            return false;
-        normal = new Material(unlit) { name = "Drill Fielder" };
-        normal.SetColor("_BaseColor", Normal);
-        normal.SetFloat("_Cull", 0f);
-        marked = new Material(unlit) { name = "Drill Fielder Marked" };
-        marked.SetColor("_BaseColor", Marked);
-        marked.SetFloat("_Cull", 0f);
-        return true;
-    }
-
-    /// A flat disc about the origin, facing up.
-    private static Mesh Disc()
-    {
-        var v = new Vector3[Segments + 1];
-        var n = new Vector3[Segments + 1];
-        var tris = new int[Segments * 3];
-        n[0] = Vector3.up;
-        for (int i = 0; i < Segments; i++)
-        {
-            float a = i * Mathf.PI * 2f / Segments;
-            v[i + 1] = new Vector3(Mathf.Cos(a) * DiscRadius, 0f, Mathf.Sin(a) * DiscRadius);
-            n[i + 1] = Vector3.up;
-            // Clockwise seen from above (Unity's front face).
-            tris[i * 3] = 0;
-            tris[i * 3 + 1] = (i + 1) % Segments + 1;
-            tris[i * 3 + 2] = i + 1;
-        }
-        var mesh = new Mesh { name = "Drill Fielder Disc" };
-        mesh.vertices = v;
-        mesh.normals = n;
-        mesh.triangles = tris;
-        mesh.RecalculateBounds();
-        return mesh;
     }
 
     /// `p` dropped onto the highest visible Ground under it (as PitchLines lays its lines), or the
