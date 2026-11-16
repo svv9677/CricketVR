@@ -65,13 +65,16 @@ public static class SceneObjectAssets
         AssetDatabase.CreateFolder(parent, System.IO.Path.GetFileName(folder));
     }
 
-    /// Opens `scenePath` on its own (the open scene is saved first if the user agrees).
+    /// Opens `scenePath` on its own. Refuses (throws) if the open scene has unsaved changes, so a
+    /// builder never throws away someone's work or stops on a save dialog: save first, then run it.
     public static Scene Open(string scenePath)
     {
         Scene active = SceneManager.GetActiveScene();
         if (active.path == scenePath)
             return active;
-        EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+        if (active.isDirty)
+            throw new System.InvalidOperationException(
+                $"{active.name} has unsaved changes: save it, then run the command again.");
         return EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
     }
 
