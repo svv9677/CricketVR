@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// The sky's cloudscape: a set of photographic cloud plates hung on a dome around the ground and
@@ -15,24 +13,26 @@ using UnityEngine.SceneManagement;
 /// of the sun it faces, faded into the horizon haze by how low it sits, and drifted at its own
 /// speed. See <see cref="CloudShading"/> and <see cref="CloudField"/>, where that maths lives.
 ///
-/// The component bootstraps itself via <see cref="Bootstrap"/> so it works without any manual
-/// wiring in the scene.
+/// The component is the object "ProceduralClouds" placed in CricketVR and Nets, with its material
+/// and quad mesh saved as assets (CricketVR > Scene Objects > Place Procedural Clouds), so the
+/// fields below are the ones that play. Until 2026-11-15 it bootstrapped itself at scene load with
+/// code defaults. The clouds themselves are still spawned under it on enable: their layout is
+/// random per run by design, so there is nothing fixed to place.
 /// </summary>
 public class ProceduralClouds : MonoBehaviour
 {
-    // Scenes that should get a cloudscape: the actual play scenes, not menus or tests.
-    private static readonly HashSet<string> CloudScenes = new HashSet<string>
-    {
-        "CricketVR",
-        "Nets",
-    };
-
     /// Cloud plates live here. Straight-alpha PNGs, one cloud each, cropped to the cloud.
     public const string PlateResourcePath = "Sky/Clouds";
 
     // Defaults come from CloudFieldSettings.Default so the sky the tests prove and the sky the
-    // game builds cannot drift apart. This component is only ever created by Bootstrap via
-    // AddComponent, never serialised into a scene, so these initialisers are what actually run.
+    // game builds cannot drift apart. They only seed a new component: the placed object's
+    // serialised values are what run.
+    [Header("Assets (set by the builder)")]
+    [Tooltip("Unlit billboard material, shader CricketVR/CloudBillboard, GPU instancing on.")]
+    [SerializeField] private Material cloudMaterial;
+    [Tooltip("A 1x1 quad on the XY plane, facing +Z, which each cloud then aims.")]
+    [SerializeField] private Mesh cloudQuad;
+
     [Header("Cloud field")]
     [Tooltip("Number of clouds generated per run (inclusive range).")]
     [SerializeField] private Vector2Int cloudCountRange = CloudFieldSettings.Default.CountRange;
@@ -80,8 +80,6 @@ public class ProceduralClouds : MonoBehaviour
     private const float ModePollSeconds = 0.25f;
 
     private Texture2D[] _plates;
-    private Material _cloudMaterial;
-    private Mesh _quad;
     private CloudPlacement[] _placements;
     private Transform[] _transforms;
     private MeshRenderer[] _renderers;
@@ -91,38 +89,6 @@ public class ProceduralClouds : MonoBehaviour
     private Light _sun;
     private bool _isNight;
     private float _nextModePoll;
-
-    /// <summary>
-    /// Auto-spawns the cloud generator once a play scene has loaded, so no scene authoring is
-    /// required.
-    /// </summary>
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Bootstrap()
-    {
-        SceneManager.sceneLoaded += OnSceneLoaded;
-        Scene active = SceneManager.GetActiveScene();
-        if (active.IsValid())
-            TrySpawnForScene(active);
-    }
-
-    private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-    {
-        TrySpawnForScene(scene);
-    }
-
-    private static void TrySpawnForScene(Scene scene)
-    {
-        if (!CloudScenes.Contains(scene.name))
-            return;
-
-        // Avoid duplicates if the scene is (re)loaded additively / multiple times.
-        if (FindFirstObjectByType<ProceduralClouds>() != null)
-            return;
-
-        var go = new GameObject("ProceduralClouds");
-        SceneManager.MoveGameObjectToScene(go, scene);
-        go.AddComponent<ProceduralClouds>();
-    }
 
     /// <summary>
     /// Builds the whole cloudscape. On enable rather than in Start, so that switching the
@@ -144,15 +110,13 @@ public class ProceduralClouds : MonoBehaviour
             return;
         }
 
-        Shader shader = Shader.Find("CricketVR/CloudBillboard");
-        if (shader == null)
+        if (cloudMaterial == null || cloudQuad == null)
         {
-            Debug.LogWarning("[ProceduralClouds] Shader CricketVR/CloudBillboard is missing. The sky will be empty.");
+            Debug.LogWarning("[ProceduralClouds] The cloud material or quad is not assigned. The sky will be empty. " +
+                             "Run CricketVR > Scene Objects > Place Procedural Clouds.");
             return;
         }
 
-        _cloudMaterial = new Material(shader) { name = "CloudBillboardMat", enableInstancing = true };
-        _quad = BuildQuad();
         _props = new MaterialPropertyBlock();
 
         var settings = new CloudFieldSettings
@@ -185,7 +149,7 @@ public class ProceduralClouds : MonoBehaviour
     }
 
     /// <summary>
-    /// Throws away every cloud and everything built for them. Safe to call when nothing has been
+    /// Throws away every cloud spawned (the material and quad are assets and stay). Safe to call when nothing has been
     /// built yet, so OnEnable can lead with it.
     /// </summary>
     private void Teardown()
@@ -198,9 +162,6 @@ public class ProceduralClouds : MonoBehaviour
         _transforms = null;
         _renderers = null;
         _placements = null;
-
-        if (_cloudMaterial != null) { DestroyObject(_cloudMaterial); _cloudMaterial = null; }
-        if (_quad != null) { DestroyObject(_quad); _quad = null; }
 
         _plates = null;
         _sun = null;
@@ -316,10 +277,10 @@ public class ProceduralClouds : MonoBehaviour
             go.transform.SetParent(transform, false);
 
             var filter = go.AddComponent<MeshFilter>();
-            filter.sharedMesh = _quad;
+            filter.sharedMesh = cloudQuad;
 
             var renderer = go.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = _cloudMaterial;
+            renderer.sharedMaterial = cloudMaterial;
             // Clouds neither receive nor cast: they are painted light, and a shadow cast from a
             // flat quad onto the outfield would be a giveaway.
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -340,28 +301,6 @@ public class ProceduralClouds : MonoBehaviour
             _transforms[i] = go.transform;
             _renderers[i] = renderer;
         }
-    }
-
-    /// <summary>A 1x1 quad on the XY plane, facing +Z, which the billboard then aims.</summary>
-    private static Mesh BuildQuad()
-    {
-        var mesh = new Mesh { name = "CloudQuad" };
-        mesh.vertices = new[]
-        {
-            new Vector3(-0.5f, -0.5f, 0f),
-            new Vector3( 0.5f, -0.5f, 0f),
-            new Vector3( 0.5f,  0.5f, 0f),
-            new Vector3(-0.5f,  0.5f, 0f),
-        };
-        mesh.uv = new[]
-        {
-            new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f),
-        };
-        mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
-        mesh.RecalculateNormals();
-        // The quad is aimed every frame, so Unity's own bounds would be recomputed for nothing.
-        mesh.bounds = new Bounds(Vector3.zero, Vector3.one);
-        return mesh;
     }
 
     private Camera ResolveCamera()
