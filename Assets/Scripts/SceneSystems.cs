@@ -22,6 +22,8 @@ public class SceneSystems : MonoBehaviour
         CareerNets,
         /// The replay theatre is showing a clip.
         ReplayTheatre,
+        /// Quick play's Test match (TestLook.Applies).
+        TestMatch,
     }
 
     [System.Serializable]
@@ -51,6 +53,7 @@ public class SceneSystems : MonoBehaviour
             case eWhen.NotCareerMatch: return !CareerMatchSession.Active;
             case eWhen.CareerNets: return NetsSession.Career;
             case eWhen.ReplayTheatre: return ReplayTheatre.Active;
+            case eWhen.TestMatch: return TestLook.Applies;
             default: return false;
         }
     }

@@ -52,29 +52,8 @@ public class TestLook : MonoBehaviour
     private Dictionary<Material, Material> trailSwaps;
     private float until;
 
-    /// The Test Look under the match scene's Systems is saved switched off (a component, not the
-    /// object) and is switched on here when the match is a Test: not for limited overs, so Start
-    /// never runs then, exactly as when it was not created.
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != MatchScene || !Applies)
-            return;
-        TestLook look = FindFirstObjectByType<TestLook>(FindObjectsInactive.Include);
-        if (look != null)
-            look.enabled = true;
-        else
-            Debug.LogWarning("[TestLook] The match scene has no Test Look (run CricketVR > Scene Objects > Build Test Look): the Test is not dressed.");
-    }
+    // The Test Look is "Systems > Test Look" in the match scene, saved switched off and switched on
+    // by SceneSystems (eWhen.TestMatch) when the match is a Test: for limited overs it never runs.
 
     /// A day-night Test (night lights): the pink ball.
     public static bool PinkBall => MatchSetup.TimeOfDay == eTimeOfDay.Night;

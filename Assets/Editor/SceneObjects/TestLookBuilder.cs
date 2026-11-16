@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Makes the materials and textures a Test match is dressed in, and places the Test Look under the
-/// match scene's Systems (object "Test Look", component TestLook, switched off until a Test).
+/// match scene's Systems (object "Test Look", saved switched off; SceneSystems switches it on for a Test).
 /// Until 2026-11-15 the game made all of them in code at the start of every Test (TestLook).
 ///
 /// Saved under Assets/Art/Generated/TestLook, and listed in Assets/Resources/TestLook/TestLookAssets
@@ -43,7 +43,15 @@ public static class TestLookBuilder
         EditorUtility.SetDirty(saved);
 
         GameObject go = StadiumBuilderUtil.SystemsChild(scene, "Test Look");
-        StadiumBuilderUtil.Ensure<TestLook>(go).enabled = false;
+        StadiumBuilderUtil.Ensure<TestLook>(go).enabled = true;
+        // Saved switched off; SceneSystems switches it on for a Test.
+        go.SetActive(false);
+        SceneSystems systems = go.transform.parent.GetComponent<SceneSystems>();
+        var list = new System.Collections.Generic.List<SceneSystems.Conditional>(systems.onlyWhen);
+        if (!list.Exists(c => c.system == go))
+            list.Add(new SceneSystems.Conditional { system = go, when = SceneSystems.eWhen.TestMatch });
+        systems.onlyWhen = list.ToArray();
+        EditorUtility.SetDirty(systems);
         SceneObjectAssets.Save(scene);
         Debug.Log($"[TestLookBuilder] Test Look placed in {StadiumBuilderUtil.MatchScene}; {saved.backdrop.Length} backdrop materials, {saved.redTrail.Length} trails.");
     }

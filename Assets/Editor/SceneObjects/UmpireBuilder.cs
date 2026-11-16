@@ -42,6 +42,7 @@ public static class UmpireBuilder
             Umpire component = SceneObjectAssets.Ensure<Umpire>(umpire.gameObject);
             if (umpire.GetComponent<UmpireSignals>() == null)
                 umpire.AddComponent<UmpireSignals>();
+            SceneObjectAssets.Ensure<Footsteps>(umpire).Init(0.4f);    // his steps, quieter than the players'
             Dress(umpire, component);
             PutOnHat(animator);
             PrefabUtility.SaveAsPrefabAsset(umpire, PrefabPath);

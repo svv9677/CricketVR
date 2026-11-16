@@ -39,14 +39,8 @@ public class MatchSounds : MonoBehaviour
     {
         main = Main.Instance != null ? Main.Instance : FindFirstObjectByType<Main>();
         ball = main != null ? main.theBallRigidBody : null;
-        // The players' footsteps (Footsteps) are on the fielders, keeper and bowler in Main.prefab.
-        // Only the umpire is built at runtime (Umpire), so he gets his here, quieter.
-        foreach (UmpireSignals u in FindObjectsByType<UmpireSignals>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-        {
-            Animator a = u.GetComponent<Animator>();
-            if (a == null || !a.isHuman || a.GetComponent<Footsteps>() != null) continue;
-            a.gameObject.AddComponent<Footsteps>().Init(0.4f);
-        }
+        // The players' footsteps (Footsteps) are on the fielders, keeper and bowler in Main.prefab,
+        // and on the umpire's prefab (quieter).
         Ball.Collided += OnBallCollided;
         BowlerGrip.Released += OnReleased;
         AnimatedFielder.DiveStarted += OnDive;

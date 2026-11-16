@@ -9635,6 +9635,16 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6392032703124106831, guid: 48c44a5df4f054ae88d712ce8478e2b4,
+        type: 3}
+      propertyPath: m_UpdateMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6392032703124106831, guid: 48c44a5df4f054ae88d712ce8478e2b4,
+        type: 3}
+      propertyPath: m_CullingMode
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6725474802033321107, guid: 48c44a5df4f054ae88d712ce8478e2b4,
         type: 3}
       propertyPath: m_Enabled

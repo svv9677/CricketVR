@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10c419e423435400182c27e266d493bc, type: 3}
+  m_Name: QuickPlayTeams
+  m_EditorClassIdentifier: Assembly-CSharp::TeamSheet
+  batters:
+  - Ishan
+  - Shreyas
+  - Samson
+  - Hardik
+  - Deepak
+  - Karthik
+  - Axar
+  - Kuldeep
+  - Avesh
+  - Bishnoi
+  - Arshdeep
+  bowlers:
+  - name: Bumrah
+    kind: 0
+  - name: Shami
+    kind: 1
+  - name: Bhuvneshwar
+    kind: 1
+  - name: Siraj
+    kind: 0
+  - name: Ashwin
+    kind: 2
+  - name: Chahal
+    kind: 3
+  - name: Hooda
+    kind: 4
+  - name: Bishnoi
+    kind: 3
