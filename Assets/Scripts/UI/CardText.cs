@@ -15,6 +15,11 @@ using UnityEngine.UI;
 /// time it is set (Set), so the card grows to hold it; past a card's cap the text steps down in size
 /// until it fits, and only past the smallest size is the end cut with an ellipsis.
 ///
+/// MakeEyebrow and MakeBody are authoring calls: a prefab builder (an editor command) runs them
+/// once on a card's texts, so the prefab carries the CardTextFit, the LayoutElement and the type
+/// settings. At run time a card only calls Set with its words. Calling Make* at run time still
+/// works (it is idempotent), but a card that does has not been moved into a builder yet.
+///
 /// The scale (one font, Liberation Sans - the only one the project ships that is ours to use; the
 /// levels are told apart by size, weight, case, spacing and colour):
 ///   Eyebrow  small, bold, upper case, letter-spaced, in the card's colour: what the card is

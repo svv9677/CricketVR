@@ -42,6 +42,8 @@ public partial class CameraReplay : MonoBehaviour
 
     private Camera myCamera;
     private BroadcastCamera broadcast;
+    [Tooltip("The broadcast graphics over the replay (the ReplayOverlay prefab, placed under this camera).")]
+    [SerializeField]
     private ReplayOverlay overlay;
     private ReplayBallTrail trail;
     private ShotRecorder recorder;
@@ -81,7 +83,6 @@ public partial class CameraReplay : MonoBehaviour
         if (ui >= 0)
             myCamera.cullingMask &= ~(1 << ui);
         broadcast = new BroadcastCamera(myCamera);
-        overlay = new ReplayOverlay(myCamera);
         if (targetMat != null)
         {
             targetMat.SetTexture(ViewId, view);
@@ -231,7 +232,8 @@ public partial class CameraReplay : MonoBehaviour
         nextRender = 0f;
         screenLit = false;
         displaying = true;
-        overlay.Show(ReleaseSpeedKmh(shot));
+        if (overlay != null)
+            overlay.Show(ReleaseSpeedKmh(shot));
     }
 
     private void Restart()

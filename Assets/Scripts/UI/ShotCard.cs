@@ -45,36 +45,13 @@ public class ShotCard : MonoBehaviour
     private bool placedAtNonStriker;
     private readonly StringBuilder builder = new StringBuilder(32);
 
-    private TMP_Text scorecard;
+    [Tooltip("The batters and bowler under the score, for a card built with a score row. This card has none, so it is empty.")]
+    [SerializeField] private TMP_Text scorecard;
 
     private void Awake()
     {
         Instance = this;
-        // The batters and bowler under the score was more than the card needs (2026-11-05: "not
-        // so cluttered"); kept for a card built with a score row, which this one is not.
-        if (score != null)
-            BuildScorecard();
         Clear();
-    }
-
-    /// The batters and the bowler, under the score, built here so the prefab needs no rebuild: a
-    /// divider like the one above the score, then one line per player in the recent-balls style.
-    private void BuildScorecard()
-    {
-        if (panel == null || recent == null)
-            return;
-        Transform divider = panel.transform.Find("Divider");
-        if (divider != null)
-            Instantiate(divider.gameObject, panel.transform).name = "Scorecard Divider";
-        GameObject go = Instantiate(recent.gameObject, panel.transform);
-        go.name = "Scorecard";
-        scorecard = go.GetComponent<TMP_Text>();
-        scorecard.fontSize = 22f;
-        scorecard.alignment = TextAlignmentOptions.TopLeft;
-        scorecard.richText = true;
-        var layout = go.GetComponent<UnityEngine.UI.LayoutElement>();
-        if (layout != null)
-            layout.preferredHeight = 128f;
     }
 
     /// Batters' runs (balls) and strike rate, the bowler's figures and the run rate.
