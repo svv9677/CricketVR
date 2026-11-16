@@ -60,6 +60,9 @@ public static class MocapBowlerImport
     [MenuItem("CricketVR/Bowling/Set Up Mocap Deliveries")]
     public static void SetUpAll()
     {
+        // A file Blender just wrote is imported first, so the clip set up below is the new one even
+        // if Unity has not refreshed since the export.
+        AssetDatabase.Refresh();
         if (!AssetDatabase.IsValidFolder(Folder.TrimEnd('/')))
             return;
         foreach (string guid in AssetDatabase.FindAssets("t:Model", new[] { Folder.TrimEnd('/') }))

@@ -310,7 +310,11 @@ class CRICKET_OT_export(bpy.types.Operator):
             "mark_forward": mark_forward, "mark_wide": mark_wide, "run_pace": 1.0, "priority": 10,
             "source": f"hand-animated in Blender ({bpy.data.filepath or 'unsaved'}), base {scene.get('cricket_base', '?')}",
         }
-        for k in ("exit_time", "exit_blend", "exit_offset", "exit_to", "run_exit", "blend", "clip_offset", "priority"):
+        # The mark's trims are measured in play (where his front foot lands against Steyn's): the
+        # Animator's transition into the clip and the left-armer's steered run-up are not in Blender.
+        side.update({"trim_forward": 0.0, "trim_wide": 0.0, "left_back": 0.0})
+        for k in ("exit_time", "exit_blend", "exit_offset", "exit_to", "run_exit", "blend", "clip_offset", "priority",
+                  "trim_forward", "trim_wide", "left_back"):
             if k in old:
                 side[k] = old[k]          # tuned by hand in the sidecar: keep
         # A kept exit_time must still start the blend out after the ball has left the hand, or the

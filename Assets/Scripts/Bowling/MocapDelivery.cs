@@ -18,6 +18,9 @@ public static class MocapDelivery
         public string state;
         public int action;
         public float markForward, markWide;
+        /// A left-armer's mark set back this much more than a right-armer's (metres): the mirrored
+        /// clip, steered onto his line (AnimatedBowlerArm), does not always cover the right-armer's ground.
+        public float leftBack;
         /// How much faster the run-up plays into it (the Run state's RunPace): the game's run is
         /// 3.7 m/s, a captured action may start much faster (Anderson 5.1-6.9 m/s), and the jump
         /// at the handover is a lurch. The run covers the same ground per stride, only sooner.
@@ -31,8 +34,14 @@ public static class MocapDelivery
     /// The deliveries in the project: one per clip in Resources/Animations/Bowling/Mocap, read from the
     /// clip's own sidecar (<c>&lt;Name&gt;.mocap.json</c>), so a clip exported from Blender
     /// (Tools/mocap/handanim) is picked up without a code change. Highest <c>priority</c> first: hand
-    /// animation (10) over the captured clips (0). Mirrored, every clip covers exactly its own ground,
-    /// so a left-armer's extra set-back (AnimatedBowlerArm.MirrorMark) is left as it is.
+    /// animation (10) over the captured clips (0).
+    ///
+    /// His mark is the export's (<c>mark_forward</c>, <c>mark_wide</c>: the clip's front toe against
+    /// Steyn's, worked out in Blender) plus what play showed it still needed (<c>trim_forward</c>,
+    /// <c>trim_wide</c>, <c>left_back</c>, set by hand after watching where his front foot lands;
+    /// an export keeps them). The trims cover what Blender cannot see: the Animator's own transition
+    /// into the clip, and the left-armer's steered run-up. HandAnderson, measured 2026-11-15 in the
+    /// Nets against Steyn's front toe: right-arm 0.23 m short and 0.81 m wide; left-arm 1.66 m over.
     /// </summary>
     public static Delivery[] Captured => captured ??= Load();
     private static Delivery[] captured;
@@ -42,6 +51,7 @@ public static class MocapDelivery
     {
         public int action;
         public float mark_forward, mark_wide, run_pace = 1f;
+        public float trim_forward, trim_wide, left_back;
         public int priority;
     }
 
@@ -60,7 +70,8 @@ public static class MocapDelivery
             list.Add((s.priority, new Delivery
             {
                 state = t.name.Substring(0, t.name.Length - ".mocap".Length), action = s.action,
-                markForward = s.mark_forward, markWide = s.mark_wide, runPace = s.run_pace > 0f ? s.run_pace : 1f,
+                markForward = s.mark_forward + s.trim_forward, markWide = s.mark_wide + s.trim_wide,
+                leftBack = s.left_back, runPace = s.run_pace > 0f ? s.run_pace : 1f,
             }));
         }
         list.Sort((x, y) => y.priority != x.priority ? y.priority.CompareTo(x.priority) : string.CompareOrdinal(x.d.state, y.d.state));
@@ -124,7 +135,8 @@ public static class MocapDelivery
         if (mark == null || !TryChoose(animator, mark.myIndex, out Delivery d))
             return mark;
         Quaternion facing = Quaternion.Euler(mark.startRot);
-        return mark.ShiftedCopy(facing * new Vector3(leftArm ? -d.markWide : d.markWide, 0f, d.markForward));
+        return mark.ShiftedCopy(facing * new Vector3(leftArm ? -d.markWide : d.markWide, 0f,
+                                                     leftArm ? d.markForward - d.leftBack : d.markForward));
     }
 
 #if UNITY_EDITOR

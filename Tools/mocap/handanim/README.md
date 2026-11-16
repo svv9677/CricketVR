@@ -75,7 +75,11 @@ The sidecar's timings are only the starting values for a new clip's state:
 | `run_exit` / `blend` / `clip_offset` | Run → clip: Exit Time / Transition Duration (s) / Transition Offset | 0.537 / 0.3 / 0 (as Run → Steyn) |
 | `exit_time` / `exit_blend` / `exit_offset` | clip → Follow Through: Exit Time / Transition Duration (s) / Transition Offset | 1 / 0.25 / 0.1: the whole clip plays, then it blends, holding its last pose |
 | `mark_forward` / `mark_wide` | (read by the game, not the Animator) metres his mark moves on / to the side | Worked out on export |
+| `trim_forward` / `trim_wide` | (read by the game) metres added to the mark above, so his front foot lands where Steyn's does in play. Blender cannot see the Animator's transition into the clip, so measure in the Nets and set these by hand; an export keeps them | 0 |
+| `left_back` | (read by the game) metres a left-armer's mark is set back beyond a right-armer's (his mirrored run-up is steered and covers different ground) | 0 |
 | `priority` | (read by the game) which delivery wins when several exist | 10 for hand-made |
+
+HandAnderson's trims (2026-11-15, Nets, front toe as it lands against Steyn's): before them, right-arm landed 0.23 m short and 0.81 m wide, left-arm 1.66 m over. With `trim_forward` 0.23, `trim_wide` 0.81 and `left_back` 1.89: right-arm x −9.04 / z 0.55 against Steyn's −9.03 / 0.53; left-arm x −9.20 / z −0.84 against −9.18 / −0.64. The left-armer's 0.2 m extra width is the run-up's `LeftClear` (`AnimatedBowlerArm.cs`), which keeps a left-armer's line at least 0.75 m from the stumps.
 
 Keep the exit time out of your clip after its release (the console warns when it is not): a blend out that starts before the release never reaches `ReleaseBall`, and he keeps the ball.
 
