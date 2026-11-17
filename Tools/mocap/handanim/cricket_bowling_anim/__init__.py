@@ -313,8 +313,12 @@ class CRICKET_OT_export(bpy.types.Operator):
         # The mark's trims are measured in play (where his front foot lands against Steyn's): the
         # Animator's transition into the clip and the left-armer's steered run-up are not in Blender.
         side.update({"trim_forward": 0.0, "trim_wide": 0.0, "left_back": 0.0})
+        # A medium-pacer bowling the same clip (the game's medium_* fields: his own mark trims, a
+        # gentler run-up and action) is tuned in play too: kept when present, never written new.
+        medium = ("medium_run_pace", "medium_action_speed", "medium_trim_forward", "medium_trim_wide",
+                  "medium_left_back")
         for k in ("exit_time", "exit_blend", "exit_offset", "exit_to", "run_exit", "blend", "clip_offset", "priority",
-                  "trim_forward", "trim_wide", "left_back"):
+                  "trim_forward", "trim_wide", "left_back") + medium:
             if k in old:
                 side[k] = old[k]          # tuned by hand in the sidecar: keep
         # A kept exit_time must still start the blend out after the ball has left the hand, or the

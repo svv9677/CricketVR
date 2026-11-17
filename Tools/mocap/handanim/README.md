@@ -60,7 +60,7 @@ To make footage (side-on and front-on of the same bowler, listed in `../out/view
    - `Assets/Resources/Animations/Bowling/Mocap/<Name>.fbx`: deform bones only, every frame baked, no key reduction.
    - `<Name>.mocap.json`: the sidecar with frames, fps, release frame, action number and timing. It also holds his **mark**: Steyn's front-toe distance minus yours. If your bowler lands 0.4 m further on than Steyn, his mark moves 0.4 m back.
 3. In Unity, run **CricketVR > Bowling > Set Up Mocap Deliveries**. Nothing happens in Unity until you do: it imports the FBX as Humanoid with a `ReleaseBall` event on your release frame, and the first time it adds a state to `Steyn.controller` (Run → `<Name>` → Follow Through). `MocapDelivery` picks it up from the sidecar. No code changes are needed.
-4. Turn on *CricketVR > Bowling > Use Mocap Delivery For Pace* and bowl in the Nets. Pace and medium bowlers use your action (hand-made clips have priority 10, above the captured ones). Spinners keep Lyon.
+4. Turn on *CricketVR > Bowling > Use Mocap Delivery For Pace* and bowl in the Nets. Pace and medium bowlers use your action (hand-made clips have priority 10, above the captured ones). Spinners keep Lyon. A medium-pacer runs in from his own, shorter mark, and the `medium_*` fields below make him bowl it at medium pace.
 
 To re-export, export again with the same name, then run *Set Up Mocap Deliveries* again (it updates the `ReleaseBall` event if you moved the release). To remove a clip, delete its `.fbx` and `.mocap.json`, then run *Set Up Mocap Deliveries*: it removes the state.
 
@@ -77,9 +77,13 @@ The sidecar's timings are only the starting values for a new clip's state:
 | `mark_forward` / `mark_wide` | (read by the game, not the Animator) metres his mark moves on / to the side | Worked out on export |
 | `trim_forward` / `trim_wide` | (read by the game) metres added to the mark above, so his front foot lands where Steyn's does in play. Blender cannot see the Animator's transition into the clip, so measure in the Nets and set these by hand; an export keeps them | 0 |
 | `left_back` | (read by the game) metres a left-armer's mark is set back beyond a right-armer's (his mirrored run-up is steered and covers different ground) | 0 |
+| `medium_run_pace` / `medium_action_speed` | (read by the game) a medium-pacer bowling the clip: his run-up's pace and the action's speed, against a quick's. Leave `medium_run_pace` out (or 0) and a medium-pacer bowls it exactly as a quick does. An export keeps them | none |
+| `medium_trim_forward` / `medium_trim_wide` / `medium_left_back` | (read by the game) the trims above for a medium-pacer, who runs in from his own shorter mark. An export keeps them | none |
 | `priority` | (read by the game) which delivery wins when several exist | 10 for hand-made |
 
 HandAnderson's trims (2026-11-15, Nets, front toe as it lands against Steyn's): before them, right-arm landed 0.23 m short and 0.81 m wide, left-arm 1.66 m over. With `trim_forward` 0.23, `trim_wide` 0.81 and `left_back` 1.89: right-arm x −9.04 / z 0.55 against Steyn's −9.03 / 0.53; left-arm x −9.20 / z −0.84 against −9.18 / −0.64. The left-armer's 0.2 m extra width is the run-up's `LeftClear` (`AnimatedBowlerArm.cs`), which keeps a left-armer's line at least 0.75 m from the stumps.
+
+HandAnderson as a medium-pacer (2026-11-17, Nets, the medium-pacer Shami): `medium_run_pace` 0.9 and `medium_action_speed` 0.89 (Bumrah's state speed against Steyn's, 4 / 4.5), so his action plays about 17% slower than the quick's for the slower ball. With the quick's trims, his front toe landed 0.44 m short right-arm and 0.24 m short left-arm. With `medium_trim_forward` 0.67, `medium_trim_wide` 0.81 and `medium_left_back` 2.09: right-arm x −9.03 and −9.00 / z 0.50 over two balls, left-arm x −9.18 / z −0.82, against Steyn's −9.03 / 0.53 and −9.18 / −0.64. The medium-pacer's own action (Bumrah) lands at −9.12 / 0.52.
 
 Keep the exit time out of your clip after its release (the console warns when it is not): a blend out that starts before the release never reaches `ReleaseBall`, and he keeps the ball.
 

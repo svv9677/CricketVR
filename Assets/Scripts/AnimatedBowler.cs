@@ -276,7 +276,9 @@ public partial class AnimatedBowler : MonoBehaviour
         animator.SetInteger("Jog Repeat", currentBowlerInfo.jogRepeat + 1);
         animator.SetInteger("Run Repeat", currentBowlerInfo.runRepeat + 2);
 
-        animator.SetFloat("Time", (0.5f * inst.currentBowlingConfig.speedX + 1.5f) / currentBowlerInfo.animSpeed);
+        // A captured action bowled by a medium-pacer plays it slower than a quick (MocapDelivery).
+        animator.SetFloat("Time", (0.5f * inst.currentBowlingConfig.speedX + 1.5f) / currentBowlerInfo.animSpeed
+                                  * MocapDelivery.ActionSpeed(animator, currentBowlerInfo.myIndex));
 
         while (!stateInfo.IsName("Idle"))
         {
