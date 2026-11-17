@@ -245,9 +245,9 @@ AnimatorStateTransition:
   m_Mute: 0
   m_IsExit: 0
   serializedVersion: 3
-  m_TransitionDuration: 0.3516667
-  m_TransitionOffset: 0.36286262
-  m_ExitTime: 0.9592961
+  m_TransitionDuration: 0.29647946
+  m_TransitionOffset: 0.47102907
+  m_ExitTime: 1.0144839
   m_HasExitTime: 1
   m_HasFixedDuration: 1
   m_InterruptionSource: 0
@@ -273,9 +273,9 @@ AnimatorStateTransition:
   m_Mute: 0
   m_IsExit: 0
   serializedVersion: 3
-  m_TransitionDuration: 0.16498353
+  m_TransitionDuration: 0.1948821
   m_TransitionOffset: 0
-  m_ExitTime: 0.4305171
+  m_ExitTime: 0.4101113
   m_HasExitTime: 1
   m_HasFixedDuration: 1
   m_InterruptionSource: 0
@@ -468,7 +468,7 @@ AnimatorState:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: HandAnderson
-  m_Speed: 0.8064516
+  m_Speed: 0.7
   m_CycleOffset: 0
   m_Transitions:
   - {fileID: -4844589397135479098}
