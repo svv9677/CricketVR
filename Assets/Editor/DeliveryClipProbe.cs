@@ -16,12 +16,14 @@ using UnityEngine.Playables;
 /// </summary>
 public static class DeliveryClipProbe
 {
-    public static readonly string[] Clips =
+    /// The hand-made pace and medium actions, then every clip in the Mocap folder (until
+    /// 2026-11-17 the captured MocapPace, named here, which was removed).
+    public static string[] Clips => new[]
     {
         "Assets/Resources/Animations/Bowling/Steyn Cleaned.anim",
         "Assets/Resources/Animations/Bowling/Bumrah.anim",
-        "Assets/Resources/Animations/Bowling/Mocap/MocapPace.fbx",
-    };
+    }.Concat(AssetDatabase.FindAssets("t:Model", new[] { MocapBowlerImport.Folder.TrimEnd('/') })
+                          .Select(AssetDatabase.GUIDToAssetPath)).ToArray();
 
     public struct Result
     {

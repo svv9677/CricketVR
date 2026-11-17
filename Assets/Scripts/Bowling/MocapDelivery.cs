@@ -1,10 +1,13 @@
 using UnityEngine;
 
 /// <summary>
-/// Bowling actions captured from video (Tools/mocap, imported by MocapBowlerImport) in place of a
-/// pace or medium bowler's hand-made one, while they are being tried out. Off unless switched on
-/// (the editor's CricketVR/Bowling menu, or <see cref="Enabled"/> from code); spinners keep Lyon.
-/// When several are in the bowling controller, the first in <see cref="Captured"/> (by priority) is used.
+/// Bowling actions made in Blender or captured from video (Tools/mocap, imported by
+/// MocapBowlerImport), bowled alongside the hand-made ones. Each quick and medium-pacer gets one
+/// action for the match, drawn at random when the side is picked (Bowler.ActionRoll): his own
+/// (Steyn for a quick, Bumrah for a medium-pacer) or any clip here that the bowling controller has
+/// (2026-11-17: "randomize the bowler for each type of bowling"). Spinners keep Lyon.
+/// Until 2026-11-17 a clip replaced every quick's and medium-pacer's action behind an editor
+/// switch ("Use Mocap Delivery For Pace"), while it was being tried out.
 ///
 /// One clip serves a quick and a medium-pacer alike (2026-11-17: "he could be both a fast or medium
 /// pace"). The medium-pacer runs in from his own, shorter mark, and the clip's sidecar can give him
@@ -109,39 +112,44 @@ public static class MocapDelivery
 
     /// The first captured delivery's Action (kept for MocapBowlerImport's default).
     public const int Action = 5;
-    private const string Pref = "MocapDelivery";
 
-    public static bool Enabled
-    {
-        get => PlayerPrefs.GetInt(Pref, 0) == 1;
-        set
-        {
-            PlayerPrefs.SetInt(Pref, value ? 1 : 0);
-            PlayerPrefs.Save();
-        }
-    }
+    /// For trying an action out (the editor, a probe): true, every quick and medium-pacer bowls a
+    /// clip from here; false, every one bowls his own; null (the game), each his own draw. Not saved.
+    public static bool? Force;
 
     /// The pace bowler's own Action (Steyn) and the medium-pacer's (Bumrah): a captured delivery
     /// stands in for either. Spinners (Lyon, 3) keep their own.
     public const int PaceAction = 2, MediumAction = 4;
 
-    /// The captured delivery this bowler would use, if any (switched on, a pace (2) or medium (4)
-    /// action, and the controller has the state). A medium-pacer's comes with the clip's medium
-    /// values in place of the quick's (its mark, run-up and action speed), when it has them.
-    public static bool TryChoose(Animator animator, int own, out Delivery chosen)
+    /// The clip this bowler bowls, if not his own action: a pace (2) or medium (4) bowler whose
+    /// draw (Bowler.ActionRoll) fell on one of the clips the controller has. A medium-pacer's comes
+    /// with the clip's medium values in place of the quick's (its mark, run-up and action speed),
+    /// when it has them. No bowler (none on yet): his own action.
+    public static bool TryChoose(Animator animator, int own, Bowler bowler, out Delivery chosen)
     {
         chosen = default;
-        if (!Enabled || (own != PaceAction && own != MediumAction) || animator == null || animator.runtimeAnimatorController == null)
+        if (Force == false || (own != PaceAction && own != MediumAction) || animator == null ||
+            animator.runtimeAnimatorController == null || (bowler == null && Force != true))
             return false;
+        var usable = new System.Collections.Generic.List<Delivery>();
         foreach (Delivery d in Captured)
-        {
             if (animator.HasState(0, Animator.StringToHash(d.state)))
-            {
-                chosen = own == MediumAction ? AsMedium(d) : d;
-                return true;
-            }
-        }
-        return false;
+                usable.Add(d);
+        int pick = Pick(Force == true ? 0 : 1, usable.Count, bowler != null ? bowler.ActionRoll : 0);
+        if (pick < 0)
+            return false;
+        chosen = own == MediumAction ? AsMedium(usable[pick]) : usable[pick];
+        return true;
+    }
+
+    /// Which of `clips` clips a draw of `roll` falls on, with `own` (0 or 1) more choices for the
+    /// bowler's own action ahead of them: -1 for his own. Every choice is equally likely.
+    public static int Pick(int own, int clips, int roll)
+    {
+        if (clips <= 0)
+            return -1;
+        int i = (roll & int.MaxValue) % (own + clips);
+        return i < own ? -1 : i - own;
     }
 
     /// The delivery as a medium-pacer bowls it (unchanged if the clip has no medium values).
@@ -159,44 +167,32 @@ public static class MocapDelivery
 
     /// What the bowling controller's Time (the action's speed) is multiplied by for this ball: the
     /// captured delivery's action speed, or 1.
-    public static float ActionSpeed(Animator animator, int own) =>
-        TryChoose(animator, own, out Delivery d) && d.actionSpeed > 0f ? d.actionSpeed : 1f;
+    public static float ActionSpeed(Animator animator, int own, Bowler bowler) =>
+        TryChoose(animator, own, bowler, out Delivery d) && d.actionSpeed > 0f ? d.actionSpeed : 1f;
 
     /// The Action to run in with: the captured delivery's when there is one, otherwise his own.
-    public static int ActionFor(Animator animator, int own) =>
-        TryChoose(animator, own, out Delivery d) ? d.action : own;
+    public static int ActionFor(Animator animator, int own, Bowler bowler) =>
+        TryChoose(animator, own, bowler, out Delivery d) ? d.action : own;
 
     /// The run-up's pace for this ball (RunPaceParam), set with the Action: the captured delivery's,
     /// or 1. Nothing happens if the controller has no such parameter.
-    public static void SetRunPace(Animator animator, int own)
+    public static void SetRunPace(Animator animator, int own, Bowler bowler)
     {
         if (animator == null || animator.runtimeAnimatorController == null)
             return;
-        float pace = TryChoose(animator, own, out Delivery d) && d.runPace > 0f ? d.runPace : 1f;
+        float pace = TryChoose(animator, own, bowler, out Delivery d) && d.runPace > 0f ? d.runPace : 1f;
         foreach (AnimatorControllerParameter p in animator.parameters)
             if (p.name == RunPaceParam && p.type == AnimatorControllerParameterType.Float)
                 animator.SetFloat(RunPaceParam, pace);
     }
 
     /// His mark for this ball: moved for the captured action's own ground when he will bowl it.
-    public static AFInfo Mark(AFInfo mark, bool leftArm, Animator animator)
+    public static AFInfo Mark(AFInfo mark, bool leftArm, Animator animator, Bowler bowler)
     {
-        if (mark == null || !TryChoose(animator, mark.myIndex, out Delivery d))
+        if (mark == null || !TryChoose(animator, mark.myIndex, bowler, out Delivery d))
             return mark;
         Quaternion facing = Quaternion.Euler(mark.startRot);
         return mark.ShiftedCopy(facing * new Vector3(leftArm ? -d.markWide : d.markWide, 0f,
                                                      leftArm ? d.markForward - d.leftBack : d.markForward));
     }
-
-#if UNITY_EDITOR
-    [UnityEditor.MenuItem("CricketVR/Bowling/Use Mocap Delivery For Pace")]
-    private static void Toggle() => Enabled = !Enabled;
-
-    [UnityEditor.MenuItem("CricketVR/Bowling/Use Mocap Delivery For Pace", true)]
-    private static bool ToggleCheck()
-    {
-        UnityEditor.Menu.SetChecked("CricketVR/Bowling/Use Mocap Delivery For Pace", Enabled);
-        return true;
-    }
-#endif
 }

@@ -90,7 +90,7 @@ public partial class AnimatedBowler
         if (baseBowlerInfo == null)
             baseBowlerInfo = currentBowlerInfo;
         if (baseBowlerInfo != null)
-            currentBowlerInfo = MocapDelivery.Mark(left ? MirrorMark(baseBowlerInfo) : baseBowlerInfo, left, animator);
+            currentBowlerInfo = MocapDelivery.Mark(left ? MirrorMark(baseBowlerInfo) : baseBowlerInfo, left, animator, BowlerOn);
         ApplyMirror();
         MoveHand(left);
     }

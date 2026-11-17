@@ -31,8 +31,11 @@ open out/img9676_preview.mp4          # source | rig from behind | rig from the 
 .venv/bin/python install_clip.py out/img9676 MocapPace
 ```
 
-Then in Unity: **CricketVR → Bowling → Use Mocap Delivery For Pace** (a checked menu item; off by
-default) makes pace and medium bowlers run in with the captured action. Spinners keep Lyon.
+Then in Unity run **CricketVR → Bowling → Set Up Mocap Deliveries**. From then on each quick and
+medium-pacer draws his action at random for the match: his own (Steyn, Bumrah) or any clip in the
+Mocap folder. Spinners keep Lyon. (Until 2026-11-17 a menu switch, *Use Mocap Delivery For Pace*,
+put one clip on every quick and medium-pacer. The first captured clip, MocapPace, was removed that
+day: "that's not a good one at all". The commands above still show how it was made.)
 
 ### Options worth knowing (process_motion.py)
 

@@ -278,7 +278,7 @@ public partial class AnimatedBowler : MonoBehaviour
 
         // A captured action bowled by a medium-pacer plays it slower than a quick (MocapDelivery).
         animator.SetFloat("Time", (0.5f * inst.currentBowlingConfig.speedX + 1.5f) / currentBowlerInfo.animSpeed
-                                  * MocapDelivery.ActionSpeed(animator, currentBowlerInfo.myIndex));
+                                  * MocapDelivery.ActionSpeed(animator, currentBowlerInfo.myIndex, BowlerOn));
 
         while (!stateInfo.IsName("Idle"))
         {
@@ -295,9 +295,9 @@ public partial class AnimatedBowler : MonoBehaviour
             yield return null;
         }
 
-        // A captured action (MocapDelivery) in place of his own, when it is being tried out.
-        animator.SetInteger("Action", MocapDelivery.ActionFor(animator, currentBowlerInfo.myIndex));
-        MocapDelivery.SetRunPace(animator, currentBowlerInfo.myIndex);
+        // His action for the match: his own, or the clip his draw fell on (MocapDelivery).
+        animator.SetInteger("Action", MocapDelivery.ActionFor(animator, currentBowlerInfo.myIndex, BowlerOn));
+        MocapDelivery.SetRunPace(animator, currentBowlerInfo.myIndex, BowlerOn);
 
         while (!stateInfo.IsName("Run"))
         {
@@ -309,6 +309,9 @@ public partial class AnimatedBowler : MonoBehaviour
             yield return null;
         }
     }
+
+    /// The bowler on (HUD): whose action the next ball is bowled with.
+    private static Bowler BowlerOn => HUD.Instance != null ? HUD.Instance.CurrentBowler : null;
 
     public void UpdateInfo(int index)
     {
