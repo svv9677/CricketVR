@@ -110,6 +110,8 @@ public static class Constants
     //public static readonly float[] legSpinCfg = paceCfg;
     //public static readonly float[] offSpinCfg = paceCfg;
 
+    /// The default field (fielder 1 to 9) as first placed in Main.prefab > Fielders. The game reads
+    /// each fielder's position from the scene, not from here; only editor test tools use this list.
     public static readonly Vector3[] fieldingPositions = {
         new Vector3(-25f, 0f, -14f),
         new Vector3(-27f, 0f, 13f),

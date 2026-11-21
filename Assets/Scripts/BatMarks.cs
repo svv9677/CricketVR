@@ -32,6 +32,9 @@ public class BatMarks : MonoBehaviour
     private const float Proud = 0.0004f;
     private const int TextureSize = 64;
 
+    [Tooltip("The Ball Marks child (MeshFilter + MeshRenderer with the BatMark material). Its mesh is rebuilt here as prints are added.")]
+    [SerializeField] private MeshFilter marksFilter;
+
     private BatGeometry geometry;
     private Mesh mesh;
     private Vector3[] vertices;
@@ -45,6 +48,12 @@ public class BatMarks : MonoBehaviour
     private void Start()
     {
         geometry = GetComponent<BatGeometry>();
+        if (marksFilter == null)
+        {
+            Debug.LogError("BatMarks has no Ball Marks child - run CricketVR > Scene Objects > Place Bat Audio And Marks.", this);
+            enabled = false;
+            return;
+        }
         Build();
         lastWorld = transform.localToWorldMatrix;
         lastTime = Time.time;
@@ -156,28 +165,17 @@ public class BatMarks : MonoBehaviour
         mesh.uv = uv;
         mesh.colors32 = colours;
         mesh.triangles = tris;
-        var go = new GameObject("Ball Marks") { layer = gameObject.layer };
-        go.transform.SetParent(transform, false);
-        go.AddComponent<MeshFilter>().sharedMesh = mesh;
-        var r = go.AddComponent<MeshRenderer>();
-        r.sharedMaterial = MakeMaterial();
-        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        r.receiveShadows = false;
-    }
-
-    /// CricketVR/BatMark (Always Included in the graphics settings): the print texture tinted and
-    /// faded per print by its vertex colour, lit like the face. URP's own unlit and particle
-    /// shaders drew every print solid white (measured in play: the vertex colours ignored).
-    private static Material MakeMaterial()
-    {
-        var mat = new Material(Shader.Find("CricketVR/BatMark")) { name = "Bat Marks" };
-        mat.SetTexture("_BaseMap", PrintTexture());
-        return mat;
+        // The "Ball Marks" child, its renderer and its material (CricketVR/BatMark with the print
+        // texture, saved as assets) are on the Bat prefab; only the mesh is made here.
+        marksFilter.sharedMesh = mesh;
+        // The prefab's layer is the bat's own; a scene may put the bat on another (Main does).
+        marksFilter.gameObject.layer = gameObject.layer;
     }
 
     /// One print: a soft oval, densest just inside its rim where the leather pressed hardest, a
     /// little mottled (the grain of the leather and the seam), fading out at the edge.
-    /// `readable`: kept on the CPU too (tests); the game's copy lives on the GPU only.
+    /// `readable`: kept on the CPU too (tests). The game uses the copy saved by
+    /// CricketVR > Scene Objects > Place Bat Audio And Marks (BatAudioMarksBuilder).
     public static Texture2D PrintTexture(bool readable = false)
     {
         var tex = new Texture2D(TextureSize, TextureSize, TextureFormat.RGBA32, false)

@@ -1176,6 +1176,7 @@ MonoBehaviour:
   txtBowlerStyle: {fileID: 215286172}
   txtBalls: {fileID: 301303845}
   txtVersion: {fileID: 7789639710509368128}
+  teams: {fileID: 11400000, guid: 924e35560a7da4ef7b4e0a531cbd4d5c, type: 2}
   Runs: 0
   Wickets: 0
   Overs: 0
@@ -1184,6 +1185,7 @@ MonoBehaviour:
   BowledBalls: []
   NextBatsmanIndex: 0
   NextBowlerIndex: 0
+  LastDismissal: 
 --- !u!1 &980371554923661248
 GameObject:
   m_ObjectHideFlags: 0

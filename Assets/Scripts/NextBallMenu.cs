@@ -12,8 +12,8 @@ using UnityEngine.UI;
 /// view blinks to the other end (NonStrikerView), and comes back there.
 ///
 /// The panel is a prefab (Assets/Resources/Prefabs/UI/NextBallMenu.prefab, built by
-/// Tools > CricketVR > Build Player UI) with its buttons wired to the On* methods below - nothing
-/// is created at runtime. This component sits on the prefab's root, which stays active; the
+/// Tools > CricketVR > Build Player UI) with its buttons, Declare included, wired to the On*
+/// methods below - nothing is created at runtime. This component sits on the prefab's root, which stays active; the
 /// `panel` child is what shows and hides.
 /// </summary>
 public class NextBallMenu : MonoBehaviour
@@ -109,29 +109,17 @@ public class NextBallMenu : MonoBehaviour
     /// match, where the captain picks, nor in a nets trial or drill, which bowl their plan.
     private void ApplyMode()
     {
-        if (changeBowler == null)
-            foreach (Button b in panel.GetComponentsInChildren<Button>(true))
-                if (b.name == "Change bowler")
-                    changeBowler = b.gameObject;
         if (changeBowler != null)
             changeBowler.SetActive(ModeMenus.CanChangeBowler(ModeMenus.Current));
-        // A Test: Declare beside it (MatchFlow.Declare), made from the Change bowler button.
-        if (declare == null && changeBowler != null && MatchFlow.Test)
-        {
-            declare = Instantiate(changeBowler, changeBowler.transform.parent);
-            declare.name = "Declare";
-            Button b = declare.GetComponent<Button>();
-            b.onClick = new Button.ButtonClickedEvent();
-            b.onClick.AddListener(OnDeclare);
-            TMPro.TMP_Text label = declare.GetComponentInChildren<TMPro.TMP_Text>(true);
-            if (label != null)
-                label.text = "Declare";
-        }
+        // A Test: Declare beside it (MatchFlow.Declare). The button is in the prefab, hidden otherwise.
         if (declare != null)
             declare.SetActive(MatchFlow.CanDeclare);
     }
 
-    private GameObject changeBowler, declare;
+    [Tooltip("The Change bowler button (shown only where the player may choose the bowler).")]
+    [SerializeField] private GameObject changeBowler;
+    [Tooltip("The Declare button (a Test match only).")]
+    [SerializeField] private GameObject declare;
 
     /// Declare the innings (a Test): the card goes, MatchFlow takes it from there.
     public void OnDeclare()

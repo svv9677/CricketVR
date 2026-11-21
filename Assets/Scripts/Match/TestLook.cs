@@ -11,8 +11,14 @@ using UnityEngine.SceneManagement;
 ///
 /// Quick play's Test only (MatchFormat): the ball's leather red (or pink) with its stitching left
 /// light, the sightscreen white, and every fielder - the bowler and keeper too - in cream whites
-/// (the umpire in a white shirt: Umpire.Dress). Built with the match scene; the fielders are
-/// dressed as they appear. The replay re-copies all of it when it starts (ReplayActors.RefreshLooks).
+/// (the umpire in a white shirt: Umpire.Dress). The component sits under the match scene's Systems,
+/// switched off, and is switched on for a Test; the fielders are dressed as they appear. The replay
+/// re-copies all of it when it starts (ReplayActors.RefreshLooks).
+///
+/// The materials and textures it swaps in are saved assets (TestLookAssets, made by CricketVR >
+/// Scene Objects > Build Test Look; until 2026-11-15 they were made in code at the start of each
+/// Test). Still made at runtime: the ball's leather, recoloured from the ball's texture, which
+/// BallVisual itself generates at runtime (Ball, BallMaterial).
 /// </summary>
 public class TestLook : MonoBehaviour
 {
@@ -42,31 +48,26 @@ public class TestLook : MonoBehaviour
     private const float DressForSeconds = 10f;
 
     private readonly HashSet<Renderer> dressed = new HashSet<Renderer>();
-    private Material whites;
+    private TestLookAssets assets;
+    private Dictionary<Material, Material> trailSwaps;
     private float until;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != MatchScene || !Applies || FindFirstObjectByType<TestLook>() != null)
-            return;
-        SceneManager.MoveGameObjectToScene(new GameObject("Test Look", typeof(TestLook)), scene);
-    }
+    // The Test Look is "Systems > Test Look" in the match scene, saved switched off and switched on
+    // by SceneSystems (eWhen.TestMatch) when the match is a Test: for limited overs it never runs.
 
     /// A day-night Test (night lights): the pink ball.
     public static bool PinkBall => MatchSetup.TimeOfDay == eTimeOfDay.Night;
 
     private void Start()
     {
+        assets = Resources.Load<TestLookAssets>(TestLookAssets.ResourcePath);
+        if (assets == null)
+        {
+            Debug.LogWarning($"[TestLook] Resources/{TestLookAssets.ResourcePath} is missing (run CricketVR > Scene Objects > Build Test Look): the Test is not dressed.");
+            enabled = false;
+            return;
+        }
+        trailSwaps = TestLookAssets.Lookup(PinkBall ? assets.pinkTrail : assets.redTrail);
         until = Time.time + DressForSeconds;
         SightScreen();
         NoRedBehind();
@@ -95,16 +96,11 @@ public class TestLook : MonoBehaviour
     private void Dress(SkinnedMeshRenderer skin)
     {
         dressed.Add(skin);
-        if (whites == null)
-        {
-            whites = new Material(skin.sharedMaterial) { name = "Test Whites" };
-            whites.mainTexture = null;       // one flat colour: the atlas would show through
-            if (whites.HasProperty("_BaseColor")) whites.SetColor("_BaseColor", Whites);
-            if (whites.HasProperty("_Color")) whites.SetColor("_Color", Whites);
-        }
+        if (assets.whites == null)
+            return;
         var mats = skin.sharedMaterials;
         for (int i = 0; i < mats.Length; i++)
-            mats[i] = whites;
+            mats[i] = assets.whites;
         skin.sharedMaterials = mats;
     }
 
@@ -132,22 +128,15 @@ public class TestLook : MonoBehaviour
 
     /// The trail follows the ball: red (pink under lights), fading to nothing at its tail, alpha
     /// blended (the white ball's is additive, URP Particles _Blend 2) so it shows over the crowd.
-    private static void DressTrail(TrailRenderer trail)
+    private void DressTrail(TrailRenderer ballTrail)
     {
         Color c = PinkBall ? PinkLeather : Trail;
-        trail.startColor = new Color(c.r, c.g, c.b, Trail.a);
-        trail.endColor = new Color(c.r, c.g, c.b, 0f);
-        var tm = new Material(trail.sharedMaterial) { name = "Test Ball Trail" };
-        if (tm.HasProperty("_BaseColor")) tm.SetColor("_BaseColor", new Color(c.r, c.g, c.b, 1f));
-        if (tm.HasProperty("_Color")) tm.SetColor("_Color", new Color(c.r, c.g, c.b, 1f));
-        if (tm.HasProperty("_Blend"))
-        {
-            tm.SetFloat("_Blend", 0f);                                              // Alpha
-            tm.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            tm.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            tm.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        }
-        trail.sharedMaterial = tm;
+        ballTrail.startColor = new Color(c.r, c.g, c.b, Trail.a);
+        ballTrail.endColor = new Color(c.r, c.g, c.b, 0f);
+        if (trailSwaps.TryGetValue(ballTrail.sharedMaterial, out Material test))
+            ballTrail.sharedMaterial = test;
+        else
+            Debug.LogWarning("[TestLook] The ball's trail material has no Test version (run CricketVR > Scene Objects > Build Test Look): it keeps the white ball's.");
     }
 
     /// The white ball's material as the red (pink) ball: its texture recoloured, and lit from
@@ -207,16 +196,12 @@ public class TestLook : MonoBehaviour
         return c;
     }
 
-    private static void SightScreen()
+    private void SightScreen()
     {
         GameObject screen = GameObject.Find("SightScreen");
         Renderer r = screen != null ? screen.GetComponent<Renderer>() : null;
-        if (r == null)
-            return;
-        var m = new Material(r.sharedMaterial) { name = "Test Sightscreen" };
-        m.color = Screen;
-        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", Screen);
-        r.sharedMaterial = m;
+        if (r != null && assets.sightScreen != null)
+            r.sharedMaterial = assets.sightScreen;
     }
 
     // ---- Nothing red behind the bowler -----------------------------------------------------------
@@ -228,43 +213,52 @@ public class TestLook : MonoBehaviour
     /// "ensure there's nothing red so that it doesn't distract the view when the bowler is
     /// bowling"): every red in the ground's textures turned blue for a Test. The grass is left
     /// alone; so are browns and oranges (the seats, the crowd's cut-out colour).
-    private static void NoRedBehind()
+    private void NoRedBehind()
     {
-        var done = new Dictionary<Texture, Texture2D>();
+        Dictionary<Material, Material> swaps = TestLookAssets.Lookup(assets.backdrop);
+        Dictionary<Texture, Texture> textures = TestLookAssets.Lookup(assets.backdropTextures);
         var roots = new List<GameObject>();
         foreach (string name in Backdrop)
             if (GameObject.Find(name) is GameObject g) roots.Add(g);
         if (FindFirstObjectByType<ClubGround>() is ClubGround club)
             roots.Add(club.gameObject);
         foreach (GameObject root in roots)
-        {
             foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
-            {
-                Material[] mats = r.sharedMaterials;
-                bool changed = false;
-                for (int i = 0; i < mats.Length; i++)
-                {
-                    Material m = mats[i];
-                    Texture tex = m != null ? m.mainTexture : null;
-                    if (tex == null || tex.name.Contains("Ground") || tex.name.Contains("Grass"))
-                        continue;
-                    if (!done.TryGetValue(tex, out Texture2D blue))
-                        done[tex] = blue = tex.name.EndsWith("_Keyed") ? CrowdForTest(tex) : Derred(tex);
-                    if (blue == null)
-                        continue;
-                    mats[i] = new Material(m) { name = m.name + " (Test)" };
-                    mats[i].mainTexture = blue;
-                    if (mats[i].HasProperty("_BaseMap")) mats[i].SetTexture("_BaseMap", blue);
-                    changed = true;
-                }
-                if (changed)
-                    r.sharedMaterials = mats;
-            }
-        }
+                SwapBackdrop(r, swaps, textures);
     }
 
+    /// A renderer's materials for their Test versions. The club ground's night copies (made as it
+    /// goes dark, named "... (night)") have no saved Test version, and are the ground's own
+    /// instances, so their texture is swapped in place.
+    private static void SwapBackdrop(Renderer r, Dictionary<Material, Material> swaps, Dictionary<Texture, Texture> textures)
+    {
+        Material[] mats = r.sharedMaterials;
+        bool changed = false;
+        for (int i = 0; i < mats.Length; i++)
+        {
+            Material m = mats[i];
+            if (m == null)
+                continue;
+            if (swaps.TryGetValue(m, out Material test))
+            {
+                mats[i] = test;
+                changed = true;
+            }
+            else if (m.name.EndsWith(NightCopySuffix) && m.mainTexture != null && textures.TryGetValue(m.mainTexture, out Texture blue))
+            {
+                m.mainTexture = blue;
+                if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", blue);
+            }
+        }
+        if (changed)
+            r.sharedMaterials = mats;
+    }
+
+    /// How ClubGround names the copy of a material it makes for the night.
+    public const string NightCopySuffix = " (night)";
+
     /// The crowd's atlas for a Test, baked beside its keyed one (CrowdKeyBaker); null if not there.
-    private static Texture2D CrowdForTest(Texture keyed) =>
+    public static Texture2D CrowdForTest(Texture keyed) =>
         Resources.Load<Texture2D>("Textures/" + keyed.name.Replace("_Keyed", "_KeyedTest"));
 
     /// `source` with its reds turned blue; null when it has no red worth changing.
@@ -285,7 +279,7 @@ public class TestLook : MonoBehaviour
         }
         if (reds < px.Length / 500)     // a fleck here and there is not worth a texture
         {
-            Object.Destroy(tex);
+            if (Application.isPlaying) Object.Destroy(tex); else Object.DestroyImmediate(tex);
             return null;
         }
         tex.SetPixels32(px);

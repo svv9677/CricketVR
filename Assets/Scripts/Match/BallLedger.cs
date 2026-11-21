@@ -69,22 +69,6 @@ public class BallLedger : MonoBehaviour
 
     private readonly List<BallFlight.Sample> samples = new List<BallFlight.Sample>(1024);
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Boot()
-    {
-        SceneManager.sceneLoaded -= OnSceneLoaded;
-        SceneManager.sceneLoaded += OnSceneLoaded;
-        MakeFor();
-    }
-
-    private static void OnSceneLoaded(Scene s, LoadSceneMode m) => MakeFor();
-
-    private static void MakeFor()
-    {
-        if (FindFirstObjectByType<Main>() == null || FindFirstObjectByType<BallLedger>() != null)
-            return;
-        new GameObject("Ball Ledger").AddComponent<BallLedger>();
-    }
 
     private void OnEnable()
     {

@@ -4,7 +4,7 @@ using UnityEngine;
 /// Footsteps for any animated player (bowler, fielders, keeper, umpire), found from the feet
 /// rather than keyed on each clip: a foot coming down fast and reaching the ground is a step. On
 /// the pitch it is a hard knock; on the outfield a softer thud and a rustle of grass; louder the
-/// faster he is going. The bowler's delivery stride, the heavy one, is timed from his release. MatchSounds adds this to every humanoid in the scene.
+/// faster he is going. The bowler's delivery stride, the heavy one, is timed from his release. It is on the players in Main.prefab (the fielders, the keeper, the bowler); MatchSounds adds it only to the umpire, who is built at runtime.
 /// </summary>
 public class Footsteps : MonoBehaviour
 {
@@ -21,6 +21,7 @@ public class Footsteps : MonoBehaviour
     private float speed;
     private AnimatedBowler bowler;
     private BowlerGrip grip;
+    [SerializeField, Tooltip("How loud this player's steps are (the umpire's are quieter).")]
     private float loudness = 1f;
     private bool strideDone;
 

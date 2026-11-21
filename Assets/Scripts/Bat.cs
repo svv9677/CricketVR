@@ -68,12 +68,8 @@ public partial class Bat : MonoBehaviour
         myRigidBody = GetComponent<Rigidbody>();
 
         hasHitBall = false;
-        // The air off the blade as it is swung, louder the faster (BatWhoosh).
-        if (GetComponent<BatWhoosh>() == null)
-            gameObject.AddComponent<BatWhoosh>();
-        // The ball's marks on the face, building up over the match (BatMarks).
-        if (GetComponent<BatMarks>() == null)
-            gameObject.AddComponent<BatMarks>();
+        // BatWhoosh (the air off the blade) and BatMarks (the ball's prints on the face) are on the
+        // Bat prefab, put there by CricketVR > Scene Objects > Place Bat Audio And Marks.
     }
 
     public void CheckAndGrab()

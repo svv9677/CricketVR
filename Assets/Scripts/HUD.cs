@@ -31,6 +31,9 @@ public partial class HUD : MonoBehaviour
 
     public static HUD Instance = null;
 
+    [Tooltip("The quick-play sides' names (Resources/Data/QuickPlayTeams).")]
+    [SerializeField] private TeamSheet teams;
+
     public int Runs;
     public int Wickets;
     public int Overs;
@@ -91,25 +94,17 @@ public partial class HUD : MonoBehaviour
         BowledBalls = new List<string>();
 
         Batsmen = new List<Batsman>();
-        string[] batNames = { "Ishan", "Shreyas", "Samson", "Hardik", "Deepak", "Karthik", "Axar", "Kuldeep", "Avesh", "Bishnoi", "Arshdeep" };
-        for(int i=0; i<11; i++)
-        {
-            Batsman bat = new Batsman(batNames[i]);
-            Batsmen.Add(bat);
-        }
+        foreach (string name in teams.batters)
+            Batsmen.Add(new Batsman(name));
         CurrentBatsman = Batsmen[0];
         CurrentRunner = Batsmen[1];
         NextBatsmanIndex = 2;
 
         Bowlers = new List<Bowler>();
-        string[] boNames = { "Bumrah", "Shami", "Bhuvneshwar", "Siraj", "Ashwin", "Chahal", "Hooda", "Bishnoi" };
-        // Two quicks, two medium-pacers, an off-spinner, two leg-spinners and a mystery spinner
-        // (BowlerRepertoire). Who bowls when is the captain's (BowlingAttack.PickNextBowler), not
-        // the order of this list.
-        eBowlerKind[] boKinds = { eBowlerKind.Fast, eBowlerKind.Medium, eBowlerKind.Medium, eBowlerKind.Fast, eBowlerKind.OffSpin, eBowlerKind.LegSpin, eBowlerKind.Mystery, eBowlerKind.LegSpin };
-        for(int i=0; i<boNames.Length; i++)
+        // Who bowls when is the captain's (BowlingAttack.PickNextBowler), not the order of the list.
+        foreach (TeamSheet.BowlerEntry entry in teams.bowlers)
         {
-            Bowler bo = new Bowler(boNames[i], boKinds[i]);
+            Bowler bo = new Bowler(entry.name, entry.kind);
             Bowlers.Add(bo);
             AnimatedBowler.Instance.myBowlers.data.Add(AnimatedBowler.Instance.configs.data[((int)bo.Type) - 1]);
         }

@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// What CardText.MakeEyebrow and MakeBody put on a card text: its sizes and its cap, so CardText.Set
-/// can measure the box from the words each time they change. Runtime only (the cards are built then).
+/// can measure the box from the words each time they change. Saved in the card's prefab by its builder.
 public sealed class CardTextFit : MonoBehaviour
 {
     public float size, minSize, maxHeight;

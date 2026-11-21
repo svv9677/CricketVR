@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// The pitch's white lines as geometry, built when the match scene loads, in place of the
@@ -9,167 +7,22 @@ using UnityEngine.SceneManagement;
 /// the far end's creases blurred into the turf and the near ones went soft and blocky. Geometry
 /// stays a sharp edge at any distance and angle (the eye buffers' 4x MSAA smooths it).
 ///
-/// Laid out from the stumps, to the Laws: at each end the bowling crease through the stumps
-/// (2.64 m), the popping crease 1.22 m in front of it (across the whole marked width), the return
-/// creases 1.32 m either side of the middle stump, and the wide guidelines (0.89 m). Plus the
-/// edges of the pitch itself, 1.525 m either side (a 3.05 m pitch), softer than the creases, so
-/// the width of the pitch reads at a glance. And at each end the batters' guard marks: a short
-/// line back from the popping crease toward the stumps in line with each of leg, middle and off
-/// stump, where a batter scratches the guard they take. One mesh, one unlit material: one draw call.
-///
-/// Built in the match scene and in the nets (Scenes): the nets scene is the match scene's pitch
-/// with practice nets round it, the same Pitch Markings texture under the same stumps, so without
-/// the lines it showed that blurred texture again.
+/// Laid out from the stumps, to the Laws; the layout and the mesh are made by PitchLinesBuilder
+/// (CricketVR > Scene Objects > Place Pitch Lines), which puts the object "Pitch Lines" in CricketVR
+/// and Nets with its mesh and two materials saved as assets, and turns the old markings renderer
+/// off. Until 2026-11-15 this class built all of it in code as the scene loaded. What stays here
+/// are the numbers other code reads.
 /// </summary>
 public static class PitchLines
 {
-    /// The scenes the lines are built in: the match, and the practice nets.
+    /// The scenes the lines are placed in: the match, and the practice nets.
     public static readonly string[] Scenes = { "CricketVR", "Nets" };
     /// Half the pitch's width to the middle of each edge line (the Laws' 3.05 m pitch), and the
     /// edge lines' width: ClubPitchSurface lays the club's prepared strip to just outside them.
     public const float PitchHalf = 1.525f, EdgeWidth = 0.03f;
-    private const float Crease = 0.06f, Edge = EdgeWidth;
-    /// Above the surface under them: creases over the edge lines where they cross, both just
-    /// clear of the turf so they lie on it rather than float (they sat 2.7 cm up before).
-    private const float CreaseLift = 0.004f, EdgeLift = 0.002f;
-    /// Both ends' creases are the same width. The far end's used to be 0.3 m, to read from 20 m
-    /// away while the pitch's depth bias was hiding it; with that fixed (the lines' own shader) it
-    /// looked huge beside the near end's, and at the non-striker's end the player stood on it.
-    private const float BowlingCreaseHalf = 1.32f, PoppingHalf = 1.83f, PoppingOut = 1.22f;
-    private const float ReturnZ = 1.32f, ReturnBack = 2.44f, WideZ = 0.89f;
-    /// Guard marks: in line with each stump (the stumps' centres, as placed in the scene: 9.525 cm
-    /// apart), this long back from the popping crease and this wide - narrower than a crease, so
-    /// they read as scratched marks, not more creases.
-    private static readonly float[] GuardZ = { -0.09525f, 0f, 0.09525f };
-    private const float GuardLength = 0.3f, GuardWidth = 0.025f;
     /// The lines' shader: flat colour, biased in front of the pitch (PitchBlend's own bias hid them).
     public const string LinesShader = "CricketVR/PitchLines";
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    /// Whether the lines are built in the scene of this name.
+    /// Whether the lines are placed in the scene of this name.
     public static bool BuildsIn(string sceneName) => System.Array.IndexOf(Scenes, sceneName) >= 0;
-
-    private static void Build(Scene scene)
-    {
-        if (!BuildsIn(scene.name) || GameObject.Find("Pitch Lines") != null)
-            return;
-        GameObject battingEnd = GameObject.Find("Main/Stumps_BattingEnd");
-        GameObject bowlingEnd = GameObject.Find("Main/Stumps_BowlingEnd");
-        GameObject markings = GameObject.Find("Main/Pitch/Pitch Markings");
-        // Its own unlit shader: the pitch's depth bias hid the far creases from the crease
-        // (Resources/Shaders/PitchLines.shader).
-        Shader unlit = Shader.Find(LinesShader);
-        if (battingEnd == null || bowlingEnd == null || unlit == null)
-            return;
-        // The texture's lines are replaced, not doubled - first, so the lines below are laid on the
-        // pitch, not on that texture's plane 1.5 cm above it. Its collider stays.
-        if (markings != null && markings.TryGetComponent(out MeshRenderer old))
-            old.enabled = false;
-        float y = 0f;   // placeholder: every vertex is dropped onto the surface below it (OnSurface)
-        float a = battingEnd.transform.position.x, b = bowlingEnd.transform.position.x;
-
-        var white = new List<Vector3>();
-        var edge = new List<Vector3>();
-        End(white, a, Mathf.Sign(b - a), y, Crease);
-        End(white, b, Mathf.Sign(a - b), y, Crease);
-        float from = Mathf.Min(a, b) - PoppingOut, to = Mathf.Max(a, b) + PoppingOut;
-        Strip(edge, new Vector3(from, y, PitchHalf), new Vector3(to, y, PitchHalf), Edge);
-        Strip(edge, new Vector3(from, y, -PitchHalf), new Vector3(to, y, -PitchHalf), Edge);
-
-        var go = new GameObject("Pitch Lines", typeof(MeshFilter), typeof(MeshRenderer));
-        SceneManager.MoveGameObjectToScene(go, scene);
-        go.GetComponent<MeshFilter>().sharedMesh = Combine(white, edge);
-        var lines = new Material(unlit) { name = "Pitch Lines" };
-        lines.SetColor("_BaseColor", new Color(0.96f, 0.96f, 0.94f));
-        var edges = new Material(unlit) { name = "Pitch Edges" };
-        edges.SetColor("_BaseColor", new Color(0.82f, 0.8f, 0.7f));
-        lines.SetFloat("_Cull", 0f);   // both faces: whichever way a strip runs, it is seen from above
-        edges.SetFloat("_Cull", 0f);
-        var renderer = go.GetComponent<MeshRenderer>();
-        renderer.sharedMaterials = new[] { lines, edges };
-        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-    }
-
-    /// One end's creases, at stumps x = `stumps`, the pitch running toward `inward` (+1 or -1);
-    /// `across` is the width of the creases that run across the pitch.
-    private static void End(List<Vector3> q, float stumps, float inward, float y, float across)
-    {
-        float popping = stumps + inward * PoppingOut;
-        // Widened toward the pitch's middle, so the crease's back edge stays on its true line.
-        Vector3 grow = new Vector3(inward * (across - Crease) * 0.5f, 0f, 0f);
-        Strip(q, new Vector3(stumps, y, -BowlingCreaseHalf) + grow, new Vector3(stumps, y, BowlingCreaseHalf) + grow, across);
-        Strip(q, new Vector3(popping, y, -PoppingHalf) + grow, new Vector3(popping, y, PoppingHalf) + grow, across);
-        foreach (float side in new[] { -1f, 1f })
-        {
-            Strip(q, new Vector3(popping, y, side * ReturnZ), new Vector3(popping - inward * ReturnBack, y, side * ReturnZ), Crease);
-            // The wide guidelines run back from the popping crease to the stumps' line, like the
-            // return creases - not out into the pitch.
-            Strip(q, new Vector3(popping, y, side * WideZ), new Vector3(stumps, y, side * WideZ), Crease);
-        }
-        // Guard marks: leg, middle and off, from the crease's back edge toward the stumps.
-        float crease = popping - inward * Crease * 0.5f;
-        foreach (float z in GuardZ)
-            Strip(q, new Vector3(crease, y, z), new Vector3(crease - inward * GuardLength, y, z), GuardWidth);
-    }
-
-    /// A flat strip from `p` to `q`, `width` wide: four corners.
-    private static void Strip(List<Vector3> corners, Vector3 p, Vector3 q, float width)
-    {
-        Vector3 across = Vector3.Cross(Vector3.up, (q - p).normalized) * (width * 0.5f);
-        corners.Add(p - across);
-        corners.Add(p + across);
-        corners.Add(q + across);
-        corners.Add(q - across);
-    }
-
-    private static Mesh Combine(List<Vector3> white, List<Vector3> edge)
-    {
-        var vertices = new List<Vector3>(white.Count + edge.Count);
-        foreach (Vector3 v in white) vertices.Add(OnSurface(v, CreaseLift));
-        foreach (Vector3 v in edge) vertices.Add(OnSurface(v, EdgeLift));
-        var mesh = new Mesh { name = "Pitch Lines" };
-        mesh.SetVertices(vertices);
-        mesh.subMeshCount = 2;
-        mesh.SetTriangles(Quads(0, white.Count), 0);
-        mesh.SetTriangles(Quads(white.Count, edge.Count), 1);
-        var normals = new Vector3[vertices.Count];
-        for (int i = 0; i < normals.Length; i++)
-            normals[i] = Vector3.up;
-        mesh.normals = normals;
-        mesh.RecalculateBounds();
-        return mesh;
-    }
-
-    /// `v` dropped onto whatever is under it (the pitch, or the grass past its edge), `lift` above.
-    private static Vector3 OnSurface(Vector3 v, float lift)
-    {
-        var from = new Vector3(v.x, 5f, v.z);
-        float best = float.NegativeInfinity;
-        foreach (RaycastHit hit in Physics.RaycastAll(from, Vector3.down, 10f, ~0, QueryTriggerInteraction.Ignore))
-            if (hit.collider.CompareTag("Ground") && hit.collider.GetComponent<Renderer>() != null &&
-                hit.collider.GetComponent<Renderer>().enabled && hit.point.y > best)
-                best = hit.point.y;
-        v.y = (float.IsNegativeInfinity(best) ? 0f : best) + lift;
-        return v;
-    }
-
-    private static int[] Quads(int start, int count)
-    {
-        var tris = new int[count / 4 * 6];
-        for (int k = 0, v = start; k < tris.Length; k += 6, v += 4)
-        {
-            tris[k] = v; tris[k + 1] = v + 2; tris[k + 2] = v + 1;
-            tris[k + 3] = v; tris[k + 4] = v + 3; tris[k + 5] = v + 2;
-        }
-        return tris;
-    }
 }

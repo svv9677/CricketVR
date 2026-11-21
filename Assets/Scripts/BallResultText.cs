@@ -1,6 +1,5 @@
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// What happened on the last ball, over the bowler's stumps where the batter is looking - only when
@@ -15,8 +14,9 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class BallResultText : MonoBehaviour
 {
-    private const string MatchScene = "CricketVR";
-    private const float Height = 3.4f, PopTime = 0.3f, HideTime = 0.3f;
+    /// Metres up, over the stumps.
+    public const float Height = 3.4f;
+    private const float PopTime = 0.3f, HideTime = 0.3f;
     /// Runs alone are shown this much smaller than a headline.
     private const float RunsScale = 0.55f;
 
@@ -27,49 +27,13 @@ public class BallResultText : MonoBehaviour
     private float shownAt = -100f, hiddenAt = -100f;
     private bool showing;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != MatchScene || FindFirstObjectByType<BallResultText>() != null)
-            return;
-        var go = new GameObject("Ball Result Text");
-        SceneManager.MoveGameObjectToScene(go, scene);
-        GameObject end = GameObject.Find("Main/Stumps_BowlingEnd");
-        float x = end != null ? end.transform.position.x : -10.4f;
-        go.transform.position = new Vector3(x, Height, 0f);
-        go.AddComponent<BallResultText>();
-    }
-
+    /// The object is "Ball Result Text" in CricketVR.unity, over the bowler's stumps, with its
+    /// TextMeshPro already set up (BallResultTextBuilder; until 2026-11-15 both were made in code as
+    /// the scene loaded).
     private void Awake()
     {
         home = creaseHome = transform.position;
-        text = gameObject.AddComponent<TextMeshPro>();
-        text.fontSize = 14f;
-        text.enableAutoSizing = true;       // a long result shrinks to its 12 m line, never past it
-        text.fontSizeMax = 14f;
-        text.fontSizeMin = 6f;
-        text.alignment = TextAlignmentOptions.Center;
-        text.enableWordWrapping = false;
-        text.fontStyle = FontStyles.Bold;
-        text.rectTransform.sizeDelta = new Vector2(12f, 3f);
-        // A soft shadow under the letters rather than a heavy black outline round them.
-        text.outlineWidth = 0f;
-        text.fontSharedMaterial = new Material(text.fontSharedMaterial);
-        text.fontSharedMaterial.EnableKeyword("UNDERLAY_ON");
-        text.fontSharedMaterial.SetColor("_UnderlayColor", new Color(0f, 0f, 0f, 0.55f));
-        text.fontSharedMaterial.SetFloat("_UnderlayOffsetX", 0.6f);
-        text.fontSharedMaterial.SetFloat("_UnderlayOffsetY", -0.6f);
-        text.fontSharedMaterial.SetFloat("_UnderlaySoftness", 0.5f);
-        text.characterSpacing = 6f;
+        text = GetComponent<TextMeshPro>();
         text.text = "";
         transform.localScale = Vector3.zero;
     }

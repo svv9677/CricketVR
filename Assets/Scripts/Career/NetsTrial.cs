@@ -56,16 +56,6 @@ public class NetsTrial : MonoBehaviour
     private RatingSet result;
     private int practiceBalls;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
     /// The pause card's "End session" in the career nets (PauseModeAdapter calls it): ends this session
     /// the way its mode allows and takes the player back to the career. False when there is no
     /// career nets session to end, and the caller leaves as it always has.
@@ -109,15 +99,9 @@ public class NetsTrial : MonoBehaviour
         SceneFader.Load(NetsSession.SplashScene);
     }
 
-    private static void Build(Scene scene)
-    {
-        if (scene.name != NetsSession.NetsScene || !NetsSession.Career || FindFirstObjectByType<NetsTrial>() != null)
-            return;
-        SceneManager.MoveGameObjectToScene(new GameObject("Nets Trial", typeof(NetsTrial)), scene);
-    }
 
-    /// Before Main.Start reads the settings (this is built after the scene's Awakes, before any Start),
-    /// so the bat goes in the career player's hand from the first frame.
+    /// Before Main.Start reads the settings, so the bat goes in the career player's hand from the first
+    /// frame. On Nets' Systems; switched on only in a career nets session (SceneSystems).
     private void Awake()
     {
         mode = NetsSession.Mode;

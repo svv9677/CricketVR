@@ -27,11 +27,15 @@ public class Bowler
     /// Fast, medium, off-spin, leg-spin or mystery: what he can bowl (BowlerRepertoire).
     public eBowlerKind Kind;
     public int Balls, Conceded, Wickets;   // HUDStats
+    /// His bowling action, drawn when the side is picked and kept all match: a quick bowls Steyn's
+    /// or a clip from Blender, a medium-pacer Bumrah's or one (MocapDelivery.TryChoose).
+    public int ActionRoll;
 
     public Bowler(string name, eSwingType typ = eSwingType.None)
     {
         Name = name;
         Type = typ;
+        ActionRoll = UnityEngine.Random.Range(0, int.MaxValue);
         Kind = typ == eSwingType.Pace ? eBowlerKind.Fast : typ == eSwingType.LegSpin ? eBowlerKind.LegSpin
              : typ == eSwingType.OffSpin ? eBowlerKind.OffSpin : eBowlerKind.Medium;
     }

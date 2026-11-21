@@ -75,12 +75,9 @@ public partial class KeeperCatcher : MonoBehaviour, IFielder
             bodyRoot = body.transform;
         incoming = -transform.forward;   // a delivery comes straight at him
         // Nothing solid on the keeper: a missed ball must go through to KeeperCollider, not bounce
-        // back up the pitch off a collider.
-        foreach (Collider c in GetComponentsInChildren<Collider>())
-        {
-            if (!c.isTrigger)
-                c.enabled = false;
-        }
+        // back up the pitch off a collider. His colliders are switched off in Main.prefab (his
+        // ragdoll's by FielderRagdoll, once it is awake; any other by CricketVR > Scene Objects >
+        // Bake Player Setup). Until 2026-11-15 this switched them all off here.
         if (body != null)
         {
             Animator a = body.GetComponent<Animator>();

@@ -36,9 +36,9 @@ public class PlayerClap : MonoBehaviour
 
     private void Awake()
     {
+        // Beside this on every player who claps: the fielders in Main.prefab, and the team-mates
+        // BattingSide builds (it adds the reach first).
         reach = GetComponent<HumanoidReach>();
-        if (reach == null)
-            reach = gameObject.AddComponent<HumanoidReach>();
     }
 
     /// Clap `count` times, starting `delay` seconds from now. `minDistance`: the claps are at full

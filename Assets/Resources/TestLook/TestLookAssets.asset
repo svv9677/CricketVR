@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70026062f2d314071b67969dee0b114a, type: 3}
+  m_Name: TestLookAssets
+  m_EditorClassIdentifier: Assembly-CSharp::TestLookAssets
+  whites: {fileID: 2100000, guid: 9fe8cd66eb1d742d89826ed2e7ed7e8e, type: 2}
+  sightScreen: {fileID: 2100000, guid: 433c07c98ddff445f8199899adb79a81, type: 2}
+  redTrail:
+  - from: {fileID: 2100000, guid: 9dfc5d50d4370494a8faa74024e0a1fe, type: 2}
+    to: {fileID: 2100000, guid: 3be16bfb7dda04e8696e4d66b8794b06, type: 2}
+  pinkTrail:
+  - from: {fileID: 2100000, guid: 9dfc5d50d4370494a8faa74024e0a1fe, type: 2}
+    to: {fileID: 2100000, guid: 55f0805ae3082485b817dc94d34f9de2, type: 2}
+  backdrop:
+  - from: {fileID: 2100000, guid: a2db99196c9a142589f222c687948b84, type: 2}
+    to: {fileID: 2100000, guid: 96c9a42a737364433b6f5297d1e2c23b, type: 2}
+  - from: {fileID: 2100000, guid: 082bc561f57c34e57aebda1f5b4dd515, type: 2}
+    to: {fileID: 2100000, guid: 9dfc59f7c2a9449f885bdbb6dfbc15b1, type: 2}
+  - from: {fileID: 2100000, guid: fc22c384dd87049769fccc5623712912, type: 2}
+    to: {fileID: 2100000, guid: aa1e34f00331a46288ac3f0fc04a81f7, type: 2}
+  - from: {fileID: 2100000, guid: 4ba208da6a09d4840b8d3cc1537d41a0, type: 2}
+    to: {fileID: 2100000, guid: 54b41a18ff52b42a9923a49c2b94f9b8, type: 2}
+  - from: {fileID: 2100000, guid: 996bc2bbf054c49bfbd343948b388b7f, type: 2}
+    to: {fileID: 2100000, guid: 40e64f24bb3a84830806a3c226d437dd, type: 2}
+  - from: {fileID: 2100000, guid: e992e5917175842d8b695f819ca6026a, type: 2}
+    to: {fileID: 2100000, guid: 79780275dd4b549feb878acc48da8c68, type: 2}
+  - from: {fileID: 2100000, guid: 151044d07e004412cab871b8a89bff17, type: 2}
+    to: {fileID: 2100000, guid: eeccb0459dbd84d158f69720e27ba880, type: 2}
+  - from: {fileID: 2100000, guid: ca3325e56b8fc46f3849541e1877c4ca, type: 2}
+    to: {fileID: 2100000, guid: 5aca236548797436cb1971c5203c5b9a, type: 2}
+  - from: {fileID: 2100000, guid: 6a2c5954729f5441d9dcfe0ff91f5685, type: 2}
+    to: {fileID: 2100000, guid: babd6900f01904df28d7d3986a5cdafe, type: 2}
+  - from: {fileID: 2100000, guid: c2600e48f514a4dae9e817ddb870f6a4, type: 2}
+    to: {fileID: 2100000, guid: 27d61bfc2e2d944d2ae595f421573450, type: 2}
+  backdropTextures:
+  - from: {fileID: 2800000, guid: 7b70a81c858f64bdaba0d34199a28245, type: 3}
+    to: {fileID: 2800000, guid: aede5f43af5f44d3e90248acb0b3484f, type: 2}
+  - from: {fileID: 2800000, guid: 2e49ba1d4d9ea4366989d2a3d1ae9bf7, type: 3}
+    to: {fileID: 2800000, guid: fd1d7134daf914c69a57e8ae0421a568, type: 2}
+  - from: {fileID: 2800000, guid: e6caa2413b4b249958af6f81c86513a3, type: 3}
+    to: {fileID: 2800000, guid: a498041dac60b4d938a51fdf9d2ed1b1, type: 2}
+  - from: {fileID: 2800000, guid: 1eb13ea8e9e0949849fb17ecc4b4b208, type: 3}
+    to: {fileID: 2800000, guid: 0ba8e4dea41754f12aedcd3e8d9ab74f, type: 2}
+  - from: {fileID: 2800000, guid: f5253c9a6f6cb4180857735ac4e4df46, type: 3}
+    to: {fileID: 2800000, guid: f7d152bf90f0741129a679d887b17299, type: 3}
+  - from: {fileID: 2800000, guid: 6c825582e9c2f45b6b7a246067a6b40d, type: 3}
+    to: {fileID: 2800000, guid: b0c86299fe36e45339aa2b4b7b9338fa, type: 2}
+  - from: {fileID: 2800000, guid: 0fc27c241e4c746f8b6a5882f3f452b6, type: 3}
+    to: {fileID: 2800000, guid: 6620b074aa93240399ba262c1d9ae374, type: 2}

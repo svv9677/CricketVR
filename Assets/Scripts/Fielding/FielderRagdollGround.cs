@@ -5,7 +5,7 @@ using UnityEngine;
 ///
 /// Under physics (a dive's landing) the ragdoll's own colliders keep him out - but the ragdoll
 /// stopped at the wrists and ankles, so his hands and feet went in (toes 6.5 cm, measured): they
-/// get colliders of their own here, riding on the forearm's and shin's bodies.
+/// get colliders of their own, riding on the forearm's and shin's bodies (saved on the prefabs).
 ///
 /// Animated (the dive before the hand-off, the Mixamo get-ups, a slide, a pick-up) nothing knew
 /// about the ground at all: the trailing feet of a dive went 8 cm in, and the get-up clips, lying,
@@ -20,7 +20,7 @@ public partial class FielderRagdoll
     /// scale. The foot's runs from the ankle to the toe bone, as thick as the toe bone is high
     /// standing (its sole): a foot stood flat touches the ground and is not "under" it. A fixed,
     /// fatter one sloping down to the toes read 3-7 cm under on every standing foot.
-    private const float HandRadius = 0.025f, FingersBeyond = 0.02f;
+    public const float HandRadius = 0.025f, FingersBeyond = 0.02f;
     // The guard runs while he is falling or getting up: the dives ask for it each frame
     // (GuardGroundThisFrame), and the get-up has it. Run on every animated frame, it "fixed" the
     // run cycle's and the bowling stride's feet as they struck the grass: a leg near vertical under
@@ -48,28 +48,12 @@ public partial class FielderRagdoll
         public float tipBeyond, tipRadius;   // world metres
     }
 
-    /// The ragdoll's layer: the ball goes through it. The keeper's was built on Stadium, which the
-    /// ball hits - down after a dive he could have deflected it (checked: Stadium-Ball collide).
-    private int RagdollLayer => LayerMask.NameToLayer("Body") >= 0 ? LayerMask.NameToLayer("Body") : gameObject.layer;
-
-    private void UseRagdollLayer()
+    /// Awake sees the bind pose, stood flat on the ground: the toe bones' height is the sole. (The
+    /// hand and foot colliders themselves are on the prefabs: RagdollEndColliders.)
+    private void MeasureSoles()
     {
-        int layer = RagdollLayer;
-        foreach (Collider c in colliders)
-            c.gameObject.layer = layer;
-    }
-
-    private void AddHandAndFootColliders()
-    {
-        int layer = RagdollLayer;
-        // Awake sees the bind pose, stood flat on the ground: the toe bones' height is the sole.
         soleL = Sole(HumanBodyBones.LeftToes);
         soleR = Sole(HumanBodyBones.RightToes);
-        AddEndCollider(HumanBodyBones.LeftFoot, HumanBodyBones.LeftToes, soleL, 0f, layer);
-        AddEndCollider(HumanBodyBones.RightFoot, HumanBodyBones.RightToes, soleR, 0f, layer);
-        float hand = HandRadius * transform.lossyScale.y;
-        AddEndCollider(HumanBodyBones.LeftHand, HumanBodyBones.LeftMiddleDistal, hand, FingersBeyond * transform.lossyScale.y, layer);
-        AddEndCollider(HumanBodyBones.RightHand, HumanBodyBones.RightMiddleDistal, hand, FingersBeyond * transform.lossyScale.y, layer);
     }
 
     private float Sole(HumanBodyBones toes)
@@ -77,28 +61,6 @@ public partial class FielderRagdoll
         Transform t = anim.GetBoneTransform(toes);
         float scale = transform.lossyScale.y;
         return t == null ? 0.012f * scale : Mathf.Clamp(t.position.y - transform.position.y - 0.002f, 0.008f * scale, 0.04f * scale);
-    }
-
-    /// A capsule on bone `from` out to `to` and `beyond` past it (world metres), of world radius
-    /// `radius`, along the bone's own axis nearest that line. With no Rigidbody of its own it is
-    /// part of the parent bone's body.
-    private void AddEndCollider(HumanBodyBones from, HumanBodyBones to, float radius, float beyond, int layer)
-    {
-        Transform a = anim.GetBoneTransform(from), b = anim.GetBoneTransform(to);
-        if (a == null || b == null || a.GetComponent<Collider>() != null)
-            return;
-        float s = Mathf.Max(1e-4f, a.lossyScale.x);
-        Vector3 along = (b.position - a.position).normalized;
-        Vector3 end = a.InverseTransformPoint(b.position + along * beyond);
-        int axis = Mathf.Abs(end.x) > Mathf.Abs(end.y) ? (Mathf.Abs(end.x) > Mathf.Abs(end.z) ? 0 : 2) : (Mathf.Abs(end.y) > Mathf.Abs(end.z) ? 1 : 2);
-        float r = radius / s;
-        CapsuleCollider c = a.gameObject.AddComponent<CapsuleCollider>();
-        c.direction = axis;
-        c.radius = r;
-        c.height = Mathf.Abs(end[axis]) + 2f * r;
-        c.center = end * 0.5f;
-        c.enabled = false;
-        a.gameObject.layer = layer;
     }
 
     private void CacheGroundGuard()

@@ -110,11 +110,7 @@ public class BowlerGrip : MonoBehaviour
     {
         Main inst = Main.Instance;
         if (inst != null && inst.theBall != null)
-        {
-            ballVisual = inst.theBall.GetComponent<BallVisual>();
-            if (ballVisual == null)
-                ballVisual = inst.theBall.AddComponent<BallVisual>();
-        }
+            ballVisual = inst.theBall.GetComponent<BallVisual>();     // on the Ball prefab
     }
 
     private static Transform FindDeep(Transform t, string name)

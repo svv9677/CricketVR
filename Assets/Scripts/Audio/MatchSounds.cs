@@ -34,37 +34,13 @@ public class MatchSounds : MonoBehaviour
     private Vector3 divePos;
     private bool airborneSinceHit;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Boot()
-    {
-        SceneManager.sceneLoaded -= OnSceneLoaded;
-        SceneManager.sceneLoaded += OnSceneLoaded;
-        MakeFor(SceneManager.GetActiveScene());
-    }
-
-    private static void OnSceneLoaded(Scene s, LoadSceneMode m) => MakeFor(s);
-
-    private static void MakeFor(Scene s)
-    {
-        if (Object.FindFirstObjectByType<Main>() == null || Object.FindFirstObjectByType<MatchSounds>() != null)
-            return;
-        new GameObject("Match Sounds").AddComponent<MatchSounds>();
-    }
 
     private void Start()
     {
         main = Main.Instance != null ? Main.Instance : FindFirstObjectByType<Main>();
         ball = main != null ? main.theBallRigidBody : null;
-        // Footsteps for every player on the field (not the player: he has no feet in VR).
-        foreach (Animator a in FindObjectsByType<Animator>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-        {
-            if (!a.isHuman || a.GetComponent<Footsteps>() != null) continue;
-            bool player = a.GetComponent<AnimatedFielder>() != null || a.GetComponent<AnimatedBowler>() != null ||
-                          a.GetComponent<UmpireSignals>() != null || a.GetComponentInParent<KeeperCatcher>() != null ||
-                          (main != null && main.theKeeper != null && a.transform.IsChildOf(main.theKeeper.transform));
-            if (!player) continue;
-            a.gameObject.AddComponent<Footsteps>().Init(a.GetComponent<UmpireSignals>() != null ? 0.4f : 1f);
-        }
+        // The players' footsteps (Footsteps) are on the fielders, keeper and bowler in Main.prefab,
+        // and on the umpire's prefab (quieter).
         Ball.Collided += OnBallCollided;
         BowlerGrip.Released += OnReleased;
         AnimatedFielder.DiveStarted += OnDive;

@@ -1,12 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Puts the career player's locker kit on in a career scene (phase 7): the bat's finish on the game
 /// bat, the gloves on both hand models, and the replay helmet's shell, trim and head (through
-/// ReplayBatterLook). Built as each scene loads, as PartnerBatter is; nothing happens outside a
-/// career match or career nets (CosmeticLook.ForScene is null there).
+/// ReplayBatterLook). On the Systems object of CricketVR and Nets; nothing happens outside a career
+/// match or career nets (CosmeticLook.ForScene is null there).
 ///
 /// Order matters, so the kit goes on in Start at execution order 900:
 ///   * after every sceneLoaded handler, so PartnerBatter.BuildBat (which copies the bat's materials
@@ -23,30 +22,18 @@ public class CareerCosmetics : MonoBehaviour
     private CosmeticLook look;
     private readonly List<Material> made = new List<Material>();
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
-
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    /// The look for `scene`: the replay's dressing set now (before any Start), the kit itself put
-    /// on in this component's Start.
-    private static void Build(Scene scene)
+    /// The look for this scene (CricketVR's and Nets' Systems > Career Cosmetics): the replay's
+    /// dressing set now (before any Start), the kit itself put on in Start. Nothing outside a career
+    /// match or career nets (CosmeticLook.ForScene is null there).
+    private void Awake()
     {
         ReplayBatterLook.Clear();
-        CosmeticLook look = CosmeticLook.ForScene(scene.name);
+        look = CosmeticLook.ForScene(gameObject.scene.name);
         if (look == null)
             return;
         ReplayBatterLook.Shell = look.side;
         ReplayBatterLook.Trim = look.TrimColour;
         ReplayBatterLook.Skin = look.skin;
-        var go = new GameObject(ObjectName);
-        SceneManager.MoveGameObjectToScene(go, scene);
-        go.AddComponent<CareerCosmetics>().look = look;
     }
 
     private void Start()

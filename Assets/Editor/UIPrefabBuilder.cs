@@ -118,9 +118,14 @@ public static class UIPrefabBuilder
                                                        78f, TextAlignmentOptions.Left);
         UIControls.ActionButton(card, "Bowl" + A, c.OnNextBall, true, 88f);
         Transform more = WorldPanelBuilder.Column(card, false, UIStyle.Gap);
-        UIControls.ActionButton(more, "Change bowler", c.OnChangeBowler, false);
+        Button change = UIControls.ActionButton(more, "Change bowler", c.OnChangeBowler, false);
         UIControls.ActionButton(more, "Settings" + B, c.OnSettings, false);
         UIControls.ActionButton(more, "Bat grip", c.OnCalibrateGrip, false);
+        // Declare, for a Test (NextBallMenu shows it when MatchFlow.CanDeclare).
+        Button declare = UIControls.ActionButton(more, "Declare", c.OnDeclare, false);
+        declare.gameObject.SetActive(false);
+        SetField(c, "changeBowler", change.gameObject);
+        SetField(c, "declare", declare.gameObject);
         return label;
     }
 

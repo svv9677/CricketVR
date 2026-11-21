@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// People further away are drawn with lighter meshes (PersonLodTable): beyond MidBeyond about
@@ -16,6 +15,9 @@ using UnityEngine.SceneManagement;
 /// camera) counts as nearer by its zoom. Each step back to a heavier mesh waits until Return metres
 /// nearer than the step out, so someone standing at the line does not flick between the two.
 /// Only the mesh changes: bones, materials and animation are the renderer's own.
+///
+/// On the Systems object of Splash, CricketVR and Nets (until 2026-11-15 one was made in code and
+/// kept across scenes).
 /// </summary>
 public class PersonLod : MonoBehaviour
 {
@@ -33,27 +35,12 @@ public class PersonLod : MonoBehaviour
         public Mesh full, mid, far;
     }
 
-    private static PersonLod instance;
-    private PersonLodTable table;
+    [Tooltip("Resources/" + PersonLodTable.ResourceName + ": each person mesh with its lighter ones.")]
+    [SerializeField] private PersonLodTable table;
     private readonly List<Person> people = new List<Person>();
     private readonly HashSet<SkinnedMeshRenderer> known = new HashSet<SkinnedMeshRenderer>();
     private Camera[] cameras = new Camera[8];
     private float rescanAt;
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Install()
-    {
-        if (instance != null)
-            return;
-        var table = Resources.Load<PersonLodTable>(PersonLodTable.ResourceName);
-        if (table == null)
-            return;
-        var go = new GameObject("Person LOD");
-        DontDestroyOnLoad(go);
-        instance = go.AddComponent<PersonLod>();
-        instance.table = table;
-        SceneManager.sceneLoaded += (s, m) => instance.rescanAt = 0f;
-    }
 
     private void LateUpdate()
     {

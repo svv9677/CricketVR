@@ -36,23 +36,8 @@ public class RecordClipCatcher : MonoBehaviour
     private string written;     // this match's clip on disk, if any
     private bool subscribed;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        Build(SceneManager.GetActiveScene());
-    }
 
-    private static void OnLoaded(Scene scene, LoadSceneMode mode) => Build(scene);
-
-    private static void Build(Scene scene)
-    {
-        if (scene.name != CareerMatchSession.MatchScene || !CareerMatchSession.Active || FindFirstObjectByType<RecordClipCatcher>() != null)
-            return;
-        SceneManager.MoveGameObjectToScene(new GameObject("Record Clip Catcher", typeof(RecordClipCatcher)), scene);
-    }
-
+    /// On CricketVR's Systems; switched on only in a career match (SceneSystems).
     private void Awake()
     {
         plan = CareerMatchSession.Plan;     // kept: the session lets go of it as the match finishes

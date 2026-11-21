@@ -23,7 +23,7 @@ public static class ClubFence
     /// pixels stay square.
     public static float PicketRepeat => 8f * ClubGroundLayout.FenceHeight;
     public const int FenceSegments = 256, FenceColliders = 72;
-    /// SightScreen.cs builds the black screen at runtime: 63 m out on the pitch's line toward -X,
+    /// The black sightscreen (SightScreenBuilder, in CricketVR.unity): 63 m out on the pitch's line toward -X,
     /// 18 m wide, 8 m high, 0.3 m thick. The frame stands just behind it.
     const float ScreenBackX = -63.15f, ScreenHalfWidth = 9f, ScreenHeight = 8f;
 

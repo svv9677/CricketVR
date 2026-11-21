@@ -138,17 +138,20 @@ public partial class AnimatedFielder : MonoBehaviour, IFielder, IThrowPlayer
         }
         if (animatedFielderManagementScript == null)
             animatedFielderManagementScript = GetComponentInParent<AnimatedFielderManagement>();
+        // His fielding position is where he stands in the scene (Main.prefab > Fielders): move him
+        // there to change the default field. FieldCaptain moves him between balls for each field.
+        // (Until 2026-11-15 the position came from Constants.fieldingPositions by the last digit of
+        // his name, and the scene's was ignored.)
         if (!IsBowler)
-            StartPosition = Constants.fieldingPositions[Convert.ToInt32(gameObject.name[gameObject.name.Length - 1].ToString()) - 1];
+            StartPosition = transform.position;
         // Stand on the grass, not at y 0: the outfield is at -0.047, so the feet hovered 5 cm up
         // and the foot IK pinned them there.
         StartPosition.y = BallFlight.GroundY(StartPosition);
         if (myAnimator != null)
         {
             myAnimator.applyRootMotion = false;
+            // On the fielder in Main.prefab (and on the bowler, BowlerFielding adds it to him).
             reach = myAnimator.GetComponent<HumanoidReach>();
-            if (reach == null)
-                reach = myAnimator.gameObject.AddComponent<HumanoidReach>();
         }
         ReturnToStart();
         if (fielderHand != null && fielderHand.transform.childCount > 5)

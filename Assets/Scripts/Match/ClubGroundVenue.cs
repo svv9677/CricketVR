@@ -8,6 +8,7 @@ using UnityEngine.SceneManagement;
 ///
 /// All of it is runtime state on the loaded scene; no asset is changed, and the next scene load
 /// starts from the stadium as saved. Nothing here runs for a stadium match.
+/// (Only the placement and the strip's material differ from before: both are saved assets now.)
 ///
 /// What is put away, and why each is not simply deleted:
 ///   * Stadium (the root): its stands, roof, poles, boards and its outfield. The club's outfield
@@ -25,8 +26,12 @@ using UnityEngine.SceneManagement;
 ///     club's outfield is lit in realtime, so the pitch's edge would show as a seam.
 ///   * Main/Pitch/Pitch Base gets the club's edge (ClubPitchSurface): a neat 3.05 m strip on its
 ///     edge lines instead of the stadium's metre-wide frayed fade, which at the club fell on grass.
-/// The replay screen gets ClubReplayScreen: no screen in the sky, the replay comes to the player.
-/// </summary>
+/// The replay screen's ClubReplayScreen (placed switched off) is switched on: no screen in the sky,
+/// the replay comes to the player.
+///
+/// The club ground itself is in the scene already, switched off (CricketVR > Scene Objects > Place
+/// Club Ground); Dress switches it on. (Until 2026-11-15 it was instantiated from Resources here.)
+///</summary>
 public static class ClubGroundVenue
 {
     private const string ReplayDisplay = "Replay Display";
@@ -35,17 +40,17 @@ public static class ClubGroundVenue
     /// unusable (logged): the caller then plays the match at the stadium, as it is.
     public static ClubGround Dress(Scene scene, eCrowd crowd)
     {
-        ClubGround existing = Object.FindFirstObjectByType<ClubGround>();
+        ClubGround existing = Object.FindFirstObjectByType<ClubGround>();   // active ones only: already switched on
         if (existing != null)
             return existing;
-        ClubGround club = Place(scene);
+        ClubGround club = SwitchOn();
         if (club == null)
             return null;
         HideStadium(scene);
         HideDisplays(scene);
         SwitchOffProbe(scene);
         UnbakePitch(scene);
-        PrepareStrip(scene);
+        PrepareStrip();
         CrowdAudio(scene, club, crowd);
         GuardReplayScreen(scene);
         club.SetClubName(VenueRules.ClubName(CareerMatchSession.Active, CareerMatchSession.Plan?.yourTeamName));
@@ -53,26 +58,24 @@ public static class ClubGroundVenue
         return club;
     }
 
-    /// The prefab, instantiated into the match scene; null (nothing placed) if it is not there or
-    /// has no outfield to play on.
-    private static ClubGround Place(Scene scene)
+    /// The club ground placed in the match scene (switched off, by CricketVR > Scene Objects >
+    /// Place Club Ground), switched on; null (nothing changed) if it is not there or has no outfield
+    /// to play on.
+    private static ClubGround SwitchOn()
     {
-        GameObject prefab = Resources.Load<GameObject>(ClubGround.ResourcePath);
-        if (prefab == null)
+        ClubGround club = Object.FindFirstObjectByType<ClubGround>(FindObjectsInactive.Include);
+        if (club == null)
         {
-            Debug.LogWarning($"[ClubGround] Resources/{ClubGround.ResourcePath} is missing: the match is played at the stadium.");
+            Debug.LogWarning("[ClubGround] The match scene has no ClubGround (run CricketVR > Scene Objects > Place Club Ground): the match is played at the stadium.");
             return null;
         }
-        if (!prefab.TryGetComponent(out ClubGround template) || template.Outfield == null)
+        if (club.Outfield == null)
         {
-            Debug.LogWarning($"[ClubGround] Resources/{ClubGround.ResourcePath} has no ClubGround with an outfield: the match is played at the stadium.");
+            Debug.LogWarning("[ClubGround] The ClubGround in the scene has no outfield: the match is played at the stadium.");
             return null;
         }
-        GameObject go = Object.Instantiate(prefab);
-        go.name = prefab.name;
-        if (scene.IsValid() && scene.isLoaded && go.scene != scene)
-            SceneManager.MoveGameObjectToScene(go, scene);
-        return go.GetComponent<ClubGround>();
+        club.gameObject.SetActive(true);
+        return club;
     }
 
     private static void HideStadium(Scene scene)
@@ -130,12 +133,11 @@ public static class ClubGroundVenue
 
     /// The club's neat strip on the pitch quad (ClubPitchSurface); logged if the quad or its blend
     /// material is not there, and the pitch is then left as the stadium has it.
-    private static void PrepareStrip(Scene scene)
+    private static void PrepareStrip()
     {
-        Transform t = Child(scene, "Main", "Pitch/Pitch Base");
-        Renderer r = t != null ? t.GetComponent<Renderer>() : null;
-        if (!ClubPitchSurface.Apply(r))
-            Debug.LogWarning("[ClubGround] Main/Pitch/Pitch Base has no PitchBlend material: the pitch keeps the stadium's edge.");
+        PitchSurfaces surfaces = Object.FindFirstObjectByType<PitchSurfaces>();
+        if (surfaces == null || !surfaces.ShowClubStrip(MatchSetup.Pitch))
+            Debug.LogWarning("[ClubGround] No club strip for the pitch (PitchSurfaces, or its PitchBlend material, is missing): the pitch keeps the stadium's edge.");
     }
 
     /// The club's birdsong and breeze on the crowd's looping source, at the club's level, with no
@@ -171,8 +173,11 @@ public static class ClubGroundVenue
     {
         Transform displays = Child(scene, "Main", "Displays");
         Transform screen = displays != null ? displays.Find(ReplayDisplay) : null;
-        if (screen != null && screen.GetComponent<ClubReplayScreen>() == null)
-            screen.gameObject.AddComponent<ClubReplayScreen>();
+        ClubReplayScreen guard = screen != null ? screen.GetComponent<ClubReplayScreen>() : null;
+        if (guard != null)
+            guard.enabled = true;       // placed switched off, by Place Club Ground
+        else if (screen != null)
+            Debug.LogWarning("[ClubGround] The Replay Display has no ClubReplayScreen (run CricketVR > Scene Objects > Place Club Ground): its screen hangs in the sky.");
     }
 
     /// A root object of the loaded scene by name (active or not: GameObject.Find sees only active

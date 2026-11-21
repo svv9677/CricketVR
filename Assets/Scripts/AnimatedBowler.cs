@@ -69,6 +69,10 @@ public partial class AnimatedBowler : MonoBehaviour
 
     private void Awake()
     {
+        // Here, not in Start: the components placed on the Bowler and ThrowBack (on the Fielders)
+        // start in any order, and they look for him. (They used to be added during Start, after him.)
+        if (AnimatedBowler.Instance == null)
+            AnimatedBowler.Instance = this;
         configs = new AFInfoData();
         // Marks moved so the front foot lands on the popping crease (x -9.14: toes just over it,
         // heel behind) close in to the stumps. Measured from the old marks, front toe at release:
@@ -94,20 +98,11 @@ public partial class AnimatedBowler : MonoBehaviour
         //startRotation = new Vector3(0f, 90f, 0f);
 
         animator = GetComponent<Animator>();
-        // A pace or medium-pacer's arm snaps over into the release (BowlerSnap).
-        if (GetComponent<BowlerSnap>() == null)
-            gameObject.AddComponent<BowlerSnap>();
-
+        // BowlerSnap (a pace or medium-pacer's arm snaps over into the release), BowlerFielding
+        // (after he has bowled he fields like anyone else), BowlerGrip (his fingers on the ball) and
+        // FrontFoot (his front foot over the line on a no-ball) are components on the Bowler in
+        // Main.prefab. (Until 2026-11-15 this added them when it started.)
         hasRun_StartBowling = false;
-        // After he has bowled he fields like anyone else (BowlerFielding).
-        if (GetComponent<BowlerFielding>() == null)
-            gameObject.AddComponent<BowlerFielding>();
-        // His fingers on the ball, gripped for the delivery (BowlerGrip).
-        if (GetComponent<BowlerGrip>() == null)
-            gameObject.AddComponent<BowlerGrip>();
-        // His front foot over the line on a no-ball (FrontFoot, NoBalls).
-        if (GetComponent<FrontFoot>() == null)
-            gameObject.AddComponent<FrontFoot>();
     }
 
     private void Update()
@@ -281,7 +276,9 @@ public partial class AnimatedBowler : MonoBehaviour
         animator.SetInteger("Jog Repeat", currentBowlerInfo.jogRepeat + 1);
         animator.SetInteger("Run Repeat", currentBowlerInfo.runRepeat + 2);
 
-        animator.SetFloat("Time", (0.5f * inst.currentBowlingConfig.speedX + 1.5f) / currentBowlerInfo.animSpeed);
+        // A captured action bowled by a medium-pacer plays it slower than a quick (MocapDelivery).
+        animator.SetFloat("Time", (0.5f * inst.currentBowlingConfig.speedX + 1.5f) / currentBowlerInfo.animSpeed
+                                  * MocapDelivery.ActionSpeed(animator, currentBowlerInfo.myIndex, BowlerOn));
 
         while (!stateInfo.IsName("Idle"))
         {
@@ -298,7 +295,9 @@ public partial class AnimatedBowler : MonoBehaviour
             yield return null;
         }
 
-        animator.SetInteger("Action", currentBowlerInfo.myIndex);
+        // His action for the match: his own, or the clip his draw fell on (MocapDelivery).
+        animator.SetInteger("Action", MocapDelivery.ActionFor(animator, currentBowlerInfo.myIndex, BowlerOn));
+        MocapDelivery.SetRunPace(animator, currentBowlerInfo.myIndex, BowlerOn);
 
         while (!stateInfo.IsName("Run"))
         {
@@ -310,6 +309,9 @@ public partial class AnimatedBowler : MonoBehaviour
             yield return null;
         }
     }
+
+    /// The bowler on (HUD): whose action the next ball is bowled with.
+    private static Bowler BowlerOn => HUD.Instance != null ? HUD.Instance.CurrentBowler : null;
 
     public void UpdateInfo(int index)
     {
@@ -428,6 +430,14 @@ public class AFInfo
     {
         var m = (AFInfo)MemberwiseClone();
         m.startPos = BowlerArm.Mirror(startPos);
+        return m;
+    }
+
+    /// The same mark moved by a world offset (a captured action's own ground: MocapDelivery.Mark).
+    public AFInfo ShiftedCopy(Vector3 by)
+    {
+        var m = (AFInfo)MemberwiseClone();
+        m.startPos += by;
         return m;
     }
 

@@ -87,23 +87,8 @@ public static class ModeMenus
 
     // ---- The pause card ------------------------------------------------------------------------
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        SceneManager.sceneLoaded -= OnLoaded;
-        SceneManager.sceneLoaded += OnLoaded;
-        OnLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
-    }
-
-    /// Every pause card in a match or nets scene gets the adapter (PauseScreen itself is unchanged).
-    private static void OnLoaded(Scene scene, LoadSceneMode mode)
-    {
-        if (scene.name != CareerMatchSession.MatchScene && scene.name != NetsSession.NetsScene)
-            return;
-        foreach (PauseScreen p in Object.FindObjectsByType<PauseScreen>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-            if (p.GetComponent<PauseModeAdapter>() == null)
-                p.gameObject.AddComponent<PauseModeAdapter>();
-    }
+    // The pause card in CricketVR and Nets carries a PauseModeAdapter (put there by
+    // MenuSceneBuilder.BuildMatchScene; until 2026-11-15 it was added in code as the scene loaded).
 }
 
 /// <summary>
